@@ -72,6 +72,10 @@ type apiCalls struct {
 	// secretDelay is how long a Secret read takes. The read ends early, with
 	// the context's error, when its context does.
 	secretDelay time.Duration
+	// tokens, when set, holds every Secret read until it has taken a token or
+	// the channel is closed, whatever its context does. A test uses it to
+	// decide when a read finishes.
+	tokens chan struct{}
 }
 
 func countingClient(calls *apiCalls, objects ...client.Object) client.Client {
@@ -87,6 +91,9 @@ func countingClient(calls *apiCalls, objects ...client.Object) client.Client {
 						if n <= highest || calls.maxInFlight.CompareAndSwap(highest, n) {
 							break
 						}
+					}
+					if calls.tokens != nil {
+						<-calls.tokens
 					}
 					if calls.secretDelay > 0 {
 						select {
@@ -301,7 +308,7 @@ func TestUnreadCRs_OverlappingConnectsShareOneJob(t *testing.T) {
 	const tenants = 60
 	caCert, caKey := generateTestCA(t)
 	clientCert := generateTestClientCert(t, caCert, caKey)
-	calls := apiCalls{secretDelay: 10 * time.Millisecond}
+	calls := apiCalls{tokens: make(chan struct{})}
 	s := New(&Config{}, countingClient(&calls, sharedPlaneTenantsWithCA(tenants, encodeCertToPEM(t, caCert))...), testLogger())
 	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, nil, clientCert, nil)
 	require.NoError(t, err)
@@ -311,23 +318,75 @@ func TestUnreadCRs_OverlappingConnectsShareOneJob(t *testing.T) {
 		defer close(firstDone)
 		s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
 	}()
-	require.Eventually(t, func() bool { return calls.secretGets.Load() > 0 }, 5*time.Second, time.Millisecond)
+	// The first job is reading, and stays there until the test lets it go.
+	require.Eventually(t, func() bool { return calls.inFlight.Load() == caReadConcurrency }, 5*time.Second, time.Millisecond)
 
-	// A second connect reports the same CRs while the first job is running.
-	// It must hand them over and return, not start reading alongside it.
-	s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
+	// A second connect reports the same CRs. It must hand them to the running
+	// job and return, not start reading alongside it.
+	secondReturned := make(chan struct{})
+	go func() {
+		defer close(secondReturned)
+		s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
+	}()
 	select {
-	case <-firstDone:
+	case <-secondReturned:
+	case <-time.After(5 * time.Second):
 		t.Fatal("the second call ran the work itself instead of handing it to the running job")
-	default:
 	}
 
+	close(calls.tokens)
 	<-firstDone
 	assert.LessOrEqual(t, calls.maxInFlight.Load(), int32(caReadConcurrency))
 	for _, cr := range tenantCRKeys(tenants) {
 		_, err := s.connMgr.GetForCR("dataplane/prod", cr)
 		assert.NoError(t, err, "%s is not authorized", cr)
 	}
+}
+
+// When the plane's last agent goes, the job ends, but its workers take a moment
+// to wind down. An agent can connect in that moment. If its unread CRs were
+// added to the ending job they would be dropped with the rest, and the new
+// agent would stay without them. The ending job must already be out of the
+// way, so that those CRs start a job of their own.
+func TestUnreadCRs_ANewAgentIsNotHandedToAJobThatIsEnding(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	calls := apiCalls{tokens: make(chan struct{})}
+	s := New(&Config{}, countingClient(&calls, sharedPlaneTenantsWithCA(3, encodeCertToPEM(t, caCert))...), testLogger())
+	firstAgent, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, nil, clientCert, nil)
+	require.NoError(t, err)
+
+	endingJob := make(chan struct{})
+	go func() {
+		defer close(endingJob)
+		s.authorizeUnreadCRs("dataplane", "prod", []string{"tenant-0/default", "tenant-1/default"})
+	}()
+	require.Eventually(t, func() bool { return calls.inFlight.Load() == 2 }, 5*time.Second, time.Millisecond)
+
+	// The last agent goes. One read finishes, its worker sees that and ends
+	// the job, while the other worker is still reading.
+	s.connMgr.Unregister("dataplane/prod", firstAgent)
+	calls.tokens <- struct{}{}
+	require.Eventually(t, func() bool {
+		s.unreadMu.Lock()
+		defer s.unreadMu.Unlock()
+		_, registered := s.unreadJobs["dataplane/prod"]
+		return !registered
+	}, 5*time.Second, time.Millisecond, "the ending job still takes new CRs")
+
+	_, err = s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, nil, clientCert, nil)
+	require.NoError(t, err)
+	newJob := make(chan struct{})
+	go func() {
+		defer close(newJob)
+		s.authorizeUnreadCRs("dataplane", "prod", []string{"tenant-2/default"})
+	}()
+
+	close(calls.tokens)
+	<-endingJob
+	<-newJob
+	_, err = s.connMgr.GetForCR("dataplane/prod", "tenant-2/default")
+	assert.NoError(t, err, "the new agent's unread CR was dropped")
 }
 
 // The job authorizes CRs on the plane's connections. Once the plane has no
@@ -405,6 +464,19 @@ func planeOf(namespace string, generation int64, caPEM []byte) *openchoreov1alph
 	}
 }
 
+// crGetCountingClient serves objects and counts reads of a DataPlane.
+func crGetCountingClient(crGets *atomic.Int32, objects ...client.Object) client.Client {
+	return fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, isPlane := obj.(*openchoreov1alpha1.DataPlane); isPlane {
+					crGets.Add(1)
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+}
+
 // The plane reader is an informer cache and can trail the API server. Take a
 // CR whose client CA was just rotated. The notification read the new CA from
 // the API server and refused the agents that hold a certificate of the old
@@ -430,27 +502,46 @@ func TestConnect_DoesNotTrustAPlaneReaderOlderThanANotification(t *testing.T) {
 	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ns2/dp"}, validCRs, "the rotated CR was granted from the cached copy")
-	require.Equal(t, []string{"ns1/dp"}, unread)
-
-	// After the connect the CR is checked against the API server, where its
-	// CA no longer verifies this agent.
-	_, err = s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, validCRs, agentCert, nil)
-	require.NoError(t, err)
-	s.authorizeUnreadCRs("dataplane", "prod", unread)
-	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
-	assert.Error(t, err)
+	assert.Empty(t, unread, "the CR was read from the API server, so nothing is left for later")
 }
 
 // Once the plane reader has the version the notification read, its copy is as
-// good as the API server's and the connect uses it again. Leaving the CR out
-// for good would put a read back on every connect.
+// good as the API server's and the connect uses it again. Reading the CR on
+// every connect from then on would bring back a read per notified CR.
 func TestConnect_TrustsThePlaneReaderOnceItHasCaughtUp(t *testing.T) {
 	ca, key := generateTestCA(t)
 	agentCert := generateTestClientCert(t, ca, key)
 	plane := planeOf("ns1", 2, encodeCertToPEM(t, ca))
-	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(plane).Build()
-	s := New(&Config{}, live, testLogger())
+	var crGets atomic.Int32
+	s := New(&Config{}, crGetCountingClient(&crGets, plane), testLogger())
 	s.SetPlaneReader(planeReaderOnly(t, plane.DeepCopy()))
+
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+	require.Equal(t, int32(1), crGets.Load())
+
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns1/dp"}, validCRs)
+	assert.Empty(t, unread)
+	assert.Equal(t, int32(1), crGets.Load(), "the connect read a CR the plane reader already had")
+}
+
+// A CR that moves to this plane is notified here, and the notification
+// authorizes it on the agents already connected. An agent that connects before
+// the cache has seen the move finds the CR still listed under its old planeID.
+// Passing over it for that reason would leave the new connection without the
+// CR, and nothing would deliver it later.
+func TestConnect_FindsACRThatMovedHereBeforeThePlaneReaderSawIt(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	pem := encodeCertToPEM(t, ca)
+
+	cached := planeOf("ns1", 1, pem)
+	cached.Spec.PlaneID = "elsewhere"
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, pem)).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, cached))
 
 	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
 	require.NoError(t, err)
@@ -459,6 +550,115 @@ func TestConnect_TrustsThePlaneReaderOnceItHasCaughtUp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"ns1/dp"}, validCRs)
 	assert.Empty(t, unread)
+}
+
+// The same holds for a CR that was created and notified a moment ago and that
+// the plane reader does not list at all yet.
+func TestConnect_FindsACRThePlaneReaderDoesNotListYet(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	pem := encodeCertToPEM(t, ca)
+
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, pem)).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t))
+
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+
+	validCRs, _, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns1/dp"}, validCRs)
+}
+
+// And for a CR that is gone: once a read has found it deleted, a plane reader
+// that still lists it must not get it authorized again.
+func TestConnect_DoesNotAuthorizeADeletedCRThePlaneReaderStillLists(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	pem := encodeCertToPEM(t, ca)
+
+	other := planeOf("ns2", 1, pem)
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(other).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, pem), other.DeepCopy()))
+
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.Error(t, err)
+
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns2/dp"}, validCRs)
+	assert.Empty(t, unread)
+}
+
+// A CR can be deleted and created again under the same name. What this replica
+// remembers about the first one says nothing about the second, whose
+// generation starts over. Comparing the two would make the new CR look out of
+// date on every connect, and if it is the plane's only CR every connect would
+// be refused. The record must give way to what the API server holds now.
+func TestConnect_IsNotHeldUpByTheRecordOfAnEarlierCROfTheSameName(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	pem := encodeCertToPEM(t, ca)
+
+	earlier := planeOf("ns1", 5, pem)
+	earlier.UID = "earlier"
+	replacement := planeOf("ns1", 1, pem)
+	replacement.UID = "replacement"
+
+	var crGets atomic.Int32
+	s := New(&Config{}, crGetCountingClient(&crGets, replacement), testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, replacement.DeepCopy()))
+	s.noteLiveCR(planeTypeDataPlane, "ns1/dp", earlier)
+
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err, "the connect was refused over a CR that no longer exists")
+	assert.Equal(t, []string{"ns1/dp"}, validCRs)
+	assert.Empty(t, unread)
+
+	// The record now describes the replacement, which the plane reader has.
+	reads := crGets.Load()
+	_, _, err = s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, reads, crGets.Load(), "the CR is read again on every connect")
+}
+
+// A notification applies a CR to the connections that are registered. A connect
+// that is under way is not registered yet: it is authorized from what its
+// lookup read before the change, and the notification passes it by. After a CA
+// rotation that leaves the new connection holding a grant the rotation was
+// meant to end. Once registered, the connect has to apply what was read while
+// it was under way.
+func TestConnect_AppliesANotificationThatArrivedWhileItWasUnderWay(t *testing.T) {
+	oldCA, oldKey := generateTestCA(t)
+	newCA, _ := generateTestCA(t)
+	agentCert := generateTestClientCert(t, oldCA, oldKey)
+
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 1, encodeCertToPEM(t, oldCA))).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, encodeCertToPEM(t, oldCA))))
+
+	lookupStart := time.Now()
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	require.Equal(t, []string{"ns1/dp"}, validCRs)
+
+	// The CA is rotated and the notification is handled before the connection
+	// is registered.
+	rotated := &openchoreov1alpha1.DataPlane{}
+	require.NoError(t, live.Get(context.Background(), client.ObjectKey{Namespace: "ns1", Name: "dp"}, rotated))
+	rotated.Spec.ClusterAgent.ClientCA.Value = string(encodeCertToPEM(t, newCA))
+	require.NoError(t, live.Update(context.Background(), rotated))
+	_, err = s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+
+	_, err = s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, validCRs, agentCert, nil)
+	require.NoError(t, err)
+	s.authorizeAfterConnect("dataplane", "prod", unread, lookupStart)
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "the connection kept a grant from the CA that was rotated out")
 }
 
 // planeReaderOnly fails the test when it is asked for anything but a list. The

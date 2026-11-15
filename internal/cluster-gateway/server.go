@@ -27,6 +27,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
@@ -98,11 +99,12 @@ type Server struct {
 	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
 	caCacheInit sync.Once
 
-	// liveGenerations remembers the generation of plane CRs this replica has
-	// read from the API server and that planeReader has not caught up with
-	// yet: see planeReaderBehind.
-	liveMu          sync.Mutex
-	liveGenerations map[string]int64
+	// liveCRs remembers what this replica last read from the API server about
+	// plane CRs, by plane type and then "namespace/name", so that an agent
+	// connect does not decide on a planeReader copy that is older: see
+	// reconcilePlaneReader.
+	liveMu  sync.Mutex
+	liveCRs map[string]map[string]liveCR
 
 	// unreadJobs holds, per plane, the job that authorizes the CRs agent
 	// connects left unread: see authorizeUnreadCRs.
@@ -195,54 +197,134 @@ func (s *Server) lifecycle() context.Context {
 	return context.Background()
 }
 
-// noteLiveCR records the generation a plane CR had when it was read from the
-// API server.
-func (s *Server) noteLiveCR(planeType, crKey string, generation int64) {
+// liveCRRetention is how long a liveCR is kept after planeReader has caught up
+// with it. An agent connect that was already under way when the CR was read
+// needs the record once it is registered, so it has to outlast a connect.
+const liveCRRetention = time.Minute
+
+// liveCR is what this replica last read from the API server about a plane CR.
+type liveCR struct {
+	uid        types.UID
+	generation int64
+	gone       bool // the read found no such CR
+	readAt     time.Time
+}
+
+// noteLiveCR records a plane CR as it was just read from the API server.
+func (s *Server) noteLiveCR(planeType, crKey string, obj client.Object) {
+	s.setLiveCR(planeType, crKey, liveCR{uid: obj.GetUID(), generation: obj.GetGeneration(), readAt: time.Now()})
+}
+
+// noteLiveCRGone records that a read from the API server found no such CR.
+func (s *Server) noteLiveCRGone(planeType, crKey string) {
+	s.setLiveCR(planeType, crKey, liveCR{gone: true, readAt: time.Now()})
+}
+
+func (s *Server) setLiveCR(planeType, crKey string, cr liveCR) {
 	s.liveMu.Lock()
 	defer s.liveMu.Unlock()
 
-	if s.liveGenerations == nil {
-		s.liveGenerations = make(map[string]int64)
+	if s.liveCRs == nil {
+		s.liveCRs = make(map[string]map[string]liveCR)
 	}
-	key := planeType + "/" + crKey
-	if generation > s.liveGenerations[key] {
-		s.liveGenerations[key] = generation
+	if s.liveCRs[planeType] == nil {
+		s.liveCRs[planeType] = make(map[string]liveCR)
 	}
+	s.liveCRs[planeType][crKey] = cr
 }
 
-// forgetLiveCR drops what noteLiveCR recorded for a CR that is gone.
-func (s *Server) forgetLiveCR(planeType, crKey string) {
+// liveCRsReadSince returns the CRs of a plane type that this replica has read
+// from the API server since the given time.
+func (s *Server) liveCRsReadSince(planeType string, since time.Time) []string {
 	s.liveMu.Lock()
 	defer s.liveMu.Unlock()
-	delete(s.liveGenerations, planeType+"/"+crKey)
+
+	var crKeys []string
+	for crKey, cr := range s.liveCRs[planeType] {
+		if !cr.readAt.Before(since) {
+			crKeys = append(crKeys, crKey)
+		}
+	}
+	return crKeys
 }
 
-// planeReaderBehind reports whether planeReader's copy of a CR, at
-// cachedGeneration, is older than a version this replica has already read from
-// the API server.
+// reconcilePlaneReader makes the plane CRs an agent connect has listed from
+// planeReader at least as new as what this replica has already read from the
+// API server. cached holds the listed CRs of one scope by "namespace/name" and
+// is corrected in place.
 //
-// planeReader is an informer cache and can trail the API server. A
-// notification reads its CR from the API server and applies it to the
-// connected agents. An agent connect that then took the same CR from a cache
-// that had not seen the change would undo it: after a CA rotation it would
-// authorize an agent the notification had just refused, and nothing would
-// take that back. Such a CR is left out of the connect and authorized from the
-// API server afterwards, like one the lookup had no time to read.
-func (s *Server) planeReaderBehind(planeType, crKey string, cachedGeneration int64) bool {
-	s.liveMu.Lock()
-	defer s.liveMu.Unlock()
+// planeReader is an informer cache and can trail the API server. A notification
+// reads its CR from the API server and applies it to the connected agents. A
+// connect that then took the same CR from a cache that had not seen the change
+// would undo it: after a CA rotation it would authorize an agent the
+// notification had just refused, and nothing would take that back. The same
+// goes for a CR the cache does not list yet, lists under the planeID it had
+// before it moved, or still lists after it was deleted.
+//
+// So every CR recorded by noteLiveCR is compared with its cached copy, whether
+// or not that copy passes for one of this plane's. Where the cache has not
+// caught up, the CR is read from the API server and that copy takes the cached
+// one's place. A CR that cannot be read is taken out of the connect and
+// returned, to be authorized once the connection is registered.
+func (s *Server) reconcilePlaneReader(
+	ctx context.Context, planeType string, clusterScoped bool, cached map[string]client.Object,
+) (unread []string) {
+	now := time.Now()
+	var behind []string
 
-	key := planeType + "/" + crKey
-	seen, recorded := s.liveGenerations[key]
-	if !recorded {
-		return false
+	s.liveMu.Lock()
+	for crKey, cr := range s.liveCRs[planeType] {
+		if strings.HasPrefix(crKey, "/") != clusterScoped {
+			continue // The other scope's list covers it.
+		}
+		obj, listed := cached[crKey]
+		caughtUp := !listed
+		if !cr.gone {
+			// A different UID is another CR of the same name. Which of the
+			// two is the newer cannot be told from here, so it is read.
+			caughtUp = listed && obj.GetUID() == cr.uid && obj.GetGeneration() >= cr.generation
+		}
+		if !caughtUp {
+			behind = append(behind, crKey)
+			continue
+		}
+		if now.Sub(cr.readAt) > liveCRRetention {
+			delete(s.liveCRs[planeType], crKey)
+		}
 	}
-	if cachedGeneration >= seen {
-		// The cache has caught up, and it does not go back.
-		delete(s.liveGenerations, key)
-		return false
+	s.liveMu.Unlock()
+
+	for _, crKey := range behind {
+		namespace, name, _ := strings.Cut(crKey, "/")
+		obj, err := s.getPlaneCR(ctx, planeType, namespace, name)
+		switch {
+		case apierrors.IsNotFound(err):
+			s.noteLiveCRGone(planeType, crKey)
+			delete(cached, crKey)
+		case err != nil:
+			delete(cached, crKey)
+			unread = append(unread, crKey)
+		default:
+			s.noteLiveCR(planeType, crKey, obj)
+			cached[crKey] = obj
+		}
 	}
-	return true
+	return unread
+}
+
+// authorizeAfterConnect re-validates, on a plane whose agent has just been
+// registered, the CRs that the connect could not settle:
+//
+//   - the CRs its lookup left unread, and
+//   - the CRs this replica read from the API server while the connect was under
+//     way. A notification applies a CR to the connections that are registered,
+//     and this one was not yet: it was authorized from what the lookup had
+//     read before the change.
+func (s *Server) authorizeAfterConnect(planeType, planeID string, unread []string, lookupStart time.Time) {
+	pending := slices.Concat(unread, s.liveCRsReadSince(planeType, lookupStart))
+	if len(pending) > 0 {
+		s.authorizeUnreadCRs(planeType, planeID, pending)
+	}
 }
 
 // cas returns the CA cache, created on first use.
@@ -694,6 +776,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Per-CR certificate validation enforces security boundaries
 	// Each CR is validated independently to prevent cross-tenant access
+	lookupStart := time.Now()
 	validCRs, unreadCRs, err := s.verifyClientCertificatePerCR(clientCert, intermediatePool, planeType, planeID)
 	if err != nil {
 		s.logger.Warn("per-CR certificate verification failed",
@@ -731,12 +814,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		"validCRCount", len(validCRs),
 	)
 
-	// The lookup stopped before it had read every CR's CA. The agent is
-	// connected and serves the CRs above; the rest are read now, without the
-	// handshake waiting on them.
-	if len(unreadCRs) > 0 {
-		go s.authorizeUnreadCRs(planeType, planeID, unreadCRs)
-	}
+	// The agent is connected and serves the CRs above. What the lookup could
+	// not settle is done now, without the handshake waiting on it.
+	go s.authorizeAfterConnect(planeType, planeID, unreadCRs, lookupStart)
 
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
@@ -816,12 +896,15 @@ func (s *Server) authorizeUnreadCRs(planeType, planeID string, crKeys []string) 
 		// of workers. CRs added after the last worker left are picked up by
 		// another round.
 		s.unreadMu.Lock()
-		if len(job.pending) == 0 {
+		retired := s.unreadJobs[planeIdentifier] != job
+		if !retired && len(job.pending) == 0 {
 			delete(s.unreadJobs, planeIdentifier)
-			s.unreadMu.Unlock()
-			break
+			retired = true
 		}
 		s.unreadMu.Unlock()
+		if retired {
+			break
+		}
 	}
 	s.logger.Info("finished authorizing the CRs agent connects left unread",
 		"planeType", planeType,
@@ -831,15 +914,24 @@ func (s *Server) authorizeUnreadCRs(planeType, planeID string, crKeys []string) 
 }
 
 // nextUnreadCR takes one CR off the plane's unread job, or reports that there
-// is none to take. It also ends the job early, dropping what is left of it,
-// when the job's context has ended or the plane has no agent connected to this
-// replica: an agent that connects later is checked against every CR again.
+// is none to take. It also ends the job early when the job's context has ended
+// or the plane has no agent connected to this replica: an agent that connects
+// later is checked against every CR again.
+//
+// A job that ends early is retired at once, before its workers have wound
+// down. An agent can connect in that interval, and its unread CRs must start a
+// job of their own: added to this one, they would be dropped with the rest.
 func (s *Server) nextUnreadCR(ctx context.Context, planeType, planeID string, job *unreadCRJob) (string, bool) {
+	planeIdentifier := planeType + "/" + planeID
+
 	s.unreadMu.Lock()
 	defer s.unreadMu.Unlock()
 
+	if s.unreadJobs[planeIdentifier] != job {
+		return "", false // Retired by another worker.
+	}
 	if ctx.Err() != nil || s.connMgr.GetPlaneStatus(planeType, planeID).ConnectedAgents == 0 {
-		clear(job.pending)
+		delete(s.unreadJobs, planeIdentifier)
 		job.cancel() // Ends the lookups and backoffs the other workers are in.
 		return "", false
 	}
@@ -1525,6 +1617,10 @@ var planeEventRetryBackoff = time.Second
 // still appear: a CR is often created just before the Secret it points at.
 var errPlaneCRGone = errors.New("plane CR does not exist")
 
+// errPlaneCRElsewhere marks a lookup of a CR that exists but is on another
+// plane than the one asked about.
+var errPlaneCRElsewhere = errors.New("does not belong to plane")
+
 // revalidateCRWithRetry re-validates one CR on this replica's connections from
 // what the API server holds, for callers that nothing prompts a second time:
 //
@@ -1543,8 +1639,19 @@ func (s *Server) revalidateCRWithRetry(ctx context.Context, ev fabric.PlaneEvent
 		if err == nil || ctx.Err() != nil {
 			return
 		}
-		// A CR that no longer exists has nothing left to grant.
-		if attempt >= planeEventAttempts || errors.Is(err, errPlaneCRGone) {
+		// Neither a CR that no longer exists nor one that is on another plane
+		// has anything to grant here, and trying again does not change that.
+		// Both are expected: a connect re-validates CRs it could not place.
+		if errors.Is(err, errPlaneCRGone) || errors.Is(err, errPlaneCRElsewhere) {
+			s.logger.Debug("nothing to re-validate for CR",
+				"planeType", ev.PlaneType,
+				"planeID", ev.PlaneID,
+				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
+				"reason", err,
+			)
+			return
+		}
+		if attempt >= planeEventAttempts {
 			s.logger.Warn("giving up on CR re-validation",
 				"planeType", ev.PlaneType,
 				"planeID", ev.PlaneID,
@@ -1604,7 +1711,9 @@ func (s *Server) revokeCR(planeType, planeID, namespace, name string) (revoked i
 
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
-	s.forgetLiveCR(planeType, crKey)
+	// Recorded, so that a connect does not grant the CR again from a
+	// planeReader copy that still lists it.
+	s.noteLiveCRGone(planeType, crKey)
 	if closed := s.closeStreamSessionsForCR(planeIdentifier, crKey); closed > 0 {
 		s.logger.Info("closed streaming sessions of deleted CR",
 			"planeType", planeType,
@@ -1765,17 +1874,18 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
 	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
 		if apierrors.IsNotFound(err) {
+			s.noteLiveCRGone(planeType, crKey)
 			return nil, fmt.Errorf("failed to get CR %s: %w: %w", crKey, errPlaneCRGone, err)
 		}
 		return nil, fmt.Errorf("failed to get CR %s: %w", crKey, err)
 	}
 
-	s.noteLiveCR(planeType, crKey, obj.GetGeneration())
+	s.noteLiveCR(planeType, crKey, obj)
 
 	// A CR that has moved to another planeID is not served by this plane's agents.
 	info, ok := extractInfo(obj)
 	if !ok || info.planeID != planeID {
-		return nil, fmt.Errorf("CR %s does not belong to plane %s/%s", crKey, planeType, planeID)
+		return nil, fmt.Errorf("CR %s %w %s/%s", crKey, errPlaneCRElsewhere, planeType, planeID)
 	}
 
 	caData, err := s.extractCAFromPlane(ctx, info.agent, info.namespace)

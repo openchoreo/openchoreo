@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -166,11 +167,19 @@ func (s *Server) extractPlaneClientCAs(
 		return nil, nil, fmt.Errorf("failed to extract items from list: %w", err)
 	}
 
-	var (
-		crs    []planeInfo
-		behind []string
-	)
+	// Keyed "namespace/name" so that the copies this replica knows to be out
+	// of date can be replaced before the planeID filter looks at them: a stale
+	// copy can show the planeID a CR had before it moved to this plane.
+	cached := make(map[string]client.Object, len(items))
 	for _, item := range items {
+		if info, ok := extractInfo(item); ok {
+			cached[fmt.Sprintf("%s/%s", info.namespace, info.name)] = item
+		}
+	}
+	behind := s.reconcilePlaneReader(ctx, planeType, clusterScopedList(list), cached)
+
+	var crs []planeInfo
+	for _, item := range cached {
 		info, ok := extractInfo(item)
 		if !ok {
 			continue // Skip items that can't be extracted (shouldn't happen)
@@ -179,18 +188,22 @@ func (s *Server) extractPlaneClientCAs(
 		if info.planeID != planeID {
 			continue
 		}
-		// A copy older than one already read from the API server does not
-		// decide the connect: see planeReaderBehind.
-		crKey := fmt.Sprintf("%s/%s", info.namespace, info.name)
-		if s.planeReaderBehind(planeType, crKey, item.GetGeneration()) {
-			behind = append(behind, crKey)
-			continue
-		}
 		crs = append(crs, info)
 	}
 
 	cas, unread = s.clientCAsForConnect(ctx, planeType, crs)
-	return cas, append(unread, behind...), nil
+	return cas, slices.Concat(unread, behind), nil
+}
+
+// clusterScopedList reports whether a plane CR list holds a cluster-scoped kind.
+func clusterScopedList(list client.ObjectList) bool {
+	switch list.(type) {
+	case *openchoreov1alpha1.ClusterDataPlaneList,
+		*openchoreov1alpha1.ClusterWorkflowPlaneList,
+		*openchoreov1alpha1.ClusterObservabilityPlaneList:
+		return true
+	}
+	return false
 }
 
 // clientCAsForConnect returns the client CA of each CR, keyed "namespace/name",
