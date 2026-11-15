@@ -98,6 +98,12 @@ type Server struct {
 	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
 	caCacheInit sync.Once
 
+	// liveGenerations remembers the generation of plane CRs this replica has
+	// read from the API server and that planeReader has not caught up with
+	// yet: see planeReaderBehind.
+	liveMu          sync.Mutex
+	liveGenerations map[string]int64
+
 	// unreadJobs holds, per plane, the job that authorizes the CRs agent
 	// connects left unread: see authorizeUnreadCRs.
 	unreadMu   sync.Mutex
@@ -187,6 +193,56 @@ func (s *Server) lifecycle() context.Context {
 		return s.runCtx
 	}
 	return context.Background()
+}
+
+// noteLiveCR records the generation a plane CR had when it was read from the
+// API server.
+func (s *Server) noteLiveCR(planeType, crKey string, generation int64) {
+	s.liveMu.Lock()
+	defer s.liveMu.Unlock()
+
+	if s.liveGenerations == nil {
+		s.liveGenerations = make(map[string]int64)
+	}
+	key := planeType + "/" + crKey
+	if generation > s.liveGenerations[key] {
+		s.liveGenerations[key] = generation
+	}
+}
+
+// forgetLiveCR drops what noteLiveCR recorded for a CR that is gone.
+func (s *Server) forgetLiveCR(planeType, crKey string) {
+	s.liveMu.Lock()
+	defer s.liveMu.Unlock()
+	delete(s.liveGenerations, planeType+"/"+crKey)
+}
+
+// planeReaderBehind reports whether planeReader's copy of a CR, at
+// cachedGeneration, is older than a version this replica has already read from
+// the API server.
+//
+// planeReader is an informer cache and can trail the API server. A
+// notification reads its CR from the API server and applies it to the
+// connected agents. An agent connect that then took the same CR from a cache
+// that had not seen the change would undo it: after a CA rotation it would
+// authorize an agent the notification had just refused, and nothing would
+// take that back. Such a CR is left out of the connect and authorized from the
+// API server afterwards, like one the lookup had no time to read.
+func (s *Server) planeReaderBehind(planeType, crKey string, cachedGeneration int64) bool {
+	s.liveMu.Lock()
+	defer s.liveMu.Unlock()
+
+	key := planeType + "/" + crKey
+	seen, recorded := s.liveGenerations[key]
+	if !recorded {
+		return false
+	}
+	if cachedGeneration >= seen {
+		// The cache has caught up, and it does not go back.
+		delete(s.liveGenerations, key)
+		return false
+	}
+	return true
 }
 
 // cas returns the CA cache, created on first use.
@@ -1548,6 +1604,7 @@ func (s *Server) revokeCR(planeType, planeID, namespace, name string) (revoked i
 
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
+	s.forgetLiveCR(planeType, crKey)
 	if closed := s.closeStreamSessionsForCR(planeIdentifier, crKey); closed > 0 {
 		s.logger.Info("closed streaming sessions of deleted CR",
 			"planeType", planeType,
@@ -1712,6 +1769,8 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 		}
 		return nil, fmt.Errorf("failed to get CR %s: %w", crKey, err)
 	}
+
+	s.noteLiveCR(planeType, crKey, obj.GetGeneration())
 
 	// A CR that has moved to another planeID is not served by this plane's agents.
 	info, ok := extractInfo(obj)

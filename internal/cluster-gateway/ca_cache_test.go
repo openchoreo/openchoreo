@@ -391,6 +391,76 @@ func TestRevalidation_BackoffEndsWithItsContext(t *testing.T) {
 	}
 }
 
+// planeOf returns the DataPlane namespace/dp on plane "prod" at the given
+// generation, with caPEM as its inline client CA.
+func planeOf(namespace string, generation int64, caPEM []byte) *openchoreov1alpha1.DataPlane {
+	return &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: namespace, Generation: generation},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: string(caPEM)},
+			},
+		},
+	}
+}
+
+// The plane reader is an informer cache and can trail the API server. Take a
+// CR whose client CA was just rotated. The notification read the new CA from
+// the API server and refused the agents that hold a certificate of the old
+// one. If such an agent reconnects before the cache has seen the rotation, a
+// connect that trusted the cached copy would authorize it again from the old
+// CA, and no later event would take that back.
+func TestConnect_DoesNotTrustAPlaneReaderOlderThanANotification(t *testing.T) {
+	oldCA, oldKey := generateTestCA(t)
+	newCA, _ := generateTestCA(t)
+	agentCert := generateTestClientCert(t, oldCA, oldKey)
+	oldPEM, newPEM := encodeCertToPEM(t, oldCA), encodeCertToPEM(t, newCA)
+
+	// ns2/dp is untouched and still trusts the agent, so the connect goes ahead.
+	other := planeOf("ns2", 1, oldPEM)
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(planeOf("ns1", 2, newPEM), other).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, planeOf("ns1", 1, oldPEM), other.DeepCopy()))
+
+	// The notification for the rotation reads the CR from the API server.
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns2/dp"}, validCRs, "the rotated CR was granted from the cached copy")
+	require.Equal(t, []string{"ns1/dp"}, unread)
+
+	// After the connect the CR is checked against the API server, where its
+	// CA no longer verifies this agent.
+	_, err = s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, validCRs, agentCert, nil)
+	require.NoError(t, err)
+	s.authorizeUnreadCRs("dataplane", "prod", unread)
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err)
+}
+
+// Once the plane reader has the version the notification read, its copy is as
+// good as the API server's and the connect uses it again. Leaving the CR out
+// for good would put a read back on every connect.
+func TestConnect_TrustsThePlaneReaderOnceItHasCaughtUp(t *testing.T) {
+	ca, key := generateTestCA(t)
+	agentCert := generateTestClientCert(t, ca, key)
+	plane := planeOf("ns1", 2, encodeCertToPEM(t, ca))
+	live := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(plane).Build()
+	s := New(&Config{}, live, testLogger())
+	s.SetPlaneReader(planeReaderOnly(t, plane.DeepCopy()))
+
+	_, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "ns1", "dp")
+	require.NoError(t, err)
+
+	validCRs, unread, err := s.verifyClientCertificatePerCR(agentCert, nil, planeTypeDataPlane, "prod")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ns1/dp"}, validCRs)
+	assert.Empty(t, unread)
+}
+
 // planeReaderOnly fails the test when it is asked for anything but a list. The
 // gateway may watch plane CRs but not Secrets, so a Secret must never be read
 // through the plane reader.

@@ -166,7 +166,10 @@ func (s *Server) extractPlaneClientCAs(
 		return nil, nil, fmt.Errorf("failed to extract items from list: %w", err)
 	}
 
-	var crs []planeInfo
+	var (
+		crs    []planeInfo
+		behind []string
+	)
 	for _, item := range items {
 		info, ok := extractInfo(item)
 		if !ok {
@@ -176,11 +179,18 @@ func (s *Server) extractPlaneClientCAs(
 		if info.planeID != planeID {
 			continue
 		}
+		// A copy older than one already read from the API server does not
+		// decide the connect: see planeReaderBehind.
+		crKey := fmt.Sprintf("%s/%s", info.namespace, info.name)
+		if s.planeReaderBehind(planeType, crKey, item.GetGeneration()) {
+			behind = append(behind, crKey)
+			continue
+		}
 		crs = append(crs, info)
 	}
 
 	cas, unread = s.clientCAsForConnect(ctx, planeType, crs)
-	return cas, unread, nil
+	return cas, append(unread, behind...), nil
 }
 
 // clientCAsForConnect returns the client CA of each CR, keyed "namespace/name",
