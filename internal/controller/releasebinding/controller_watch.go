@@ -347,6 +347,54 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 	return requests
 }
 
+// findReleaseBindingsForComponentRelease maps a ComponentRelease to the ReleaseBindings
+// of its owning component that reference it by name.
+//
+// A binding can be reconciled before the informer cache has observed a ComponentRelease
+// created moments earlier (the Component controller creates both in the same reconcile).
+// That reconcile records ComponentReleaseNotFound and returns without requeueing, so
+// without this watch the binding stays stuck until an unrelated event or the periodic
+// resync fires.
+func (r *Reconciler) findReleaseBindingsForComponentRelease(ctx context.Context, obj client.Object) []ctrl.Request {
+	componentRelease := obj.(*openchoreov1alpha1.ComponentRelease)
+	if componentRelease.Spec.Owner.ComponentName == "" {
+		return nil
+	}
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(componentRelease.Namespace),
+		client.MatchingFields{
+			controller.IndexKeyReleaseBindingOwnerComponentName: componentRelease.Spec.Owner.ComponentName,
+		}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for ComponentRelease",
+			"componentRelease", componentRelease.Name)
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, binding := range bindings.Items {
+		if binding.Spec.ReleaseName != componentRelease.Name {
+			continue
+		}
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+		})
+	}
+	return requests
+}
+
+// componentReleaseCreatedPredicate passes only create events. A ComponentRelease's spec is
+// immutable, so the only transition a binding has to react to is the release appearing.
+func componentReleaseCreatedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		UpdateFunc:  func(_ event.UpdateEvent) bool { return false },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+	}
+}
+
 // dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's spec or its
 // openchoreo.dev/-prefixed annotations change. Render reads inputs from both: the spec
 // (gateway, secretStore) and the annotations (surfaced to CEL as dataplane.annotations).

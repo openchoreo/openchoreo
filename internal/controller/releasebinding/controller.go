@@ -1736,6 +1736,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
+		Watches(&openchoreov1alpha1.ComponentRelease{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponentRelease),
+			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
 		Watches(
