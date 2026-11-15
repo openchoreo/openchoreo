@@ -30,6 +30,13 @@ func TestParams_GetFilePath(t *testing.T) {
 	assert.Equal(t, "/tmp/test.yaml", p.GetFilePath())
 }
 
+func TestParams_GetDryRun(t *testing.T) {
+	p := Params{FilePath: "/tmp/test.yaml", DryRun: true}
+	assert.True(t, p.GetDryRun())
+	pFalse := Params{FilePath: "/tmp/test.yaml", DryRun: false}
+	assert.False(t, pFalse.GetDryRun())
+}
+
 func TestExtractResourceInfo(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -255,6 +262,12 @@ func TestDiscoverResourceFiles(t *testing.T) {
 		assert.Equal(t, []string{"https://example.com/resource.yaml"}, files)
 	})
 
+	t.Run("stdin dash", func(t *testing.T) {
+		files, err := discoverResourceFiles("-")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"-"}, files)
+	})
+
 	t.Run("nonexistent path", func(t *testing.T) {
 		dir := t.TempDir()
 		_, err := discoverResourceFiles(filepath.Join(dir, "no-such-subdir"))
@@ -311,6 +324,29 @@ func TestReadResourceContent(t *testing.T) {
 		_, err := readResourceContent(ctx, srv.URL+"/missing.yaml")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP 404")
+	})
+
+	t.Run("read from stdin", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		want := "kind: Namespace\nmetadata:\n  name: from-stdin\n"
+		stdinReader = strings.NewReader(want)
+
+		got, err := readResourceContent(ctx, "-")
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got))
+	})
+
+	t.Run("read from empty stdin", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		stdinReader = strings.NewReader("   \n\t  ")
+
+		_, err := readResourceContent(ctx, "-")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "standard input is empty")
 	})
 }
 
@@ -572,4 +608,125 @@ spec: {}
 		require.Error(t, Apply(cl, Params{FilePath: yamlFile}))
 	})
 	assert.Contains(t, out, "releaseline/next: spec.owner.componentName is required")
+}
+
+func TestApply_Stdin(t *testing.T) {
+	origStdin := stdinReader
+	defer func() { stdinReader = origStdin }()
+
+	stdinContent := `kind: Namespace
+metadata:
+  name: stdin-ns
+`
+	stdinReader = strings.NewReader(stdinContent)
+
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/stdin-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces") {
+			return testutil.JSONResp(http.StatusCreated, map[string]any{
+				"metadata": map[string]any{"name": "stdin-ns"},
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: "-"}))
+	})
+	assert.Contains(t, out, "namespace/stdin-ns created")
+	assert.Contains(t, out, "Applied 1 resource(s) from 1 file(s)")
+}
+
+func TestApply_DryRun_Create(t *testing.T) {
+	postCalled := false
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/dry-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			postCalled = true
+			return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: dry-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: yamlFile, DryRun: true}))
+	})
+	assert.Contains(t, out, "namespace/dry-ns created (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
+	assert.False(t, postCalled, "POST should not be called in dry-run mode")
+}
+
+func TestApply_DryRun_Update(t *testing.T) {
+	putCalled := false
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns") {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				"metadata": map[string]any{"name": "existing-ns"},
+			}), nil
+		}
+		if r.Method == http.MethodPut {
+			putCalled = true
+			return testutil.JSONResp(http.StatusOK, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: existing-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: yamlFile, DryRun: true}))
+	})
+	assert.Contains(t, out, "namespace/existing-ns configured (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
+	assert.False(t, putCalled, "PUT should not be called in dry-run mode")
+}
+
+func TestApply_DryRun_CreateOnly_Error(t *testing.T) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				"metadata": map[string]any{"name": "p1"},
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "project.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Project
+metadata:
+  name: p1
+  namespace: test-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile, DryRun: true})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "dry run completed with 1 error(s)")
+	})
+	assert.Contains(t, out, "resource already exists and cannot be updated (create-only resource)")
 }

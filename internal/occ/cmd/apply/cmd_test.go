@@ -51,6 +51,15 @@ func TestNewApplyCmd_FileFlag(t *testing.T) {
 	assert.Equal(t, "", flag.DefValue)
 }
 
+func TestNewApplyCmd_DryRunFlag(t *testing.T) {
+	f := func() (client.Interface, error) { return nil, fmt.Errorf("unused") }
+	cmd := NewApplyCmd(f)
+
+	flag := cmd.Flags().Lookup("dry-run")
+	require.NotNil(t, flag, "expected --dry-run flag")
+	assert.Equal(t, "false", flag.DefValue)
+}
+
 // --- RunE: factory error ---
 
 func TestNewApplyCmd_FactoryError(t *testing.T) {
@@ -179,4 +188,46 @@ metadata:
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, "namespace/upd-ns configured")
+}
+
+func TestNewApplyCmd_RunE_DryRun(t *testing.T) {
+	home := testutil.SetupTestHome(t)
+	testutil.WriteOCConfig(t, home, config.StoredConfig{
+		CurrentContext: "test",
+		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
+		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
+		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
+	})
+
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/dry-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			t.Fatal("POST should not be called in dry-run")
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: dry-ns
+`), 0600))
+
+	cmd := NewApplyCmd(newClientFactory())
+	require.NoError(t, cmd.Flags().Set("file", yamlFile))
+	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := cmd.RunE(cmd, nil)
+		require.NoError(t, err)
+	})
+	assert.Contains(t, out, "namespace/dry-ns created (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
 }
