@@ -1074,10 +1074,24 @@ func (s *Server) SendHTTPTunnelRequestForCR(
 	// Prefer an agent owned by this pod: the forward hop vanishes entirely.
 	conn, err := s.connMgr.GetForCR(planeName, crKey)
 	if err != nil {
-		if response, servedBy, fwdErr := s.forwardViaMesh(planeName, crKey, req, timeout); fwdErr == nil {
+		response, servedBy, fwdErr := s.forwardViaMesh(planeName, crKey, req, timeout)
+		if fwdErr == nil {
 			return response, servedBy, nil
-		} else if s.fabricMesh != nil {
+		}
+		if s.fabricMesh != nil {
 			s.logger.Debug("mesh forward failed", "plane", planeName, "cr", crKey, "error", fwdErr)
+		}
+		// A forward that was attempted and failed is the real cause. This
+		// pod's local view would hide it, and would turn a transport failure
+		// into a 403 when the local agents are not authorized for the CR.
+		if !errors.Is(fwdErr, errNoForwardCandidate) {
+			return nil, "", fwdErr
+		}
+		// No replica has an agent authorized for this CR. When peers hold
+		// agents for the plane, report the missing authorization: "no agents
+		// found" would read as a disconnected agent.
+		if s.fabricRegistry != nil && s.fabricRegistry.CountForPlane(planeName) > 0 {
+			return nil, "", fmt.Errorf("no agents authorized for CR %s", crKey)
 		}
 		return nil, "", err
 	}
@@ -1085,6 +1099,10 @@ func (s *Server) SendHTTPTunnelRequestForCR(
 	response, err := s.dispatchTunnelRequest(conn, req, timeout)
 	return response, s.selfID(), err
 }
+
+// errNoForwardCandidate reports that a mesh forward was never attempted: the
+// mesh is off, or no peer replica advertises an agent that can serve the request.
+var errNoForwardCandidate = errors.New("no forward candidate")
 
 // forwardViaMesh routes a request to a gateway replica that owns a qualifying
 // agent connection. The registry is eventually consistent, so stale entries
@@ -1098,12 +1116,12 @@ func (s *Server) forwardViaMesh(
 	timeout time.Duration,
 ) (*messaging.HTTPTunnelResponse, string, error) {
 	if s.fabricMesh == nil || s.fabricRegistry == nil {
-		return nil, "", fmt.Errorf("gateway mesh not enabled")
+		return nil, "", fmt.Errorf("gateway mesh not enabled: %w", errNoForwardCandidate)
 	}
 
 	candidates := s.fabricRegistry.Lookup(planeIdentifier, crKey)
 	if len(candidates) == 0 {
-		return nil, "", fmt.Errorf("no remote agents found for plane %s", planeIdentifier)
+		return nil, "", fmt.Errorf("no remote agents found for plane %s: %w", planeIdentifier, errNoForwardCandidate)
 	}
 
 	attempts := []fabric.RemoteAgent{candidates[0]}
@@ -1231,6 +1249,7 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 			s.logger.Warn("failed to fetch CR CA for propagated re-validation",
 				"planeType", ev.PlaneType,
 				"planeID", ev.PlaneID,
+				"cr", fmt.Sprintf("%s/%s", ev.Namespace, ev.Name),
 				"error", err,
 			)
 			return
@@ -1255,16 +1274,31 @@ func (s *Server) propagatePlaneEvent(ev fabric.PlaneEvent) {
 }
 
 // fetchCRClientCA fetches the client CA configured for one CR of a plane.
+// It reads only that CR. Listing every CR that shares the planeID, as an agent
+// connect does, would make each notification cost grow with the number of CRs.
 func (s *Server) fetchCRClientCA(planeType, planeID, namespace, name string) ([]byte, error) {
-	allCRs, err := s.getAllPlaneClientCAs(planeType, planeID)
+	obj, extractInfo, err := planeCRObject(planeType, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CRs: %w", err)
+		return nil, err
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	crKey := fmt.Sprintf("%s/%s", namespace, name)
-	caData, exists := allCRs[crKey]
-	if !exists {
-		return nil, fmt.Errorf("CR %s not found", crKey)
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, obj); err != nil {
+		return nil, fmt.Errorf("failed to get CR %s: %w", crKey, err)
+	}
+
+	// A CR that has moved to another planeID is not served by this plane's agents.
+	info, ok := extractInfo(obj)
+	if !ok || info.planeID != planeID {
+		return nil, fmt.Errorf("CR %s does not belong to plane %s/%s", crKey, planeType, planeID)
+	}
+
+	caData, err := s.extractCAFromPlane(info.agent, info.namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract CA from CR %s: %w", crKey, err)
 	}
 	if caData == nil {
 		return nil, fmt.Errorf("CR %s has no CA configured", crKey)
@@ -1290,6 +1324,9 @@ func (s *Server) PlaneStatus(planeType, planeID string) *PlaneConnectionStatus {
 // specific CR within a plane.
 func (s *Server) CRAuthorizationStatus(planeType, planeID, namespace, name string) *PlaneConnectionStatus {
 	status := s.connMgr.GetCRAuthorizationStatus(planeType, planeID, namespace, name)
+	// The plane-wide count lets a caller tell "no agent connected" apart from
+	// "agents connected, none authorized for this CR".
+	status.PlaneConnectedAgents = s.PlaneStatus(planeType, planeID).ConnectedAgents
 	if s.fabricRegistry != nil {
 		crKey := fmt.Sprintf("%s/%s", namespace, name)
 		if remote := s.fabricRegistry.CountForCR(planeType+"/"+planeID, crKey); remote > 0 {

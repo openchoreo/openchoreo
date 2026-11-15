@@ -288,6 +288,18 @@ func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, clusterW
 		return err
 	}
 
+	// Agents are connected to the plane but none is authorized for this CR: the
+	// gateway missed its grant. It grants only when notified, so notify it again.
+	if status.GrantMissing() {
+		logger.Info("plane has connected agents but none is authorized for this ClusterWorkflowPlane, re-notifying gateway",
+			"planeID", clusterWorkflowPlane.Spec.PlaneID,
+			"planeConnectedAgents", status.PlaneConnectedAgents,
+		)
+		if err := r.notifyGateway(ctx, clusterWorkflowPlane, "updated"); err != nil {
+			logger.Error(err, "failed to re-notify gateway", "planeID", clusterWorkflowPlane.Spec.PlaneID)
+		}
+	}
+
 	// Populate ClusterWorkflowPlane status fields (caller will persist to API server)
 	now := metav1.Now()
 	if clusterWorkflowPlane.Status.AgentConnection == nil {

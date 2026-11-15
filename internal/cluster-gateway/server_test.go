@@ -1799,6 +1799,59 @@ func TestServer_ForwardViaMesh_NoCandidates(t *testing.T) {
 	assert.Contains(t, err.Error(), "no agents found for plane")
 }
 
+// A CR that no replica is authorized for is an authorization miss on every
+// replica. A pod with no local agent used to report it as "no agents found for
+// plane", which reads as a disconnected agent and is answered with 502, not 403.
+func TestServer_ForwardViaMesh_PeerAgentsNotAuthorizedForCR(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	caller, registry, _, _ := newFabricServer(t, ctx, "gw-caller")
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-a", Seq: 1,
+		Entry: fabric.AgentEntry{
+			PlaneIdentifier: "dataplane/prod",
+			ConnID:          "conn-0",
+			ValidCRs:        []string{"ns/dp1"},
+		},
+	}))
+
+	req := messaging.NewHTTPTunnelRequest("k8s", "GET", "/x", "", nil, nil)
+	_, _, err := caller.SendHTTPTunnelRequestForCR("dataplane/prod", "ns/dp2", req, time.Second)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no agents authorized for CR ns/dp2")
+}
+
+// A forward that was attempted and failed is a transport failure. Reporting
+// this pod's local "not authorized" view instead would answer 403, which
+// callers treat as permanent, while a peer holds an authorized agent.
+func TestServer_ForwardViaMesh_FailedForwardIsNotAnAuthorizationError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	caller, registry, _, _ := newFabricServer(t, ctx, "gw-caller")
+
+	// This pod's own agent is not authorized for the CR.
+	_, err := caller.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns/other"}, nil, nil)
+	require.NoError(t, err)
+
+	// A peer advertises an authorized agent, but no link to it exists.
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-a", Seq: 1,
+		Entry: fabric.AgentEntry{
+			PlaneIdentifier: "dataplane/prod",
+			ConnID:          "conn-0",
+			ValidCRs:        []string{"ns/dp1"},
+		},
+	}))
+
+	req := messaging.NewHTTPTunnelRequest("k8s", "GET", "/x", "", nil, nil)
+	_, _, err = caller.SendHTTPTunnelRequestForCR("dataplane/prod", "ns/dp1", req, time.Second)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, fabric.ErrNoLink)
+	assert.NotContains(t, err.Error(), "no agents authorized for CR")
+}
+
 // The choreographed drain: GOAWAY frames go out to every connection, then the
 // sockets are closed.
 func TestServer_DrainAgentConnections(t *testing.T) {

@@ -332,6 +332,32 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 	return result, nil
 }
 
+// planeCRObject returns an empty CR of the kind that a plane type and a CR
+// namespace identify, with the function that extracts its plane info.
+// An empty namespace selects the cluster-scoped kind.
+func planeCRObject(planeType, namespace string) (client.Object, func(client.Object) (planeInfo, bool), error) {
+	clusterScoped := namespace == ""
+	switch planeType {
+	case planeTypeDataPlane:
+		if clusterScoped {
+			return &openchoreov1alpha1.ClusterDataPlane{}, clusterDataPlaneInfo, nil
+		}
+		return &openchoreov1alpha1.DataPlane{}, dataPlaneInfo, nil
+	case planeTypeWorkflowPlane:
+		if clusterScoped {
+			return &openchoreov1alpha1.ClusterWorkflowPlane{}, clusterWorkflowPlaneInfo, nil
+		}
+		return &openchoreov1alpha1.WorkflowPlane{}, workflowPlaneInfo, nil
+	case planeTypeObservabilityPlane:
+		if clusterScoped {
+			return &openchoreov1alpha1.ClusterObservabilityPlane{}, clusterObsPlaneInfo, nil
+		}
+		return &openchoreov1alpha1.ObservabilityPlane{}, obsPlaneInfo, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported plane type: %s", planeType)
+	}
+}
+
 // extractCAFromPlane extracts CA data from a plane's ClusterAgent configuration
 func (s *Server) extractCAFromPlane(clusterAgent *openchoreov1alpha1.ClusterAgentConfig, namespace string) ([]byte, error) {
 	if clusterAgent == nil {
