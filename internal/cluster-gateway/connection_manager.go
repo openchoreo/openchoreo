@@ -488,6 +488,9 @@ type PlaneConnectionStatus struct {
 	Connected       bool      `json:"connected"`
 	ConnectedAgents int       `json:"connectedAgents"`
 	LastSeen        time.Time `json:"lastSeen,omitempty"`
+	// PlaneConnectedAgents is set only on a CR-specific status. It counts the
+	// agents connected to the plane whether or not they are authorized for the CR.
+	PlaneConnectedAgents int `json:"planeConnectedAgents,omitempty"`
 }
 
 // GetPlaneStatus returns connection status for a specific plane
