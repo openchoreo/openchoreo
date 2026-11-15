@@ -78,6 +78,26 @@ func (r *Reconciler) renderAndEmit(
 		return nil, err
 	}
 
+	return r.emitRenderedRelease(ctx, binding, openchoreov1alpha1.RenderedReleaseSpec{
+		Owner: openchoreov1alpha1.RenderedReleaseOwner{
+			ProjectName: binding.Spec.Owner.ProjectName,
+		},
+		EnvironmentName: binding.Spec.Environment,
+		TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+		Resources:       manifests,
+	}, fmt.Sprintf("%d resource(s)", len(manifests)), "")
+}
+
+// emitRenderedRelease creates or updates the binding's RenderedRelease with
+// spec and marks Synced. summary describes the spec in the Synced message, and
+// a non-empty note is appended to it. Returns nil without an error when another
+// owner holds the release.
+func (r *Reconciler) emitRenderedRelease(
+	ctx context.Context,
+	binding *openchoreov1alpha1.ProjectReleaseBinding,
+	spec openchoreov1alpha1.RenderedReleaseSpec,
+	summary, note string,
+) (*openchoreov1alpha1.RenderedRelease, error) {
 	rrName := makeRenderedReleaseName(binding)
 	rr := &openchoreov1alpha1.RenderedRelease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -102,14 +122,7 @@ func (r *Reconciler) renderAndEmit(
 			labels.LabelKeyProjectName:     binding.Spec.Owner.ProjectName,
 			labels.LabelKeyEnvironmentName: binding.Spec.Environment,
 		}
-		rr.Spec = openchoreov1alpha1.RenderedReleaseSpec{
-			Owner: openchoreov1alpha1.RenderedReleaseOwner{
-				ProjectName: binding.Spec.Owner.ProjectName,
-			},
-			EnvironmentName: binding.Spec.Environment,
-			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
-			Resources:       manifests,
-		}
+		rr.Spec = spec
 		return controllerutil.SetControllerReference(binding, rr, r.Scheme)
 	})
 
@@ -123,14 +136,20 @@ func (r *Reconciler) renderAndEmit(
 		return nil, err
 	}
 
+	var reason controller.ConditionReason
+	var msg string
 	switch op {
 	case controllerutil.OperationResultCreated, controllerutil.OperationResultUpdated:
-		controller.MarkTrueCondition(binding, ConditionSynced, ReasonReleaseCreated,
-			fmt.Sprintf("RenderedRelease %q %s with %d resource(s)", rrName, op, len(manifests)))
-	case controllerutil.OperationResultNone:
-		controller.MarkTrueCondition(binding, ConditionSynced, ReasonReleaseSynced,
-			fmt.Sprintf("RenderedRelease %q is up to date", rrName))
+		reason = ReasonReleaseCreated
+		msg = fmt.Sprintf("RenderedRelease %q %s with %s", rrName, op, summary)
+	default:
+		reason = ReasonReleaseSynced
+		msg = fmt.Sprintf("RenderedRelease %q is up to date", rrName)
 	}
+	if note != "" {
+		msg += "; " + note
+	}
+	controller.MarkTrueCondition(binding, ConditionSynced, reason, msg)
 
 	return rr, nil
 }

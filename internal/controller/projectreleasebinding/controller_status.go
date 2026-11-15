@@ -31,8 +31,8 @@ func (r *Reconciler) evaluateReadiness(
 		return
 	}
 
-	evaluateNamespaceReady(binding, rr)
-	evaluateResourcesReady(binding, rr)
+	evaluateNamespaceReady(binding, rr.Status.Resources)
+	evaluateResourcesReady(binding, rr.Status.Resources)
 }
 
 // rrApplyFailed reports whether the RenderedRelease's ResourcesApplied
@@ -53,15 +53,15 @@ func rrApplyFailed(rr *openchoreov1alpha1.RenderedRelease) (bool, string) {
 }
 
 // evaluateNamespaceReady locates the project's data-plane namespace entry in
-// rr.Status.Resources[] by Group="" + Kind="Namespace" + Name matching
+// statuses by Group="" + Kind="Namespace" + Name matching
 // binding.Status.Namespace, then maps its HealthStatus to a NamespaceReady
 // condition. Other Namespace objects the PE chose to render are not
 // considered here — those flow through ResourcesReady.
 func evaluateNamespaceReady(
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
-	rr *openchoreov1alpha1.RenderedRelease,
+	statuses []openchoreov1alpha1.RenderedManifestStatus,
 ) {
-	entry := findNamespaceEntry(rr.Status.Resources, binding.Status.Namespace)
+	entry := findNamespaceEntry(statuses, binding.Status.Namespace)
 	if entry == nil {
 		controller.MarkFalseCondition(binding, ConditionNamespaceReady, ReasonNamespaceProgressing,
 			fmt.Sprintf("Namespace %q has no observed status yet", binding.Status.Namespace))
@@ -81,17 +81,17 @@ func evaluateNamespaceReady(
 }
 
 // evaluateResourcesReady aggregates HealthStatus over every entry in
-// rr.Status.Resources[] except the project namespace. Any Degraded entry
+// statuses except the project namespace. Any Degraded entry
 // flips the condition to False with Reason=ResourcesDegraded; any non-Healthy
 // non-Degraded entry flips it to Progressing.
 func evaluateResourcesReady(
 	binding *openchoreov1alpha1.ProjectReleaseBinding,
-	rr *openchoreov1alpha1.RenderedRelease,
+	statuses []openchoreov1alpha1.RenderedManifestStatus,
 ) {
 	ns := binding.Status.Namespace
 	considered := 0
-	for i := range rr.Status.Resources {
-		st := &rr.Status.Resources[i]
+	for i := range statuses {
+		st := &statuses[i]
 		if isNamespaceEntry(st, ns) {
 			continue
 		}
@@ -128,9 +128,8 @@ func findNamespaceEntry(
 	return nil
 }
 
-// isNamespaceEntry reports whether the given status entry is the mandated
-// project namespace. ns is the resolved dp-{ns}-{project}-{env}-{hash} name
-// (binding.Status.Namespace).
+// isNamespaceEntry reports whether the given status entry is the project's
+// namespace, ns being binding.Status.Namespace.
 func isNamespaceEntry(st *openchoreov1alpha1.RenderedManifestStatus, ns string) bool {
 	return st.Group == "" && st.Kind == "Namespace" && st.Name == ns
 }
