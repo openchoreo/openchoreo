@@ -4,6 +4,7 @@
 package clustergateway
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -311,7 +312,7 @@ func (api *PlaneAPI) handleGetAllPlaneStatus(w http.ResponseWriter, r *http.Requ
 // fetchCRClientCA fetches the client CA certificate for a specific CR
 // Uses the server's getAllPlaneClientCAs() method to query Kubernetes API
 func (api *PlaneAPI) fetchCRClientCA(notification PlaneNotification) ([]byte, error) {
-	caData, err := api.server.fetchCRClientCA(
+	caData, err := api.server.fetchCRClientCA(context.Background(),
 		notification.PlaneType,
 		notification.PlaneID,
 		notification.Namespace,

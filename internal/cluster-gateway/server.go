@@ -98,6 +98,13 @@ type Server struct {
 	caCache     *secretCACache // Client CAs read from Secrets, reused by agent connects: see cas
 	caCacheInit sync.Once
 
+	// unreadJobs holds, per plane, the job that authorizes the CRs agent
+	// connects left unread: see authorizeUnreadCRs.
+	unreadMu   sync.Mutex
+	unreadJobs map[string]*unreadCRJob
+	// runCtx ends when the server shuts down. Start sets it: see lifecycle.
+	runCtx context.Context
+
 	// Gateway mesh fabric (optional): replicates the connection registry
 	// across gateway replicas and forwards requests to the pod that owns the
 	// target agent connection. Nil when running as a singleton.
@@ -171,6 +178,15 @@ func (s *Server) planes() client.Reader {
 		return s.planeReader
 	}
 	return s.k8sClient
+}
+
+// lifecycle returns a context that ends when the server shuts down. A Server
+// that was never started has nothing to shut down.
+func (s *Server) lifecycle() context.Context {
+	if s.runCtx != nil {
+		return s.runCtx
+	}
+	return context.Background()
 }
 
 // cas returns the CA cache, created on first use.
@@ -321,6 +337,7 @@ func (s *Server) Start() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	s.runCtx = ctx
 
 	go s.runDeletedCRSweep(ctx)
 
@@ -668,33 +685,113 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	go s.handleConnection(planeIdentifier, connID, conn)
 }
 
+// unreadCRJob is the work left over from agent connects on one plane that ran
+// out of lookup time: the CRs still to be read and authorized.
+type unreadCRJob struct {
+	pending map[string]struct{}
+	cancel  context.CancelFunc
+}
+
 // authorizeUnreadCRs finishes what an agent connect could not do within its
 // lookup time: it reads each CR left unread from the API server and re-validates
 // it on the plane's connections, caReadConcurrency CRs at a time. Without it a
 // CR left out of a connect stays unauthorized on that connection until
 // something else notifies the gateway about the CR.
+//
+// A plane has one such job at a time. A connect reaches its lookup bound when
+// the API server is slow, and agents reconnect at such times too; a job per
+// connect would read the same CRs once for each of them and add load exactly
+// when the API server can least take it. A call made while the plane's job is
+// running adds its CRs to that job and returns.
+//
+// The job is not tied to the connection that started it, because it authorizes
+// CRs on every connection of the plane. It ends when the plane has no agent
+// connected to this replica, when the server shuts down, or when no CR is left.
 func (s *Server) authorizeUnreadCRs(planeType, planeID string, crKeys []string) {
-	var wg sync.WaitGroup
-	slots := make(chan struct{}, caReadConcurrency)
-	for _, crKey := range crKeys {
-		namespace, name, _ := strings.Cut(crKey, "/")
-		slots <- struct{}{}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer func() { <-slots }()
-			s.revalidateCRWithRetry(fabric.PlaneEvent{
-				PlaneType: planeType, PlaneID: planeID, Event: "updated",
-				Namespace: namespace, Name: name,
-			})
-		}()
+	planeIdentifier := planeType + "/" + planeID
+
+	s.unreadMu.Lock()
+	job, running := s.unreadJobs[planeIdentifier]
+	if !running {
+		job = &unreadCRJob{pending: make(map[string]struct{}, len(crKeys))}
+		if s.unreadJobs == nil {
+			s.unreadJobs = make(map[string]*unreadCRJob)
+		}
+		s.unreadJobs[planeIdentifier] = job
 	}
-	wg.Wait()
-	s.logger.Info("authorized the CRs an agent connect left unread",
+	for _, crKey := range crKeys {
+		job.pending[crKey] = struct{}{}
+	}
+	var ctx context.Context
+	if !running {
+		ctx, job.cancel = context.WithCancel(s.lifecycle())
+	}
+	s.unreadMu.Unlock()
+	if running {
+		return
+	}
+	defer job.cancel()
+
+	var authorized atomic.Int64
+	for {
+		var wg sync.WaitGroup
+		for range caReadConcurrency {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					crKey, ok := s.nextUnreadCR(ctx, planeType, planeID, job)
+					if !ok {
+						return
+					}
+					namespace, name, _ := strings.Cut(crKey, "/")
+					s.revalidateCRWithRetry(ctx, fabric.PlaneEvent{
+						PlaneType: planeType, PlaneID: planeID, Event: "updated",
+						Namespace: namespace, Name: name,
+					})
+					authorized.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+
+		// The job stays registered until its workers have finished, so a call
+		// that arrives meanwhile adds to it and does not start a second set
+		// of workers. CRs added after the last worker left are picked up by
+		// another round.
+		s.unreadMu.Lock()
+		if len(job.pending) == 0 {
+			delete(s.unreadJobs, planeIdentifier)
+			s.unreadMu.Unlock()
+			break
+		}
+		s.unreadMu.Unlock()
+	}
+	s.logger.Info("finished authorizing the CRs agent connects left unread",
 		"planeType", planeType,
 		"planeID", planeID,
-		"crs", len(crKeys),
+		"crs", authorized.Load(),
 	)
+}
+
+// nextUnreadCR takes one CR off the plane's unread job, or reports that there
+// is none to take. It also ends the job early, dropping what is left of it,
+// when the job's context has ended or the plane has no agent connected to this
+// replica: an agent that connects later is checked against every CR again.
+func (s *Server) nextUnreadCR(ctx context.Context, planeType, planeID string, job *unreadCRJob) (string, bool) {
+	s.unreadMu.Lock()
+	defer s.unreadMu.Unlock()
+
+	if ctx.Err() != nil || s.connMgr.GetPlaneStatus(planeType, planeID).ConnectedAgents == 0 {
+		clear(job.pending)
+		job.cancel() // Ends the lookups and backoffs the other workers are in.
+		return "", false
+	}
+	for crKey := range job.pending {
+		delete(job.pending, crKey)
+		return crKey, true
+	}
+	return "", false
 }
 
 func (s *Server) handleConnection(planeName, connID string, conn Connection) {
@@ -1346,7 +1443,7 @@ func (s *Server) ApplyPlaneEvent(ev fabric.PlaneEvent) {
 
 	switch ev.Event {
 	case "created", "updated":
-		s.revalidateCRWithRetry(ev)
+		s.revalidateCRWithRetry(s.lifecycle(), ev)
 	case "deleted":
 		if ev.Name == "" {
 			s.connMgr.DisconnectAllForPlane(ev.PlaneType, ev.PlaneID)
@@ -1383,11 +1480,11 @@ var errPlaneCRGone = errors.New("plane CR does not exist")
 // In both cases a lookup that fails is retried, or the agents this replica owns
 // stay unauthorized for the CR, possibly while the CR reports as connected
 // through another replica's agent.
-func (s *Server) revalidateCRWithRetry(ev fabric.PlaneEvent) {
+func (s *Server) revalidateCRWithRetry(ctx context.Context, ev fabric.PlaneEvent) {
 	backoff := planeEventRetryBackoff
 	for attempt := 1; ; attempt++ {
-		err := s.revalidateCROnce(ev)
-		if err == nil {
+		err := s.revalidateCROnce(ctx, ev)
+		if err == nil || ctx.Err() != nil {
 			return
 		}
 		// A CR that no longer exists has nothing left to grant.
@@ -1401,7 +1498,11 @@ func (s *Server) revalidateCRWithRetry(ev fabric.PlaneEvent) {
 			)
 			return
 		}
-		time.Sleep(backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
 		backoff *= 2
 	}
 }
@@ -1411,10 +1512,10 @@ func (s *Server) revalidateCRWithRetry(ev fabric.PlaneEvent) {
 // reads the CR from the API server and re-reads the revocation count first, so
 // an attempt that runs after the CR's "deleted" event is held back by the same
 // staleness guard as the notification handler: see there.
-func (s *Server) revalidateCROnce(ev fabric.PlaneEvent) error {
+func (s *Server) revalidateCROnce(ctx context.Context, ev fabric.PlaneEvent) error {
 	revocations := s.connMgr.CRRevocations(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 	if revocations > 0 {
-		terminating, err := s.planeCRTerminating(context.Background(), ev.PlaneType, ev.Namespace, ev.Name)
+		terminating, err := s.planeCRTerminating(ctx, ev.PlaneType, ev.Namespace, ev.Name)
 		if apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to look up CR for re-validation: %w: %w", errPlaneCRGone, err)
 		}
@@ -1430,7 +1531,7 @@ func (s *Server) revalidateCROnce(ev fabric.PlaneEvent) error {
 			return nil
 		}
 	}
-	caData, err := s.fetchCRClientCA(ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
+	caData, err := s.fetchCRClientCA(ctx, ev.PlaneType, ev.PlaneID, ev.Namespace, ev.Name)
 	if err != nil {
 		return fmt.Errorf("failed to fetch CR CA for re-validation: %w", err)
 	}
@@ -1595,13 +1696,13 @@ func (s *Server) propagatePlaneEvent(ev fabric.PlaneEvent) {
 // fetchCRClientCA fetches the client CA configured for one CR of a plane.
 // It reads only that CR. Listing every CR that shares the planeID, as an agent
 // connect does, would make each notification cost grow with the number of CRs.
-func (s *Server) fetchCRClientCA(planeType, planeID, namespace, name string) ([]byte, error) {
+func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namespace, name string) ([]byte, error) {
 	obj, extractInfo, err := planeCRObject(planeType, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	crKey := fmt.Sprintf("%s/%s", namespace, name)

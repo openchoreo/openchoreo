@@ -218,7 +218,7 @@ func TestConnect_UsesTheCAOfALaterNotification(t *testing.T) {
 	secret.Data["ca.crt"] = []byte("rotated ca")
 	require.NoError(t, live.Update(context.Background(), secret))
 
-	notified, err := s.fetchCRClientCA(planeTypeDataPlane, "prod", "tenant-0", "default")
+	notified, err := s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "tenant-0", "default")
 	require.NoError(t, err)
 	require.Equal(t, []byte("rotated ca"), notified, "a notification must read the API server, not the cache")
 
@@ -241,7 +241,7 @@ func TestConnect_DoesNotUseACachedCAAfterItsSecretFailsToRead(t *testing.T) {
 
 	require.NoError(t, live.Delete(context.Background(),
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-0", Name: "agent-ca"}}))
-	_, err = s.fetchCRClientCA(planeTypeDataPlane, "prod", "tenant-0", "default")
+	_, err = s.fetchCRClientCA(context.Background(), planeTypeDataPlane, "prod", "tenant-0", "default")
 	require.Error(t, err)
 
 	after, _, err := s.getAllPlaneClientCAs(planeTypeDataPlane, "prod")
@@ -281,6 +281,114 @@ func TestRevalidation_RetriesWhileTheCASecretDoesNotExistYet(t *testing.T) {
 	_, err = s.connMgr.GetForCR("dataplane/prod", "tenant-0/default")
 	require.NoError(t, err, "the CR must be authorized once its Secret exists")
 	assert.Equal(t, int32(2), secretGets.Load())
+}
+
+// tenantCRKeys returns the CR keys of the first n tenants of sharedPlaneTenants.
+func tenantCRKeys(n int) []string {
+	keys := make([]string, n)
+	for i := range keys {
+		keys[i] = fmt.Sprintf("tenant-%d/default", i)
+	}
+	return keys
+}
+
+// A connect reaches its lookup bound when the API server is slow, and agents
+// reconnect at such times too. If every partial connect ran its own job, the
+// same CRs would be read once per connect, all at the same time, adding load
+// exactly when the API server can least take it. One job per plane keeps the
+// reads within the limit however many connects report unread CRs.
+func TestUnreadCRs_OverlappingConnectsShareOneJob(t *testing.T) {
+	const tenants = 60
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	calls := apiCalls{secretDelay: 10 * time.Millisecond}
+	s := New(&Config{}, countingClient(&calls, sharedPlaneTenantsWithCA(tenants, encodeCertToPEM(t, caCert))...), testLogger())
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, nil, clientCert, nil)
+	require.NoError(t, err)
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
+	}()
+	require.Eventually(t, func() bool { return calls.secretGets.Load() > 0 }, 5*time.Second, time.Millisecond)
+
+	// A second connect reports the same CRs while the first job is running.
+	// It must hand them over and return, not start reading alongside it.
+	s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
+	select {
+	case <-firstDone:
+		t.Fatal("the second call ran the work itself instead of handing it to the running job")
+	default:
+	}
+
+	<-firstDone
+	assert.LessOrEqual(t, calls.maxInFlight.Load(), int32(caReadConcurrency))
+	for _, cr := range tenantCRKeys(tenants) {
+		_, err := s.connMgr.GetForCR("dataplane/prod", cr)
+		assert.NoError(t, err, "%s is not authorized", cr)
+	}
+}
+
+// The job authorizes CRs on the plane's connections. Once the plane has no
+// agent connected to this replica there is nothing to authorize, and an agent
+// that connects later is checked against every CR again, so reading on would
+// only load the API server.
+func TestUnreadCRs_JobEndsWhenThePlaneHasNoAgent(t *testing.T) {
+	const tenants = 200
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	calls := apiCalls{secretDelay: 10 * time.Millisecond}
+	s := New(&Config{}, countingClient(&calls, sharedPlaneTenantsWithCA(tenants, encodeCertToPEM(t, caCert))...), testLogger())
+	connID, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, nil, clientCert, nil)
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.authorizeUnreadCRs("dataplane", "prod", tenantCRKeys(tenants))
+	}()
+	require.Eventually(t, func() bool { return calls.secretGets.Load() > 0 }, 5*time.Second, time.Millisecond)
+
+	s.connMgr.Unregister("dataplane/prod", connID)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the job kept running after the plane's last agent had gone")
+	}
+	assert.Less(t, calls.secretGets.Load(), int32(tenants), "every CR was read although no agent was left to authorize")
+
+	// The plane is free for the job of the next connect.
+	s.unreadMu.Lock()
+	_, stillRegistered := s.unreadJobs["dataplane/prod"]
+	s.unreadMu.Unlock()
+	assert.False(t, stillRegistered)
+}
+
+// A retry waits between attempts. When the server shuts down, or the job a
+// retry belongs to ends, the wait must end with it: an uninterruptible sleep
+// holds a goroutine and a read slot for the whole backoff.
+func TestRevalidation_BackoffEndsWithItsContext(t *testing.T) {
+	previous := planeEventRetryBackoff
+	planeEventRetryBackoff = time.Hour
+	t.Cleanup(func() { planeEventRetryBackoff = previous })
+
+	s := New(&Config{}, getFailingClient(liveDataPlane("ca")), testLogger())
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.revalidateCRWithRetry(ctx, updatedNs1Dp)
+	}()
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the retry outlived its context")
+	}
 }
 
 // planeReaderOnly fails the test when it is asked for anything but a list. The
