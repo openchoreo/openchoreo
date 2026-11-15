@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -123,7 +124,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Requeue to refresh agent connection status
-		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+		return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 	}
 
 	// Set the observed generation
@@ -170,7 +171,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.Recorder.Event(workflowPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", workflowPlane.Name))
 
 	// Requeue to refresh agent connection status
-	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(workflowPlane *openchoreov1alpha1.WorkflowPlane) bool {
@@ -400,7 +401,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.WorkflowPlane{}).
+		For(&openchoreov1alpha1.WorkflowPlane{}, builder.WithPredicates(controller.PlaneChangedPredicate())).
 		Named("workflowplane").
 		Complete(r)
 }

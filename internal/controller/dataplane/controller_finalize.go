@@ -80,12 +80,12 @@ func (r *Reconciler) finalize(ctx context.Context, old, dataPlane *openchoreov1a
 	}
 
 	// Mark the condition as finalizing and return so that the dataplane will indicate that it is being finalized.
-	// The actual finalization will be done in the next reconcile loop triggered by the status update.
+	// The actual finalization is done in the next reconcile. Status writes do not trigger one, so requeue.
 	if meta.SetStatusCondition(&dataPlane.Status.Conditions, NewDataPlaneFinalizingCondition(dataPlane.Generation)) {
 		if err := controller.UpdateStatusConditions(ctx, r.Client, old, dataPlane); err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	// Notify gateway of DataPlane deletion before removing finalizer
