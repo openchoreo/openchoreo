@@ -163,14 +163,20 @@ func (r *Reconciler) isSynced(alertRule *openchoreov1alpha1.ObservabilityAlertRu
 
 // resync checks that the backend rule of a synced rule still exists, and syncs the rule again when it
 // does not. It does not rewrite an existing backend rule, because some backends reset a firing alert
-// when its rule is updated.
+// when its rule is updated. A failed check is retried as a check, not as a sync.
 func (r *Reconciler) resync(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (ctrl.Result, error) {
 	getResp, statusCode, err := r.getAlertRule(ctx, getObserverInternalBaseURL(), alertRule)
-	if err == nil && statusCode == http.StatusOK && ownsBackendRule(alertRule, getResp) {
-		return ctrl.Result{RequeueAfter: resyncAfter()}, nil
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check backend alert rule: %w", err)
 	}
-	log.FromContext(ctx).Info("Backend alert rule is missing or changed; syncing it again",
-		"name", alertRule.Name, "statusCode", statusCode, "error", err)
+	switch {
+	case statusCode == http.StatusOK && ownsBackendRule(alertRule, getResp):
+		return ctrl.Result{RequeueAfter: resyncAfter()}, nil
+	case statusCode != http.StatusOK && statusCode != http.StatusNotFound:
+		return ctrl.Result{}, fmt.Errorf("unexpected GET status %d when checking alert rule %q", statusCode, alertRule.Name)
+	}
+	log.FromContext(ctx).Info("Backend alert rule is missing or belongs to another namespace; syncing it again",
+		"name", alertRule.Name, "statusCode", statusCode)
 	r.syncedGenerations.Delete(alertRule.UID)
 	return r.sync(ctx, alertRule, payload)
 }
@@ -519,12 +525,22 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 	r.syncedGenerations.Delete(alertRule.UID)
 	baseURL := getObserverInternalBaseURL()
 
-	// An adapter that identifies rules by name alone would delete another namespace's rule.
-	if getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule); err == nil &&
-		statusCode == http.StatusOK && !ownsBackendRule(alertRule, getResp) {
+	// An adapter that identifies rules by name alone would delete another namespace's rule, so the
+	// rule is only deleted once the check shows it is this rule's or gone.
+	getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule)
+	if err != nil {
+		logger.Error(err, "failed to check the backend alert rule before deleting it")
+		return ctrl.Result{}, fmt.Errorf("failed to check backend alert rule before deleting it: %w", err)
+	}
+	switch {
+	case statusCode == http.StatusOK && !ownsBackendRule(alertRule, getResp):
 		logger.Info("Backend alert rule belongs to another namespace; not deleting it",
 			"name", alertRule.Name, "backendNamespace", getResp.Metadata.Namespace)
 		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+	case statusCode != http.StatusOK && statusCode != http.StatusNotFound:
+		statusErr := fmt.Errorf("unexpected GET status %d when checking alert rule %q before deleting it", statusCode, alertRule.Name)
+		logger.Error(statusErr, "failed to check the backend alert rule before deleting it")
+		return ctrl.Result{}, statusErr
 	}
 
 	url := alertRuleURL(baseURL, alertRule)

@@ -161,6 +161,29 @@ var _ = Describe("ObservabilityAlertRule namespace identity", func() {
 		Expect(observer.count(http.MethodPost)).To(Equal(2))
 	})
 
+	It("should retry a failed resync check without rewriting the backend rule", func() {
+		r := newReconciler()
+		_, err := r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+
+		By("failing the resync check")
+		observer.set(http.StatusInternalServerError, "")
+		_, err = r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).To(HaveOccurred())
+
+		By("retrying the check after the backend recovers")
+		observer.set(http.StatusOK, "default")
+		result, err := r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">=", resyncInterval))
+		Expect(observer.count(http.MethodPut)).To(BeZero())
+		Expect(observer.count(http.MethodPost)).To(Equal(1))
+
+		fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+		Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+		Expect(fetched.Status.Phase).To(Equal(openchoreov1alpha1.ObservabilityAlertRulePhaseReady))
+	})
+
 	It("should update the backend rule on its first sync after a restart", func() {
 		_, err := newReconciler().Reconcile(ctx, reconcileRequest(name))
 		Expect(err).NotTo(HaveOccurred())
@@ -183,6 +206,21 @@ var _ = Describe("ObservabilityAlertRule namespace identity", func() {
 		Eventually(func() bool {
 			return k8sClient.Get(ctx, nn, &openchoreov1alpha1.ObservabilityAlertRule{}) != nil
 		}, "5s", "250ms").Should(BeTrue())
+	})
+
+	It("should not delete the backend rule when its ownership cannot be checked", func() {
+		observer.set(http.StatusInternalServerError, "")
+		rule := &openchoreov1alpha1.ObservabilityAlertRule{}
+		Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, rule)).To(Succeed())
+
+		_, err := newReconciler().Reconcile(ctx, reconcileRequest(name))
+		Expect(err).To(HaveOccurred())
+		Expect(observer.count(http.MethodDelete)).To(BeZero())
+
+		fetched := &openchoreov1alpha1.ObservabilityAlertRule{}
+		Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
+		Expect(controllerutil.ContainsFinalizer(fetched, AlertRuleCleanupFinalizer)).To(BeTrue())
 	})
 
 	It("should delete its own backend rule with the rule's namespace", func() {
