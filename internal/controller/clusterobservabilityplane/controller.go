@@ -103,7 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Requeue to refresh agent connection status
-		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+		return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 	}
 
 	// Set the observed generation
@@ -150,7 +150,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.Recorder.Event(clusterObservabilityPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", clusterObservabilityPlane.Name))
 
 	// Requeue to refresh agent connection status
-	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(clusterObservabilityPlane *openchoreov1alpha1.ClusterObservabilityPlane) bool {
@@ -362,7 +362,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.ClusterObservabilityPlane{}).
+		For(&openchoreov1alpha1.ClusterObservabilityPlane{}, builder.WithPredicates(controller.PlaneChangedPredicate())).
 		// A removed control plane namespace triggers a sweep of its plane namespaces.
 		Watches(
 			&corev1.Namespace{},

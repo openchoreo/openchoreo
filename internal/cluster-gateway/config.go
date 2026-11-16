@@ -59,6 +59,12 @@ type Config struct {
 	ShutdownTimeout      time.Duration
 	HeartbeatInterval    time.Duration
 	HeartbeatTimeout     time.Duration
+	// PlaneCacheSyncTimeout is how long the server waits for the plane CR
+	// cache to hold every plane CR before it gives up and exits, to be
+	// restarted. Zero waits without limit. Either way the server is running,
+	// not ready and refusing agent connects while it waits.
+	PlaneCacheSyncTimeout time.Duration
+
 	// DrainWindow is the period over which GOAWAY frames are spread across
 	// agent connections during shutdown, so agents re-land on surviving
 	// replicas without a reconnect stampede. Must be shorter than

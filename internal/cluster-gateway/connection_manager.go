@@ -33,7 +33,16 @@ type AgentConnection struct {
 	clientCert      *x509.Certificate // Client certificate for re-validation on CR updates
 	intermediates   *x509.CertPool    // Handshake intermediate CAs, used to chain the client cert on re-validation
 	mu              sync.Mutex
+	// writeMu serializes socket writes. It is separate from mu so that a slow
+	// or stalled write never blocks readers of the connection's state, which
+	// the manager consults while holding its own lock.
+	writeMu sync.Mutex
 }
+
+// agentWriteTimeout bounds one message write to an agent. Without it a write to
+// an agent that has stopped reading blocks forever, and with it every request
+// queued behind that write.
+const agentWriteTimeout = 15 * time.Second
 
 // IsValidForCR checks if this connection is authorized for the specified CR
 func (ac *AgentConnection) IsValidForCR(crKey string) bool {
@@ -541,15 +550,12 @@ func (cm *ConnectionManager) RevokeCR(planeType, planeID, crNamespace, crName st
 
 // SendHTTPTunnelRequest sends an HTTPTunnelRequest through this connection
 func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) error {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-
 	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("SendHTTPTunnelRequest: failed to marshal request: %w", err)
 	}
 
-	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := ac.write(data); err != nil {
 		return fmt.Errorf("SendHTTPTunnelRequest: failed to send request: %w", err)
 	}
 
@@ -558,13 +564,28 @@ func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelReques
 
 // SendRawMessage sends a pre-marshaled JSON message through this connection.
 func (ac *AgentConnection) SendRawMessage(data []byte) error {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-
-	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := ac.write(data); err != nil {
 		return fmt.Errorf("SendRawMessage: failed to send message: %w", err)
 	}
 	return nil
+}
+
+// write sends one text message within agentWriteTimeout. A write that fails or
+// times out leaves the WebSocket unusable for further writes, so the connection
+// is closed: its read loop then ends and unregisters it, and the agent
+// reconnects.
+func (ac *AgentConnection) write(data []byte) error {
+	ac.writeMu.Lock()
+	defer ac.writeMu.Unlock()
+
+	err := ac.Conn.SetWriteDeadline(time.Now().Add(agentWriteTimeout))
+	if err == nil {
+		err = ac.Conn.WriteMessage(websocket.TextMessage, data)
+	}
+	if err != nil {
+		_ = ac.Conn.Close()
+	}
+	return err
 }
 
 // Close closes the agent connection

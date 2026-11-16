@@ -100,7 +100,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Requeue to refresh agent connection status
-		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+		return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 	}
 
 	// Set the observed generation
@@ -146,7 +146,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.Recorder.Event(clusterDataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", clusterDataPlane.Name))
 
 	// Requeue to refresh agent connection status
-	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(clusterDataPlane *openchoreov1alpha1.ClusterDataPlane) bool {
@@ -280,7 +280,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Cluster-scoped planes don't watch namespace-scoped resources like Environments
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.ClusterDataPlane{}).
+		For(&openchoreov1alpha1.ClusterDataPlane{}, builder.WithPredicates(controller.PlaneChangedPredicate())).
 		// A removed control plane namespace triggers a sweep of its plane namespaces.
 		Watches(
 			&corev1.Namespace{},

@@ -126,7 +126,8 @@ var _ = Describe("ClusterDataPlane Controller", func() {
 			r := testReconciler()
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			fresh := &openchoreov1alpha1.ClusterDataPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
@@ -185,7 +186,8 @@ var _ = Describe("ClusterDataPlane Controller", func() {
 			r := testReconciler()
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 		})
 
 		It("should not overwrite the Created condition", func() {
@@ -337,7 +339,8 @@ var _ = Describe("ClusterDataPlane Controller", func() {
 			By("Second reconcile — sets Created condition")
 			result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
 			cond := apimeta.FindStatusCondition(fresh.Status.Conditions, string(controller.TypeCreated))
@@ -347,7 +350,8 @@ var _ = Describe("ClusterDataPlane Controller", func() {
 			By("Third reconcile — shouldIgnoreReconcile=true, still returns RequeueAfter")
 			result, err = r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			By("Deleting the ClusterDataPlane resource")
 			Expect(k8sClient.Delete(ctx, fresh)).To(Succeed())

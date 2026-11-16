@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -456,7 +457,7 @@ func TestVerifyClientCertificatePerCR_ValidCert(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
 }
@@ -492,7 +493,7 @@ func TestVerifyClientCertificatePerCR_MultipleCRs(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp1, dp2).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns-a/dp1")
 	assert.NotContains(t, validCRs, "ns-b/dp2")
@@ -556,7 +557,7 @@ func TestVerifyClientCertificatePerCR_EmptyCAFailsClosed(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	require.Error(t, err, "a CR with no client CA must not authorize any certificate")
 	assert.Empty(t, validCRs)
 }
@@ -588,7 +589,7 @@ func TestVerifyClientCertificatePerCR_SharedCAMergesTrustDomains(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(dp1, dp2).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "shared")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"tenant-a/dp1", "tenant-b/dp2"}, validCRs,
 		"one CA signing for both CRs must grant access to both — that is the hazard being warned about")
@@ -602,7 +603,7 @@ func TestVerifyClientCertificatePerCR_NoCRsFound(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "nonexistent")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "nonexistent")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no dataplane CRs found")
 }
@@ -629,7 +630,7 @@ func TestVerifyClientCertificatePerCR_CertInvalidForAll(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate not valid for any CR")
 }
@@ -655,7 +656,7 @@ func TestVerifyClientCertificatePerCR_NilCAData(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dp).Build()
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
-	_, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
+	_, _, err := s.verifyClientCertificatePerCR(clientCert, nil, "dataplane", "prod")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate not valid for any CR")
 }
@@ -702,7 +703,7 @@ func TestVerifyClientCertificatePerCR_WithIntermediates(t *testing.T) {
 	s := &Server{k8sClient: fakeClient, logger: testLogger()}
 
 	// Pass intermediate cert chain
-	validCRs, err := s.verifyClientCertificatePerCR(clientCert, buildIntermediatePool([]*x509.Certificate{intermediateCert}), "dataplane", "prod")
+	validCRs, _, err := s.verifyClientCertificatePerCR(clientCert, buildIntermediatePool([]*x509.Certificate{intermediateCert}), "dataplane", "prod")
 	require.NoError(t, err)
 	assert.Contains(t, validCRs, "ns/dp1")
 }
@@ -901,6 +902,7 @@ func (m *mockGatewayConn) isClosed() bool {
 
 func (m *mockGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
 func (m *mockGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (m *mockGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (m *mockGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (m *mockGatewayConn) Close() error {
 	m.mu.Lock()
@@ -918,6 +920,7 @@ func (c *closeErrorGatewayConn) ReadMessage() (int, []byte, error)              
 func (c *closeErrorGatewayConn) WriteMessage(_ int, _ []byte) error              { return nil }
 func (c *closeErrorGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return nil }
 func (c *closeErrorGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (c *closeErrorGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (c *closeErrorGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (c *closeErrorGatewayConn) Close() error                                    { return nil }
 
@@ -2031,6 +2034,84 @@ func TestServer_HandleReadyDuringDrain(t *testing.T) {
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 }
 
+// On a large cluster the first list of plane CRs can take longer than the
+// liveness probe allows. A gateway that waited for it before starting would be
+// restarted before it had served a single agent, over and over. So it starts
+// at once and keeps out of the way until the list is there: alive, not ready,
+// and refusing agents, because an agent checked against a partial list would be
+// authorized for too little.
+func TestServer_StaysNotReadyAndRefusesAgentsWhilePlaneCRsLoad(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+	loaded := make(chan struct{})
+	s.SetPlaneReader(fakeClient, func(ctx context.Context) bool {
+		select {
+		case <-loaded:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	})
+	waited := make(chan error, 1)
+	go func() { waited <- s.awaitPlaneReader(context.Background()) }()
+
+	probe := func(handler http.HandlerFunc, target string) int {
+		w := httptest.NewRecorder()
+		handler(w, httptest.NewRequest(http.MethodGet, target, nil))
+		return w.Code
+	}
+	const agentConnect = "/ws?planeType=dataplane&planeID=prod"
+
+	assert.Equal(t, http.StatusOK, probe(s.handleHealth, "/health"), "the pod must not be restarted while it loads")
+	assert.Equal(t, http.StatusServiceUnavailable, probe(s.handleReady, "/ready"))
+	assert.Equal(t, http.StatusServiceUnavailable, probe(s.handleWebSocket, agentConnect))
+
+	close(loaded)
+	require.NoError(t, <-waited)
+	assert.Equal(t, http.StatusOK, probe(s.handleReady, "/ready"))
+	// The connect now gets as far as asking for the agent's certificate.
+	assert.Equal(t, http.StatusUnauthorized, probe(s.handleWebSocket, agentConnect))
+}
+
+// Waiting without limit is right when the first list is slow. When the cache is
+// stuck, a restart can be what gets it going, and an operator may prefer that
+// to a pod that stays not ready. The limit is theirs to set: the gateway gives
+// up only when one is set and has passed.
+func TestServer_GivesUpOnLoadingPlaneCRsOnlyWhenALimitIsSet(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	neverLoaded := func(ctx context.Context) bool {
+		<-ctx.Done()
+		return false
+	}
+
+	t.Run("with a limit it gives up once the limit has passed", func(t *testing.T) {
+		s := New(&Config{PlaneCacheSyncTimeout: 20 * time.Millisecond}, fakeClient, testLogger())
+		s.SetPlaneReader(fakeClient, neverLoaded)
+
+		err := s.awaitPlaneReader(context.Background())
+
+		require.Error(t, err)
+		assert.False(t, s.planeReaderReady())
+	})
+
+	t.Run("without a limit it waits until the server shuts down", func(t *testing.T) {
+		s := New(&Config{}, fakeClient, testLogger())
+		s.SetPlaneReader(fakeClient, neverLoaded)
+		ctx, shutDown := context.WithCancel(context.Background())
+		waited := make(chan error, 1)
+		go func() { waited <- s.awaitPlaneReader(ctx) }()
+
+		select {
+		case err := <-waited:
+			t.Fatalf("stopped waiting with no limit set: %v", err)
+		case <-time.After(200 * time.Millisecond):
+		}
+
+		shutDown()
+		assert.NoError(t, <-waited, "shutting down is not a failure to load")
+	})
+}
+
 // --- connection rebalancing ---
 
 // newRebalanceServer wires a server with a mesh identity and `local` mock
@@ -2406,6 +2487,28 @@ func TestConnectionManager_UpdateLastSeenUnknownIsNoop(t *testing.T) {
 	assert.Equal(t, 0, s.connMgr.Count())
 }
 
+// Every agent connection starts a ping sender. Stopping its ticker does not end
+// it, so unless it is told the connection is gone it stays parked for the life
+// of the pod: one goroutine for every connection an agent ever made.
+func TestHandleConnection_PingSenderEndsWithConnection(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{HeartbeatInterval: time.Hour, HeartbeatTimeout: time.Hour}, fakeClient, testLogger())
+
+	const connections = 50
+	before := runtime.NumGoroutine()
+	for range connections {
+		mock := &closeErrorGatewayConn{err: errors.New("connection closed")}
+		connID, err := s.connMgr.Register("dataplane", "prod", mock, []string{"ns/dp1"}, nil, nil)
+		require.NoError(t, err)
+		s.handleConnection("dataplane/prod", connID, mock)
+	}
+
+	// Half the connection count is slack for goroutines unrelated to this test.
+	assert.Eventually(t, func() bool {
+		return runtime.NumGoroutine() < before+connections/2
+	}, 2*time.Second, 10*time.Millisecond, "ping senders outlived their connections")
+}
+
 // writeErrorGatewayConn fails every write, standing in for a socket that died
 // between selection and dispatch.
 type writeErrorGatewayConn struct {
@@ -2425,6 +2528,7 @@ func (c *writeErrorGatewayConn) WriteMessage(_ int, _ []byte) error {
 
 func (c *writeErrorGatewayConn) WriteControl(_ int, _ []byte, _ time.Time) error { return c.err }
 func (c *writeErrorGatewayConn) SetReadDeadline(_ time.Time) error               { return nil }
+func (c *writeErrorGatewayConn) SetWriteDeadline(_ time.Time) error              { return nil }
 func (c *writeErrorGatewayConn) SetPongHandler(_ func(string) error)             {}
 func (c *writeErrorGatewayConn) Close() error                                    { return nil }
 
@@ -3064,6 +3168,93 @@ func getFailingClient(objects ...client.Object) client.Client {
 				return errors.New("api server unavailable")
 			},
 		}).Build()
+}
+
+// Propagated plane events are retried with a backoff that starts at a second.
+// The tests exercise the retry, not the wait.
+func init() { planeEventRetryBackoff = time.Millisecond }
+
+// flakyGetClient fails the first `failures` Get calls and serves the rest. It
+// counts every Get in calls.
+func flakyGetClient(failures int32, calls *atomic.Int32, objects ...client.Object) client.Client {
+	return fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objects...).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if calls.Add(1) <= failures {
+					return errors.New("api server unavailable")
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+}
+
+// liveDataPlane is the DataPlane ns1/dp on plane "prod" with caPEM as its
+// client CA.
+func liveDataPlane(caPEM string) *openchoreov1alpha1.DataPlane {
+	return &openchoreov1alpha1.DataPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "dp", Namespace: "ns1"},
+		Spec: openchoreov1alpha1.DataPlaneSpec{
+			PlaneID: "prod",
+			ClusterAgent: openchoreov1alpha1.ClusterAgentConfig{
+				ClientCA: openchoreov1alpha1.ValueFrom{Value: caPEM},
+			},
+		},
+	}
+}
+
+var updatedNs1Dp = fabric.PlaneEvent{
+	PlaneType: "dataplane", PlaneID: "prod", Event: "updated",
+	Namespace: "ns1", Name: "dp",
+}
+
+// The replica that received a notification has already answered the
+// controller, so a peer whose CA lookup fails is not told again. Its agents
+// stay unauthorized for the CR, and when another replica's agent serves that CR
+// the status reports it connected, so the controller does not re-notify either.
+// The peer has to retry the lookup itself.
+func TestServer_ApplyPlaneEventRetriesAFailedLookup(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(2, &gets, liveDataPlane(string(encodeCertToPEM(t, caCert)))), testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	require.NoError(t, err, "the CR must be granted once its lookup succeeds")
+	assert.Equal(t, int32(3), gets.Load(), "two failed lookups, then the one that succeeded")
+}
+
+// A lookup that keeps failing is given up on, so a propagated event cannot hold
+// a goroutine and keep reading the API server indefinitely.
+func TestServer_ApplyPlaneEventGivesUpAfterBoundedAttempts(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	clientCert := generateTestClientCert(t, caCert, caKey)
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(1000, &gets, liveDataPlane(string(encodeCertToPEM(t, caCert)))), testLogger())
+
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns2/dp"}, clientCert, nil)
+	require.NoError(t, err)
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	assert.Equal(t, int32(planeEventAttempts), gets.Load())
+	_, err = s.connMgr.GetForCR("dataplane/prod", "ns1/dp")
+	assert.Error(t, err, "a CR whose CA was never read must not be granted")
+}
+
+// A CR that no longer exists has nothing to grant. Retrying its lookup would
+// only repeat a read whose answer cannot change the outcome.
+func TestServer_ApplyPlaneEventDoesNotRetryAMissingCR(t *testing.T) {
+	var gets atomic.Int32
+	s := New(&Config{}, flakyGetClient(0, &gets), testLogger())
+
+	s.ApplyPlaneEvent(updatedNs1Dp)
+
+	assert.Equal(t, int32(1), gets.Load())
 }
 
 // Once a CR's "deleted" event is applied, knowing that the CR is still

@@ -1360,6 +1360,12 @@
           "title": "nodeSelector",
           "type": "object"
         },
+        "planeCacheSyncTimeout": {
+          "default": "0s",
+          "description": "How long the gateway waits for its plane CR cache to load before it exits and is restarted. While it waits it is not ready and refuses agent connections. The default, 0s, waits without limit.",
+          "title": "planeCacheSyncTimeout",
+          "type": "string"
+        },
         "podDisruptionBudget": {
           "additionalProperties": false,
           "description": "PodDisruptionBudget for the cluster gateway. Only created when replicas \u003e 1, so a singleton gateway does not block node drains.",

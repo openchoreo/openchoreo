@@ -3975,6 +3975,13 @@ clusterGateway:
   drainWindow: 10s
 
   # @schema
+  # type: string
+  # description: How long the gateway waits for its plane CR cache to load before it exits and is restarted. While it waits it is not ready and refuses agent connections. The default, 0s, waits without limit.
+  # default: 0s
+  # @schema
+  planeCacheSyncTimeout: 0s
+
+  # @schema
   # type: object
   # additionalProperties: false
   # description: Readiness probe timing. /ready reports 503 while draining and until the mesh registry has converged, so the probe needs to react quickly in both directions - a slow probe keeps a draining pod in Service endpoints and admits a fresh pod before it can route.

@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"slices"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -136,6 +138,15 @@ func clusterObsPlaneInfo(obj client.Object) (planeInfo, bool) {
 	}, true
 }
 
+// connectLookupTimeout bounds the client CA lookup of one agent connect. The
+// agent gives up on its handshake after 10s and starts the connect again, so
+// the lookup takes half of that and leaves the rest for the handshake itself,
+// which also slows down when the pod is short of CPU.
+var connectLookupTimeout = 5 * time.Second
+
+// caReadConcurrency is how many CA Secrets one agent connect reads at a time.
+const caReadConcurrency = 16
+
 // extractPlaneClientCAs is a generic helper that extracts client CAs from a list of plane CRs
 // It eliminates code duplication across DataPlane, WorkflowPlane, and ObservabilityPlane processing
 func (s *Server) extractPlaneClientCAs(
@@ -144,21 +155,31 @@ func (s *Server) extractPlaneClientCAs(
 	planeID string,
 	list client.ObjectList,
 	extractInfo func(client.Object) (planeInfo, bool),
-) (map[string][]byte, error) {
-	result := make(map[string][]byte)
-
-	if err := s.k8sClient.List(ctx, list); err != nil {
-		return nil, fmt.Errorf("failed to list %s: %w", planeType, err)
+) (cas map[string][]byte, unread []string, err error) {
+	if err := s.planes().List(ctx, list); err != nil {
+		return nil, nil, fmt.Errorf("failed to list %s: %w", planeType, err)
 	}
 
 	// Extract items from the list
 	// All plane list types have an Items field that implements client.Object
 	items, err := extractListItems(list)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract items from list: %w", err)
+		return nil, nil, fmt.Errorf("failed to extract items from list: %w", err)
 	}
 
+	// Keyed "namespace/name" so that the copies this replica knows to be out
+	// of date can be replaced before the planeID filter looks at them: a stale
+	// copy can show the planeID a CR had before it moved to this plane.
+	cached := make(map[string]client.Object, len(items))
 	for _, item := range items {
+		if info, ok := extractInfo(item); ok {
+			cached[fmt.Sprintf("%s/%s", info.namespace, info.name)] = item
+		}
+	}
+	behind := s.reconcilePlaneReader(ctx, planeType, clusterScopedList(list), cached)
+
+	var crs []planeInfo
+	for _, item := range cached {
 		info, ok := extractInfo(item)
 		if !ok {
 			continue // Skip items that can't be extracted (shouldn't happen)
@@ -167,23 +188,111 @@ func (s *Server) extractPlaneClientCAs(
 		if info.planeID != planeID {
 			continue
 		}
+		crs = append(crs, info)
+	}
 
+	cas, unread = s.clientCAsForConnect(ctx, planeType, crs)
+	return cas, slices.Concat(unread, behind), nil
+}
+
+// clusterScopedList reports whether a plane CR list holds a cluster-scoped kind.
+func clusterScopedList(list client.ObjectList) bool {
+	switch list.(type) {
+	case *openchoreov1alpha1.ClusterDataPlaneList,
+		*openchoreov1alpha1.ClusterWorkflowPlaneList,
+		*openchoreov1alpha1.ClusterObservabilityPlaneList:
+		return true
+	}
+	return false
+}
+
+// clientCAsForConnect returns the client CA of each CR, keyed "namespace/name",
+// for an agent connect to verify against. A CA held in a Secret is taken from
+// the CA cache when it was read recently, and otherwise read from the API
+// server, caReadConcurrency at a time.
+//
+// A CR whose CA cannot be read is left out. A CR still unread when ctx ends is
+// left out too and returned in unread: the connect then goes ahead with the
+// CRs it has, instead of failing for all of them, and the caller authorizes the
+// unread ones once the connection is registered.
+func (s *Server) clientCAsForConnect(
+	ctx context.Context, planeType string, crs []planeInfo,
+) (cas map[string][]byte, unread []string) {
+	var (
+		mu    sync.Mutex
+		wg    sync.WaitGroup
+		slots = make(chan struct{}, caReadConcurrency)
+	)
+	cas = make(map[string][]byte, len(crs))
+
+	resolve := func(info planeInfo) {
 		crKey := fmt.Sprintf("%s/%s", info.namespace, info.name)
-		caData, err := s.extractCAFromPlane(info.agent, info.namespace)
-		if err != nil {
+		caData, err := s.extractCAFromPlane(ctx, info.agent, info.namespace)
+
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case err == nil:
+			cas[crKey] = caData
+		case ctx.Err() != nil:
+			unread = append(unread, crKey)
+		default:
 			s.logger.Warn("failed to extract CA from plane CR",
 				"planeType", planeType,
 				"namespace", info.namespace,
 				"name", info.name,
 				"error", err,
 			)
+		}
+	}
+
+	for _, info := range crs {
+		key, inSecret := secretCARef(info)
+		if !inSecret {
+			resolve(info) // An inline CA, or none: nothing to read.
+			continue
+		}
+		crKey := fmt.Sprintf("%s/%s", info.namespace, info.name)
+		if caData, cached := s.cas().get(key); cached {
+			mu.Lock()
+			cas[crKey] = caData
+			mu.Unlock()
+			continue
+		}
+		if ctx.Err() != nil {
+			mu.Lock()
+			unread = append(unread, crKey)
+			mu.Unlock()
 			continue
 		}
 
-		result[crKey] = caData
+		slots <- struct{}{}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			resolve(info)
+		}()
 	}
+	wg.Wait()
 
-	return result, nil
+	if len(unread) > 0 {
+		s.logger.Warn("agent connect ran out of time reading client CAs; the CRs left out are authorized after the connect",
+			"planeType", planeType,
+			"unreadCRs", len(unread),
+			"totalCRs", len(crs),
+		)
+	}
+	return cas, unread
+}
+
+// secretCARef returns the Secret key a CR's client CA is read from, when the CA
+// is held in a Secret and not inline.
+func secretCARef(info planeInfo) (secretCAKey, bool) {
+	if info.agent == nil || info.agent.ClientCA.Value != "" || info.agent.ClientCA.SecretKeyRef == nil {
+		return secretCAKey{}, false
+	}
+	return secretCAKeyFor(info.agent.ClientCA.SecretKeyRef, info.namespace), true
 }
 
 // extractListItems extracts the Items slice from a client.ObjectList
@@ -235,8 +344,8 @@ func extractListItems(list client.ObjectList) ([]client.Object, error) {
 // Returns map of "namespace/name" -> CA data ([]byte)
 // For namespace-scoped CRs, key format is "namespace/name"
 // For cluster-scoped CRs, key format is "/name" (empty namespace)
-func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (cas map[string][]byte, unread []string, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), connectLookupTimeout)
 	defer cancel()
 
 	result := make(map[string][]byte)
@@ -245,66 +354,72 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 	switch planeType {
 	case planeTypeDataPlane:
 		// Namespace-scoped DataPlane
-		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		nsResult, nsUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range nsResult {
 			result[k] = v
 		}
+		unread = append(unread, nsUnread...)
 		// Cluster-scoped ClusterDataPlane
-		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		clusterResult, clusterUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.ClusterDataPlaneList{}, clusterDataPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range clusterResult {
 			result[k] = v
 		}
+		unread = append(unread, clusterUnread...)
 
 	case planeTypeWorkflowPlane:
 		// Namespace-scoped WorkflowPlane
-		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		nsResult, nsUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.WorkflowPlaneList{}, workflowPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range nsResult {
 			result[k] = v
 		}
+		unread = append(unread, nsUnread...)
 		// Cluster-scoped ClusterWorkflowPlane
-		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		clusterResult, clusterUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.ClusterWorkflowPlaneList{}, clusterWorkflowPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range clusterResult {
 			result[k] = v
 		}
+		unread = append(unread, clusterUnread...)
 
 	case planeTypeObservabilityPlane:
 		// Namespace-scoped ObservabilityPlane
-		nsResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		nsResult, nsUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.ObservabilityPlaneList{}, obsPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range nsResult {
 			result[k] = v
 		}
+		unread = append(unread, nsUnread...)
 		// Cluster-scoped ClusterObservabilityPlane
-		clusterResult, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
+		clusterResult, clusterUnread, err := s.extractPlaneClientCAs(ctx, planeType, planeID,
 			&openchoreov1alpha1.ClusterObservabilityPlaneList{}, clusterObsPlaneInfo)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for k, v := range clusterResult {
 			result[k] = v
 		}
+		unread = append(unread, clusterUnread...)
 
 	default:
-		return nil, fmt.Errorf("unsupported plane type: %s", planeType)
+		return nil, nil, fmt.Errorf("unsupported plane type: %s", planeType)
 	}
 
 	s.logger.Info("retrieved client CAs from CRs",
@@ -315,7 +430,7 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 
 	if len(result) > 0 {
 		for crKey := range result {
-			s.logger.Info("discovered CR for plane",
+			s.logger.Debug("discovered CR for plane",
 				"planeType", planeType,
 				"planeID", planeID,
 				"cr", crKey,
@@ -329,7 +444,7 @@ func (s *Server) getAllPlaneClientCAs(planeType, planeID string) (map[string][]b
 		)
 	}
 
-	return result, nil
+	return result, unread, nil
 }
 
 // planeCRObject returns an empty CR of the kind that a plane type and a CR
@@ -359,22 +474,26 @@ func planeCRObject(planeType, namespace string) (client.Object, func(client.Obje
 }
 
 // extractCAFromPlane extracts CA data from a plane's ClusterAgent configuration
-func (s *Server) extractCAFromPlane(clusterAgent *openchoreov1alpha1.ClusterAgentConfig, namespace string) ([]byte, error) {
+func (s *Server) extractCAFromPlane(
+	ctx context.Context, clusterAgent *openchoreov1alpha1.ClusterAgentConfig, namespace string,
+) ([]byte, error) {
 	if clusterAgent == nil {
 		return nil, nil
 	}
-	return s.extractCADataWithNamespace(&clusterAgent.ClientCA, namespace)
+	return s.extractCADataWithNamespace(ctx, &clusterAgent.ClientCA, namespace)
 }
 
 // extractCAData extracts CA certificate data from ValueFrom configuration
 // planeNamespace is used as default namespace for SecretRef if not specified
-func (s *Server) extractCADataWithNamespace(valueFrom *openchoreov1alpha1.ValueFrom, planeNamespace string) ([]byte, error) {
+func (s *Server) extractCADataWithNamespace(
+	ctx context.Context, valueFrom *openchoreov1alpha1.ValueFrom, planeNamespace string,
+) ([]byte, error) {
 	if valueFrom.Value != "" {
 		return []byte(valueFrom.Value), nil
 	}
 
 	if valueFrom.SecretKeyRef != nil {
-		return s.extractCAFromSecret(valueFrom.SecretKeyRef, planeNamespace)
+		return s.extractCAFromSecret(ctx, valueFrom.SecretKeyRef, planeNamespace)
 	}
 
 	return nil, fmt.Errorf("no valid CA data found in ValueFrom")
@@ -409,7 +528,13 @@ func parseCACertificates(pemData []byte) ([]*x509.Certificate, error) {
 
 // extractCAFromSecret extracts CA certificate data from a Kubernetes secret
 // planeNamespace is used as default if secretRef.Namespace is not specified
-func (s *Server) extractCAFromSecret(secretRef *openchoreov1alpha1.SecretKeyReference, planeNamespace string) ([]byte, error) {
+//
+// It always reads the API server. What it reads is recorded in the CA cache for
+// agent connects to reuse, and a failed read removes the entry, so the cache
+// never holds a CA that a later read has contradicted.
+func (s *Server) extractCAFromSecret(
+	ctx context.Context, secretRef *openchoreov1alpha1.SecretKeyReference, planeNamespace string,
+) ([]byte, error) {
 	if secretRef.Name == "" {
 		return nil, fmt.Errorf("secret name is required")
 	}
@@ -418,43 +543,51 @@ func (s *Server) extractCAFromSecret(secretRef *openchoreov1alpha1.SecretKeyRefe
 		return nil, fmt.Errorf("secret key is required")
 	}
 
-	namespace := secretRef.Namespace
-	if namespace == "" {
-		namespace = planeNamespace
+	key := secretCAKeyFor(secretRef, planeNamespace)
+	readAt := s.cas().now()
+	caData, err := s.readCAFromSecret(ctx, key)
+	if err != nil {
+		s.cas().drop(key, readAt)
+		return nil, err
 	}
+	s.cas().put(key, caData, readAt)
+	return caData, nil
+}
 
+// readCAFromSecret reads one CA bundle from its Secret.
+func (s *Server) readCAFromSecret(ctx context.Context, key secretCAKey) ([]byte, error) {
 	s.logger.Debug("loading CA certificate from secret",
-		"secretName", secretRef.Name,
-		"namespace", namespace,
-		"key", secretRef.Key,
+		"secretName", key.name,
+		"namespace", key.namespace,
+		"key", key.key,
 	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var secret corev1.Secret
 	secretKey := types.NamespacedName{
-		Name:      secretRef.Name,
-		Namespace: namespace,
+		Name:      key.name,
+		Namespace: key.namespace,
 	}
 
 	if err := s.k8sClient.Get(ctx, secretKey, &secret); err != nil {
-		return nil, fmt.Errorf("failed to get secret %s/%s: %w", namespace, secretRef.Name, err)
+		return nil, fmt.Errorf("failed to get secret %s/%s: %w", key.namespace, key.name, err)
 	}
 
-	caData, ok := secret.Data[secretRef.Key]
+	caData, ok := secret.Data[key.key]
 	if !ok {
-		return nil, fmt.Errorf("key %s not found in secret %s/%s", secretRef.Key, namespace, secretRef.Name)
+		return nil, fmt.Errorf("key %s not found in secret %s/%s", key.key, key.namespace, key.name)
 	}
 
 	if len(caData) == 0 {
-		return nil, fmt.Errorf("CA data is empty in secret %s/%s key %s", namespace, secretRef.Name, secretRef.Key)
+		return nil, fmt.Errorf("CA data is empty in secret %s/%s key %s", key.namespace, key.name, key.key)
 	}
 
-	s.logger.Info("loaded CA certificate from secret",
-		"secretName", secretRef.Name,
-		"namespace", namespace,
-		"key", secretRef.Key,
+	s.logger.Debug("loaded CA certificate from secret",
+		"secretName", key.name,
+		"namespace", key.namespace,
+		"key", key.key,
 		"dataSize", len(caData),
 	)
 
@@ -502,8 +635,9 @@ func (s *Server) getPlaneCR(ctx context.Context, planeType, namespace, name stri
 
 // existingPlaneCRs lists the CRs of one plane type, namespaced and
 // cluster-scoped, and returns the effective plane ID of each, keyed
-// "namespace/name". The namespace of a cluster-scoped CR is empty. The cost is
-// two list calls however many CRs exist.
+// "namespace/name". The namespace of a cluster-scoped CR is empty. The lists
+// come from planeReader, so they can trail the API server: a caller must look a
+// CR up before acting on its absence.
 func (s *Server) existingPlaneCRs(ctx context.Context, planeType string) (map[string]string, error) {
 	type planeList struct {
 		list client.ObjectList
@@ -526,7 +660,7 @@ func (s *Server) existingPlaneCRs(ctx context.Context, planeType string) (map[st
 
 	existing := make(map[string]string)
 	for _, l := range lists {
-		if err := s.k8sClient.List(ctx, l.list); err != nil {
+		if err := s.planes().List(ctx, l.list); err != nil {
 			return nil, fmt.Errorf("failed to list %T: %w", l.list, err)
 		}
 		items, err := extractListItems(l.list)
