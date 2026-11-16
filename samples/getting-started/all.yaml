@@ -3062,7 +3062,7 @@ spec:
 
   validations:
     - rule: "${(has(environmentConfigs.actions) && has(environmentConfigs.actions.notifications) && environmentConfigs.actions.notifications.channels.size() > 0) || (has(environment.defaultNotificationChannel) && environment.defaultNotificationChannel != '')}"
-      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or set environment.defaultNotificationChannel."
+      message: "A notification channel is mandatory for alert rules (incident-only rules are not supported). Provide environmentConfigs.actions.notifications.channels or mark an ObservabilityAlertsNotificationChannel of this environment as the default (spec.isEnvDefault: true)."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiRca == false || environmentConfigs.actions.incident.enabled == true}"
       message: "incident.enabled must be true when triggerAiRca is true. AI-powered root cause analysis requires incident creation to be enabled."
     - rule: "${!has(environmentConfigs.actions) || !has(environmentConfigs.actions.incident) || environmentConfigs.actions.incident.triggerAiCostAnalysis == false || environmentConfigs.actions.incident.enabled == true}"

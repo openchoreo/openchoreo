@@ -191,9 +191,9 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.environment is immutable"
 	Environment string `json:"environment"`
 
-	// IsEnvDefault indicates if this is the default notification channel for the environment
-	// There can be only one default notification channel for an environment
-	// First notification channel created for an environment will be the default unless otherwise specified
+	// IsEnvDefault marks this channel as the default notification channel for the environment.
+	// If several channels of an environment are marked, the most recently created one is used.
+	// If none is marked, the environment has no default notification channel.
 	// +kubebuilder:default=false
 	IsEnvDefault bool `json:"isEnvDefault,omitempty"`
 
