@@ -274,6 +274,44 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
+	It("stops observing when its claims are emptied, even once the ReleaseLine is gone", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-line-empty")
+		line := &openchoreov1alpha1.ReleaseLine{
+			ObjectMeta: metav1.ObjectMeta{Name: "edge", Namespace: ns},
+			Spec: openchoreov1alpha1.ReleaseLineSpec{
+				Owner: openchoreov1alpha1.ReleaseLineOwner{ProjectName: project, ComponentName: "obs-line-empty"},
+			},
+		}
+		Expect(k8sClient.Create(ctx, line)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, line) })
+		rb := rbFixture("obs-line-empty-edge", project, "obs-line-empty", env, "", true)
+		rb.Spec.Owner.ReleaseLine = "edge"
+		rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
+		rb.Spec.Observe = &openchoreov1alpha1.ReleaseBindingObserve{
+			Resources: []openchoreov1alpha1.ObservedResourceClaim{deployment},
+		}
+		Expect(k8sClient.Create(ctx, rb)).To(Succeed())
+		rrKey := types.NamespacedName{Namespace: ns, Name: releaseline.RenderedReleaseName("obs-line-empty", "edge", env)}
+		DeferCleanup(func() {
+			forceDelete(rb.Name)
+			forceDeleteRelease(rrKey.Name)
+		})
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+		Expect(k8sClient.Get(ctx, rrKey, &openchoreov1alpha1.RenderedRelease{})).To(Succeed())
+
+		Expect(k8sClient.Delete(ctx, line)).To(Succeed())
+		current := fetchRB(rb.Name)
+		current.Spec.Observe.Resources = nil
+		Expect(k8sClient.Update(ctx, current)).To(Succeed())
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		Expect(conditionFor(fetchRB(rb.Name), string(ConditionReady)).Reason).
+			To(Equal(string(ReasonNothingObserved)))
+		err := k8sClient.Get(ctx, rrKey, &openchoreov1alpha1.RenderedRelease{})
+		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
 	It("stops an Observe-mode release left by a switch to Manage once the namespace is revoked", func() {
 		prb := makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
 		makeComponent("obs-flip")

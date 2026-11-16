@@ -46,7 +46,7 @@ func readOnlyPlaneClient(t *testing.T, getErr func(key client.ObjectKey, obj cli
 		t.Errorf("observed resources must never be written, got a %s", op)
 		return fmt.Errorf("unexpected %s", op)
 	}
-	return fake.NewClientBuilder().WithObjects(objs...).WithInterceptorFuncs(interceptor.Funcs{
+	return fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).WithObjects(objs...).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 			if getErr != nil {
 				if err := getErr(key, obj); err != nil {
@@ -77,6 +77,33 @@ func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Uns
 	obj.SetNamespace(namespace)
 	obj.SetName(name)
 	return obj
+}
+
+// planeMapper answers scope lookups as a plane would: Namespace is
+// cluster-scoped and every other kind is namespaced. A lookup for a kind in
+// errs fails with that error. The fake client's default mapper knows no kinds.
+type planeMapper struct {
+	apimeta.RESTMapper
+	errs map[string]error
+}
+
+func newPlaneMapper(errs map[string]error) planeMapper {
+	return planeMapper{RESTMapper: apimeta.NewDefaultRESTMapper(nil), errs: errs}
+}
+
+func (m planeMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*apimeta.RESTMapping, error) {
+	if err := m.errs[gk.Kind]; err != nil {
+		return nil, err
+	}
+	scope := apimeta.RESTScopeNamespace
+	if gk.Group == "" && gk.Kind == "Namespace" {
+		scope = apimeta.RESTScopeRoot
+	}
+	var version string
+	if len(versions) > 0 {
+		version = versions[0]
+	}
+	return &apimeta.RESTMapping{GroupVersionKind: gk.WithVersion(version), Scope: scope}, nil
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -247,7 +274,7 @@ func TestReadObservedResources(t *testing.T) {
 // planeServing returns a plane client whose every Get answers with served, as
 // the server would send it.
 func planeServing(served *unstructured.Unstructured) client.Client {
-	return fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+	return fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 			obj.(*unstructured.Unstructured).Object = served.DeepCopy().Object
 			return nil
@@ -259,11 +286,8 @@ func TestReadObservedResourcesSkipsClusterScopedKindsInANamespace(t *testing.T) 
 	ctx := context.Background()
 	r := &Reconciler{}
 
-	// The fake client's default REST mapper treats every kind as namespaced.
-	mapper := apimeta.NewDefaultRESTMapper(nil)
-	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, apimeta.RESTScopeRoot)
 	readInNamespace := false
-	planeClient := fake.NewClientBuilder().WithRESTMapper(mapper).
+	planeClient := fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).
 		WithObjects(unstructuredObj("v1", "Namespace", "", "orders")).
 		WithInterceptorFuncs(interceptor.Funcs{
 			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
@@ -292,6 +316,55 @@ func TestReadObservedResourcesSkipsClusterScopedKindsInANamespace(t *testing.T) 
 	}
 	if got := result.statuses[1].HealthStatus; got != openchoreov1alpha1.HealthStatusHealthy {
 		t.Errorf("entry without a namespace health = %q, want Healthy", got)
+	}
+}
+
+func TestReadObservedResourcesStopsWhenTheScopeIsUnknown(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	cases := []struct {
+		name       string
+		err        error
+		wantReason controller.ConditionReason
+		wantDetail []string
+	}{
+		{"a kind the plane doesn't serve", &apimeta.NoKindMatchError{GroupKind: schema.GroupKind{Kind: "Widget"}},
+			ReasonObservedKindNotFound, []string{"kind is not served by the plane"}},
+		{"any other lookup error", errors.New("discovery failed"),
+			ReasonObservedReadFailed, []string{"failed to resolve the kind's scope: ", "discovery failed"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			read := false
+			planeClient := fake.NewClientBuilder().
+				WithRESTMapper(newPlaneMapper(map[string]error{"Widget": tc.err})).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+						read = true
+						return nil
+					},
+				}).Build()
+
+			entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+				observedRes("widget", "example.com/v1", "Widget", "payments", "orders")})
+			result := r.readObservedResources(ctx, planeClient, &openchoreov1alpha1.RenderedRelease{}, entries)
+
+			if read {
+				t.Error("the object was read although its scope is unknown")
+			}
+			if len(result.failures) != 1 || result.failures[0].reason != tc.wantReason {
+				t.Fatalf("want one %s failure, got %+v", tc.wantReason, result.failures)
+			}
+			for _, want := range tc.wantDetail {
+				if !strings.Contains(result.failures[0].detail, want) {
+					t.Errorf("detail = %q, want it to contain %q", result.failures[0].detail, want)
+				}
+			}
+			if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusUnknown {
+				t.Errorf("health = %q, want Unknown", got)
+			}
+		})
 	}
 }
 

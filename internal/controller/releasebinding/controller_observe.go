@@ -36,10 +36,6 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		return r.stopObserving(ctx, releaseBinding)
 	}
 
-	if _, ok, err := r.validateReleaseLine(ctx, releaseBinding); err != nil || !ok {
-		return err
-	}
-
 	var claims []openchoreov1alpha1.ObservedResourceClaim
 	if releaseBinding.Spec.Observe != nil {
 		claims = releaseBinding.Spec.Observe.Resources
@@ -48,6 +44,10 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		markNotObserving(releaseBinding, ReasonNothingObserved,
 			"spec.observe.resources is empty; list the objects this component runs as")
 		return r.stopObserving(ctx, releaseBinding)
+	}
+
+	if _, ok, err := r.validateReleaseLine(ctx, releaseBinding); err != nil || !ok {
+		return err
 	}
 
 	component := &openchoreov1alpha1.Component{}

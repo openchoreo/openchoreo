@@ -295,4 +295,28 @@ var _ = Describe("ProjectReleaseBinding controller — Observe mode", func() {
 		err := k8sClient.Get(ctx, releaseKey(b), &openchoreov1alpha1.RenderedRelease{})
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
+
+	It("keeps its release when it is no longer in Observe mode", func() {
+		env := makeEnvironment("observe-converted", "payments")
+		b := create(observeBinding("observe-converted", env.Name))
+		reconcileBinding(b)
+
+		rr := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, releaseKey(b), rr)).To(Succeed())
+		rr.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeManage
+		Expect(k8sClient.Update(ctx, rr)).To(Succeed())
+
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(env), env)).To(Succeed())
+		env.Spec.Observe.AllowedNamespaces = nil
+		Expect(k8sClient.Update(ctx, env)).To(Succeed())
+
+		updated := reconcileBinding(b)
+
+		Expect(updated.Status.Namespace).To(BeEmpty())
+		Expect(condition(updated, ConditionSynced).Reason).To(Equal(string(ReasonNamespaceNotAllowed)))
+		kept := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, releaseKey(b), kept)).To(Succeed())
+		Expect(kept.DeletionTimestamp).To(BeNil())
+		Expect(kept.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeManage))
+	})
 })

@@ -194,12 +194,17 @@ func readObservedResource(ctx context.Context, planeClient client.Client, entry 
 	// for a cluster-scoped kind, so reading one would return an object outside
 	// it, such as the Namespace "default" itself. Report it instead of reading.
 	if entry.namespace != "" {
-		if namespaced, err := planeClient.IsObjectNamespaced(obj); err == nil && !namespaced {
-			return nil, &observedReadFailure{
-				entry:  entry,
-				reason: ReasonObservedKindNotFound,
-				detail: "kind is cluster-scoped, so it can't be read in a namespace",
-			}
+		namespaced, err := planeClient.IsObjectNamespaced(obj)
+		switch {
+		case apimeta.IsNoMatchError(err):
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedKindNotFound,
+				detail: "kind is not served by the plane"}
+		case err != nil:
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedReadFailed,
+				detail: "failed to resolve the kind's scope: " + err.Error()}
+		case !namespaced:
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedKindNotFound,
+				detail: "kind is cluster-scoped"}
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -101,7 +102,9 @@ func (r *Reconciler) stopObserving(ctx context.Context, binding *openchoreov1alp
 }
 
 // deleteRenderedRelease deletes the binding's RenderedRelease if the binding
-// controls it.
+// controls it and it is in Observe mode. The delete is conditioned on the
+// release's UID and resourceVersion, so a release changed since the read is
+// never deleted.
 func (r *Reconciler) deleteRenderedRelease(ctx context.Context, binding *openchoreov1alpha1.ProjectReleaseBinding) error {
 	rr := &openchoreov1alpha1.RenderedRelease{}
 	key := types.NamespacedName{Name: makeRenderedReleaseName(binding), Namespace: binding.Namespace}
@@ -111,10 +114,12 @@ func (r *Reconciler) deleteRenderedRelease(ctx context.Context, binding *opencho
 		}
 		return fmt.Errorf("get RenderedRelease %q: %w", key.Name, err)
 	}
-	if !metav1.IsControlledBy(rr, binding) || !rr.DeletionTimestamp.IsZero() {
+	if !metav1.IsControlledBy(rr, binding) || !rr.DeletionTimestamp.IsZero() ||
+		rr.Spec.Mode != openchoreov1alpha1.RenderedReleaseModeObserve {
 		return nil
 	}
-	if err := r.Delete(ctx, rr); err != nil && !apierrors.IsNotFound(err) {
+	err := r.Delete(ctx, rr, client.Preconditions{UID: &rr.UID, ResourceVersion: &rr.ResourceVersion})
+	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("delete RenderedRelease %q: %w", key.Name, err)
 	}
 	return nil

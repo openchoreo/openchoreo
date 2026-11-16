@@ -285,6 +285,42 @@ func isPrimaryWorkload(gvk schema.GroupVersionKind, workloadType WorkloadType) b
 	}
 }
 
+// leastHealthyPrimary returns the least healthy of the resources that are the
+// component's primary workload, or nil if there is none. With several, such as
+// two claimed Deployments, the least healthy decides readiness whatever order
+// they are listed in.
+func leastHealthyPrimary(resources []openchoreov1alpha1.RenderedManifestStatus,
+	workloadType WorkloadType) *openchoreov1alpha1.RenderedManifestStatus {
+	var primary *openchoreov1alpha1.RenderedManifestStatus
+	for i := range resources {
+		res := &resources[i]
+		gvk := schema.GroupVersionKind{Group: res.Group, Version: res.Version, Kind: res.Kind}
+		if !isPrimaryWorkload(gvk, workloadType) {
+			continue
+		}
+		if primary == nil || healthRank(res.HealthStatus) > healthRank(primary.HealthStatus) {
+			primary = res
+		}
+	}
+	return primary
+}
+
+// healthRank orders health from best to worst.
+func healthRank(health openchoreov1alpha1.HealthStatus) int {
+	switch health {
+	case openchoreov1alpha1.HealthStatusHealthy:
+		return 0
+	case openchoreov1alpha1.HealthStatusSuspended:
+		return 1
+	case openchoreov1alpha1.HealthStatusProgressing:
+		return 2
+	case openchoreov1alpha1.HealthStatusDegraded:
+		return 4
+	default:
+		return 3
+	}
+}
+
 // aggregateResourceStatus counts resources by their health status.
 func aggregateResourceStatus(resources []openchoreov1alpha1.RenderedManifestStatus) ResourceStatusSummary {
 	summary := ResourceStatusSummary{
@@ -312,8 +348,9 @@ func aggregateResourceStatus(resources []openchoreov1alpha1.RenderedManifestStat
 // evaluateDeploymentStatus evaluates status for Deployment workload type.
 // Focuses on the primary Deployment resource and only fails if critical resources are degraded.
 func evaluateDeploymentStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
+	primaryWorkload := leastHealthyPrimary(resources, workloadType)
+
 	// Separate resources by category
-	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
 	var supportingResources []openchoreov1alpha1.RenderedManifestStatus
 	var operationalResources []openchoreov1alpha1.RenderedManifestStatus
 
@@ -329,9 +366,7 @@ func evaluateDeploymentStatus(resources []openchoreov1alpha1.RenderedManifestSta
 
 		switch category {
 		case CategoryPrimaryWorkload:
-			if isPrimaryWorkload(gvk, workloadType) {
-				primaryWorkload = res
-			}
+			continue
 		case CategorySupporting:
 			supportingResources = append(supportingResources, *res)
 		case CategoryOperational:
@@ -401,23 +436,7 @@ func evaluateStatefulSetStatus(resources []openchoreov1alpha1.RenderedManifestSt
 // evaluateCronJobStatus evaluates status for CronJob workload type.
 // CronJobs have different ready criteria - Suspended and Progressing are valid states.
 func evaluateCronJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
-	// Find primary CronJob
-	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
-
-	for i := range resources {
-		res := &resources[i]
-		gvk := schema.GroupVersionKind{
-			Group:   res.Group,
-			Version: res.Version,
-			Kind:    res.Kind,
-		}
-
-		if isPrimaryWorkload(gvk, workloadType) {
-			primaryWorkload = res
-			break
-		}
-	}
-
+	primaryWorkload := leastHealthyPrimary(resources, workloadType)
 	if primaryWorkload == nil {
 		return false, string(ReasonResourcesProgressing), "Primary CronJob not found"
 	}
@@ -454,23 +473,7 @@ func evaluateCronJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus
 // evaluateJobStatus evaluates status for Job workload type.
 // Jobs must complete (Healthy) to be considered ready. Progressing is expected until completion.
 func evaluateJobStatus(resources []openchoreov1alpha1.RenderedManifestStatus, workloadType WorkloadType) (ready bool, reason, message string) {
-	// Find primary Job
-	var primaryWorkload *openchoreov1alpha1.RenderedManifestStatus
-
-	for i := range resources {
-		res := &resources[i]
-		gvk := schema.GroupVersionKind{
-			Group:   res.Group,
-			Version: res.Version,
-			Kind:    res.Kind,
-		}
-
-		if isPrimaryWorkload(gvk, workloadType) {
-			primaryWorkload = res
-			break
-		}
-	}
-
+	primaryWorkload := leastHealthyPrimary(resources, workloadType)
 	if primaryWorkload == nil {
 		return false, string(ReasonResourcesProgressing), "Primary Job not found"
 	}

@@ -890,6 +890,59 @@ func TestEvaluateJobStatus_AllPathsAndNoPrimary(t *testing.T) {
 
 // ─── evaluateGenericStatus ────────────────────────────────────────────────────
 
+func TestEvaluateStatusWithSeveralPrimaryWorkloads(t *testing.T) {
+	named := func(r openchoreov1alpha1.RenderedManifestStatus, name string) openchoreov1alpha1.RenderedManifestStatus {
+		r.Name = name
+		return r
+	}
+	type evaluator func([]openchoreov1alpha1.RenderedManifestStatus, WorkloadType) (bool, string, string)
+
+	tests := []struct {
+		name         string
+		evaluate     evaluator
+		workloadType WorkloadType
+		resources    []openchoreov1alpha1.RenderedManifestStatus
+		wantReady    bool
+		wantReason   string
+	}{
+		{"a degraded Deployment", evaluateDeploymentStatus, WorkloadTypeDeployment,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(deploymentResource(openchoreov1alpha1.HealthStatusDegraded), "api"),
+				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "worker"),
+			}, false, string(ReasonResourcesDegraded)},
+		{"a progressing StatefulSet", evaluateStatefulSetStatus, WorkloadTypeStatefulSet,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(statefulSetResource(openchoreov1alpha1.HealthStatusProgressing), "db"),
+				named(statefulSetResource(openchoreov1alpha1.HealthStatusHealthy), "cache"),
+			}, false, string(ReasonResourcesProgressing)},
+		{"a degraded CronJob", evaluateCronJobStatus, WorkloadTypeCronJob,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(cronJobResource(openchoreov1alpha1.HealthStatusHealthy), "report"),
+				named(cronJobResource(openchoreov1alpha1.HealthStatusDegraded), "cleanup"),
+			}, false, string(ReasonResourcesDegraded)},
+		{"a running Job", evaluateJobStatus, WorkloadTypeJob,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(jobResource(openchoreov1alpha1.HealthStatusHealthy), "migrate"),
+				named(jobResource(openchoreov1alpha1.HealthStatusProgressing), "seed"),
+			}, false, string(ReasonJobRunning)},
+		{"all healthy Deployments", evaluateDeploymentStatus, WorkloadTypeDeployment,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "api"),
+				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "worker"),
+			}, true, string(ReasonReady)},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reversed := []openchoreov1alpha1.RenderedManifestStatus{tc.resources[1], tc.resources[0]}
+			for _, resources := range [][]openchoreov1alpha1.RenderedManifestStatus{tc.resources, reversed} {
+				ready, reason, _ := tc.evaluate(resources, tc.workloadType)
+				assert.Equal(t, tc.wantReady, ready, "order %s, %s", resources[0].Name, resources[1].Name)
+				assert.Equal(t, tc.wantReason, reason, "order %s, %s", resources[0].Name, resources[1].Name)
+			}
+		})
+	}
+}
+
 func TestEvaluateGenericStatus(t *testing.T) {
 	// Empty → ready
 	ready, reason, _ := evaluateGenericStatus(nil)
