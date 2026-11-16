@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
@@ -75,12 +74,7 @@ func TestNewApplyCmd_FactoryError(t *testing.T) {
 
 func TestNewApplyCmd_RunE_NoFile(t *testing.T) {
 	home := testutil.SetupTestHome(t)
-	testutil.WriteOCConfig(t, home, config.StoredConfig{
-		CurrentContext: "test",
-		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
-		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
-	})
+	writeTestOCConfig(t, home)
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		t.Fatal("no HTTP call expected")
@@ -97,12 +91,7 @@ func TestNewApplyCmd_RunE_NoFile(t *testing.T) {
 
 func TestNewApplyCmd_RunE_CreateNamespace(t *testing.T) {
 	home := testutil.SetupTestHome(t)
-	testutil.WriteOCConfig(t, home, config.StoredConfig{
-		CurrentContext: "test",
-		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
-		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
-	})
+	writeTestOCConfig(t, home)
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
@@ -114,7 +103,7 @@ func TestNewApplyCmd_RunE_CreateNamespace(t *testing.T) {
 			}, nil
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces"):
 			return testutil.JSONResp(http.StatusCreated, map[string]any{
-				"metadata": map[string]any{"name": "cmd-ns"},
+				keyMetadata: map[string]any{keyName: "cmd-ns"},
 			}), nil
 		default:
 			return &http.Response{
@@ -147,22 +136,17 @@ metadata:
 
 func TestNewApplyCmd_RunE_UpdateNamespace(t *testing.T) {
 	home := testutil.SetupTestHome(t)
-	testutil.WriteOCConfig(t, home, config.StoredConfig{
-		CurrentContext: "test",
-		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
-		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
-	})
+	writeTestOCConfig(t, home)
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/upd-ns"):
 			return testutil.JSONResp(http.StatusOK, map[string]any{
-				"metadata": map[string]any{"name": "upd-ns"},
+				keyMetadata: map[string]any{keyName: "upd-ns"},
 			}), nil
 		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/namespaces/upd-ns"):
 			return testutil.JSONResp(http.StatusOK, map[string]any{
-				"metadata": map[string]any{"name": "upd-ns"},
+				keyMetadata: map[string]any{keyName: "upd-ns"},
 			}), nil
 		default:
 			return &http.Response{
@@ -192,12 +176,7 @@ metadata:
 
 func TestNewApplyCmd_RunE_DryRun(t *testing.T) {
 	home := testutil.SetupTestHome(t)
-	testutil.WriteOCConfig(t, home, config.StoredConfig{
-		CurrentContext: "test",
-		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: "http://mock-api"}},
-		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
-		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
-	})
+	writeTestOCConfig(t, home)
 
 	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/dry-ns") {
