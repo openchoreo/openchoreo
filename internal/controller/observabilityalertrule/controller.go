@@ -252,6 +252,9 @@ func (r *Reconciler) sync(ctx context.Context, alertRule *openchoreov1alpha1.Obs
 
 // ownsBackendRule reports whether a backend rule was built from the given rule. Adapters that do not
 // report the namespace are trusted.
+//
+// TODO(#5421): remove this check and errRuleOwnedByOtherNamespace in v1.5 if every adapter's v1.4
+// release identifies rules by namespace and name; otherwise remove them once that is true.
 func ownsBackendRule(alertRule *openchoreov1alpha1.ObservabilityAlertRule, getResp *alertRuleGetResponse) bool {
 	return getResp == nil || getResp.Metadata.Namespace == "" || getResp.Metadata.Namespace == alertRule.Namespace
 }

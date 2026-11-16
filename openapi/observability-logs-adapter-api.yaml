@@ -650,6 +650,8 @@ paths:
         description: The name of the alert rule
         schema:
           type: string
+      # TODO(#5421): make this required in v1.5, since every observer from v1.4 sends it, and drop
+      # the name-only fallback in the adapters.
       - name: namespace
         in: query
         required: false
