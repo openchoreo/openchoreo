@@ -300,7 +300,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			mustReconcile(r, reconcileRequest(releaseName))
 			Expect(configMapExists("m2o-applied")).To(BeTrue())
 			updated := fetchRelease(releaseName)
-			Expect(updated.Spec.Mode).To(BeEmpty(), "unset mode is not defaulted by the API server, and means Manage")
+			Expect(updated.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeManage), "an unset mode defaults to Manage")
 			Expect(updated.Status.Resources).To(HaveLen(1))
 			Expect(updated.Status.ObservedResources).To(HaveLen(1))
 			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
@@ -837,14 +837,11 @@ var _ = Describe("RenderedRelease observe mode API validation", func() {
 		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
 	})
 
-	It("leaves an unset mode unset and rejects unknown modes", func() {
-		// Binding controllers write the whole spec without a mode. A server default
-		// would differ from what they write and make every reconcile an update.
+	It("defaults an unset mode to Manage and rejects unknown modes", func() {
 		release := newRelease("val-mode")
 		Expect(k8sClient.Create(ctx, release)).To(Succeed())
 		stored := fetchRelease("val-mode")
-		Expect(stored.Spec.Mode).To(BeEmpty())
-		Expect(effectiveMode(stored)).To(Equal(openchoreov1alpha1.RenderedReleaseModeManage))
+		Expect(stored.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeManage))
 
 		bad := newRelease("val-bad-mode")
 		bad.Spec.Mode = "Adopt"

@@ -554,3 +554,47 @@ func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseB
 	}
 	return names
 }
+
+// findReleaseBindingsForProjectReleaseBinding enqueues the ReleaseBindings of
+// the ProjectReleaseBinding's project and environment. Observe-mode bindings
+// take their namespace from it, and a binding switched to Manage may still have
+// an Observe-mode release that must stop when the namespace is revoked.
+func (r *Reconciler) findReleaseBindingsForProjectReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	prb, ok := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if !ok {
+		return nil
+	}
+	bindings := &openchoreov1alpha1.ReleaseBindingList{}
+	if err := r.List(ctx, bindings, client.InNamespace(prb.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for ProjectReleaseBinding",
+			"projectReleaseBinding", prb.Name)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName &&
+			rb.Spec.Environment == prb.Spec.Environment {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// projectReleaseBindingObserveChangedPredicate passes creates, deletes, and
+// updates that change what an observed ReleaseBinding reads from its
+// ProjectReleaseBinding: the mode and the namespace in status.
+func projectReleaseBindingObserveChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldPRB, okOld := e.ObjectOld.(*openchoreov1alpha1.ProjectReleaseBinding)
+			newPRB, okNew := e.ObjectNew.(*openchoreov1alpha1.ProjectReleaseBinding)
+			if !okOld || !okNew {
+				return false
+			}
+			return oldPRB.Spec.Mode != newPRB.Spec.Mode || oldPRB.Status.Namespace != newPRB.Status.Namespace
+		},
+	}
+}
