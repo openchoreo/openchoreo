@@ -1329,6 +1329,7 @@ openchoreoApi:
                 - "workflowplane:view"
                 - "clusterworkflowplane:view"
                 - "workflow:view"
+                - "workflowrun:view"
                 - "deploymentpipeline:view"
                 - "observabilityplane:view"
                 - "clusterobservabilityplane:view"
