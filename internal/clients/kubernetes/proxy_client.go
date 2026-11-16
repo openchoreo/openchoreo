@@ -624,6 +624,10 @@ func (pc *ProxyClient) buildListPath(gvk schema.GroupVersionKind, namespace stri
 // validatePathSegments checks that each part of a request path is a single
 // path segment, as client-go does. Otherwise a name such as "../../other" would
 // address another object once the path is cleaned on its way to the API server.
+//
+// It also rejects '?' and '#', which client-go escapes instead. Escaping does
+// not survive here: the gateway forwards the decoded path, and the agent joins
+// it into a URL string, so "orders#x" would read "orders".
 func validatePathSegments(gvk schema.GroupVersionKind, resource, namespace, name string) error {
 	for _, part := range []struct{ field, value string }{
 		{"group", gvk.Group},
@@ -637,6 +641,9 @@ func validatePathSegments(gvk schema.GroupVersionKind, resource, namespace, name
 		}
 		if msgs := content.IsPathSegmentName(part.value); len(msgs) > 0 {
 			return fmt.Errorf("invalid %s %q: %s", part.field, part.value, strings.Join(msgs, ", "))
+		}
+		if strings.ContainsAny(part.value, "?#") {
+			return fmt.Errorf("invalid %s %q: may not contain '?' or '#'", part.field, part.value)
 		}
 	}
 	return nil

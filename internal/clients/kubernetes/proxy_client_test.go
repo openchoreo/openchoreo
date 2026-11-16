@@ -517,6 +517,9 @@ func TestBuildPathRejectsPartsThatAreNotOneSegment(t *testing.T) {
 		{"a name with a slash", configMap, "payments", "orders/status"},
 		{"a name with a percent sign", configMap, "payments", "orders%2Fstatus"},
 		{"a dot-dot name", configMap, "payments", ".."},
+		{"a name with a fragment", configMap, "payments", "orders#ignored"},
+		{"a name with a query", configMap, "payments", "orders?x"},
+		{"a namespace with a query", configMap, "kube-system?", "orders"},
 		{"a namespace that climbs out", configMap, "../kube-system", "orders"},
 		{"a group that climbs out", schema.GroupVersionKind{Group: "..", Version: "v1", Kind: "Widget"}, "payments", "orders"},
 		{"a version that climbs out", schema.GroupVersionKind{Group: "apps", Version: "..", Kind: "Deployment"}, "payments", "orders"},
@@ -542,7 +545,8 @@ func TestProxyClientSendsNoRequestForANameThatClimbsOut(t *testing.T) {
 	requests := 0
 	pc := newTestProxyClient(t, func(w http.ResponseWriter, _ *http.Request) {
 		requests++
-		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"apiVersion":"v1","kind":"ConfigMapList","items":[]}`))
 	})
 	ctx := context.Background()
 	escaping := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "../../default", Namespace: "payments"}}
@@ -553,7 +557,14 @@ func TestProxyClientSendsNoRequestForANameThatClimbsOut(t *testing.T) {
 	assert.Error(t, pc.Delete(ctx, escaping.DeepCopy()))
 	assert.Error(t, pc.Status().Update(ctx, escaping.DeepCopy()))
 	assert.Error(t, pc.List(ctx, &corev1.ConfigMapList{}, client.InNamespace("../kube-system")))
+	assert.Error(t, pc.Get(ctx, client.ObjectKey{Namespace: "payments", Name: "orders#ignored"}, &corev1.ConfigMap{}))
+	assert.Error(t, pc.Get(ctx, client.ObjectKey{Namespace: "payments", Name: "orders?x"}, &corev1.ConfigMap{}))
 	assert.Zero(t, requests, "no request reaches the gateway")
+
+	// A list's own query string is added after the check.
+	require.NoError(t, pc.List(ctx, &corev1.ConfigMapList{}, client.InNamespace("payments"),
+		client.MatchingLabels{"app": "orders"}))
+	assert.Equal(t, 1, requests)
 }
 
 func TestBuildProxyURL(t *testing.T) {
