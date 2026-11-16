@@ -18,6 +18,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/validate/content"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -102,7 +103,10 @@ func (pc *ProxyClient) Get(ctx context.Context, key client.ObjectKey, obj client
 		return err
 	}
 
-	apiPath := pc.buildGetPath(gvk, key.Namespace, key.Name)
+	apiPath, err := pc.buildGetPath(gvk, key.Namespace, key.Name)
+	if err != nil {
+		return err
+	}
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
@@ -146,7 +150,10 @@ func (pc *ProxyClient) List(ctx context.Context, list client.ObjectList, opts ..
 		return err
 	}
 
-	apiPath := pc.buildListPath(gvk, listOpts.Namespace)
+	apiPath, err := pc.buildListPath(gvk, listOpts.Namespace)
+	if err != nil {
+		return err
+	}
 
 	queryParams := pc.buildListQueryParams(listOpts)
 
@@ -190,7 +197,10 @@ func (pc *ProxyClient) Create(ctx context.Context, obj client.Object, opts ...cl
 		return err
 	}
 
-	apiPath := pc.buildCreatePath(gvk, obj.GetNamespace())
+	apiPath, err := pc.buildCreatePath(gvk, obj.GetNamespace())
+	if err != nil {
+		return err
+	}
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
@@ -235,7 +245,10 @@ func (pc *ProxyClient) Update(ctx context.Context, obj client.Object, opts ...cl
 		return err
 	}
 
-	apiPath := pc.buildUpdatePath(gvk, obj.GetNamespace(), obj.GetName())
+	apiPath, err := pc.buildUpdatePath(gvk, obj.GetNamespace(), obj.GetName())
+	if err != nil {
+		return err
+	}
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
@@ -285,7 +298,10 @@ func (pc *ProxyClient) Patch(ctx context.Context, obj client.Object, patch clien
 		opt.ApplyToPatch(patchOpts)
 	}
 
-	apiPath := pc.buildUpdatePath(gvk, obj.GetNamespace(), obj.GetName())
+	apiPath, err := pc.buildUpdatePath(gvk, obj.GetNamespace(), obj.GetName())
+	if err != nil {
+		return err
+	}
 
 	queryParams := pc.buildPatchQueryParams(patchOpts)
 
@@ -335,7 +351,10 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 		return err
 	}
 
-	apiPath := pc.buildDeletePath(gvk, obj.GetNamespace(), obj.GetName())
+	apiPath, err := pc.buildDeletePath(gvk, obj.GetNamespace(), obj.GetName())
+	if err != nil {
+		return err
+	}
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
@@ -428,7 +447,10 @@ func (psw *proxyStatusWriter) Update(ctx context.Context, obj client.Object, opt
 		return err
 	}
 
-	apiPath := psw.client.buildStatusPath(gvk, obj.GetNamespace(), obj.GetName())
+	apiPath, err := psw.client.buildStatusPath(gvk, obj.GetNamespace(), obj.GetName())
+	if err != nil {
+		return err
+	}
 
 	proxyURL := psw.client.buildProxyURL(apiPath)
 
@@ -478,7 +500,10 @@ func (psw *proxyStatusWriter) Patch(ctx context.Context, obj client.Object, patc
 		opt.ApplyToSubResourcePatch(patchOpts)
 	}
 
-	apiPath := psw.client.buildStatusPath(gvk, obj.GetNamespace(), obj.GetName())
+	apiPath, err := psw.client.buildStatusPath(gvk, obj.GetNamespace(), obj.GetName())
+	if err != nil {
+		return err
+	}
 
 	queryParams := psw.client.buildSubResourcePatchQueryParams(patchOpts)
 
@@ -553,61 +578,92 @@ func (psr *proxySubResourceClient) Apply(ctx context.Context, obj runtime.ApplyC
 }
 
 // buildGetPath builds the Kubernetes API path for a GET request
-func (pc *ProxyClient) buildGetPath(gvk schema.GroupVersionKind, namespace, name string) string {
+func (pc *ProxyClient) buildGetPath(gvk schema.GroupVersionKind, namespace, name string) (string, error) {
 	resource := pluralizeKind(gvk.Kind)
+	if err := validatePathSegments(gvk, resource, namespace, name); err != nil {
+		return "", err
+	}
 
 	// Core API group (empty string)
 	if gvk.Group == "" {
 		if namespace != "" && isNamespaced(gvk) {
-			return fmt.Sprintf("/api/%s/namespaces/%s/%s/%s", gvk.Version, namespace, resource, name)
+			return fmt.Sprintf("/api/%s/namespaces/%s/%s/%s", gvk.Version, namespace, resource, name), nil
 		}
-		return fmt.Sprintf("/api/%s/%s/%s", gvk.Version, resource, name)
+		return fmt.Sprintf("/api/%s/%s/%s", gvk.Version, resource, name), nil
 	}
 
 	// Non-core API groups (e.g., apps, batch, networking.k8s.io)
 	if namespace != "" && isNamespaced(gvk) {
-		return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", gvk.Group, gvk.Version, namespace, resource, name)
+		return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s", gvk.Group, gvk.Version, namespace, resource, name), nil
 	}
-	return fmt.Sprintf("/apis/%s/%s/%s/%s", gvk.Group, gvk.Version, resource, name)
+	return fmt.Sprintf("/apis/%s/%s/%s/%s", gvk.Group, gvk.Version, resource, name), nil
 }
 
 // buildListPath builds the Kubernetes API path for a LIST request
-func (pc *ProxyClient) buildListPath(gvk schema.GroupVersionKind, namespace string) string {
+func (pc *ProxyClient) buildListPath(gvk schema.GroupVersionKind, namespace string) (string, error) {
 	resource := pluralizeKind(gvk.Kind)
+	if err := validatePathSegments(gvk, resource, namespace, ""); err != nil {
+		return "", err
+	}
 
 	// Core API group (empty string)
 	if gvk.Group == "" {
 		if namespace != "" && isNamespaced(gvk) {
-			return fmt.Sprintf("/api/%s/namespaces/%s/%s", gvk.Version, namespace, resource)
+			return fmt.Sprintf("/api/%s/namespaces/%s/%s", gvk.Version, namespace, resource), nil
 		}
-		return fmt.Sprintf("/api/%s/%s", gvk.Version, resource)
+		return fmt.Sprintf("/api/%s/%s", gvk.Version, resource), nil
 	}
 
 	// Non-core API groups (e.g., apps, batch, networking.k8s.io)
 	if namespace != "" && isNamespaced(gvk) {
-		return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s", gvk.Group, gvk.Version, namespace, resource)
+		return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s", gvk.Group, gvk.Version, namespace, resource), nil
 	}
-	return fmt.Sprintf("/apis/%s/%s/%s", gvk.Group, gvk.Version, resource)
+	return fmt.Sprintf("/apis/%s/%s/%s", gvk.Group, gvk.Version, resource), nil
+}
+
+// validatePathSegments checks that each part of a request path is a single
+// path segment, as client-go does. Otherwise a name such as "../../other" would
+// address another object once the path is cleaned on its way to the API server.
+func validatePathSegments(gvk schema.GroupVersionKind, resource, namespace, name string) error {
+	for _, part := range []struct{ field, value string }{
+		{"group", gvk.Group},
+		{"version", gvk.Version},
+		{"resource", resource},
+		{"namespace", namespace},
+		{"name", name},
+	} {
+		if part.value == "" {
+			continue
+		}
+		if msgs := content.IsPathSegmentName(part.value); len(msgs) > 0 {
+			return fmt.Errorf("invalid %s %q: %s", part.field, part.value, strings.Join(msgs, ", "))
+		}
+	}
+	return nil
 }
 
 // buildCreatePath builds the Kubernetes API path for a CREATE request
-func (pc *ProxyClient) buildCreatePath(gvk schema.GroupVersionKind, namespace string) string {
+func (pc *ProxyClient) buildCreatePath(gvk schema.GroupVersionKind, namespace string) (string, error) {
 	return pc.buildListPath(gvk, namespace)
 }
 
 // buildUpdatePath builds the Kubernetes API path for an UPDATE request
-func (pc *ProxyClient) buildUpdatePath(gvk schema.GroupVersionKind, namespace, name string) string {
+func (pc *ProxyClient) buildUpdatePath(gvk schema.GroupVersionKind, namespace, name string) (string, error) {
 	return pc.buildGetPath(gvk, namespace, name)
 }
 
 // buildDeletePath builds the Kubernetes API path for a DELETE request
-func (pc *ProxyClient) buildDeletePath(gvk schema.GroupVersionKind, namespace, name string) string {
+func (pc *ProxyClient) buildDeletePath(gvk schema.GroupVersionKind, namespace, name string) (string, error) {
 	return pc.buildGetPath(gvk, namespace, name)
 }
 
 // buildStatusPath builds the Kubernetes API path for status subresource
-func (pc *ProxyClient) buildStatusPath(gvk schema.GroupVersionKind, namespace, name string) string {
-	return pc.buildGetPath(gvk, namespace, name) + "/status"
+func (pc *ProxyClient) buildStatusPath(gvk schema.GroupVersionKind, namespace, name string) (string, error) {
+	apiPath, err := pc.buildGetPath(gvk, namespace, name)
+	if err != nil {
+		return "", err
+	}
+	return apiPath + "/status", nil
 }
 
 // buildListQueryParams builds query parameters for list requests
