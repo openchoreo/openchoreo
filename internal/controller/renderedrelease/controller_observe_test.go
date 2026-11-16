@@ -46,7 +46,7 @@ func readOnlyPlaneClient(t *testing.T, getErr func(key client.ObjectKey, obj cli
 		t.Errorf("observed resources must never be written, got a %s", op)
 		return fmt.Errorf("unexpected %s", op)
 	}
-	return fake.NewClientBuilder().WithObjects(objs...).WithInterceptorFuncs(interceptor.Funcs{
+	return fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).WithObjects(objs...).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 			if getErr != nil {
 				if err := getErr(key, obj); err != nil {
@@ -79,9 +79,49 @@ func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Uns
 	return obj
 }
 
+// planeMapper answers scope lookups as a plane would: Namespace is
+// cluster-scoped and every other kind is namespaced. A lookup for a kind in
+// errs fails with that error. The fake client's default mapper knows no kinds.
+type planeMapper struct {
+	apimeta.RESTMapper
+	errs map[string]error
+}
+
+func newPlaneMapper(errs map[string]error) planeMapper {
+	return planeMapper{RESTMapper: apimeta.NewDefaultRESTMapper(nil), errs: errs}
+}
+
+func (m planeMapper) RESTMapping(gk schema.GroupKind, versions ...string) (*apimeta.RESTMapping, error) {
+	if err := m.errs[gk.Kind]; err != nil {
+		return nil, err
+	}
+	scope := apimeta.RESTScopeNamespace
+	if gk.Group == "" && gk.Kind == "Namespace" {
+		scope = apimeta.RESTScopeRoot
+	}
+	var version string
+	if len(versions) > 0 {
+		version = versions[0]
+	}
+	return &apimeta.RESTMapping{GroupVersionKind: gk.WithVersion(version), Scope: scope}, nil
+}
+
 // ─────────────────────────────────────────────────────────────
 // entries
 // ─────────────────────────────────────────────────────────────
+
+func TestManageMode(t *testing.T) {
+	cases := map[openchoreov1alpha1.RenderedReleaseMode]openchoreov1alpha1.RenderedReleaseMode{
+		"": "",
+		openchoreov1alpha1.RenderedReleaseModeManage:  openchoreov1alpha1.RenderedReleaseModeManage,
+		openchoreov1alpha1.RenderedReleaseModeObserve: openchoreov1alpha1.RenderedReleaseModeManage,
+	}
+	for stored, want := range cases {
+		if got := ManageMode(stored); got != want {
+			t.Errorf("ManageMode(%q) = %q, want %q", stored, got, want)
+		}
+	}
+}
 
 func TestResolveObservedResources(t *testing.T) {
 	t.Run("keeps ids as written, in spec order, with apiVersion parsed", func(t *testing.T) {
@@ -234,12 +274,98 @@ func TestReadObservedResources(t *testing.T) {
 // planeServing returns a plane client whose every Get answers with served, as
 // the server would send it.
 func planeServing(served *unstructured.Unstructured) client.Client {
-	return fake.NewClientBuilder().WithInterceptorFuncs(interceptor.Funcs{
+	return fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(_ context.Context, _ client.WithWatch, _ client.ObjectKey, obj client.Object, _ ...client.GetOption) error {
 			obj.(*unstructured.Unstructured).Object = served.DeepCopy().Object
 			return nil
 		},
 	}).Build()
+}
+
+func TestReadObservedResourcesSkipsClusterScopedKindsInANamespace(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	readInNamespace := false
+	planeClient := fake.NewClientBuilder().WithRESTMapper(newPlaneMapper(nil)).
+		WithObjects(unstructuredObj("v1", "Namespace", "", "orders")).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if key.Namespace == "payments" {
+					readInNamespace = true
+				}
+				return c.Get(ctx, key, obj, opts...)
+			},
+		}).Build()
+
+	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+		observedRes("claimed", "v1", "Namespace", "payments", "orders"),
+		observedRes("own", "v1", "Namespace", "", "orders"),
+	})
+	result := r.readObservedResources(ctx, planeClient, &openchoreov1alpha1.RenderedRelease{}, entries)
+
+	if readInNamespace {
+		t.Error("a cluster-scoped kind was read for an entry that names a namespace")
+	}
+	if len(result.failures) != 1 || result.failures[0].entry.id != "claimed" ||
+		result.failures[0].reason != ReasonObservedKindNotFound {
+		t.Fatalf("want one KindNotFound failure for the claimed entry, got %+v", result.failures)
+	}
+	if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusUnknown {
+		t.Errorf("claimed entry health = %q, want Unknown", got)
+	}
+	if got := result.statuses[1].HealthStatus; got != openchoreov1alpha1.HealthStatusHealthy {
+		t.Errorf("entry without a namespace health = %q, want Healthy", got)
+	}
+}
+
+func TestReadObservedResourcesStopsWhenTheScopeIsUnknown(t *testing.T) {
+	ctx := context.Background()
+	r := &Reconciler{}
+
+	cases := []struct {
+		name       string
+		err        error
+		wantReason controller.ConditionReason
+		wantDetail []string
+	}{
+		{"a kind the plane doesn't serve", &apimeta.NoKindMatchError{GroupKind: schema.GroupKind{Kind: "Widget"}},
+			ReasonObservedKindNotFound, []string{"kind is not served by the plane"}},
+		{"any other lookup error", errors.New("discovery failed"),
+			ReasonObservedReadFailed, []string{"failed to resolve the kind's scope: ", "discovery failed"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			read := false
+			planeClient := fake.NewClientBuilder().
+				WithRESTMapper(newPlaneMapper(map[string]error{"Widget": tc.err})).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(context.Context, client.WithWatch, client.ObjectKey, client.Object, ...client.GetOption) error {
+						read = true
+						return nil
+					},
+				}).Build()
+
+			entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
+				observedRes("widget", "example.com/v1", "Widget", "payments", "orders")})
+			result := r.readObservedResources(ctx, planeClient, &openchoreov1alpha1.RenderedRelease{}, entries)
+
+			if read {
+				t.Error("the object was read although its scope is unknown")
+			}
+			if len(result.failures) != 1 || result.failures[0].reason != tc.wantReason {
+				t.Fatalf("want one %s failure, got %+v", tc.wantReason, result.failures)
+			}
+			for _, want := range tc.wantDetail {
+				if !strings.Contains(result.failures[0].detail, want) {
+					t.Errorf("detail = %q, want it to contain %q", result.failures[0].detail, want)
+				}
+			}
+			if got := result.statuses[0].HealthStatus; got != openchoreov1alpha1.HealthStatusUnknown {
+				t.Errorf("health = %q, want Unknown", got)
+			}
+		})
+	}
 }
 
 func TestReadObservedResourcesJudgesHealthByServedKind(t *testing.T) {

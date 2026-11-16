@@ -105,6 +105,15 @@ const (
 	// HealthStatus=Degraded on the data plane.
 	ReasonNamespaceDegraded controller.ConditionReason = "NamespaceDegraded"
 
+	// ReasonNamespaceNotAllowed indicates the Environment does not list the
+	// namespace an Observe-mode binding maps to in
+	// spec.observe.allowedNamespaces, so nothing is observed.
+	ReasonNamespaceNotAllowed controller.ConditionReason = "NamespaceNotAllowed"
+
+	// ReasonNamespaceNotFound indicates the namespace an Observe-mode binding
+	// maps to could not be read on the data plane.
+	ReasonNamespaceNotFound controller.ConditionReason = "NamespaceNotFound"
+
 	// ReasonResourcesReady indicates every non-namespace entry on the
 	// owned RenderedRelease is healthy.
 	ReasonResourcesReady controller.ConditionReason = "ResourcesReady"

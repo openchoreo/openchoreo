@@ -13,7 +13,6 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -107,6 +106,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
@@ -167,6 +167,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	if releaseBinding.Spec.IsObserve() {
+		return ctrl.Result{}, r.reconcileObserve(ctx, releaseBinding)
+	}
+	if err := r.stopObservingUnlessAllowed(ctx, releaseBinding); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Fetch ComponentRelease
 	componentRelease := &openchoreov1alpha1.ComponentRelease{}
@@ -733,6 +740,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
 			Resources:       dataPlaneReleaseResources,
 		}
 
@@ -767,7 +775,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// on the rollout's own health (deliveryHealthIsCurrent) and the deferred
 	// status update persists its markers on every return path.
 	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources,
-		dataPlaneApplyFailed(dataPlaneRelease) != nil)
+		renderedrelease.ApplyFailedCondition(dataPlaneRelease) != nil)
 
 	// Reconcile observability plane Release (create, update, or cleanup)
 	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
@@ -828,7 +836,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Check if the Release controller recorded a resource apply failure.
 	// Only act on the condition when it matches the current Release generation
 	// to avoid surfacing stale errors from a previous spec revision.
-	if applyCond := dataPlaneApplyFailed(dataPlaneRelease); applyCond != nil {
+	if applyCond := renderedrelease.ApplyFailedCondition(dataPlaneRelease); applyCond != nil {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
 		return ctrl.Result{}, nil
@@ -852,19 +860,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// dataPlaneApplyFailed returns the RenderedRelease's ResourcesApplied condition
-// when it reports a failed apply of the current generation, and nil otherwise.
-// A failure recorded against an earlier generation is stale -- it describes a
-// spec revision that has since been replaced -- so it is not reported.
-func dataPlaneApplyFailed(renderedRelease *openchoreov1alpha1.RenderedRelease) *metav1.Condition {
-	applyCond := meta.FindStatusCondition(renderedRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
-	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
-		applyCond.ObservedGeneration == renderedRelease.Generation {
-		return applyCond
-	}
-	return nil
 }
 
 // handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
@@ -1050,6 +1045,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				},
 				EnvironmentName: releaseBinding.Spec.Environment,
 				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Mode:            renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
 				Resources:       observabilityPlaneReleaseResources,
 			}
 
@@ -1741,6 +1737,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
+		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForProjectReleaseBinding),
+			builder.WithPredicates(projectReleaseBindingObserveChangedPredicate())).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

@@ -4,8 +4,10 @@
 package renderedrelease
 
 import (
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
@@ -24,9 +26,30 @@ const (
 	ReasonApplyFailed = "ApplyFailed"
 	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
 	// are not applied. ResourcesApplied is False with this reason.
-	// TODO: the binding controllers read any current-generation False as an apply failure; check the reason first (#5362).
 	ReasonObserveMode = "ObserveMode"
 )
+
+// ObservedResourcesCurrent reports whether status.observedResources reflects
+// the release's current spec, meaning its ObservedResourcesRead condition is
+// from the current generation. Until then it may still hold the reads of an
+// earlier spec, without the objects added since.
+func ObservedResourcesCurrent(release *openchoreov1alpha1.RenderedRelease) bool {
+	cond := meta.FindStatusCondition(release.Status.Conditions, string(ConditionObservedResourcesRead))
+	return cond != nil && cond.ObservedGeneration == release.Generation
+}
+
+// ApplyFailedCondition returns the release's ResourcesApplied condition when
+// it reports a failed apply of the current generation, and nil otherwise. A
+// condition from an earlier generation describes a spec that has since been
+// replaced, and False with ReasonObserveMode is not a failure.
+func ApplyFailedCondition(release *openchoreov1alpha1.RenderedRelease) *metav1.Condition {
+	cond := meta.FindStatusCondition(release.Status.Conditions, ConditionResourcesApplied)
+	if cond == nil || cond.Status != metav1.ConditionFalse ||
+		cond.ObservedGeneration != release.Generation || cond.Reason == ReasonObserveMode {
+		return nil
+	}
+	return cond
+}
 
 // Constants for condition types
 

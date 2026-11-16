@@ -33,6 +33,19 @@ func effectiveMode(release *openchoreov1alpha1.RenderedRelease) openchoreov1alph
 	return release.Spec.Mode
 }
 
+// ManageMode returns the mode a binding writes into a release it renders and
+// applies, given the mode stored on the release. That is Manage, except that a
+// stored empty mode is kept: the CRD defaults mode to Manage, so a release reads
+// back without one only when its CRD predates spec.mode and drops the field.
+// Writing Manage there would make every reconcile an update that changes
+// nothing, and the empty mode already means Manage.
+func ManageMode(stored openchoreov1alpha1.RenderedReleaseMode) openchoreov1alpha1.RenderedReleaseMode {
+	if stored == "" {
+		return ""
+	}
+	return openchoreov1alpha1.RenderedReleaseModeManage
+}
+
 // objectIdentity names an object on a plane independently of the API version
 // it is read in. The kind is compared case-insensitively, as ProxyClient builds
 // the request path from it, so an entry spelled DEPLOYMENT still matches the
@@ -176,6 +189,25 @@ func (r *Reconciler) readObservedResources(ctx context.Context, planeClient clie
 func readObservedResource(ctx context.Context, planeClient client.Client, entry observedEntry) (*unstructured.Unstructured, *observedReadFailure) {
 	obj := &unstructured.Unstructured{}
 	obj.SetGroupVersionKind(entry.gvk)
+
+	// Claims are read in the binding's namespace. Clients ignore the namespace
+	// for a cluster-scoped kind, so reading one would return an object outside
+	// it, such as the Namespace "default" itself. Report it instead of reading.
+	if entry.namespace != "" {
+		namespaced, err := planeClient.IsObjectNamespaced(obj)
+		switch {
+		case apimeta.IsNoMatchError(err):
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedKindNotFound,
+				detail: "kind is not served by the plane"}
+		case err != nil:
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedReadFailed,
+				detail: "failed to resolve the kind's scope: " + err.Error()}
+		case !namespaced:
+			return nil, &observedReadFailure{entry: entry, reason: ReasonObservedKindNotFound,
+				detail: "kind is cluster-scoped"}
+		}
+	}
+
 	err := planeClient.Get(ctx, client.ObjectKey{Namespace: entry.namespace, Name: entry.name}, obj)
 	if err == nil {
 		// Health is chosen by the kind the server returned; some clients leave it
