@@ -93,9 +93,8 @@ helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
 
 The second values file registers the bundled portal's OAuth application. Drop it to
 install without the portal — the base file still seeds the users, groups and the
-CLI/MCP clients. Note that ThunderID applies its bootstrap on **first install only**,
-so adding the portal later needs the application created through the ThunderID
-management API rather than a `helm upgrade`.
+CLI/MCP clients. To add the portal later, see
+[Adding the portal later](https://openchoreo.dev/docs/platform-engineer-guide/backstage-configuration/#adding-the-portal-later).
 
 ### CoreDNS Rewrite
 

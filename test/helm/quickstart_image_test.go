@@ -25,9 +25,8 @@ var commonValuesRef = regexp.MustCompile(`(?:k3d/common|\$thunder_dir|\$openbao_
 // The image copies the shared k3d values files one by one, so adding a values
 // file to install/k3d/common and referencing it from .helpers.sh is not enough:
 // the file is simply absent at runtime and helm is handed a path that does not
-// exist. That is invisible outside the container and breaks the default
-// ./install.sh rather than an opt-in path, which is how it escaped review once
-// already.
+// exist. That is invisible outside the container, and it breaks the default
+// ./install.sh rather than an opt-in path.
 func TestQuickStartImageShipsTheValuesFilesTheInstallerUses(t *testing.T) {
 	dockerfile, err := os.ReadFile(quickStartDockerfile)
 	if err != nil {

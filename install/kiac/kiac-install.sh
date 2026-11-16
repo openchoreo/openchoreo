@@ -52,7 +52,7 @@ Usage: kiac-install.sh [OPTIONS]
   --workers N            worker node VMs (default: ${WORKERS})
   --cni kindnet|cilium   pod network (cilium => NetworkPolicy enforcement; default: ${CNI})
   --use-existing         don't create a cluster; install into current kiac context
-  --without-portal       exclude the bundled Backstage developer portal
+  --without-portal       exclude the bundled Backstage developer portal (OpenChoreo 1.4.0+)
   --with-portal          include the bundled Backstage portal (default)
   -h, --help
 
@@ -73,6 +73,18 @@ while [[ $# -gt 0 ]]; do case $1 in
 esac; done
 
 RAW="https://raw.githubusercontent.com/openchoreo/openchoreo/v${OPENCHOREO_VERSION}"
+
+# Releases before 1.4.0 seed the portal's ThunderID application from
+# values-thunder.yaml and do not ship values-thunder-portal.yaml.
+predates_portal_split() {
+  [[ "$OPENCHOREO_VERSION" =~ ^v?([0-9]+)\.([0-9]+)\. ]] || return 1
+  (( BASH_REMATCH[1] < 1 || (BASH_REMATCH[1] == 1 && BASH_REMATCH[2] < 4) ))
+}
+if [[ "$WITH_PORTAL" == "false" ]] && predates_portal_split; then
+  echo "ERROR: --without-portal needs OpenChoreo 1.4.0 or later; ${OPENCHOREO_VERSION} registers" >&2
+  echo "       the portal's OAuth client whether or not the portal is installed." >&2
+  exit 1
+fi
 CTX="kiac-${CLUSTER_NAME}"
 K="kubectl --context ${CTX}"
 CV="${OPENCHOREO_VERSION}"
@@ -204,35 +216,9 @@ seed_optional_secrets() {
 
 install_control_plane() {
   step "ThunderID (identity provider) ${THUNDER_VERSION}"
-  # The portal's ThunderID application lives in its own values file, layered only
-  # when the portal is installed. Releases from before that split still carry the
-  # application in the base file, and RAW pins assets to the selected release tag,
-  # so the overlay is used only when that tag actually ships it.
   local thunder_values=(--values "${RAW}/install/k3d/common/values-thunder.yaml")
-  local portal_values="${RAW}/install/k3d/common/values-thunder-portal.yaml"
-  local portal_code portal_present
-  portal_code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$portal_values" 2>/dev/null) || portal_code=""
-  case "$portal_code" in
-    2??|3??) portal_present=true ;;
-    404)     portal_present=false ;;
-    *)       portal_present=unknown ;;
-  esac
-
-  if [[ "$WITH_PORTAL" == "true" ]]; then
-    if [[ "$portal_present" == "unknown" ]]; then
-      # Guessing "absent" here would install the portal with no OAuth
-      # application behind it, so stop instead.
-      echo "ERROR: could not determine whether $portal_values exists (HTTP '${portal_code:-no response}')." >&2
-      echo "       Re-run once the network is reachable." >&2
-      exit 1
-    fi
-    if [[ "$portal_present" == "true" ]]; then
-      thunder_values+=(--values "$portal_values")
-    fi
-  elif [[ "$portal_present" == "false" ]]; then
-    echo "WARNING: OpenChoreo ${OPENCHOREO_VERSION} seeds the portal's ThunderID application" >&2
-    echo "         from the base values file, so --without-portal cannot exclude it. The" >&2
-    echo "         portal itself is not installed; its OAuth client is still registered." >&2
+  if [[ "$WITH_PORTAL" == "true" ]] && ! predates_portal_split; then
+    thunder_values+=(--values "${RAW}/install/k3d/common/values-thunder-portal.yaml")
   fi
   H upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
     -n "$THUNDER_NS" --create-namespace --version "$THUNDER_VERSION" \
@@ -366,11 +352,7 @@ print_summary() {
     info "    Note: portal login relies on in-cluster resolution of *.openchoreo.localhost;"
     info "    on the kubeadm distro add a CoreDNS entry mapping those hosts to ${ip}."
   else
-    info "Portal: not installed"
-    info "    Re-running with --with-portal deploys the portal but not its ThunderID"
-    info "    application: that bootstrap runs on first install only, so sign-in needs"
-    info "    the application created through the ThunderID management API."
-    info "    Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
+    info "Portal: not installed (to add it later: https://openchoreo.dev/docs/platform-engineer-guide/backstage-configuration/#adding-the-portal-later)"
     info "Add the line below to /etc/hosts to reach the API and ThunderID:"
     echo  "    ${ip} api.openchoreo.localhost thunder.openchoreo.localhost"
   fi

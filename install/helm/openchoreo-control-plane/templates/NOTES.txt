@@ -35,25 +35,6 @@ Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
 
-{{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
-{{- $endpoints := .Values.eventForwarder.config.webhooks.endpoints | default list }}
-{{- $portalURL := printf "http://%s:%v/" (include "openchoreo-control-plane.backstage.name" .) .Values.backstage.service.port }}
-{{- $others := 0 }}
-{{- range $e := $endpoints }}
-{{- if not (hasPrefix $portalURL $e.url) }}
-{{- $others = add1 $others }}
-{{- end }}
-{{- end }}
-{{- if eq $others 0 }}
-
-The event forwarder is enabled but has no subscriber: the portal is not
-installed, and its endpoint has been dropped from the forwarder's config. The
-catalog reconciles by periodic sync instead. You can turn the forwarder off:
-  --set eventForwarder.enabled=false
-or point eventForwarder.config.webhooks.endpoints at a subscriber of your own.
-{{- end }}
-{{- end }}
-
 {{- if .Values.clusterGateway.tls.existingSecret }}
 
 Cluster gateway TLS: using your certificate from secret "{{ .Values.clusterGateway.tls.existingSecret }}".

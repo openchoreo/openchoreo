@@ -51,6 +51,7 @@ Options:
                            and enable audit logs
   --without-portal         Exclude the bundled Backstage developer portal. The platform is
                            then driven through the occ CLI, the API, or your own portal.
+                           Needs OpenChoreo 1.4.0 or later.
   --with-portal            Include the bundled Backstage portal (default)
   --version VER            OpenChoreo version to install, e.g. 1.1.1 or latest-dev
                            (required when not running from a checkout)
@@ -133,33 +134,12 @@ asset() {
     fi
 }
 
-# Whether an asset exists at the ref this install resolves to.
-#
-# The portal's ThunderID application is a separate values file, which releases
-# before it existed do not have — and they seed the application from the base
-# file instead. A pinned --version resolves assets at that release's ref, so the
-# overlay is layered only where it is actually published.
-#
-# Echoes "present", "absent", or exits non-zero. A transient probe failure must
-# not read as "absent": that would silently install the portal without its OAuth
-# application, so anything other than a clear 2xx/3xx or 404 is fatal and the
-# caller should be re-run.
-asset_state() {
-    local url="$1" code
-    if [[ "$SOURCE_MODE" != "remote" ]]; then
-        [[ -f "$url" ]] && echo present || echo absent
-        return 0
-    fi
-    code=$(curl -sS -o /dev/null -w '%{http_code}' -I --max-time 15 "$url" 2>/dev/null) || code=""
-    case "$code" in
-        2??|3??) echo present ;;
-        404)     echo absent ;;
-        *)
-            echo "ERROR: could not determine whether $url exists (HTTP '${code:-no response}')." >&2
-            echo "       Re-run once the network or registry is reachable." >&2
-            return 1
-            ;;
-    esac
+# Releases before 1.4.0 seed the portal's ThunderID application from
+# values-thunder.yaml and do not ship values-thunder-portal.yaml. True when this
+# install reads its assets from such a release.
+assets_predate_portal_split() {
+    [[ "$SOURCE_MODE" == "remote" && "$_ref" =~ ^v([0-9]+)\.([0-9]+)\. ]] || return 1
+    (( BASH_REMATCH[1] < 1 || (BASH_REMATCH[1] == 1 && BASH_REMATCH[2] < 4) ))
 }
 
 chart_version_args() {
@@ -268,24 +248,8 @@ EOF
 install_control_plane() {
     step "Installing ThunderID (identity provider)"
     local thunder_values=(--values "$(asset install/k3d/common/values-thunder.yaml)")
-    local portal_values portal_state
-    portal_values="$(asset install/k3d/common/values-thunder-portal.yaml)"
-    if [[ "$WITH_PORTAL" == "true" ]]; then
-        # The portal needs this file, so an inconclusive answer is fatal: guessing
-        # "absent" would install the portal with no OAuth application behind it.
-        portal_state="$(asset_state "$portal_values")"
-        if [[ "$portal_state" == "present" ]]; then
-            thunder_values+=(--values "$portal_values")
-        fi
-    else
-        # Without the portal the answer only decides whether to warn, so a failed
-        # probe must not end the install.
-        portal_state="$(asset_state "$portal_values" 2>/dev/null || echo unknown)"
-        if [[ "$portal_state" == "absent" ]]; then
-            echo "WARNING: this OpenChoreo version seeds the portal's ThunderID application from" >&2
-            echo "         the base values file, so --without-portal cannot exclude it. The portal" >&2
-            echo "         itself is not installed; its OAuth client is still registered." >&2
-        fi
+    if [[ "$WITH_PORTAL" == "true" ]] && ! assets_predate_portal_split; then
+        thunder_values+=(--values "$(asset install/k3d/common/values-thunder-portal.yaml)")
     fi
     $HELM upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
         --namespace "$THUNDER_NS" --create-namespace \
@@ -651,12 +615,7 @@ print_summary() {
     if [[ "$WITH_PORTAL" == "true" ]]; then
         info "Console:  http://openchoreo.localhost:8080"
     else
-        info "Console:  not installed"
-        info "          Re-running with --with-portal deploys the portal but not its"
-        info "          ThunderID application: that bootstrap runs on first install only,"
-        info "          so sign-in needs the application created through the ThunderID"
-        info "          management API. A fresh cluster is the simpler route."
-        info "          Bring your own: https://openchoreo.dev/docs/platform-engineer-guide/backstage-plugins/overview/"
+        info "Console:  not installed (to add it later: https://openchoreo.dev/docs/platform-engineer-guide/backstage-configuration/#adding-the-portal-later)"
     fi
     info "API:      http://api.openchoreo.localhost:8080"
     info "Login:    admin@openchoreo.dev / Admin@123"
@@ -666,6 +625,9 @@ print_summary() {
 
 main() {
     require_tools
+    if [[ "$WITH_PORTAL" == "false" ]] && assets_predate_portal_split; then
+        fail "--without-portal needs OpenChoreo 1.4.0 or later; ${OPENCHOREO_VERSION} registers the portal's OAuth client whether or not the portal is installed."
+    fi
     [[ "$WITH_OBSERVABILITY" == "true" ]] && warn_unpinned_modules
     create_cluster
     install_prerequisites

@@ -18,7 +18,8 @@ get_component_group() {
     local group="$1"
     case "$group" in
         "Infrastructure") echo "cert_manager kgateway external_secrets openbao thunder" ;;
-        "Control_Plane") echo "controller_manager api_server backstage cluster_gateway" ;;
+        "Control_Plane") echo "controller_manager api_server cluster_gateway" ;;
+        "Portal") echo "backstage" ;;
         "Data_Plane") echo "cluster_agent_dp gateway_proxy" ;;
         "Workflow_Plane") echo "cluster_agent_wp argo_workflow_controller registry" ;;
         "Observability_Plane") echo "obs_controller_manager cluster_agent_op opensearch observer" ;;
@@ -27,7 +28,7 @@ get_component_group() {
 }
 
 # Group order for display
-group_order=("Infrastructure" "Control_Plane" "Data_Plane" "Workflow_Plane" "Observability_Plane")
+group_order=("Infrastructure" "Control_Plane" "Portal" "Data_Plane" "Workflow_Plane" "Observability_Plane")
 
 # Group display names
 get_group_display_name() {
@@ -35,6 +36,7 @@ get_group_display_name() {
     case "$group" in
         "Infrastructure") echo "Infrastructure" ;;
         "Control_Plane") echo "Control Plane" ;;
+        "Portal") echo "Developer Portal" ;;
         "Data_Plane") echo "Data Plane" ;;
         "Workflow_Plane") echo "Workflow Plane" ;;
         "Observability_Plane") echo "Observability Plane" ;;
@@ -215,7 +217,7 @@ print_grouped_components() {
         local group_type=""
         case "$group" in
             "Infrastructure"|"Control_Plane"|"Data_Plane") group_type="Core" ;;
-            "Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
+            "Portal"|"Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
         esac
 
         echo ""

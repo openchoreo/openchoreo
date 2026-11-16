@@ -58,6 +58,7 @@ func tryRenderControlPlane(t *testing.T, args ...string) (string, error) {
 	return string(rendered), nil
 }
 
+// TestChart_PortalDisabled_RendersNoPortalObjects pins that backstage.enabled=false
 // leaves nothing of the portal behind. The portal's own templates are each gated,
 // so this guards against a new one landing ungated.
 func TestChart_PortalDisabled_RendersNoPortalObjects(t *testing.T) {
@@ -93,8 +94,6 @@ func TestChart_PortalDisabled_NeedsNoPortalValues(t *testing.T) {
 	}
 }
 
-// TestAuthzBootstrap_CatalogReaderFollowsPortalFlag pins which half of the
-
 // TestAPINetworkPolicy_PortalSelectorFollowsPortalFlag pins that the API
 // server's NetworkPolicy stops allowing the portal in once the portal is gone.
 func TestAPINetworkPolicy_PortalSelectorFollowsPortalFlag(t *testing.T) {
@@ -112,4 +111,41 @@ func TestAPINetworkPolicy_PortalSelectorFollowsPortalFlag(t *testing.T) {
 	if got := render(t, helmGuardOverrides); strings.Contains(got, "component: backstage") {
 		t.Error("with the portal uninstalled, the API NetworkPolicy still carries its podSelector")
 	}
+}
+
+// TestEventForwarder_DropsPortalEndpointWithoutPortal pins that the forwarder's
+// default subscriber, the portal's in-cluster Service, is dropped when the portal
+// is not installed, while endpoints of anyone else's are kept.
+func TestEventForwarder_DropsPortalEndpointWithoutPortal(t *testing.T) {
+	const portalEndpoint = "http://backstage:7007/api/events/http/openchoreo"
+	render := func(t *testing.T, overrides []string, extra ...string) string {
+		t.Helper()
+		args := append(append(append([]string{}, overrides...), extra...),
+			"--show-only", "templates/event-forwarder/configmap.yaml")
+		return renderControlPlane(t, args...)
+	}
+
+	t.Run("portal installed", func(t *testing.T) {
+		if got := render(t, backstageGuardOverrides); !strings.Contains(got, portalEndpoint) {
+			t.Errorf("with the portal installed, the forwarder lost its endpoint:\n%s", got)
+		}
+	})
+
+	t.Run("portal not installed", func(t *testing.T) {
+		if got := render(t, helmGuardOverrides); strings.Contains(got, portalEndpoint) {
+			t.Errorf("without the portal, the forwarder still posts to its Service:\n%s", got)
+		}
+	})
+
+	t.Run("other subscribers kept", func(t *testing.T) {
+		got := render(t, helmGuardOverrides,
+			"--set", "eventForwarder.config.webhooks.endpoints[0].url="+portalEndpoint,
+			"--set", "eventForwarder.config.webhooks.endpoints[1].url=http://my-subscriber:8080/hook")
+		if strings.Contains(got, portalEndpoint) {
+			t.Errorf("without the portal, the forwarder still posts to its Service:\n%s", got)
+		}
+		if !strings.Contains(got, "http://my-subscriber:8080/hook") {
+			t.Errorf("dropping the portal's endpoint also dropped another subscriber:\n%s", got)
+		}
+	})
 }

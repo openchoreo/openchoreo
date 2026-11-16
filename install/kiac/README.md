@@ -30,7 +30,7 @@ plane. When it finishes it prints the portal URL (unless installed with
 | `--workers` | `2` | worker node VMs |
 | `--cni` | `kindnet` | `kindnet` or `cilium` (cilium enforces NetworkPolicies) |
 | `--use-existing` | off | install into the current kiac cluster instead of creating one |
-| `--without-portal` | off | exclude the bundled Backstage portal (drive the platform through `occ`, the API, or your own portal) |
+| `--without-portal` | off | exclude the bundled Backstage portal (drive the platform through `occ`, the API, or your own portal); needs OpenChoreo 1.4.0 or later |
 
 ## Deploy a sample
 

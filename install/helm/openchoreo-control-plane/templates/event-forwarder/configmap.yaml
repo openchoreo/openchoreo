@@ -16,8 +16,8 @@ data:
       endpoints:
         {{- /*
              The portal is the default subscriber, so drop its endpoint when the
-             portal is not installed: left in, the forwarder retries every
-             resource change against a Service that does not exist. Matched on
+             portal is not installed: left in, the forwarder posts every
+             resource change to a Service that does not exist. Matched on
              the portal's own Service URL, built from backstage.name and the
              service port rather than hardcoded, so a renamed portal still
              matches. Any other endpoint an operator configured is untouched.
