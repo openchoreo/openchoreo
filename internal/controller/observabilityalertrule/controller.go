@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	neturl "net/url"
 	"os"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,6 +38,9 @@ const (
 	conditionTypeSynced            = "Synced"
 	// observerAPITimeout is the default timeout for HTTP calls to the observer internal API.
 	observerAPITimeout = 10 * time.Second
+	// resyncInterval and resyncJitter set how often a synced rule's backend rule is checked.
+	resyncInterval = 10 * time.Minute
+	resyncJitter   = 2 * time.Minute
 	// AlertRuleCleanupFinalizer is used to ensure alert rules are deleted from the backend before the CR is removed
 	AlertRuleCleanupFinalizer = "openchoreo.dev/alertrule-cleanup"
 )
@@ -100,6 +105,8 @@ type Reconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	httpClient *http.Client
+	// syncedGenerations maps the UID of each rule this process has synced to the generation it synced.
+	syncedGenerations sync.Map
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertrules,verbs=get;list;watch;create;update;patch;delete
@@ -140,6 +147,44 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		logger.Error(err, "failed to build alert rule request")
 		return r.updateStatusWithError(ctx, alertRule, err)
 	}
+
+	if r.isSynced(alertRule) {
+		return r.resync(ctx, alertRule, requestPayload)
+	}
+	return r.sync(ctx, alertRule, requestPayload)
+}
+
+// isSynced reports whether this process already synced the rule's current generation.
+func (r *Reconciler) isSynced(alertRule *openchoreov1alpha1.ObservabilityAlertRule) bool {
+	gen, ok := r.syncedGenerations.Load(alertRule.UID)
+	return ok && gen == alertRule.GetGeneration() &&
+		alertRule.Status.Phase == openchoreov1alpha1.ObservabilityAlertRulePhaseReady
+}
+
+// resync checks that the backend rule of a synced rule still exists, and syncs the rule again when it
+// does not. It does not rewrite an existing backend rule, because some backends reset a firing alert
+// when its rule is updated.
+func (r *Reconciler) resync(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (ctrl.Result, error) {
+	getResp, statusCode, err := r.getAlertRule(ctx, getObserverInternalBaseURL(), alertRule)
+	if err == nil && statusCode == http.StatusOK && ownsBackendRule(alertRule, getResp) {
+		return ctrl.Result{RequeueAfter: resyncAfter()}, nil
+	}
+	log.FromContext(ctx).Info("Backend alert rule is missing or changed; syncing it again",
+		"name", alertRule.Name, "statusCode", statusCode, "error", err)
+	r.syncedGenerations.Delete(alertRule.UID)
+	return r.sync(ctx, alertRule, payload)
+}
+
+// resyncAfter returns the delay before the next resync: resyncInterval plus up to resyncJitter.
+func resyncAfter() time.Duration {
+	//nolint:gosec // Spreading resyncs over time, not a security decision.
+	return resyncInterval + rand.N(resyncJitter)
+}
+
+// sync creates or updates the backend rule and records the result in the rule's status.
+func (r *Reconciler) sync(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, requestPayload *alertRuleRequest) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(alertRule)}
 
 	// Use GET-first logic to decide between POST (create) and PUT (update).
 	syncResp, err := r.upsertAlertRule(ctx, alertRule, requestPayload)
@@ -192,7 +237,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	if latest.Status.Phase != openchoreov1alpha1.ObservabilityAlertRulePhaseReady {
+		return ctrl.Result{}, nil
+	}
+	r.syncedGenerations.Store(alertRule.UID, alertRule.GetGeneration())
+	return ctrl.Result{RequeueAfter: resyncAfter()}, nil
 }
 
 // ownsBackendRule reports whether a backend rule was built from the given rule. Adapters that do not
@@ -467,6 +516,7 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 
 	logger.Info("Deleting alert rule from observer backend", "name", alertRule.Name, "sourceType", alertRule.Spec.Source.Type)
 
+	r.syncedGenerations.Delete(alertRule.UID)
 	baseURL := getObserverInternalBaseURL()
 
 	// An adapter that identifies rules by name alone would delete another namespace's rule.

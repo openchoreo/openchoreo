@@ -114,9 +114,11 @@ var _ = Describe("ObservabilityAlertRule namespace identity", func() {
 		forceDeleteAlertRule(nn)
 	})
 
-	It("should send the rule's namespace", func() {
-		_, err := newReconciler().Reconcile(ctx, reconcileRequest(name))
+	It("should send the rule's namespace and schedule a resync", func() {
+		result, err := newReconciler().Reconcile(ctx, reconcileRequest(name))
 		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">=", resyncInterval))
+		Expect(result.RequeueAfter).To(BeNumerically("<", resyncInterval+resyncJitter))
 
 		Expect(observer.count(http.MethodPost)).To(Equal(1))
 		Expect(observer.seenNamespaces()).To(ConsistOf("default"))
@@ -136,6 +138,37 @@ var _ = Describe("ObservabilityAlertRule namespace identity", func() {
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Message).To(ContainSubstring("other-ns"))
+	})
+
+	It("should only check the backend rule on a resync, and recreate it when missing", func() {
+		r := newReconciler()
+		_, err := r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(observer.count(http.MethodPost)).To(Equal(1))
+
+		By("resyncing while the backend rule exists")
+		observer.set(http.StatusOK, "default")
+		result, err := r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result.RequeueAfter).To(BeNumerically(">=", resyncInterval))
+		Expect(observer.count(http.MethodPut)).To(BeZero())
+		Expect(observer.count(http.MethodPost)).To(Equal(1))
+
+		By("resyncing after the backend rule disappeared")
+		observer.set(http.StatusNotFound, "")
+		_, err = r.Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(observer.count(http.MethodPost)).To(Equal(2))
+	})
+
+	It("should update the backend rule on its first sync after a restart", func() {
+		_, err := newReconciler().Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+
+		observer.set(http.StatusOK, "default")
+		_, err = newReconciler().Reconcile(ctx, reconcileRequest(name))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(observer.count(http.MethodPut)).To(Equal(1))
 	})
 
 	It("should not delete a backend rule built from another namespace's rule", func() {
