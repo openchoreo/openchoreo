@@ -11,9 +11,7 @@ openchoreoApi:
       authorization:
         bootstrap:
           # Includes admin, developer, platform-engineer bindings from base values,
-          # all system bindings, and the quick-start CLI admin binding. The
-          # backstage-catalog-reader binding is seeded by the chart when the portal
-          # is enabled, so it is not repeated here.
+          # all system bindings, and the quick-start CLI admin binding.
           mappings:
             - name: admin-binding
               kind: ClusterAuthzRoleBinding
@@ -44,6 +42,17 @@ openchoreoApi:
               entitlement:
                 claim: groups
                 value: platform-engineers
+              effect: allow
+            - name: backstage-catalog-reader-binding
+              kind: ClusterAuthzRoleBinding
+              system: true
+              roleMappings:
+                - roleRef:
+                    name: backstage-catalog-reader
+                    kind: ClusterAuthzRole
+              entitlement:
+                claim: client_id
+                value: openchoreo-backstage-client
               effect: allow
             - name: finops-agent-binding
               kind: ClusterAuthzRoleBinding

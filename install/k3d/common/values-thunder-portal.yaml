@@ -5,21 +5,16 @@
 # installed that way never registers an OAuth client for a portal it does not
 # run — which matters, because this client's secret is a published default.
 #
-# That applies to a FRESH install only. Disabling the portal on a cluster that
-# already had it leaves this application in ThunderID, because the bootstrap is a
-# first-install-only hook; removing it is a separate, deliberate step through the
-# management API. (The chart does take the portal's authz binding back on
-# upgrade, so the client is left registered but no longer authorized.)
+# The portal is an install-time choice. ThunderID applies bootstrap.scripts in a
+# first-install-only hook, so adding or dropping this file on a later upgrade
+# changes nothing: adding the portal to a cluster installed without it means
+# registering this client through the ThunderID management API, and removing
+# it from one that had it means deleting it there.
 #
-# The split is additive on purpose: ThunderID seeds bootstrap.scripts from a
-# static map applied by a pre-install hook, and Helm cannot remove a key that a
-# base values file already set. (A null value does not delete it either; the
-# chart renders `$content | indent 4` and fails on a nil.) So the portal's
-# identity lives here rather than being subtracted from the base.
-#
-# Adding the portal to a cluster installed without it therefore needs more than
-# a helm upgrade: ThunderID's bootstrap hook runs on first install only. See
-# install/k3d/common/README-thunder.md.
+# The split is additive on purpose: Helm cannot remove a key that a base values
+# file already set. (A null value does not delete it either; the chart renders
+# `$content | indent 4` and fails on a nil.) So the portal's identity lives here
+# rather than being subtracted from the base.
 
 configuration:
   passkey:

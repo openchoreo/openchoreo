@@ -35,16 +35,6 @@ Components:
   Backstage:  {{ ternary "enabled" "disabled" .Values.backstage.enabled }}
   Security:   {{ ternary "enabled" "disabled" .Values.security.enabled }}
 
-{{- if and (not .Values.backstage.enabled) .Values.security.authz.enabled }}
-
-The portal's catalog-reader binding has been removed, so its OAuth client no
-longer has read access. The backstage-catalog-reader role itself is kept: it
-grants nothing unbound, and a portal of your own can bind to it.
-
-The client's ThunderID application outlives the chart, though, and is removed
-through the ThunderID management API rather than by helm.
-{{- end }}
-
 {{- if and .Values.eventForwarder.enabled (not .Values.backstage.enabled) }}
 {{- $endpoints := .Values.eventForwarder.config.webhooks.endpoints | default list }}
 {{- $portalURL := printf "http://%s:%v/" (include "openchoreo-control-plane.backstage.name" .) .Values.backstage.service.port }}
