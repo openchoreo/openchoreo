@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"time"
 
@@ -83,7 +85,15 @@ type alertRuleSyncResponse struct {
 type alertRuleGetResponse struct {
 	RuleLogicalID string `json:"ruleLogicalId"`
 	RuleBackendID string `json:"ruleBackendId"`
+	Metadata      struct {
+		// Namespace is the namespace of the rule the backend rule was built from, when the adapter reports it.
+		Namespace string `json:"namespace"`
+	} `json:"metadata"`
 }
+
+// errRuleOwnedByOtherNamespace reports a backend rule built from another namespace's rule of the same
+// name. Adapters that identify rules by name alone return such a rule.
+var errRuleOwnedByOtherNamespace = errors.New("backend alert rule belongs to another namespace")
 
 // Reconciler reconciles a ObservabilityAlertRule object
 type Reconciler struct {
@@ -185,6 +195,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
+// ownsBackendRule reports whether a backend rule was built from the given rule. Adapters that do not
+// report the namespace are trusted.
+func ownsBackendRule(alertRule *openchoreov1alpha1.ObservabilityAlertRule, getResp *alertRuleGetResponse) bool {
+	return getResp == nil || getResp.Metadata.Namespace == "" || getResp.Metadata.Namespace == alertRule.Namespace
+}
+
 // upsertAlertRule performs a GET-first upsert by rule name:
 //   - If GET returns 200, update the existing rule via PUT.
 //   - If GET returns 404, create a new rule via POST.
@@ -192,16 +208,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (r *Reconciler) upsertAlertRule(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
 	baseURL := getObserverInternalBaseURL()
 	ruleName := alertRule.Name
-	sourceType := string(alertRule.Spec.Source.Type)
 
-	_, statusCode, err := r.getAlertRule(ctx, baseURL, ruleName, sourceType)
+	getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to GET alert rule: %w", err)
 	}
 
 	switch statusCode {
 	case http.StatusOK:
-		return r.putAlertRule(ctx, baseURL, ruleName, payload)
+		if !ownsBackendRule(alertRule, getResp) {
+			return nil, fmt.Errorf("%w: rule %q is synced to namespace %q; upgrade the observability module "+
+				"of source type %q to one that identifies alert rules by namespace and name",
+				errRuleOwnedByOtherNamespace, ruleName, getResp.Metadata.Namespace, alertRule.Spec.Source.Type)
+		}
+		return r.putAlertRule(ctx, baseURL, alertRule, payload)
 	case http.StatusNotFound:
 		return r.postAlertRule(ctx, baseURL, payload)
 	default:
@@ -209,9 +229,16 @@ func (r *Reconciler) upsertAlertRule(ctx context.Context, alertRule *openchoreov
 	}
 }
 
+// alertRuleURL returns the observer URL of the given rule:
+// /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}?namespace={namespace}
+func alertRuleURL(baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule) string {
+	return fmt.Sprintf("%s%s/%s/rules/%s?namespace=%s", baseURL, alertsV1alpha1BasePath,
+		alertRule.Spec.Source.Type, neturl.PathEscape(alertRule.Name), neturl.QueryEscape(alertRule.Namespace))
+}
+
 // getAlertRule calls GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
-func (r *Reconciler) getAlertRule(ctx context.Context, baseURL, ruleName, sourceType string) (*alertRuleGetResponse, int, error) {
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, sourceType, ruleName)
+func (r *Reconciler) getAlertRule(ctx context.Context, baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule) (*alertRuleGetResponse, int, error) {
+	url := alertRuleURL(baseURL, alertRule)
 	reqCtx, cancel := context.WithTimeout(ctx, observerAPITimeout)
 	defer cancel()
 
@@ -255,8 +282,8 @@ func (r *Reconciler) postAlertRuleWithStatus(ctx context.Context, baseURL string
 }
 
 // putAlertRule calls PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}.
-func (r *Reconciler) putAlertRule(ctx context.Context, baseURL, ruleName string, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, payload.Source.Type, ruleName)
+func (r *Reconciler) putAlertRule(ctx context.Context, baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
+	url := alertRuleURL(baseURL, alertRule)
 	syncResp, statusCode, err := r.callWriteEndpoint(ctx, http.MethodPut, url, payload)
 	if err != nil {
 		return nil, err
@@ -441,8 +468,16 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 	logger.Info("Deleting alert rule from observer backend", "name", alertRule.Name, "sourceType", alertRule.Spec.Source.Type)
 
 	baseURL := getObserverInternalBaseURL()
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, alertRule.Spec.Source.Type, alertRule.Name)
 
+	// An adapter that identifies rules by name alone would delete another namespace's rule.
+	if getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule); err == nil &&
+		statusCode == http.StatusOK && !ownsBackendRule(alertRule, getResp) {
+		logger.Info("Backend alert rule belongs to another namespace; not deleting it",
+			"name", alertRule.Name, "backendNamespace", getResp.Metadata.Namespace)
+		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+	}
+
+	url := alertRuleURL(baseURL, alertRule)
 	reqCtx, cancel := context.WithTimeout(ctx, observerAPITimeout)
 	defer cancel()
 
@@ -472,15 +507,20 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 		return ctrl.Result{}, err
 	}
 
-	// Remove finalizer after successful cleanup.
+	return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+}
+
+// removeFinalizer removes the cleanup finalizer once the backend rule is gone.
+func (r *Reconciler) removeFinalizer(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule) error {
+	logger := log.FromContext(ctx)
 	controllerutil.RemoveFinalizer(alertRule, AlertRuleCleanupFinalizer)
 	if err := r.Update(ctx, alertRule); err != nil {
 		logger.Error(err, "failed to remove finalizer")
-		return ctrl.Result{}, err
+		return err
 	}
 
 	logger.Info("Successfully finalized alert rule", "name", alertRule.Name)
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
