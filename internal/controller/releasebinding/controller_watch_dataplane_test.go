@@ -148,3 +148,20 @@ func TestFindReleaseBindingsForClusterDataPlane(t *testing.T) {
 		&openchoreov1alpha1.ClusterDataPlane{ObjectMeta: metav1.ObjectMeta{Name: "cdp"}})
 	assert.ElementsMatch(t, []string{"rb-1", "rb-2"}, requestNames(reqs))
 }
+
+// TestFindReleaseBindingsForEnvironment ensures an Environment override re-renders only the
+// ReleaseBindings targeted at that Environment, within the same namespace.
+func TestFindReleaseBindingsForEnvironment(t *testing.T) {
+	ctx := context.Background()
+	r := newReconcilerWith(t,
+		envRef("org", "production", openchoreov1alpha1.DataPlaneRefKindClusterDataPlane, "cdp"),
+		bindingFor("org", "rb-production-a", "production"),
+		bindingFor("org", "rb-production-b", "production"),
+		bindingFor("org", "rb-stage", "stage"),
+		bindingFor("other", "rb-other-namespace", "production"),
+	)
+
+	reqs := r.findReleaseBindingsForEnvironment(ctx,
+		&openchoreov1alpha1.Environment{ObjectMeta: metav1.ObjectMeta{Namespace: "org", Name: "production"}})
+	assert.ElementsMatch(t, []string{"rb-production-a", "rb-production-b"}, requestNames(reqs))
+}
