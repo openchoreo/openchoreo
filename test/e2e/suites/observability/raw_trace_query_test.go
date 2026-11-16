@@ -78,10 +78,19 @@ var _ = Describe("Raw trace queries", Ordered, Label("tier3"), func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(status).To(Equal(http.StatusOK), body)
 
+		// The e2e workloads send no spans, so there may be no trace index yet.
+		// OpenSearch then searches no shards and leaves out "aggregations", so
+		// the check is that the answer is OpenSearch's own search response.
 		var resp struct {
+			Shards       map[string]any `json:"_shards"`
+			Hits         map[string]any `json:"hits"`
 			Aggregations map[string]any `json:"aggregations"`
 		}
 		Expect(json.Unmarshal([]byte(body), &resp)).To(Succeed(), body)
-		Expect(resp.Aggregations).To(HaveKey("traces"), "the response should be OpenSearch's own")
+		Expect(resp.Shards).To(HaveKey("total"), "the response should be OpenSearch's own: %s", body)
+		Expect(resp.Hits).To(HaveKey("hits"), "the response should be OpenSearch's own: %s", body)
+		if resp.Shards["total"] != float64(0) {
+			Expect(resp.Aggregations).To(HaveKey("traces"), "a search of the trace indices should answer the aggregation: %s", body)
+		}
 	})
 })

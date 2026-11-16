@@ -63,6 +63,7 @@ spec:
         - --heartbeat-interval={{ .Values.clusterGateway.heartbeatInterval }}
         - --heartbeat-timeout={{ .Values.clusterGateway.heartbeatTimeout }}
         - --drain-window={{ .Values.clusterGateway.drainWindow }}
+        - --plane-cache-sync-timeout={{ .Values.clusterGateway.planeCacheSyncTimeout }}
         {{- if .Values.clusterGateway.internalMtls.enabled }}
         - --internal-mtls=true
         - --internal-client-ca-cert=/internal-ca/ca.crt

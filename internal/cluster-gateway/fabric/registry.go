@@ -225,6 +225,29 @@ func (r *Registry) CountForCR(planeIdentifier, crKey string) int {
 	return count
 }
 
+// CountForCRAndPlane returns, from one view of the registry, the number of
+// remote agent connections authorized for a CR and the number connected to its
+// plane at all (draining owners included in both). A caller comparing the two
+// must not read them with separate calls: an agent registering in between would
+// pair a count taken before it arrived with one taken after.
+func (r *Registry) CountForCRAndPlane(planeIdentifier, crKey string) (forCR, forPlane int) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, st := range r.owners {
+		for _, e := range st.entries {
+			if e.PlaneIdentifier != planeIdentifier {
+				continue
+			}
+			forPlane++
+			if slices.Contains(e.ValidCRs, crKey) {
+				forCR++
+			}
+		}
+	}
+	return forCR, forPlane
+}
+
 // AllPlaneCounts returns remote agent connection counts per plane identifier.
 func (r *Registry) AllPlaneCounts() map[string]int {
 	r.mu.RLock()

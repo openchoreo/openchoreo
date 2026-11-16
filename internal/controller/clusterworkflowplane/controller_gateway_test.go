@@ -48,7 +48,8 @@ var _ = Describe("ClusterWorkflowPlane Controller — gateway create/delete path
 
 			result, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 			Expect(*calls).To(Equal(1))
 
 			// Status poll skipped to avoid HA flapping → AgentConnection should still be nil.
@@ -71,7 +72,8 @@ var _ = Describe("ClusterWorkflowPlane Controller — gateway create/delete path
 
 			result, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 		})
 	})
 
@@ -131,7 +133,8 @@ var _ = Describe("ClusterWorkflowPlane Controller — gateway paths", func() {
 
 			result, err := cwpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 			Expect(*calls).To(Equal(0))
 		})
 	})

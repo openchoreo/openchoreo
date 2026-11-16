@@ -48,7 +48,8 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 
 			result, err := cdpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 			Expect(*calls).To(Equal(1))
 
 			// After gateway notification, status poll is intentionally skipped to avoid
@@ -68,7 +69,8 @@ var _ = Describe("ClusterDataPlane Controller — gateway paths", func() {
 
 			result, err := cdpReconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred()) // status error is swallowed
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			fresh := &openchoreov1alpha1.ClusterDataPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())

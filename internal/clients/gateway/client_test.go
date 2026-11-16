@@ -590,6 +590,25 @@ func TestGetPlaneStatus(t *testing.T) {
 		assert.Contains(t, capturedQuery, "name=my-dp")
 	})
 
+	// A cluster-scoped CR has no namespace. Without its name the gateway answers
+	// with the plane-level status, which cannot show that this CR lost its grant.
+	t.Run("cluster-scoped CR is identified by name alone", func(t *testing.T) {
+		var capturedQuery string
+
+		c := newTestGatewayClient(t, func(w http.ResponseWriter, r *http.Request) {
+			capturedQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"planeType":"dataplane","planeID":"prod","connected":false,"planeConnectedAgents":2}`))
+		})
+
+		status, err := c.GetPlaneStatus(context.Background(), "dataplane", "prod", "", "global-dp")
+
+		require.NoError(t, err)
+		assert.Equal(t, "name=global-dp", capturedQuery)
+		assert.Equal(t, 2, status.PlaneConnectedAgents)
+	})
+
 	t.Run("500 returns TransientError", func(t *testing.T) {
 		c := newTestGatewayClient(t, func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -608,6 +627,27 @@ func TestGetPlaneStatus(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "decode")
 	})
+}
+
+// GrantMissing decides whether a controller re-sends its notification. It must
+// be true only when notifying again can help: agents are on the plane and none
+// is authorized for the CR. A gateway that predates the plane count reports
+// zero, and must not trigger a notification on every status refresh.
+func TestPlaneConnectionStatus_GrantMissing(t *testing.T) {
+	tests := []struct {
+		name   string
+		status PlaneConnectionStatus
+		want   bool
+	}{
+		{"agents on the plane, none authorized for the CR", PlaneConnectionStatus{PlaneConnectedAgents: 2}, true},
+		{"CR authorized", PlaneConnectionStatus{Connected: true, ConnectedAgents: 1, PlaneConnectedAgents: 2}, false},
+		{"no agent on the plane, or a gateway without the plane count", PlaneConnectionStatus{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.status.GrantMissing())
+		})
+	}
 }
 
 func TestGetPodLogsFromPlane(t *testing.T) {
