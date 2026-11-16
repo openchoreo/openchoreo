@@ -6,6 +6,7 @@ package releasebinding
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -930,14 +931,27 @@ func TestEvaluateStatusWithSeveralPrimaryWorkloads(t *testing.T) {
 				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "api"),
 				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "worker"),
 			}, true, string(ReasonReady)},
+		{"a suspended Deployment next to a healthy one with a degraded Service", evaluateDeploymentStatus,
+			WorkloadTypeDeployment,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(deploymentResource(openchoreov1alpha1.HealthStatusSuspended), "worker"),
+				named(deploymentResource(openchoreov1alpha1.HealthStatusHealthy), "api"),
+				serviceResource(openchoreov1alpha1.HealthStatusDegraded),
+			}, false, string(ReasonResourcesDegraded)},
+		{"a suspended Job next to a completed one", evaluateJobStatus, WorkloadTypeJob,
+			[]openchoreov1alpha1.RenderedManifestStatus{
+				named(jobResource(openchoreov1alpha1.HealthStatusHealthy), "migrate"),
+				named(jobResource(openchoreov1alpha1.HealthStatusSuspended), "seed"),
+			}, false, string(ReasonJobRunning)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			reversed := []openchoreov1alpha1.RenderedManifestStatus{tc.resources[1], tc.resources[0]}
+			reversed := slices.Clone(tc.resources)
+			slices.Reverse(reversed)
 			for _, resources := range [][]openchoreov1alpha1.RenderedManifestStatus{tc.resources, reversed} {
 				ready, reason, _ := tc.evaluate(resources, tc.workloadType)
-				assert.Equal(t, tc.wantReady, ready, "order %s, %s", resources[0].Name, resources[1].Name)
-				assert.Equal(t, tc.wantReason, reason, "order %s, %s", resources[0].Name, resources[1].Name)
+				assert.Equal(t, tc.wantReady, ready, "first listed: %s", resources[0].Name)
+				assert.Equal(t, tc.wantReason, reason, "first listed: %s", resources[0].Name)
 			}
 		})
 	}

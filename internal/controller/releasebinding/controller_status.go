@@ -298,19 +298,28 @@ func leastHealthyPrimary(resources []openchoreov1alpha1.RenderedManifestStatus,
 		if !isPrimaryWorkload(gvk, workloadType) {
 			continue
 		}
-		if primary == nil || healthRank(res.HealthStatus) > healthRank(primary.HealthStatus) {
+		if primary == nil || healthRank(res.HealthStatus, workloadType) > healthRank(primary.HealthStatus, workloadType) {
 			primary = res
 		}
 	}
 	return primary
 }
 
-// healthRank orders health from best to worst.
-func healthRank(health openchoreov1alpha1.HealthStatus) int {
+// healthRank orders health from best to worst. Suspended counts as better
+// than Healthy, so a healthy primary is picked over a suspended one and its
+// supporting resources are still checked. A suspended Job hasn't completed, so
+// for a Job it counts as worse.
+func healthRank(health openchoreov1alpha1.HealthStatus, workloadType WorkloadType) int {
 	switch health {
-	case openchoreov1alpha1.HealthStatusHealthy:
-		return 0
 	case openchoreov1alpha1.HealthStatusSuspended:
+		if workloadType == WorkloadTypeJob {
+			return 1
+		}
+		return 0
+	case openchoreov1alpha1.HealthStatusHealthy:
+		if workloadType == WorkloadTypeJob {
+			return 0
+		}
 		return 1
 	case openchoreov1alpha1.HealthStatusProgressing:
 		return 2
