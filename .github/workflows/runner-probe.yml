@@ -1,0 +1,17 @@
+name: Runner Probe
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: CPU
+        run: nproc
+      - name: Memory
+        run: free -h
+      - name: Disk
+        run: df -h /
