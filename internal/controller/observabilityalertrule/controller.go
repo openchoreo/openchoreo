@@ -526,18 +526,22 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 	baseURL := getObserverInternalBaseURL()
 
 	// An adapter that identifies rules by name alone would delete another namespace's rule, so the
-	// rule is only deleted once the check shows it is this rule's or gone.
+	// rule is only deleted once the check shows it is this rule's. When it is gone there is nothing to
+	// delete, and a delete by name could remove a same-named rule created since the check.
 	getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule)
 	if err != nil {
 		logger.Error(err, "failed to check the backend alert rule before deleting it")
 		return ctrl.Result{}, fmt.Errorf("failed to check backend alert rule before deleting it: %w", err)
 	}
 	switch {
+	case statusCode == http.StatusNotFound:
+		logger.Info("Backend alert rule is already gone", "name", alertRule.Name)
+		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
 	case statusCode == http.StatusOK && !ownsBackendRule(alertRule, getResp):
 		logger.Info("Backend alert rule belongs to another namespace; not deleting it",
 			"name", alertRule.Name, "backendNamespace", getResp.Metadata.Namespace)
 		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
-	case statusCode != http.StatusOK && statusCode != http.StatusNotFound:
+	case statusCode != http.StatusOK:
 		statusErr := fmt.Errorf("unexpected GET status %d when checking alert rule %q before deleting it", statusCode, alertRule.Name)
 		logger.Error(statusErr, "failed to check the backend alert rule before deleting it")
 		return ctrl.Result{}, statusErr
