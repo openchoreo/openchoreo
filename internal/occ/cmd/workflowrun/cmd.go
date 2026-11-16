@@ -9,6 +9,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -88,10 +89,16 @@ or archived logs from the observer for completed runs.`,
   occ workflowrun logs my-run --namespace acme-corp
 
   # Follow logs
-  occ workflowrun logs my-run --namespace acme-corp -f`,
+  occ workflowrun logs my-run --namespace acme-corp -f
+
+  # Print each log entry as JSON
+  occ workflowrun logs my-run --namespace acme-corp -o json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -101,11 +108,13 @@ or archived logs from the observer for completed runs.`,
 				WorkflowRunName: args[0],
 				Follow:          flags.GetFollow(cmd),
 				Since:           flags.GetSince(cmd),
+				Output:          flags.GetOutput(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	return cmd
 }

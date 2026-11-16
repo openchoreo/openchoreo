@@ -39,5 +39,5 @@ type LogsParams struct {
 	Since  string // relative duration like "10m"; converted to an absolute window
 	Tail   int    // number of entries to show from the end of the window
 	Follow bool
-	Output string // outputText or outputJSON
+	Output string // text, json, or custom-columns=FIELD,...
 }

@@ -44,6 +44,7 @@ func (cp *Component) WorkflowRunLogs(params WorkflowRunLogsParams) error {
 		WorkflowRunName: runName,
 		Follow:          params.Follow,
 		Since:           params.Since,
+		Output:          params.Output,
 	})
 }
 

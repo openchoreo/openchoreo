@@ -5,13 +5,16 @@ package component
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 	"github.com/openchoreo/openchoreo/pkg/observability"
@@ -19,8 +22,14 @@ import (
 
 const defaultPlaneName = "default"
 
+const logFormatJSON = "json"
+
 // Logs fetches and displays logs for a component
 func (cp *Component) Logs(params LogsParams) error {
+	if err := logformat.Validate(params.Output); err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 
 	apiClient := cp.client
@@ -116,44 +125,69 @@ func (cp *Component) fetchAndPrintLogs(
 		reverseLogs(logs)
 	}
 
-	printLogs(logs, params)
-
-	return nil
+	return printLogs(logs, params)
 }
 
 // printLogEntry prints a log entry, prefixing the container name when known so logs from
 // different containers of the same pod can be told apart.
-func printLogEntry(log client.LogEntry) {
-	if container := log.ContainerName(); container != "" {
-		fmt.Printf("%s [%s] %s\n", log.Timestamp, container, log.Log)
+func printLogEntry(log obsgen.LogEntry) {
+	if container := logContainerName(log); container != "" {
+		fmt.Printf("%s [%s] %s\n", log.Timestamp.Format(time.RFC3339Nano), container, log.Log)
 		return
 	}
-	fmt.Printf("%s %s\n", log.Timestamp, log.Log)
+	fmt.Printf("%s %s\n", log.Timestamp.Format(time.RFC3339Nano), log.Log)
+}
+
+// logContainerName returns the container name when the observer supplies it.
+func logContainerName(log obsgen.LogEntry) string {
+	if log.Metadata != nil && log.Metadata.ContainerName != nil {
+		return *log.Metadata.ContainerName
+	}
+	return ""
 }
 
 // filterLogsByContainer keeps only entries produced by the named container.
-func filterLogsByContainer(logs []client.LogEntry, container string) []client.LogEntry {
-	filtered := make([]client.LogEntry, 0, len(logs))
+func filterLogsByContainer(logs []obsgen.LogEntry, container string) []obsgen.LogEntry {
+	filtered := make([]obsgen.LogEntry, 0, len(logs))
 	for _, log := range logs {
-		if log.ContainerName() == container {
+		if logContainerName(log) == container {
 			filtered = append(filtered, log)
 		}
 	}
 	return filtered
 }
 
-// printLogs prints the entries, restricting to a single container when requested.
-func printLogs(logs []client.LogEntry, params LogsParams) {
+// printLogs prints the entries in the requested format, restricting to a single container when requested.
+func printLogs(logs []obsgen.LogEntry, params LogsParams) error {
+	columns, err := logformat.ParseColumns(params.Output)
+	if err != nil {
+		return err
+	}
 	if params.Container != "" {
 		logs = filterLogsByContainer(logs, params.Container)
 	}
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
 	for _, log := range logs {
+		if columns != nil {
+			if err := columns.Print(os.Stdout, log); err != nil {
+				return err
+			}
+			continue
+		}
+		if params.Output == logFormatJSON {
+			if err := encoder.Encode(log); err != nil {
+				return fmt.Errorf("failed to encode log entry: %w", err)
+			}
+			continue
+		}
 		printLogEntry(log)
 	}
+	return nil
 }
 
 // reverseLogs reverses a slice of log entries in place
-func reverseLogs(logs []client.LogEntry) {
+func reverseLogs(logs []obsgen.LogEntry) {
 	for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
 		logs[i], logs[j] = logs[j], logs[i]
 	}
@@ -185,13 +219,15 @@ func (cp *Component) followLogs(
 	}
 
 	// Print initial logs
-	printLogs(logs, params)
+	if err := printLogs(logs, params); err != nil {
+		return err
+	}
 
 	// Update startTime to the last log timestamp or endTime
 	startTime = endTime // default
 	if len(logs) > 0 {
-		lastTimestamp, err := time.Parse(time.RFC3339, logs[len(logs)-1].Timestamp)
-		if err == nil {
+		lastTimestamp := logs[len(logs)-1].Timestamp
+		if !lastTimestamp.IsZero() {
 			startTime = lastTimestamp.Add(1 * time.Millisecond) // Add 1ms to avoid duplicate
 		}
 	}
@@ -206,7 +242,7 @@ func (cp *Component) followLogs(
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("\nStopping log streaming...")
+			fmt.Fprintln(os.Stderr, "\nStopping log streaming...")
 			return nil
 		case <-ticker.C:
 			endTime = time.Now()
@@ -223,12 +259,14 @@ func (cp *Component) followLogs(
 			}
 
 			// Print new logs
-			printLogs(logs, params)
+			if err := printLogs(logs, params); err != nil {
+				return err
+			}
 
 			// Update startTime
 			if len(logs) > 0 {
-				lastTimestamp, err := time.Parse(time.RFC3339, logs[len(logs)-1].Timestamp)
-				if err == nil {
+				lastTimestamp := logs[len(logs)-1].Timestamp
+				if !lastTimestamp.IsZero() {
 					startTime = lastTimestamp.Add(1 * time.Millisecond)
 				} else {
 					startTime = endTime
@@ -249,7 +287,7 @@ func (cp *Component) fetchLogs(
 	params LogsParams,
 	startTime time.Time,
 	endTime time.Time,
-) ([]client.LogEntry, error) {
+) ([]obsgen.LogEntry, error) {
 	sortOrder := "asc"
 	if params.Tail > 0 {
 		sortOrder = "desc"

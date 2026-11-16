@@ -4,14 +4,20 @@
 package component
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
+	obsgen "github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
@@ -181,9 +187,39 @@ func TestLogsCmd_FactoryError(t *testing.T) {
 
 func TestLogsCmd_Flags(t *testing.T) {
 	cmd := newLogsCmd(errFactory("unused"))
-	for _, name := range []string{"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines"} {
+	for _, name := range []string{
+		"namespace", "project", "env", "follow", "since", "tail", "release-line", "all-release-lines", "output",
+	} {
 		assert.NotNil(t, cmd.Flags().Lookup(name), "expected flag %q", name)
 	}
+	assert.Equal(t, "text", cmd.Flags().Lookup("output").DefValue)
+}
+
+func TestLogsCmd_JSON(t *testing.T) {
+	setupLogsConfig(t)
+	mc := mocks.NewMockInterface(t)
+	setupMockForLogs(t, mc, observerTestURL)
+
+	// Use a wire response so fields discarded during decoding cannot silently disappear from the output.
+	entry := `{"timestamp":"2026-11-10T08:21:04.512Z","log":"GET /api/v1/urls/abc123 302 1.4ms","level":"INFO","metadata":{
+		"componentName":"snip-api-service","projectName":"url-shortener","environmentName":"development","namespaceName":"default",
+		"componentUid":"3f6c1a2e-8b4d-4c7a-9e21-5d0f7b9a6c13","projectUid":"a8e2d4b1-6c3f-4f9a-b7d2-1e5c8a0f4b96",
+		"environmentUid":"7b1d9e4c-2a6f-4e8b-8c3d-9f0a5b2e7d41","containerName":"main",
+		"releaseLineName":"canary","releaseLineUid":"9f8e7d6c-5b4a-4321-8fed-cba987654321",
+		"podName":"snip-api-service-development-6d8f7c9b5-x2k4p","podNamespace":"dp-default-url-shortener-development-50b4b7e4"}}`
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"logs":[` + entry + `]}`)),
+		}, nil
+	}))
+	cmd := newLogsCmd(mockFactory(mc))
+	require.NoError(t, cmd.ParseFlags([]string{"--namespace", "ns", "--project", "my-proj", "--output", "json"}))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
+	})
+	assert.Equal(t, 1, strings.Count(out, "\n"))
+	assert.JSONEq(t, entry, out)
 }
 
 func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
@@ -192,6 +228,67 @@ func TestLogsCmd_ReleaseLineFlagsAreExclusive(t *testing.T) {
 	err := cmd.ValidateFlagGroups()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "none of the others can be")
+}
+
+func TestLogsCmd_ReleaseLineColumns(t *testing.T) {
+	setupLogsConfig(t)
+	mc := mocks.NewMockInterface(t)
+	setupMockForLogs(t, mc, observerTestURL)
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		var body struct {
+			SearchScope struct {
+				AllReleaseLines bool `json:"allReleaseLines"`
+			} `json:"searchScope"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.True(t, body.SearchScope.AllReleaseLines)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body: io.NopCloser(strings.NewReader(`{"logs":[
+						{"timestamp":"2026-11-10T08:21:04.512Z","log":"canary log","metadata":{
+							"releaseLineName":"canary","releaseLineUid":"9f8e7d6c-5b4a-4321-8fed-cba987654321"}},
+						{"timestamp":"2026-11-10T08:21:05Z","log":"main log","metadata":{}}
+					]}`)),
+		}, nil
+	}))
+	cmd := newLogsCmd(mockFactory(mc))
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--namespace", "ns", "--project", "my-proj", "--all-release-lines",
+		"-o", "custom-columns=timestamp,metadata.releaseLineName,metadata.releaseLineUid,log",
+	}))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
+	})
+	assert.Equal(t,
+		"2026-11-10T08:21:04.512Z\tcanary\t9f8e7d6c-5b4a-4321-8fed-cba987654321\tcanary log\n"+
+			"2026-11-10T08:21:05Z\t-\t-\tmain log\n", out)
+}
+
+func TestLogsCmd_CustomColumns(t *testing.T) {
+	setupLogsConfig(t)
+	mc := mocks.NewMockInterface(t)
+	setupMockForLogs(t, mc, observerTestURL)
+	pod := "snip-api-service-development-6d8f7c9b5-x2k4p"
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, client.LogResponse{Logs: []obsgen.LogEntry{
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:05.087Z"), Level: ptr.To("WARN"), Log: "failed to resolve short code xyz789: not found",
+				Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("main"), PodName: ptr.To(pod)}},
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:05Z"), Log: "sidecar log", Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("daprd")}},
+			{Timestamp: parseLogTimestamp(t, "2026-11-10T08:21:04.512Z"), Level: ptr.To("INFO"), Log: "GET /api/v1/urls/abc123 302 1.4ms",
+				Metadata: &obsgen.LogEntryMetadata{ContainerName: ptr.To("main"), PodName: ptr.To(pod)}},
+		}}), nil
+	}))
+	cmd := newLogsCmd(mockFactory(mc))
+	require.NoError(t, cmd.ParseFlags([]string{
+		"--namespace", "ns", "--project", "my-proj", "--tail", "3", "--container", "main",
+		"-o", "custom-columns=timestamp,level,metadata.podName,log",
+	}))
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, cmd.RunE(cmd, []string{"my-comp"}))
+	})
+	assert.Equal(t,
+		"2026-11-10T08:21:04.512Z\tINFO\t"+pod+"\tGET /api/v1/urls/abc123 302 1.4ms\n"+
+			"2026-11-10T08:21:05.087Z\tWARN\t"+pod+"\tfailed to resolve short code xyz789: not found\n", out)
 }
 
 // --- workflow subcommands ---
