@@ -25,6 +25,9 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
+// inlineWebhookURL is the inline URL of the webhook channels in these tests.
+const inlineWebhookURL = "https://hooks.example.com/services/abc"
+
 var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 	var (
 		testCtx   context.Context
@@ -544,6 +547,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Type: corev1.SecretTypeOpaque,
 				Data: map[string][]byte{
 					"token": []byte("Bearer test-token-123"),
+					"url":   []byte("https://hooks.example.com/services/T000/B000/secret-token\n"),
 				},
 			}
 			Expect(k8sClient.Create(testCtx, webhookAuthSecret)).To(Succeed())
@@ -604,7 +608,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 					Environment: environment.Name,
 					Type:        openchoreodevv1alpha1.NotificationChannelTypeWebhook,
 					WebhookConfig: &openchoreodevv1alpha1.WebhookConfig{
-						URL:             "https://hooks.example.com/services/abc",
+						URL:             inlineWebhookURL,
 						PayloadTemplate: `{"text": "${alertName}"}`,
 						Headers: map[string]openchoreodevv1alpha1.WebhookHeaderValue{
 							"X-Source": {Value: &inlineHeader},
@@ -681,7 +685,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			configMap := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, configMap)).To(Succeed())
 			Expect(configMap.Data["type"]).To(Equal("webhook"))
-			Expect(configMap.Data["webhook.url"]).To(Equal("https://hooks.example.com/services/abc"))
+			Expect(configMap.Data["webhook.url"]).To(Equal(inlineWebhookURL))
 			Expect(configMap.Data["webhook.payloadTemplate"]).To(Equal(`{"text": "${alertName}"}`))
 			Expect(configMap.Data["webhook.header.X-Source"]).To(Equal("openchoreo"))
 			// Secret-referenced header values are NOT stored in the ConfigMap.
@@ -695,6 +699,62 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(string(secret.Data["webhook.header.Authorization"])).To(Equal("Bearer test-token-123"))
 			// Inline header values are not duplicated into the Secret.
 			Expect(secret.Data).NotTo(HaveKey("webhook.header.X-Source"))
+		})
+
+		It("should move the webhook URL between the ConfigMap and the Secret when its source changes", func() {
+			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
+			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Times(3)
+
+			reconciler := &Reconciler{
+				Client:              k8sClient,
+				Scheme:              k8sClient.Scheme(),
+				PlaneClientProvider: localMockProvider,
+			}
+			request := reconcile.Request{NamespacedName: types.NamespacedName{Name: channel.Name, Namespace: namespace}}
+
+			By("reconciling the channel with an inline URL")
+			_, err := reconciler.Reconcile(testCtx, request)
+			Expect(err).NotTo(HaveOccurred())
+			inlineConfigMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, inlineConfigMap)).To(Succeed())
+			Expect(inlineConfigMap.Data).To(HaveKey("webhook.url"))
+
+			By("switching the channel to a URL that comes from a secret")
+			latest := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, latest)).To(Succeed())
+			latest.Spec.WebhookConfig.URL = ""
+			latest.Spec.WebhookConfig.URLFrom = &openchoreodevv1alpha1.SecretValueFrom{
+				SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{Name: "webhook-auth-secret", Key: "url"},
+			}
+			Expect(k8sClient.Update(testCtx, latest)).To(Succeed())
+			_, err = reconciler.Reconcile(testCtx, request)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking that the URL is only in the Secret")
+			configMap := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, configMap)).To(Succeed())
+			Expect(configMap.Data).NotTo(HaveKey("webhook.url"))
+			secret := &corev1.Secret{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, secret)).To(Succeed())
+			Expect(string(secret.Data["webhook.url"])).To(Equal("https://hooks.example.com/services/T000/B000/secret-token"))
+
+			By("switching the channel back to an inline URL")
+			latest = &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, latest)).To(Succeed())
+			latest.Spec.WebhookConfig.URL = inlineWebhookURL
+			latest.Spec.WebhookConfig.URLFrom = nil
+			Expect(k8sClient.Update(testCtx, latest)).To(Succeed())
+			_, err = reconciler.Reconcile(testCtx, request)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking that the URL is only in the ConfigMap")
+			configMap = &corev1.ConfigMap{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, configMap)).To(Succeed())
+			Expect(configMap.Data["webhook.url"]).To(Equal(inlineWebhookURL))
+			secret = &corev1.Secret{}
+			Expect(k8sClient.Get(testCtx, request.NamespacedName, secret)).To(Succeed())
+			Expect(secret.Data).NotTo(HaveKey("webhook.url"))
+			Expect(secret.Data).To(HaveKey("webhook.header.Authorization"))
 		})
 	})
 
@@ -1310,6 +1370,53 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 				Expect(k8sClient.Get(testCtx, client.ObjectKeyFromObject(channel), &corev1.ConfigMap{})).To(Succeed())
 			})
 		})
+	})
+
+	Context("When creating a webhook channel", func() {
+		newWebhookChannel := func(name string, config *openchoreodevv1alpha1.WebhookConfig) *openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel {
+			return &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: openchoreodevv1alpha1.ObservabilityAlertsNotificationChannelSpec{
+					Environment:   "development",
+					Type:          openchoreodevv1alpha1.NotificationChannelTypeWebhook,
+					WebhookConfig: config,
+				},
+			}
+		}
+		urlFromSecret := func() *openchoreodevv1alpha1.SecretValueFrom {
+			return &openchoreodevv1alpha1.SecretValueFrom{
+				SecretKeyRef: &openchoreodevv1alpha1.SecretKeyRef{Name: "slack-webhook", Key: "url"},
+			}
+		}
+
+		It("should accept a URL that comes from a secret", func() {
+			channel := newWebhookChannel("webhook-url-from-secret", &openchoreodevv1alpha1.WebhookConfig{URLFrom: urlFromSecret()})
+
+			Expect(k8sClient.Create(testCtx, channel)).To(Succeed())
+			Expect(k8sClient.Delete(testCtx, channel)).To(Succeed())
+		})
+
+		DescribeTable("should reject a webhookConfig that does not set exactly one of url and urlFrom",
+			func(name string, config *openchoreodevv1alpha1.WebhookConfig, message string) {
+				err := k8sClient.Create(testCtx, newWebhookChannel(name, config))
+
+				Expect(err).To(HaveOccurred())
+				Expect(apierrors.IsInvalid(err)).To(BeTrue())
+				Expect(err.Error()).To(ContainSubstring(message))
+			},
+			Entry("both url and urlFrom", "webhook-url-both",
+				&openchoreodevv1alpha1.WebhookConfig{URL: inlineWebhookURL, URLFrom: urlFromSecret()},
+				"exactly one of url or urlFrom must be set"),
+			Entry("neither url nor urlFrom", "webhook-url-neither",
+				&openchoreodevv1alpha1.WebhookConfig{PayloadTemplate: "{}"},
+				"exactly one of url or urlFrom must be set"),
+			Entry("urlFrom without a secretKeyRef", "webhook-url-from-empty",
+				&openchoreodevv1alpha1.WebhookConfig{URLFrom: &openchoreodevv1alpha1.SecretValueFrom{}},
+				"urlFrom.secretKeyRef is required"),
+		)
 	})
 
 	Context("When creating a resource with an invalid email address", func() {

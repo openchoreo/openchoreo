@@ -247,6 +247,20 @@ func TestCreateConfigMap_WebhookSecretRefHeaders(t *testing.T) {
 	}
 }
 
+func TestCreateConfigMap_WebhookURLFromSecret(t *testing.T) {
+	r := newReconcilerWithObjects(t)
+	ch := newWebhookChannelWithURLRef("wh-secret-url", "wh-url")
+
+	cm := r.createConfigMap(ch)
+
+	if _, ok := cm.Data["webhook.url"]; ok {
+		t.Error("a webhook URL that comes from a secret must not appear in ConfigMap data")
+	}
+	if cm.Data["type"] != "webhook" {
+		t.Errorf("type: got %q, want %q", cm.Data["type"], "webhook")
+	}
+}
+
 func TestCreateConfigMap_WebhookNoHeadersOrTemplate(t *testing.T) {
 	r := newReconcilerWithObjects(t)
 	ch := newWebhookChannel("wh-bare", "dev")
@@ -389,6 +403,37 @@ func TestCreateSecret_WebhookHeaderResolved(t *testing.T) {
 	// Inline header values stay in ConfigMap; not duplicated into Secret.
 	if _, ok := sec.Data["webhook.header.X-Inline"]; ok {
 		t.Error("inline header value must not be copied into Secret")
+	}
+}
+
+func TestCreateSecret_WebhookURLResolved(t *testing.T) {
+	srcSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "wh-url", Namespace: "default"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{testURLKey: []byte("https://hooks.example.com/services/T000/B000/token\n")},
+	}
+	r := newReconcilerWithObjects(t, srcSecret)
+	ch := newWebhookChannelWithURLRef("wh-url-secret", "wh-url")
+
+	sec, err := r.createSecret(context.Background(), ch)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := string(sec.Data["webhook.url"]), "https://hooks.example.com/services/T000/B000/token"; got != want {
+		t.Errorf("webhook.url: got %q, want %q", got, want)
+	}
+}
+
+func TestCreateSecret_WebhookURLSecretMissing(t *testing.T) {
+	r := newReconcilerWithObjects(t)
+	ch := newWebhookChannelWithURLRef("wh-url-missing", "nope")
+
+	_, err := r.createSecret(context.Background(), ch)
+	if err == nil {
+		t.Fatal("expected error when webhook URL secret is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "webhook URL") {
+		t.Errorf("error should mention webhook URL; got %q", err.Error())
 	}
 }
 
