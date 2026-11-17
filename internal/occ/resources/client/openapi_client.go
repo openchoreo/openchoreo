@@ -1074,6 +1074,80 @@ func (c *Client) GetReleaseBindingResourceTree(ctx context.Context, namespaceNam
 	return resp.JSON200, nil
 }
 
+// ListReleaseBindingRevisions retrieves the revision history of a component's release bindings
+func (c *Client) ListReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingRevisionsParams) (*gen.ReleaseBindingRevisionList, error) {
+	resp, err := c.client.ListReleaseBindingRevisionsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list release binding revisions: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// RollbackReleaseBinding restores the binding spec recorded by an earlier revision
+func (c *Client) RollbackReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error) {
+	resp, err := c.client.RollbackReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to roll back release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteReleaseBindingRevision deletes one revision from a binding's history, or with
+// params.DryRun only checks that it may be deleted
+func (c *Client) DeleteReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error) {
+	resp, err := c.client.DeleteReleaseBindingRevisionWithResponse(ctx, namespaceName, revisionName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete release binding revision: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// ListResourceReleaseBindingRevisions retrieves the revision history of a resource's release bindings
+func (c *Client) ListResourceReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingRevisionsParams) (*gen.ResourceReleaseBindingRevisionList, error) {
+	resp, err := c.client.ListResourceReleaseBindingRevisionsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource release binding revisions: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteResourceReleaseBindingRevision deletes one revision from a binding's history, or with
+// params.DryRun only checks that it may be deleted
+func (c *Client) DeleteResourceReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteResourceReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error) {
+	resp, err := c.client.DeleteResourceReleaseBindingRevisionWithResponse(ctx, namespaceName, revisionName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete resource release binding revision: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// RollbackResourceReleaseBinding restores the binding spec recorded by an earlier revision
+func (c *Client) RollbackResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error) {
+	resp, err := c.client.RollbackResourceReleaseBindingWithResponse(ctx, namespaceName, bindingName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to roll back resource release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
 // DeleteReleaseBinding deletes a release binding
 func (c *Client) DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error {
 	resp, err := c.client.DeleteReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName)

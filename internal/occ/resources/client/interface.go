@@ -109,6 +109,9 @@ type Interface interface {
 	ListReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingsParams) (*gen.ReleaseBindingList, error)
 	GetReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) (*gen.ReleaseBinding, error)
 	GetReleaseBindingResourceTree(ctx context.Context, namespaceName, releaseBindingName string) (*gen.K8sResourceTreeResponse, error)
+	ListReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingRevisionsParams) (*gen.ReleaseBindingRevisionList, error)
+	RollbackReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error)
+	DeleteReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error)
 	CreateReleaseBinding(ctx context.Context, namespaceName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
 	UpdateReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.ReleaseBinding) (*gen.ReleaseBinding, error)
 	DeleteReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string) error
@@ -165,6 +168,9 @@ type Interface interface {
 
 	ListResourceReleaseBindings(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingsParams) (*gen.ResourceReleaseBindingList, error)
 	GetResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) (*gen.ResourceReleaseBinding, error)
+	ListResourceReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingRevisionsParams) (*gen.ResourceReleaseBindingRevisionList, error)
+	RollbackResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error)
+	DeleteResourceReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteResourceReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error)
 	CreateResourceReleaseBinding(ctx context.Context, namespaceName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)
 	UpdateResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, rrb gen.ResourceReleaseBinding) (*gen.ResourceReleaseBinding, error)
 	DeleteResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string) error

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
@@ -918,7 +919,12 @@ func TestDeploy_Promote_Success(t *testing.T) {
 		},
 	}, nil)
 	mc.EXPECT().GetReleaseBinding(mock.Anything, "ns", "my-comp-staging").Return(nil, nil)
-	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", mock.Anything).Return(&gen.ReleaseBinding{
+	// A binding created by promotion carries the Promote cause marker.
+	isPromoted := mock.MatchedBy(func(rb gen.ReleaseBinding) bool {
+		return rb.Metadata.Annotations != nil &&
+			(*rb.Metadata.Annotations)[openchoreov1alpha1.AnnotationKeyRevisionCause] == string(openchoreov1alpha1.RevisionCausePromote)
+	})
+	mc.EXPECT().CreateReleaseBinding(mock.Anything, "ns", isPromoted).Return(&gen.ReleaseBinding{
 		Metadata: gen.ObjectMeta{Name: "my-comp-staging"},
 		Spec: &gen.ReleaseBindingSpec{
 			Environment: "staging",

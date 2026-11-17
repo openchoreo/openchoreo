@@ -5,7 +5,11 @@
 // used CLI flags across occ subcommands.
 package flags
 
-import "github.com/spf13/cobra"
+import (
+	"strings"
+
+	"github.com/spf13/cobra"
+)
 
 // Mode constants for the --mode flag.
 const (
@@ -198,6 +202,19 @@ func AddTo(cmd *cobra.Command) {
 func GetTo(cmd *cobra.Command) string {
 	val, _ := cmd.Flags().GetString("to")
 	return val
+}
+
+// --- Message ---
+
+// AddMessage adds --message (-m), an optional reason recorded with the change.
+func AddMessage(cmd *cobra.Command, usage string) {
+	cmd.Flags().StringP("message", "m", "", usage)
+}
+
+// GetMessage returns --message without surrounding whitespace.
+func GetMessage(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("message")
+	return strings.TrimSpace(val)
 }
 
 // --- WorkflowRun ---

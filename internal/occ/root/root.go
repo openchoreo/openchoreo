@@ -42,10 +42,12 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/projecttype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/releasebindingrevision"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/remote"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resource"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcerelease"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebinding"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcereleasebindingrevision"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/resourcetype"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secret"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/secretreference"
@@ -81,9 +83,11 @@ func BuildRootCmd() *cobra.Command {
 		endpointrelease.NewEndpointReleaseCmd(f),
 		projectrelease.NewProjectReleaseCmd(f),
 		resourcereleasebinding.NewResourceReleaseBindingCmd(f),
+		resourcereleasebindingrevision.NewResourceReleaseBindingRevisionCmd(f),
 		endpointreleasebinding.NewEndpointReleaseBindingCmd(f),
 		projectreleasebinding.NewProjectReleaseBindingCmd(f),
 		releasebinding.NewReleaseBindingCmd(f),
+		releasebindingrevision.NewReleaseBindingRevisionCmd(f),
 		namespace.NewNamespaceCmd(f),
 		project.NewProjectCmd(f),
 		component.NewComponentCmd(f),

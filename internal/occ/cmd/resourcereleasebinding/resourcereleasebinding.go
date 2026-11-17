@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/bindingrevision"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
@@ -20,12 +21,13 @@ import (
 
 // ResourceReleaseBinding implements resource release binding operations
 type ResourceReleaseBinding struct {
-	client client.Interface
+	client  client.Interface
+	confirm bindingrevision.Confirmer
 }
 
 // New creates a new resource release binding implementation
 func New(c client.Interface) *ResourceReleaseBinding {
-	return &ResourceReleaseBinding{client: c}
+	return &ResourceReleaseBinding{client: c, confirm: bindingrevision.ConfirmOnTerminal}
 }
 
 // List lists resource release bindings in a namespace, optionally filtered by resource
@@ -143,4 +145,29 @@ func printList(items []gen.ResourceReleaseBinding) error {
 	}
 
 	return w.Flush()
+}
+
+// Rollback restores the binding spec recorded by one of the binding's
+// revisions: it previews the rollback, asks for confirmation unless Yes is set,
+// and applies it. See occ resourcereleasebindingrevision list for the revisions.
+func (rrb *ResourceReleaseBinding) Rollback(params RollbackParams) error {
+	if err := cmdutil.RequireFields("rollback", "resourcereleasebinding",
+		map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+	if err := bindingrevision.CheckMessage(params.Message); err != nil {
+		return err
+	}
+	return bindingrevision.RunRollback(context.Background(), bindingrevision.RollbackOptions{
+		Kind:     "resource release binding",
+		Binding:  params.ResourceReleaseBindingName,
+		Revision: params.Revision,
+		DryRun:   params.DryRun,
+		Yes:      params.Yes,
+		Out:      os.Stdout,
+		Confirm:  rrb.confirm,
+	}, func(ctx context.Context, revision *int64, dryRun bool) (*gen.RollbackResponse, error) {
+		return rrb.client.RollbackResourceReleaseBinding(ctx, params.Namespace, params.ResourceReleaseBindingName,
+			bindingrevision.RollbackRequest(revision, dryRun, params.Message))
+	})
 }

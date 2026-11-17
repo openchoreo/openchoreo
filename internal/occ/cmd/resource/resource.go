@@ -11,6 +11,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/bindingrevision"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
@@ -111,6 +112,9 @@ func (r *Resource) Promote(params PromoteParams) error {
 	}); err != nil {
 		return err
 	}
+	if err := bindingrevision.CheckMessage(params.Message); err != nil {
+		return err
+	}
 
 	ctx := context.Background()
 
@@ -129,6 +133,7 @@ func (r *Resource) Promote(params PromoteParams) error {
 	}
 
 	binding.Spec.ResourceRelease = &releaseName
+	bindingrevision.WithChangeMessage(&binding.Metadata, params.Message)
 	if _, err := r.client.UpdateResourceReleaseBinding(ctx, params.Namespace, binding.Metadata.Name, *binding); err != nil {
 		return err
 	}
