@@ -183,6 +183,26 @@ var _ = Describe("ReleaseBinding controller — namespace from the ProjectReleas
 		Expect(cond.Reason).To(Equal(string(projectreleasebinding.ReasonProjectObserved)))
 	})
 
+	It("lets Undeploy remove an existing release under an observed ProjectReleaseBinding", func() {
+		rb := makeComponent("ns-undeploy")
+		r := testReconcilerWithPipeline()
+		mustReconcile(r, reconcileRequest(rb.Name))
+		_, err := releaseOf(rb, "")
+		Expect(err).NotTo(HaveOccurred())
+
+		makePRB("ns-undeploy", openchoreov1alpha1.BindingModeObserve, "team-ns")
+		current := fetchRB(rb.Name)
+		current.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+		Expect(k8sClient.Update(ctx, current)).To(Succeed())
+		mustReconcile(r, reconcileRequest(rb.Name))
+
+		rr, err := releaseOf(rb, "")
+		Expect(apierrors.IsNotFound(err) || !rr.DeletionTimestamp.IsZero()).To(BeTrue(),
+			"Undeploy deletes the release whatever the ProjectReleaseBinding")
+		cond := conditionFor(fetchRB(rb.Name), string(ConditionReleaseSynced))
+		Expect(cond.Reason).NotTo(Equal(string(projectreleasebinding.ReasonProjectObserved)))
+	})
+
 	It("reports a conflict with several ProjectReleaseBindings", func() {
 		makePRB("ns-several-a", openchoreov1alpha1.BindingModeManage, "team-runtime")
 		makePRB("ns-several-b", openchoreov1alpha1.BindingModeManage, "team-runtime")

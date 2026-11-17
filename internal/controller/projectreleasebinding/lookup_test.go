@@ -166,6 +166,12 @@ func TestObserveChangedPredicate(t *testing.T) {
 		return lookupPRB("payments-prod", "payments", "prod", mode, namespace)
 	}
 
+	deleting := func(b *openchoreov1alpha1.ProjectReleaseBinding) *openchoreov1alpha1.ProjectReleaseBinding {
+		now := metav1.Now()
+		b.DeletionTimestamp = &now
+		return b
+	}
+
 	assert.True(t, p.Create(event.CreateEvent{Object: prb(observe, "")}), "create should pass")
 	assert.True(t, p.Delete(event.DeleteEvent{Object: prb(observe, "payments")}), "delete should pass")
 
@@ -177,6 +183,7 @@ func TestObserveChangedPredicate(t *testing.T) {
 		{"namespace_reported", prb(observe, ""), prb(observe, "payments"), true},
 		{"namespace_cleared", prb(observe, "payments"), prb(observe, ""), true},
 		{"mode_changed", prb(openchoreov1alpha1.BindingModeManage, "payments"), prb(observe, "payments"), true},
+		{"deletion_started", prb(observe, "payments"), deleting(prb(observe, "payments")), true},
 		{"unchanged", prb(observe, "payments"), prb(observe, "payments"), false},
 	}
 	for _, tc := range cases {

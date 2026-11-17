@@ -497,6 +497,9 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 //     live binding's pinned release is removed; in the normal teardown
 //     path bindings are already deleting under their own finalizer by
 //     the time the Resource finalizer cascades the snapshot.
+//   - Watches: Resource, on create and delete — a binding in Observe mode
+//     needs its Resource and has no ResourceRelease whose creation would
+//     wake it, so it waits on the Resource directly.
 //   - Watches: ProjectReleaseBinding — the binding takes its namespace from the
 //     ProjectReleaseBinding of its project and environment, and renders
 //     nothing while that one is observed, unsettled, or one of several.
@@ -523,6 +526,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.ResourceRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResourceRelease)).
+		Watches(&openchoreov1alpha1.Resource{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResource),
+			builder.WithPredicates(createOrDeletePredicate())).
 		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForProjectReleaseBinding),
 			builder.WithPredicates(projectreleasebinding.ObserveChangedPredicate())).

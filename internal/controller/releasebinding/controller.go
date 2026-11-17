@@ -178,14 +178,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 
 	// The namespace comes from the project's ProjectReleaseBinding. Under an
 	// observed one, or while it is unsettled, nothing is rendered or applied.
-	dataPlaneNamespace, held, why, err := projectreleasebinding.ManagedNamespace(ctx, r.Client,
-		releaseBinding.Namespace, releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Environment)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if dataPlaneNamespace == "" {
-		markNotSynced(releaseBinding, held, why)
-		return ctrl.Result{}, nil
+	// Undeploy needs no namespace: it only deletes the binding's own releases.
+	var dataPlaneNamespace string
+	if releaseBinding.Spec.State != openchoreov1alpha1.ReleaseStateUndeploy {
+		namespace, held, why, err := projectreleasebinding.ManagedNamespace(ctx, r.Client,
+			releaseBinding.Namespace, releaseBinding.Spec.Owner.ProjectName, releaseBinding.Spec.Environment)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if namespace == "" {
+			markNotSynced(releaseBinding, held, why)
+			return ctrl.Result{}, nil
+		}
+		dataPlaneNamespace = namespace
 	}
 
 	// Fetch ComponentRelease

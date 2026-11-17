@@ -163,8 +163,9 @@ func withReadyMessage(prb *openchoreov1alpha1.ProjectReleaseBinding, msg string)
 }
 
 // ObserveChangedPredicate passes creates, deletes, and updates that change
-// what the other bindings read from a ProjectReleaseBinding: the mode and the
-// namespace in status.
+// what the other bindings read from a ProjectReleaseBinding: the mode, the
+// namespace in status, and the start of its deletion, after which Find no
+// longer counts it.
 func ObserveChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -173,7 +174,9 @@ func ObserveChangedPredicate() predicate.Predicate {
 			if !okOld || !okNew {
 				return false
 			}
-			return oldPRB.Spec.Mode != newPRB.Spec.Mode || oldPRB.Status.Namespace != newPRB.Status.Namespace
+			return oldPRB.Spec.Mode != newPRB.Spec.Mode ||
+				oldPRB.Status.Namespace != newPRB.Status.Namespace ||
+				oldPRB.DeletionTimestamp.IsZero() != newPRB.DeletionTimestamp.IsZero()
 		},
 	}
 }
