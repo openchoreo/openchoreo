@@ -372,6 +372,38 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 		})
 	}
 
+	// A receiver can quote a credential in an escaping that differs from the URL's own. Such text
+	// cannot be scrubbed reliably, so the response is left out.
+	escaped := []struct {
+		name string
+		body string
+	}{
+		{name: "JSON unicode escape", body: `{"error":"invalid credential ab\u0026cdef12345"}`},
+		{name: "HTML numeric entity", body: "invalid credential ab&#38;cdef12345"},
+		{name: "percent-encoded twice", body: "invalid credential ab%2526cdef12345"},
+		{name: "backslash-escaped", body: `invalid credential ab\&cdef12345`},
+	}
+	for _, tc := range escaped {
+		t.Run("receiver quotes a credential with a "+tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer ts.Close()
+
+			origClient := httpClient
+			t.Cleanup(func() { httpClient = origClient })
+			httpClient = ts.Client()
+
+			cfg := &WebhookConfig{URL: ts.URL + "/hook?key=ab%26cdef12345"}
+			err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "403")
+			assert.Contains(t, err.Error(), "response omitted because it quotes the webhook URL")
+			assert.NotContains(t, err.Error(), "cdef12345")
+		})
+	}
+
 	t.Run("receiver redirects to a malformed Location that quotes the path", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Location", r.URL.Path+"/%zz")
@@ -458,6 +490,34 @@ func TestScrubWebhookURL(t *testing.T) {
 		got := scrubWebhookURL("see /docs/errors", "https://hooks.example.com/")
 		assert.Equal(t, "see /docs/errors", got)
 		assert.False(t, strings.Contains(got, redactedPlaceholder))
+	})
+}
+
+func TestQuotesWebhookURL(t *testing.T) {
+	const webhookURL = "https://hooks.example.com/services/tok3n-abc?key=ab%26cdef12345"
+
+	tests := []struct {
+		name string
+		text string
+		want bool
+	}{
+		{name: "JSON unicode escape", text: `invalid credential ab\u0026cdef12345`, want: true},
+		{name: "HTML named entity", text: "invalid credential ab&amp;cdef12345", want: true},
+		{name: "HTML numeric entity", text: "invalid credential ab&#x26;cdef12345", want: true},
+		{name: "percent-encoded twice", text: "invalid credential ab%2526cdef12345", want: true},
+		{name: "piece split by punctuation", text: "unknown hook tok3n_abc", want: true},
+		{name: "unrelated text", text: "invalid_payload: no text field", want: false},
+		{name: "short pieces are ignored", text: "missing key", want: false},
+		{name: "scrubbed text", text: "unknown hook <redacted>", want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, quotesWebhookURL(tc.text, webhookURL))
+		})
+	}
+
+	t.Run("URL that does not parse counts as quoted", func(t *testing.T) {
+		assert.True(t, quotesWebhookURL("anything", "https://example.com/hook\n"))
 	})
 }
 

@@ -9,12 +9,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -87,8 +91,8 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 		// Read response body for better error messages
 		var responseBody bytes.Buffer
 		if _, readErr := responseBody.ReadFrom(resp.Body); readErr == nil && responseBody.Len() > 0 {
-			return fmt.Errorf("webhook request failed with status code: %d, response: %s",
-				resp.StatusCode, scrubWebhookURL(responseBody.String(), config.URL))
+			return fmt.Errorf("webhook request failed with status code: %d, %s",
+				resp.StatusCode, describeResponse(responseBody.String(), config.URL))
 		}
 		return fmt.Errorf("webhook request failed with status code: %d", resp.StatusCode)
 	}
@@ -154,6 +158,82 @@ func scrubWebhookURL(text, rawURL string) string {
 	return text
 }
 
+// describeResponse returns the receiver's response for an error message, with the webhook URL
+// scrubbed. A response that still quotes a piece of the URL in an escaped form, which cannot be
+// removed reliably, is left out.
+func describeResponse(body, rawURL string) string {
+	scrubbed := scrubWebhookURL(body, rawURL)
+	if quotesWebhookURL(scrubbed, rawURL) {
+		return "response omitted because it quotes the webhook URL"
+	}
+	return "response: " + scrubbed
+}
+
+// quotesWebhookURL reports whether text contains a piece of the webhook URL's path, query or
+// userinfo once escaping is set aside. Both are decoded and reduced to their letters and digits,
+// so that "ab\u0026cdef" in the text matches "ab%26cdef" in the URL.
+func quotesWebhookURL(text, rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		// Nothing is known about the URL's pieces, so assume the worst.
+		return true
+	}
+	skeleton := alphanumerics(decodeEscapes(text))
+	for _, piece := range webhookURLPieces(u) {
+		if s := alphanumerics(decodeEscapes(piece)); len(s) >= minScrubbedPieceLen && strings.Contains(skeleton, s) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	unicodeEscape = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
+	percentEscape = regexp.MustCompile(`%([0-9a-fA-F]{2})`)
+)
+
+// decodeEscapes undoes JSON unicode escapes, percent-encoding and HTML entities, a few times
+// over to cover text that was escaped more than once.
+func decodeEscapes(s string) string {
+	for range 3 {
+		decoded := unicodeEscape.ReplaceAllStringFunc(s, func(m string) string {
+			n, _ := strconv.ParseUint(m[2:], 16, 32)
+			return string(rune(n))
+		})
+		decoded = percentEscape.ReplaceAllStringFunc(decoded, func(m string) string {
+			n, _ := strconv.ParseUint(m[1:], 16, 8)
+			return string([]byte{byte(n)})
+		})
+		decoded = html.UnescapeString(decoded)
+		if decoded == s {
+			break
+		}
+		s = decoded
+	}
+	return s
+}
+
+// alphanumerics returns the letters and digits of s.
+func alphanumerics(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return -1
+	}, s)
+}
+
+// webhookURLPieces returns the path segments, the query keys and values, and the userinfo of
+// the URL, as they are written in it.
+func webhookURLPieces(u *url.URL) []string {
+	pieces := strings.Split(u.EscapedPath(), "/")
+	pieces = append(pieces, strings.FieldsFunc(u.RawQuery, func(r rune) bool { return r == '&' || r == ';' || r == '=' })...)
+	if password, ok := u.User.Password(); ok {
+		pieces = append(pieces, u.User.Username(), password)
+	}
+	return pieces
+}
+
 // webhookURLParts returns what scrubWebhookURL removes for the URL, longest first.
 func webhookURLParts(rawURL string) []string {
 	seen := map[string]struct{}{}
@@ -173,12 +253,7 @@ func webhookURLParts(rawURL string) []string {
 			add(whole, 2)
 		}
 
-		pieces := strings.Split(u.EscapedPath(), "/")
-		pieces = append(pieces, strings.FieldsFunc(u.RawQuery, func(r rune) bool { return r == '&' || r == ';' || r == '=' })...)
-		if password, ok := u.User.Password(); ok {
-			pieces = append(pieces, u.User.Username(), password)
-		}
-		for _, piece := range pieces {
+		for _, piece := range webhookURLPieces(u) {
 			add(piece, minScrubbedPieceLen)
 			if unescaped, err := url.PathUnescape(piece); err == nil {
 				add(unescaped, minScrubbedPieceLen)
