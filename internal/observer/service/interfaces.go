@@ -101,10 +101,10 @@ type AlertIncidentService interface {
 // and processing incoming alert webhooks.
 type AlertRuleService interface {
 	CreateAlertRule(ctx context.Context, req internalgen.AlertRuleRequest) (*internalgen.AlertingRuleSyncResponse, error)
-	GetAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error)
+	GetAlertRule(ctx context.Context, namespace, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error)
 	UpdateAlertRule(
 		ctx context.Context, ruleName string, req internalgen.AlertRuleRequest,
 	) (*internalgen.AlertingRuleSyncResponse, error)
-	DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error)
+	DeleteAlertRule(ctx context.Context, namespace, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error)
 	HandleAlertWebhook(ctx context.Context, req internalgen.AlertWebhookRequest) (*internalgen.AlertWebhookResponse, error)
 }

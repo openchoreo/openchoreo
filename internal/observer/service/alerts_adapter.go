@@ -36,8 +36,9 @@ func (s *AlertService) createLogAlertRuleViaAdapter(ctx context.Context, req int
 }
 
 // getLogAlertRuleViaAdapter forwards a get-alert-rule request to the logs adapter.
-func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertRuleResponse, error) {
-	resp, err := s.logsAdapter.adapterClient.GetAlertRule(ctx, ruleName)
+func (s *AlertService) getLogAlertRuleViaAdapter(ctx context.Context, namespace, ruleName string) (*internalgen.AlertRuleResponse, error) {
+	resp, err := s.logsAdapter.adapterClient.GetAlertRule(ctx, ruleName,
+		&logsadapterclientgen.GetAlertRuleParams{Namespace: &namespace})
 	if err != nil {
 		return nil, fmt.Errorf("failed to call logs adapter get alert rule: %w", err)
 	}
@@ -57,7 +58,8 @@ func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 		return nil, fmt.Errorf("failed to convert alert rule request: %w", err)
 	}
 
-	resp, err := s.logsAdapter.adapterClient.UpdateAlertRule(ctx, ruleName, adapterReq)
+	resp, err := s.logsAdapter.adapterClient.UpdateAlertRule(ctx, ruleName,
+		&logsadapterclientgen.UpdateAlertRuleParams{Namespace: &req.Metadata.Namespace}, adapterReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call logs adapter update alert rule: %w", err)
 	}
@@ -71,8 +73,9 @@ func (s *AlertService) updateLogAlertRuleViaAdapter(ctx context.Context, ruleNam
 }
 
 // deleteLogAlertRuleViaAdapter forwards a delete-alert-rule request to the logs adapter.
-func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
-	resp, err := s.logsAdapter.adapterClient.DeleteAlertRule(ctx, ruleName)
+func (s *AlertService) deleteLogAlertRuleViaAdapter(ctx context.Context, namespace, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
+	resp, err := s.logsAdapter.adapterClient.DeleteAlertRule(ctx, ruleName,
+		&logsadapterclientgen.DeleteAlertRuleParams{Namespace: &namespace})
 	if err != nil {
 		return nil, fmt.Errorf("failed to call logs adapter delete alert rule: %w", err)
 	}
