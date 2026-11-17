@@ -25,6 +25,9 @@ data:
   FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED: {{ .Values.observer.featurePreview.deliveryInsights.enabled | default false | quote }}
   ALERT_STORE_BACKEND: {{ .Values.observer.alertStoreBackend | default "sqlite" | quote }}
   ALERT_SUPPRESSION_WINDOW: {{ .Values.observer.alertSuppressionWindow | quote }}
+  ALERT_NOTIFICATION_MAX_ATTEMPTS: {{ .Values.observer.alertNotification.maxAttempts | quote }}
+  ALERT_NOTIFICATION_ATTEMPT_TIMEOUT: {{ .Values.observer.alertNotification.attemptTimeout | quote }}
+  ALERT_NOTIFICATION_RETRY_BACKOFF: {{ .Values.observer.alertNotification.retryBackoff | quote }}
   OBSERVER_AUTH_CONFIG_PATH: /etc/openchoreo/auth-config.yaml
   AUTHZ_SERVICE_URL: {{ .Values.observer.controlPlaneApiUrl | quote }}
   AUTHZ_TLS_INSECURE_SKIP_VERIFY: {{ .Values.observer.authzTlsInsecureSkipVerify | default false | quote }}

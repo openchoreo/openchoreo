@@ -23,16 +23,17 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"time"
 	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Shared HTTP client for webhook notifications.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
+// Shared HTTP client for webhook notifications. Each attempt is bounded by the caller's context,
+// so the client sets no timeout of its own.
+var httpClient = &http.Client{}
+
+// maxErrorBodyBytes bounds how much of an error response is read into the returned error.
+const maxErrorBodyBytes = 64 << 10
 
 const (
 	// webhookURLKey holds the webhook URL: in the ConfigMap when it is inline, in the Secret when it
@@ -62,10 +63,10 @@ type WebhookConfig struct {
 // It sends the alertDetails JSON object as the request body.
 func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDetails map[string]interface{}) error {
 	if config.URL == "" {
-		return fmt.Errorf("webhook URL is required")
+		return newDeliveryError(ReasonChannelConfig, "webhook URL is missing", fmt.Errorf("webhook URL is required"))
 	}
 	if err := validateWebhookURL(config.URL); err != nil {
-		return err
+		return newDeliveryError(ReasonChannelConfig, "invalid webhook URL", err)
 	}
 
 	// Marshal alertDetails to JSON
@@ -95,7 +96,8 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.URL, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		// The cause quotes the URL, which validateWebhookURL has already accepted, so leave it out.
-		return fmt.Errorf("failed to create HTTP request for %s", RedactWebhookURL(config.URL))
+		return newDeliveryError(ReasonChannelConfig, "invalid webhook URL",
+			fmt.Errorf("failed to create HTTP request for %s", RedactWebhookURL(config.URL)))
 	}
 
 	// Set Content-Type header
@@ -110,19 +112,28 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		progress := requestProgress{contacted: contacted.Load(), handshakeFailed: handshakeFailed.Load()}
-		return fmt.Errorf("failed to send webhook request to %s: %w", RedactWebhookURL(config.URL), safeCause(err, progress))
+		// Classify the transport error itself: safeCause replaces it with a fixed error once the
+		// receiver was contacted.
+		return newDeliveryError(ReasonOf(err), "", fmt.Errorf("failed to send webhook request to %s: %w",
+			RedactWebhookURL(config.URL), safeCause(err, progress)))
 	}
 	defer resp.Body.Close()
 
 	// Check response status
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Read response body for better error messages
-		var responseBody bytes.Buffer
-		if _, readErr := responseBody.ReadFrom(resp.Body); readErr == nil && responseBody.Len() > 0 {
-			return fmt.Errorf("webhook request failed with status code: %d, %s",
-				resp.StatusCode, describeResponse(responseBody.String(), config))
+		err := fmt.Errorf("webhook request failed with status code: %d", resp.StatusCode)
+		// Read a bounded part of the response body for a better error message. A longer response is
+		// left out, since cutting it could cut the webhook URL so that scrubbing no longer finds it.
+		body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes+1))
+		switch {
+		case readErr != nil || len(body) == 0:
+		case len(body) > maxErrorBodyBytes:
+			err = fmt.Errorf("webhook request failed with status code: %d, response omitted because it is too long", resp.StatusCode)
+		default:
+			err = fmt.Errorf("webhook request failed with status code: %d, %s",
+				resp.StatusCode, describeResponse(string(body), config))
 		}
-		return fmt.Errorf("webhook request failed with status code: %d", resp.StatusCode)
+		return newDeliveryError(httpStatusReason(resp.StatusCode), fmt.Sprintf("HTTP %d", resp.StatusCode), err)
 	}
 
 	return nil
@@ -358,6 +369,18 @@ func webhookURLParts(rawURL string) []string {
 
 	sort.SliceStable(parts, func(i, j int) bool { return len(parts[i]) > len(parts[j]) })
 	return parts
+}
+
+// httpStatusReason classifies a non-2xx webhook response status.
+func httpStatusReason(status int) Reason {
+	switch {
+	case status == http.StatusTooManyRequests:
+		return ReasonHTTP429
+	case status >= 500:
+		return ReasonHTTP5xx
+	default:
+		return ReasonHTTP4xx
+	}
 }
 
 // PrepareWebhookNotificationConfig prepares webhook notification configuration from ConfigMap and Secret

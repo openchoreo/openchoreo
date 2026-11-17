@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -59,6 +60,16 @@ type AlertService struct {
 
 	finOpsAgentURL     string
 	finOpsAgentEnabled bool
+
+	// retryPolicy bounds how a notification is sent to one channel.
+	retryPolicy RetryPolicy
+	// sendNotification makes one attempt to send a notification. Tests replace it.
+	sendNotification NotificationSender
+	// dispatchCtx is cancelled to stop notification dispatches that outlive the drain.
+	dispatchCtx    context.Context
+	stopDispatches context.CancelFunc
+	dispatches     sync.WaitGroup
+	dispatchOnce   sync.Once
 }
 
 // NewAlertService creates a new AlertService.
@@ -77,7 +88,16 @@ func NewAlertService(
 	finOpsAgentURL string,
 	finOpsAgentEnabled bool,
 ) *AlertService {
+	retryPolicy := defaultRetryPolicy
+	if cfg != nil {
+		retryPolicy = RetryPolicy{
+			MaxAttempts:    cfg.Alerting.NotificationMaxAttempts,
+			AttemptTimeout: cfg.Alerting.NotificationAttemptTimeout,
+			Backoff:        cfg.Alerting.NotificationRetryBackoff,
+		}
+	}
 	return &AlertService{
+		retryPolicy:          retryPolicy,
 		alertEntryStore:      alertEntryStore,
 		incidentEntryStore:   incidentEntryStore,
 		k8sClient:            k8sClient,
@@ -242,6 +262,7 @@ func (s *AlertService) HandleAlertWebhook(ctx context.Context, req internalgen.A
 	}
 
 	s.logger.Debug("Alert entry stored", "alertID", alertID, "ruleName", ruleName)
+	s.recordPendingDeliveries(ctx, alertID, alertDetails.NotificationChannels)
 
 	s.triggerBackgroundTasks(alertID, alertDetails, alertRule)
 
@@ -431,7 +452,7 @@ func (s *AlertService) triggerBackgroundTasks(alertID string, alertDetails *lega
 		go s.storeIncidentEntry(alertID, alertDetails)
 	}
 
-	go s.sendNotificationAsync(alertID, alertDetails)
+	s.startNotificationDispatch(alertID, alertDetails)
 
 	if alertDetails.TriggerAiRca && s.aiRCAEnabled {
 		go s.triggerRCAAnalysis(alertID, alertDetails, alertRule)
@@ -474,13 +495,19 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 	}
 }
 
-// sendNotificationAsync sends an alert notification in the background.
-func (s *AlertService) sendNotificationAsync(alertID string, alertDetails *legacytypes.AlertDetails) {
-	notifCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := s.sendAlertNotification(notifCtx, s.notificationDetails(notifCtx, alertDetails)); err != nil {
-		s.logger.Warn("Failed to send alert notification", "error", err, "alertID", alertID)
-	}
+// startNotificationDispatch sends the alert's notifications in the background and records each
+// channel's result. DrainNotifications waits for it.
+func (s *AlertService) startNotificationDispatch(alertID string, alertDetails *legacytypes.AlertDetails) {
+	dispatchCtx := s.dispatchContext()
+	store := s.alertEntryStore
+	s.dispatches.Add(1)
+	go func() {
+		defer s.dispatches.Done()
+		ctx, cancel := context.WithTimeout(dispatchCtx, s.maxDispatchDuration())
+		defer cancel()
+		results := s.sendAlertNotification(ctx, s.notificationDetails(ctx, alertDetails))
+		s.recordDeliveryResults(store, alertID, alertDetails.AlertName, results)
+	}()
 }
 
 // notificationDetails names the main line in a notification when the component has release lines.
@@ -503,14 +530,19 @@ func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *le
 }
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
-func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails) error {
+func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails) []ChannelDeliveryResult {
 	if len(alertDetails.NotificationChannels) == 0 {
 		s.logger.Warn("No notification channels configured in alert details; this rule is invalid, skipping notification",
 			"ruleName", alertDetails.AlertName)
 		return nil
 	}
 
-	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels, s.getNotificationChannelConfig, s.logger)
+	send := s.sendNotification
+	if send == nil {
+		send = notifications.SendAlertNotification
+	}
+	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels,
+		s.getNotificationChannelConfig, send, s.effectiveRetryPolicy(), s.logger)
 }
 
 // getNotificationChannelConfig reads the K8s ConfigMap/Secret of the notification channel. The controller

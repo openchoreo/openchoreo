@@ -456,6 +456,39 @@ observer:
   alertSuppressionWindow: 1h
 
   # @schema
+  # type: object
+  # description: Retry and timeout settings for sending alert notifications. Each channel is sent to on its own, so a slow channel does not hold up the others.
+  # @schema
+  alertNotification:
+    # @schema
+    # type: integer
+    # minimum: 1
+    # description: How many times a notification is sent to a channel before it is recorded as failed. Only temporary failures, such as timeouts, connection errors, HTTP 5xx and 429 responses and temporary SMTP errors, are retried. Maps to ALERT_NOTIFICATION_MAX_ATTEMPTS in the Observer container.
+    # default: 3
+    # @schema
+    maxAttempts: 3
+    # @schema
+    # type: string
+    # description: Timeout of one attempt to send a notification to a channel. Maps to ALERT_NOTIFICATION_ATTEMPT_TIMEOUT in the Observer container.
+    # default: 10s
+    # @schema
+    attemptTimeout: 10s
+    # @schema
+    # type: string
+    # description: Delay before the first retry. It doubles for each later retry. Maps to ALERT_NOTIFICATION_RETRY_BACKOFF in the Observer container.
+    # default: 1s
+    # @schema
+    retryBackoff: 1s
+
+  # @schema
+  # type: integer
+  # minimum: 1
+  # description: Seconds Kubernetes waits for the Observer to stop. On shutdown the Observer lets in-flight alert notifications finish for up to maxAttempts × attemptTimeout plus the retry backoff, after its 10s server shutdown, and records the rest as interrupted. Keep this above that sum when raising alertNotification settings.
+  # default: 60
+  # @schema
+  terminationGracePeriodSeconds: 60
+
+  # @schema
   # type: string
   # description: PVC size for SQLite alert entry storage
   # default: 128Mi

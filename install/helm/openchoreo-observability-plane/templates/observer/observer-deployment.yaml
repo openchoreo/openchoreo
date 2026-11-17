@@ -35,6 +35,7 @@ spec:
         {{- include "openchoreo-observability-plane.platformIdentityLabels" . | nindent 8 }}
     spec:
       serviceAccountName: observer
+      terminationGracePeriodSeconds: {{ .Values.observer.terminationGracePeriodSeconds }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

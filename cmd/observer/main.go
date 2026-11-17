@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -43,6 +44,10 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+// staleDeliverySweepInterval is how often the observer marks alert notifications that a stopped
+// observer left pending as interrupted.
+const staleDeliverySweepInterval = 5 * time.Minute
 
 func main() {
 	// Create bootstrap logger for early initialization
@@ -502,6 +507,9 @@ func main() {
 	backgroundWG, doraAggregator = startDoraAggregator(
 		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
 
+	// Mark alert notifications that a stopped observer left pending as interrupted.
+	go alertService.RunStaleDeliverySweep(ctx, staleDeliverySweepInterval)
+
 	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
@@ -526,6 +534,11 @@ func main() {
 	defer cancel()
 
 	shutdownServers(shutdownCtx, server, internalServer, backgroundWG, logger)
+
+	// The servers no longer accept alerts, so let the notifications in flight finish.
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), cfg.Alerting.MaxNotificationDuration())
+	defer cancelDrain()
+	alertService.DrainNotifications(drainCtx)
 	logger.Info("Server shutdown complete")
 }
 
