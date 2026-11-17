@@ -2989,7 +2989,7 @@ type NotificationSecretValueFrom struct {
 	SecretKeyRef *NotificationSecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
-// NotificationWebhookConfig Configuration for webhook notification channels
+// NotificationWebhookConfig Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
 type NotificationWebhookConfig struct {
 	// Headers Optional HTTP headers to include in the webhook request
 	Headers *map[string]NotificationWebhookHeaderValue `json:"headers,omitempty"`
@@ -2997,8 +2997,12 @@ type NotificationWebhookConfig struct {
 	// PayloadTemplate Optional JSON payload template using CEL expressions
 	PayloadTemplate *string `json:"payloadTemplate,omitempty"`
 
-	// Url Webhook endpoint URL where alerts will be sent
-	Url string `json:"url"`
+	// Url Inline webhook endpoint URL where alerts will be sent. It is stored in plain text, so use
+	// urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+	Url *string `json:"url,omitempty"`
+
+	// UrlFrom Secret reference to the webhook endpoint URL, as an alternative to url
+	UrlFrom *NotificationSecretValueFrom `json:"urlFrom,omitempty"`
 }
 
 // NotificationWebhookHeaderValue Header value that can be provided inline or via secret reference
@@ -3107,7 +3111,7 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 	// Type Type of notification channel
 	Type ObservabilityAlertsNotificationChannelSpecType `json:"type"`
 
-	// WebhookConfig Configuration for webhook notification channels
+	// WebhookConfig Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
 	WebhookConfig *NotificationWebhookConfig `json:"webhookConfig,omitempty"`
 	union         json.RawMessage
 }

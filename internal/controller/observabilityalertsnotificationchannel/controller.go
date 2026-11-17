@@ -379,7 +379,10 @@ func (r *Reconciler) createConfigMap(channel *openchoreodevv1alpha1.Observabilit
 
 	// Add webhook-specific config if type is webhook
 	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeWebhook && channel.Spec.WebhookConfig != nil {
-		configMap.Data["webhook.url"] = channel.Spec.WebhookConfig.URL
+		// A URL that comes from a secret reference is kept out of the ConfigMap; it goes in the Secret.
+		if channel.Spec.WebhookConfig.URL != "" {
+			configMap.Data[webhookURLKey] = channel.Spec.WebhookConfig.URL
+		}
 		// Store payload template if provided
 		if channel.Spec.WebhookConfig.PayloadTemplate != "" {
 			configMap.Data["webhook.payloadTemplate"] = channel.Spec.WebhookConfig.PayloadTemplate
@@ -452,6 +455,23 @@ func (r *Reconciler) createSecret(ctx context.Context, channel *openchoreodevv1a
 			secret.Data["smtp.auth.password"] = []byte(password)
 			logger.Info("SMTP password resolved successfully")
 		}
+	}
+
+	// Add the webhook URL if it comes from a secret reference
+	if channel.Spec.Type == openchoreodevv1alpha1.NotificationChannelTypeWebhook && channel.Spec.WebhookConfig != nil &&
+		channel.Spec.WebhookConfig.URLFrom != nil && channel.Spec.WebhookConfig.URLFrom.SecretKeyRef != nil {
+		ref := channel.Spec.WebhookConfig.URLFrom.SecretKeyRef
+		logger.Info("Resolving webhook URL from secret",
+			"secretName", ref.Name,
+			"secretKey", ref.Key,
+			"namespace", channel.Namespace)
+
+		webhookURL, err := r.resolveSecretKeyRef(ctx, channel.Namespace, ref)
+		if err != nil {
+			logger.Error(err, "Failed to resolve webhook URL secret reference")
+			return nil, fmt.Errorf("failed to resolve webhook URL secret: %w", err)
+		}
+		secret.Data[webhookURLKey] = []byte(webhookURL)
 	}
 
 	// Add webhook header values if present - resolve secret references and copy actual values

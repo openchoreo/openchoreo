@@ -14912,15 +14912,21 @@ components:
 
     NotificationWebhookConfig:
       type: object
-      description: Configuration for webhook notification channels
-      required:
-        - url
+      description: |
+        Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
       properties:
         url:
           type: string
           format: uri
-          description: Webhook endpoint URL where alerts will be sent
-          example: https://hooks.slack.com/services/example
+          minLength: 1
+          description: |
+            Inline webhook endpoint URL where alerts will be sent. It is stored in plain text, so use
+            urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+          example: https://webhook.example.com/alerts
+        urlFrom:
+          description: Secret reference to the webhook endpoint URL, as an alternative to url
+          allOf:
+            - $ref: '#/components/schemas/NotificationSecretValueFrom'
         headers:
           type: object
           description: Optional HTTP headers to include in the webhook request
