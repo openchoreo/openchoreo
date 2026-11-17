@@ -41,6 +41,17 @@ spec:
           spec:
             description: EnvironmentSpec defines the desired state of Environment.
             properties:
+              componentRevisionHistoryLimit:
+                description: |-
+                  ComponentRevisionHistoryLimit is the number of old revisions kept, to
+                  allow rollback, for each ReleaseBinding in this environment, and for each
+                  ResourceReleaseBinding too. The active revision is always kept and does
+                  not count. 0 keeps no old revisions. A binding's own
+                  spec.revisionHistoryLimit overrides it. When unset, the controller's
+                  --component-revision-history-limit applies.
+                format: int32
+                minimum: 0
+                type: integer
               dataPlaneRef:
                 description: |-
                   DataPlaneRef references the DataPlane or ClusterDataPlane for this environment.
@@ -400,17 +411,6 @@ spec:
                       type: object
                     type: array
                 type: object
-              revisionHistoryLimit:
-                description: |-
-                  RevisionHistoryLimit is the number of old revisions kept, to allow
-                  rollback, for each ReleaseBinding and ResourceReleaseBinding in this
-                  environment. The active revision is always kept and does not count. 0
-                  keeps no old revisions. A binding's own spec.revisionHistoryLimit
-                  overrides it. When unset, the controller's --revision-history-limit
-                  applies.
-                format: int32
-                minimum: 0
-                type: integer
             type: object
             x-kubernetes-validations:
             - message: dataPlaneRef is immutable once set

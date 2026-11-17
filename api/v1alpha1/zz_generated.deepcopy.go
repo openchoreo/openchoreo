@@ -3682,8 +3682,8 @@ func (in *EnvironmentSpec) DeepCopyInto(out *EnvironmentSpec) {
 		**out = **in
 	}
 	in.Gateway.DeepCopyInto(&out.Gateway)
-	if in.RevisionHistoryLimit != nil {
-		in, out := &in.RevisionHistoryLimit, &out.RevisionHistoryLimit
+	if in.ComponentRevisionHistoryLimit != nil {
+		in, out := &in.ComponentRevisionHistoryLimit, &out.ComponentRevisionHistoryLimit
 		*out = new(int32)
 		**out = **in
 	}

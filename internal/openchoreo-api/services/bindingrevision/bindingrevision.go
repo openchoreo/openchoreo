@@ -124,7 +124,7 @@ type BindingState struct {
 // DeleteRevision deletes the revision named name, one of the binding's revisions
 // revs, unless one of these holds:
 //   - it is protected as the history limit protects it (revision.Protected):
-//     it is active, the newest known-good revision, or annotated openchoreo.dev/keep;
+//     it is active or the newest known-good revision;
 //   - the binding's spec matches it, so the controller is about to make it
 //     active again (a rollback to it is being applied);
 //   - its number is above the binding's status.highestRevision, which the
@@ -160,7 +160,6 @@ func DeleteRevision(ctx context.Context, c client.Client, name string, revs []Ca
 			Number:    r.Number,
 			Active:    i == active || r.Status.Active || r.Object.GetName() == binding.CurrentRevision,
 			KnownGood: r.Status.KnownGood,
-			Keep:      r.Object.GetAnnotations()[openchoreov1alpha1.AnnotationKeyKeepRevision] == revision.KeepRevisionValue,
 		}
 		if &revs[i] == target {
 			targetCandidate = candidates[i]

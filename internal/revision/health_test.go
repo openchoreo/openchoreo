@@ -337,7 +337,7 @@ func TestObserveHealth_RetriesOnConflict(t *testing.T) {
 					if err := c.Get(ctx, client.ObjectKeyFromObject(rev), other); err != nil {
 						return err
 					}
-					other.Annotations[openchoreov1alpha1.AnnotationKeyKeepRevision] = KeepRevisionValue
+					other.Annotations["example.com/concurrent"] = "yes"
 					if err := c.Update(ctx, other); err != nil {
 						return err
 					}
@@ -359,7 +359,7 @@ func TestObserveHealth_RetriesOnConflict(t *testing.T) {
 	r1 := getRBR(t, c, "frontend-development-r1")
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthHealthy, r1.Status.Health, "the write is retried on the fresh object")
 	assert.True(t, r1.Status.KnownGood)
-	assert.Equal(t, KeepRevisionValue, r1.Annotations[openchoreov1alpha1.AnnotationKeyKeepRevision], "the concurrent change survives")
+	assert.Equal(t, "yes", r1.Annotations["example.com/concurrent"], "the concurrent change survives")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -629,17 +629,17 @@ func TestEnvironmentHistoryLimit(t *testing.T) {
 	assert.Equal(t, 7, EnvironmentHistoryLimit(nil, 7), "no Environment: the controller's limit")
 	assert.Equal(t, 7, EnvironmentHistoryLimit(env, 7), "unset on the Environment: the controller's limit")
 
-	env.Spec.RevisionHistoryLimit = ptr.To(int32(3))
+	env.Spec.ComponentRevisionHistoryLimit = ptr.To(int32(3))
 	assert.Equal(t, 3, EnvironmentHistoryLimit(env, 7))
 
-	env.Spec.RevisionHistoryLimit = ptr.To(int32(0))
+	env.Spec.ComponentRevisionHistoryLimit = ptr.To(int32(0))
 	assert.Equal(t, 0, EnvironmentHistoryLimit(env, 7), "an explicit 0 is a limit, not unset")
 }
 
 func TestEnvironmentHistoryLimitChanged(t *testing.T) {
 	env := func(limit *int32) *openchoreov1alpha1.Environment {
 		e := &openchoreov1alpha1.Environment{}
-		e.Spec.RevisionHistoryLimit = limit
+		e.Spec.ComponentRevisionHistoryLimit = limit
 		return e
 	}
 	p := EnvironmentHistoryLimitChanged()
@@ -665,11 +665,13 @@ func TestEnvironmentHistoryLimitChanged(t *testing.T) {
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: &openchoreov1alpha1.ReleaseBinding{}, ObjectNew: env(nil)}))
 }
 
-func TestRecord_KeepAnnotationProtects(t *testing.T) {
+func TestRecord_KeepAnnotationDoesNotProtect(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
-	// A user annotates the revision, a main-resource write newTestClient forbids
-	// to the Snapshotter; this test needs a client that allows it.
+	// openchoreo.dev/keep is no longer honored: a revision annotated with it is
+	// trimmed like any other. A user annotates the revision, a main-resource
+	// write newTestClient forbids to the Snapshotter; this test needs a client
+	// that allows it.
 	c := fake.NewClientBuilder().
 		WithScheme(newTestScheme(t)).
 		WithObjects(binding.DeepCopy()).
@@ -680,7 +682,7 @@ func TestRecord_KeepAnnotationProtects(t *testing.T) {
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
 	r1 := getRBR(t, c, "frontend-development-r1")
-	r1.Annotations[openchoreov1alpha1.AnnotationKeyKeepRevision] = KeepRevisionValue
+	r1.Annotations["openchoreo.dev/keep"] = "true"
 	require.NoError(t, c.Update(ctx, r1))
 
 	for i := 2; i <= 4; i++ {
@@ -697,7 +699,7 @@ func TestRecord_KeepAnnotationProtects(t *testing.T) {
 	for _, rev := range stored {
 		numbers = append(numbers, rev.Spec.Revision)
 	}
-	// r1 is kept by its annotation, r4 is active and r3, the revision active
-	// before r4, is the target of an undo; r2 is the only one the limit may take.
-	assert.ElementsMatch(t, []int64{1, 3, 4}, numbers)
+	// r4 is active and r3, the revision active before r4, is the target of an
+	// undo; r2 is kept to fill the limit of 2. r1 goes despite its annotation.
+	assert.ElementsMatch(t, []int64{2, 3, 4}, numbers)
 }

@@ -21,7 +21,8 @@ import (
 )
 
 // The revision history limit is resolved from the binding's
-// spec.revisionHistoryLimit, then its Environment's, then the controller's. It
+// spec.revisionHistoryLimit, then its Environment's
+// spec.componentRevisionHistoryLimit, then the controller's. It
 // counts old revisions: the active one is always kept on top of it.
 var _ = Describe("ReleaseBinding Controller — revision history limit", func() {
 	const (
@@ -64,7 +65,7 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 		GinkgoHelper()
 		env := &openchoreov1alpha1.Environment{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: envName}, env)).To(Succeed())
-		env.Spec.RevisionHistoryLimit = limit
+		env.Spec.ComponentRevisionHistoryLimit = limit
 		Expect(k8sClient.Update(ctx, env)).To(Succeed())
 	}
 
@@ -221,8 +222,8 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 
 		env := &openchoreov1alpha1.Environment{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: envName}, env)).To(Succeed())
-		env.Spec.RevisionHistoryLimit = ptr.To(int32(-1))
-		Expect(k8sClient.Update(ctx, env)).To(MatchError(ContainSubstring("revisionHistoryLimit")))
+		env.Spec.ComponentRevisionHistoryLimit = ptr.To(int32(-1))
+		Expect(k8sClient.Update(ctx, env)).To(MatchError(ContainSubstring("componentRevisionHistoryLimit")))
 	})
 
 	It("enqueues an Environment's bindings, and no others, when the Environment changes", func() {

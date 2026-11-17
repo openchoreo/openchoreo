@@ -106,8 +106,8 @@ spec:
         {{- if not (kindIs "invalid" .revisionKnownGoodWindow) }}
         - --revision-known-good-window={{ .revisionKnownGoodWindow }}
         {{- end }}
-        {{- if not (kindIs "invalid" .revisionHistoryLimit) }}
-        - --revision-history-limit={{ int64 .revisionHistoryLimit }}
+        {{- if not (kindIs "invalid" .componentRevisionHistoryLimit) }}
+        - --component-revision-history-limit={{ int64 .componentRevisionHistoryLimit }}
         {{- end }}
         {{- end }}
         env:

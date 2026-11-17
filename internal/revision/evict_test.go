@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// revs builds candidates r1..rN, none active, known-good or kept.
+// revs builds candidates r1..rN, none active or known-good.
 func revs(n int) []EvictionCandidate {
 	out := make([]EvictionCandidate, n)
 	for i := range out {
@@ -31,7 +31,6 @@ func with(candidates []EvictionCandidate, n int64, mutate func(c *EvictionCandid
 
 func active(c *EvictionCandidate)     { c.Active = true }
 func knownGood(c *EvictionCandidate)  { c.KnownGood = true }
-func keep(c *EvictionCandidate)       { c.Keep = true }
 func undoTarget(c *EvictionCandidate) { c.UndoTarget = true }
 
 func numbers(candidates []EvictionCandidate) []int64 {
@@ -75,12 +74,11 @@ func TestSelectEvictions(t *testing.T) {
 			wantEvicted: []int64{1, 2, 3, 4},
 		},
 		{
-			name: "limit 0 evicts the newest known-good revision and the undo target, but not a kept one",
-			candidates: with(with(with(with(revs(5), 5, active), 4, knownGood),
-				3, undoTarget), 1, keep),
-			limit:         0,
-			wantEvicted:   []int64{2, 3, 4},
-			wantOverLimit: true,
+			name: "limit 0 evicts the newest known-good revision and the undo target",
+			candidates: with(with(with(revs(5), 5, active), 4, knownGood),
+				3, undoTarget),
+			limit:       0,
+			wantEvicted: []int64{1, 2, 3, 4},
 		},
 		{
 			name:        "evicts the oldest first",
@@ -113,25 +111,19 @@ func TestSelectEvictions(t *testing.T) {
 			wantEvicted: []int64{1, 2},
 		},
 		{
-			name:        "never evicts a kept revision",
-			candidates:  with(with(revs(5), 5, active), 1, keep),
-			limit:       2,
-			wantEvicted: []int64{2, 3},
-		},
-		{
 			name: "protected revisions alone exceed the limit: all kept, over limit reported",
-			candidates: with(with(with(with(revs(4), 4, active), 3, knownGood),
-				1, keep), 2, keep),
+			candidates: with(with(with(revs(3), 3, active), 2, knownGood),
+				1, undoTarget),
 			limit:         1,
 			wantEvicted:   []int64{},
 			wantOverLimit: true,
 		},
 		{
 			name: "unprotected evicted, protected still over the limit",
-			candidates: with(with(with(with(revs(5), 5, active), 4, knownGood),
-				1, keep), 2, keep),
-			limit:         2,
-			wantEvicted:   []int64{3},
+			candidates: with(with(with(revs(5), 5, active), 4, knownGood),
+				3, undoTarget),
+			limit:         1,
+			wantEvicted:   []int64{1, 2},
 			wantOverLimit: true,
 		},
 		{
@@ -169,7 +161,6 @@ func TestSelectEvictions(t *testing.T) {
 }
 
 func TestProtected(t *testing.T) {
-	keep := func(c *EvictionCandidate) { c.Keep = true }
 	knownGood := func(c *EvictionCandidate) { c.KnownGood = true }
 	active := func(c *EvictionCandidate) { c.Active = true }
 
@@ -181,7 +172,6 @@ func TestProtected(t *testing.T) {
 	}{
 		{"an inactive revision may be deleted", with(revs(4), 4, active), 2, ""},
 		{"the active revision is protected", with(revs(4), 4, active), 4, ProtectionActive},
-		{"a kept revision is protected", with(with(revs(4), 4, active), 2, keep), 2, ProtectionKeep},
 		{"the newest known-good revision is protected",
 			with(with(with(revs(4), 4, active), 1, knownGood), 3, knownGood), 3, ProtectionNewestKnownGood},
 		{"an older known-good revision may be deleted",
@@ -205,10 +195,9 @@ func TestProtected(t *testing.T) {
 // TestProtectedMatchesSelectEvictions checks that a revision deleted by hand is
 // protected exactly when a history limit above zero would never delete it.
 func TestProtectedMatchesSelectEvictions(t *testing.T) {
-	candidates := with(with(with(with(revs(6), 6, func(c *EvictionCandidate) { c.Active = true }),
+	candidates := with(with(with(revs(6), 6, func(c *EvictionCandidate) { c.Active = true }),
 		2, func(c *EvictionCandidate) { c.KnownGood = true }),
-		4, func(c *EvictionCandidate) { c.KnownGood = true }),
-		3, func(c *EvictionCandidate) { c.Keep = true })
+		4, func(c *EvictionCandidate) { c.KnownGood = true })
 	evicted, _ := SelectEvictions(candidates, 1)
 	evictable := map[string]bool{}
 	for _, c := range evicted {

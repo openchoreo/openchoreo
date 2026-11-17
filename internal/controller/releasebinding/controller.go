@@ -106,8 +106,9 @@ type Reconciler struct {
 	RevisionKnownGoodWindow time.Duration
 
 	// RevisionHistoryLimit is the number of old ReleaseBindingRevisions kept per
-	// binding, for bindings whose spec and Environment set no
-	// revisionHistoryLimit. Zero keeps no old revision.
+	// binding, for bindings whose spec sets no revisionHistoryLimit and whose
+	// Environment sets no componentRevisionHistoryLimit: the controller's
+	// --component-revision-history-limit. Zero keeps no old revision.
 	RevisionHistoryLimit int
 
 	// Recorder records events on ReleaseBindings, such as a revision history
@@ -1870,7 +1871,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
-		// An Environment's revisionHistoryLimit applies to its bindings that set
+		// An Environment's componentRevisionHistoryLimit applies to its bindings that set
 		// none, so a change to it trims their histories without waiting for
 		// their next reconcile.
 		Watches(&openchoreov1alpha1.Environment{},

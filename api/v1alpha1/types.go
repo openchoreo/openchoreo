@@ -35,10 +35,6 @@ const (
 	// rollback, creates no revision; its message is put on the binding's
 	// RevisionReactivated event instead.
 	AnnotationKeyChangeMessage = "openchoreo.dev/change-message"
-
-	// AnnotationKeyKeepRevision exempts a ReleaseBindingRevision or
-	// ResourceReleaseBindingRevision from history-limit eviction when set to "true".
-	AnnotationKeyKeepRevision = "openchoreo.dev/keep"
 )
 
 // RevisionCause records why a binding revision was created.

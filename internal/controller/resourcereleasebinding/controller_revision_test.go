@@ -337,7 +337,7 @@ var _ = Describe("ResourceReleaseBinding controller — revisions", func() {
 			GinkgoHelper()
 			env := &openchoreov1alpha1.Environment{}
 			Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: envName}, env)).To(Succeed())
-			env.Spec.RevisionHistoryLimit = limit
+			env.Spec.ComponentRevisionHistoryLimit = limit
 			Expect(k8sClient.Update(ctx, env)).To(Succeed())
 		}
 		setBindingLimit := func(limit *int32) {

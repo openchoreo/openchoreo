@@ -52,8 +52,8 @@ type ResourceReleaseBindingSpec struct {
 	// to allow rollback, as a Deployment's revisionHistoryLimit is. The active
 	// revision is always kept and does not count. 0 keeps no old revisions, so
 	// the binding cannot be rolled back. When unset, the Environment's
-	// spec.revisionHistoryLimit applies, and when that is unset too, the
-	// controller's --revision-history-limit.
+	// spec.componentRevisionHistoryLimit applies, and when that is unset too,
+	// the controller's --component-revision-history-limit.
 	//
 	// It configures the history and is not part of what a revision records:
 	// changing it creates no revision, revisions do not capture it, and a

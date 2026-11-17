@@ -12,19 +12,19 @@ import (
 
 // EnvironmentHistoryLimit returns the history limit for the bindings of
 // environment that set no spec.revisionHistoryLimit of their own: the
-// Environment's spec.revisionHistoryLimit when set, otherwise controllerLimit
-// (the controller's --revision-history-limit). It is what a binding controller
-// passes as Options.HistoryLimit, so the order is binding, Environment,
-// controller.
+// Environment's spec.componentRevisionHistoryLimit when set, otherwise
+// controllerLimit (the controller's --component-revision-history-limit). It is
+// what a binding controller passes as Options.HistoryLimit, so the order is
+// binding, Environment, controller.
 func EnvironmentHistoryLimit(environment *openchoreov1alpha1.Environment, controllerLimit int) int {
-	if environment != nil && environment.Spec.RevisionHistoryLimit != nil {
-		return int(*environment.Spec.RevisionHistoryLimit)
+	if environment != nil && environment.Spec.ComponentRevisionHistoryLimit != nil {
+		return int(*environment.Spec.ComponentRevisionHistoryLimit)
 	}
 	return controllerLimit
 }
 
 // EnvironmentHistoryLimitChanged passes the Environment updates that change
-// spec.revisionHistoryLimit, and nothing else: the binding controllers watch
+// spec.componentRevisionHistoryLimit, and nothing else: the binding controllers watch
 // Environments only to trim the history of an environment's bindings when its
 // limit changes.
 func EnvironmentHistoryLimitChanged() predicate.Predicate {
@@ -41,7 +41,7 @@ func EnvironmentHistoryLimitChanged() predicate.Predicate {
 			if !ok {
 				return false
 			}
-			oldLimit, newLimit := oldEnv.Spec.RevisionHistoryLimit, newEnv.Spec.RevisionHistoryLimit
+			oldLimit, newLimit := oldEnv.Spec.ComponentRevisionHistoryLimit, newEnv.Spec.ComponentRevisionHistoryLimit
 			if oldLimit == nil || newLimit == nil {
 				return oldLimit != newLimit
 			}

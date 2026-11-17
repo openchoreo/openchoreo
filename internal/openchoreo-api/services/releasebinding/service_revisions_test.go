@@ -709,6 +709,18 @@ func TestDeleteReleaseBindingRevision_DeletesAnInactiveRevision(t *testing.T) {
 	assert.Equal(t, f.revs[2].Name, rb.Status.CurrentRevision)
 }
 
+func TestDeleteReleaseBindingRevision_KeepAnnotationDoesNotProtect(t *testing.T) {
+	ctx := context.Background()
+	f := deleteFixture(t)
+	f.revs[1].Annotations = map[string]string{"openchoreo.dev/keep": "true"}
+	c := f.client()
+
+	_, err := NewService(c, testutil.TestLogger()).DeleteReleaseBindingRevision(ctx, testNamespace,
+		f.revs[1].Name, bindingrevision.DeleteRequest{Binding: testRBName})
+	require.NoError(t, err, "openchoreo.dev/keep is not honored")
+	assert.NotContains(t, revisionVersions(t, c), f.revs[1].Name)
+}
+
 func TestDeleteReleaseBindingRevision_DryRunDeletesNothing(t *testing.T) {
 	f := deleteFixture(t)
 	c := f.client()
@@ -739,12 +751,6 @@ func TestDeleteReleaseBindingRevision_Refused(t *testing.T) {
 			wantErr: bindingrevision.ErrRevisionProtected, wantMsg: "currently active"},
 		{name: "the newest known-good revision", target: func(f *fixture) string { return f.revs[0].Name },
 			wantErr: bindingrevision.ErrRevisionProtected, wantMsg: "newest known-good revision"},
-		{name: "a kept revision",
-			mutate: func(f *fixture) {
-				f.revs[1].Annotations = map[string]string{openchoreov1alpha1.AnnotationKeyKeepRevision: "true"}
-			},
-			target:  func(f *fixture) string { return f.revs[1].Name },
-			wantErr: bindingrevision.ErrRevisionProtected, wantMsg: "openchoreo.dev/keep"},
 		{name: "a revision a rollback is restoring",
 			mutate:  func(f *fixture) { f.binding.Spec = f.revs[1].Spec.BindingSpec },
 			target:  func(f *fixture) string { return f.revs[1].Name },

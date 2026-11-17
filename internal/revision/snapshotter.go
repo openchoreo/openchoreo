@@ -77,10 +77,6 @@ const (
 	// no limit is configured, as a Deployment's revisionHistoryLimit defaults
 	// to 10.
 	DefaultHistoryLimit = 10
-
-	// KeepRevisionValue is the value of openchoreo.dev/keep that exempts a
-	// revision from history-limit eviction.
-	KeepRevisionValue = "true"
 )
 
 // Adapter supplies the kind-specific parts of recording a revision. B is the
@@ -584,11 +580,10 @@ func (s *Snapshotter[B, R]) updateStatus(ctx context.Context, rev R,
 }
 
 // evict deletes the binding's oldest revisions beyond its history limit (see
-// historyLimit and SelectEvictions). The active revision is always kept, and so
-// are revisions annotated openchoreo.dev/keep: "true". Under a limit above zero
-// the revision active before the active one (the target of an undo) and the
-// newest known-good revision are kept too. When the kept revisions alone exceed
-// the limit and announce is set, a warning event is recorded on the binding;
+// historyLimit and SelectEvictions). The active revision is always kept. Under a
+// limit above zero the revision active before the active one (the target of an
+// undo) and the newest known-good revision are kept too. When the kept revisions
+// alone exceed the limit and announce is set, a warning event is recorded on the binding;
 // announce is set when a revision was just created, so that an unchanged
 // history is not reported on every reconcile.
 func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, active int64, announce bool) error {
@@ -611,7 +606,6 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 			Number:     s.Adapter.Number(rev),
 			Active:     s.Adapter.Number(rev) == active,
 			KnownGood:  s.Adapter.Status(rev).KnownGood,
-			Keep:       rev.GetAnnotations()[openchoreov1alpha1.AnnotationKeyKeepRevision] == KeepRevisionValue,
 			UndoTarget: undoTarget > 0 && s.Adapter.Number(rev) == undoTarget,
 		})
 	}
@@ -632,10 +626,9 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 			}
 		}
 		s.Recorder.Eventf(binding, corev1.EventTypeWarning, EventReasonRevisionHistoryLimitExceeded,
-			"%d old revisions are kept, above the history limit of %d: revisions annotated %s=%s are never "+
-				"deleted, and under a limit above 0 neither are the revision active before the current one "+
-				"and the newest known-good revision",
-			kept-len(evict), limit, openchoreov1alpha1.AnnotationKeyKeepRevision, KeepRevisionValue)
+			"%d old revisions are kept, above the history limit of %d: under a limit above 0 the revision "+
+				"active before the current one and the newest known-good revision are never deleted",
+			kept-len(evict), limit)
 	}
 	return kerrors.NewAggregate(errs)
 }

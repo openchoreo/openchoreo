@@ -11,8 +11,6 @@ type EvictionCandidate struct {
 	Number    int64
 	Active    bool
 	KnownGood bool
-	// Keep is true when the revision is annotated openchoreo.dev/keep: "true".
-	Keep bool
 	// UndoTarget is true for the revision that was active before the active one
 	// (AnnotationKeyPreviousRevision on the active revision): the target of a
 	// rollback that names no revision. Only the history limit spares it; it may
@@ -26,16 +24,16 @@ type EvictionCandidate struct {
 // revisionHistoryLimit counts old ReplicaSets. A limit of zero or less keeps no
 // old revision.
 //
-// Revisions marked Keep are never selected. While the limit is above zero,
-// neither are the newest known-good revision (the rollback target of last
-// resort) and the UndoTarget -- otherwise a rollback to an old revision followed
-// by a new deploy would evict the very revision an undo returns to. When the
+// While the limit is above zero, the newest known-good revision (the rollback
+// target of last resort) and the UndoTarget are never selected -- otherwise a
+// rollback to an old revision followed by a new deploy would evict the very
+// revision an undo returns to. When the
 // spared revisions alone outnumber the limit, every other old revision is
 // selected, the spared ones stay, and overLimit reports that the history is
 // still above the limit.
 //
-// A limit of zero asks for no history at all, so it spares only Keep: the
-// newest known-good revision and the UndoTarget are selected too.
+// A limit of zero asks for no history at all, so the newest known-good revision
+// and the UndoTarget are selected too.
 func SelectEvictions(candidates []EvictionCandidate, limit int) (evict []EvictionCandidate, overLimit bool) {
 	limit = max(limit, 0)
 
@@ -58,7 +56,7 @@ func SelectEvictions(candidates []EvictionCandidate, limit int) (evict []Evictio
 		if excess == 0 {
 			break
 		}
-		if c.Active || c.Keep {
+		if c.Active {
 			continue
 		}
 		if limit > 0 && (c.UndoTarget || c.Number == newestKnownGood) {
@@ -79,8 +77,6 @@ const (
 	ProtectionActive Protection = "it is currently active"
 	// ProtectionNewestKnownGood is the binding's rollback target of last resort.
 	ProtectionNewestKnownGood Protection = "it is the newest known-good revision, kept as the rollback target of last resort"
-	// ProtectionKeep is a revision annotated openchoreo.dev/keep: "true".
-	ProtectionKeep Protection = `it is annotated openchoreo.dev/keep: "true"; remove the annotation to delete it`
 )
 
 // Protected returns why target may not be deleted by hand, or "" when it may.
@@ -93,8 +89,6 @@ func Protected(candidates []EvictionCandidate, target EvictionCandidate) Protect
 	switch {
 	case target.Active:
 		return ProtectionActive
-	case target.Keep:
-		return ProtectionKeep
 	case target.KnownGood && target.Number == newestKnownGood(candidates):
 		return ProtectionNewestKnownGood
 	}

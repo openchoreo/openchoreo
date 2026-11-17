@@ -20,15 +20,15 @@ type EnvironmentSpec struct {
 	IsProduction bool          `json:"isProduction,omitempty"`
 	Gateway      GatewaySpec   `json:"gateway,omitempty"`
 
-	// RevisionHistoryLimit is the number of old revisions kept, to allow
-	// rollback, for each ReleaseBinding and ResourceReleaseBinding in this
-	// environment. The active revision is always kept and does not count. 0
-	// keeps no old revisions. A binding's own spec.revisionHistoryLimit
-	// overrides it. When unset, the controller's --revision-history-limit
-	// applies.
+	// ComponentRevisionHistoryLimit is the number of old revisions kept, to
+	// allow rollback, for each ReleaseBinding in this environment, and for each
+	// ResourceReleaseBinding too. The active revision is always kept and does
+	// not count. 0 keeps no old revisions. A binding's own
+	// spec.revisionHistoryLimit overrides it. When unset, the controller's
+	// --component-revision-history-limit applies.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
-	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+	ComponentRevisionHistoryLimit *int32 `json:"componentRevisionHistoryLimit,omitempty"`
 	// Observe controls which data-plane namespaces bindings in observe mode can
 	// read in this environment.
 	// +optional

@@ -129,8 +129,7 @@ never given to a new revision.
 
 Name the revision with REVISION_NAME (its name, its display name, or r3) or with
 --revision. The revision is shown and you are asked to confirm. The server refuses
-to delete the active revision, the newest known-good revision, and revisions
-annotated openchoreo.dev/keep: "true".`,
+to delete the active revision and the newest known-good revision.`,
 		Args: cobra.MaximumNArgs(1),
 		Example: `  # Check that revision 2 can be deleted, without deleting it
   occ resourcereleasebindingrevision delete --namespace acme-corp --binding orders-db-development --revision 2 --dry-run
