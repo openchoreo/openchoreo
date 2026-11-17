@@ -352,7 +352,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		current.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeManage
 		Expect(k8sClient.Update(ctx, current)).To(Succeed())
 
-		Expect(testReconciler().deleteObservingRelease(ctx, stale)).NotTo(Succeed())
+		Expect(renderedrelease.DeleteObserving(ctx, k8sClient, stale)).NotTo(Succeed())
 		_, err = releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
 	})

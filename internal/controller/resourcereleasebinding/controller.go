@@ -417,10 +417,7 @@ func buildMetadataContext(
 	bindingNamespace := binding.Namespace
 
 	baseName := dpkubernetes.GenerateK8sName("r_"+resourceName, envName)
-	dpNamespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
-		dpkubernetes.MaxNamespaceNameLength,
-		"dp", bindingNamespace, projectName, envName,
-	)
+	dpNamespace := dpkubernetes.DataPlaneNamespace(bindingNamespace, projectName, envName)
 
 	standardLabels := map[string]string{
 		labels.LabelKeyNamespaceName:   bindingNamespace,

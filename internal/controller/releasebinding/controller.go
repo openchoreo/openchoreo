@@ -28,6 +28,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -342,10 +343,7 @@ func (r *Reconciler) buildMetadataContext(
 
 	// Generate namespace using platform naming conventions
 	// Format: dp-{namespace}-{project}-{env}-{hash}
-	namespace := dpkubernetes.GenerateK8sNameWithLengthLimit(
-		dpkubernetes.MaxNamespaceNameLength,
-		"dp", namespaceName, projectName, environmentName,
-	)
+	namespace := dpkubernetes.DataPlaneNamespace(namespaceName, projectName, environmentName)
 
 	// Build standard labels
 	standardLabels := map[string]string{
@@ -1751,7 +1749,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
 		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForProjectReleaseBinding),
-			builder.WithPredicates(projectReleaseBindingObserveChangedPredicate())).
+			builder.WithPredicates(projectreleasebinding.ObserveChangedPredicate())).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

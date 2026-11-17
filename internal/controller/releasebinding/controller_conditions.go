@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
 )
 
 // Constants for condition types
@@ -81,20 +82,20 @@ const (
 	// ReasonProjectReleaseBindingNotFound indicates there is no
 	// ProjectReleaseBinding for the binding's project and environment, which
 	// Observe mode needs
-	ReasonProjectReleaseBindingNotFound controller.ConditionReason = "ProjectReleaseBindingNotFound"
+	ReasonProjectReleaseBindingNotFound = projectreleasebinding.ReasonProjectReleaseBindingNotFound
 
 	// ReasonProjectReleaseBindingConflict indicates several ProjectReleaseBindings
 	// target the binding's project and environment
-	ReasonProjectReleaseBindingConflict controller.ConditionReason = "ProjectReleaseBindingConflict"
+	ReasonProjectReleaseBindingConflict = projectreleasebinding.ReasonProjectReleaseBindingConflict
 
 	// ReasonProjectNotObserved indicates the project's ProjectReleaseBinding is in
-	// Manage mode. Observing a component under it is not supported yet.
-	ReasonProjectNotObserved controller.ConditionReason = "ProjectNotObserved"
+	// Manage mode. Observe mode under it is not supported yet.
+	ReasonProjectNotObserved = projectreleasebinding.ReasonProjectNotObserved
 
 	// ReasonNamespaceNotObserved indicates the project's ProjectReleaseBinding is in
 	// Observe mode but not observing a namespace, for example because its
 	// Environment does not allow the namespace
-	ReasonNamespaceNotObserved controller.ConditionReason = "NamespaceNotObserved"
+	ReasonNamespaceNotObserved = projectreleasebinding.ReasonNamespaceNotObserved
 
 	// ReasonNothingObserved indicates an Observe-mode binding lists no resources
 	ReasonNothingObserved controller.ConditionReason = "NothingObserved"

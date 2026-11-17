@@ -81,3 +81,16 @@ var _ = Describe("MinK8sNameLength", func() {
 		),
 	)
 })
+
+var _ = Describe("DataPlaneNamespace", func() {
+	It("keeps the name existing namespaces have", func() {
+		Expect(DataPlaneNamespace("default", "default", "development")).To(Equal("dp-default-default-development-f8e58905"))
+	})
+
+	It("stays within the namespace name limit", func() {
+		long := strings.Repeat("x", 63)
+		name := DataPlaneNamespace(long, long, long)
+		Expect(len(name)).To(BeNumerically("<=", MaxNamespaceNameLength))
+		Expect(name).To(HavePrefix("dp-"))
+	})
+})
