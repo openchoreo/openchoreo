@@ -26,6 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/tools/lint/ruleengine/template"
 	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
@@ -201,6 +202,7 @@ func newSchemaCmd() *cobra.Command {
 func newValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vali [file|folder]",
+		PreRunE: auth.RequireLogin(),
 		Aliases: []string{"validate"},
 		Short:   "Validate OpenChoreo resource files",
 		// Only the first positional argument is used; the rest have always

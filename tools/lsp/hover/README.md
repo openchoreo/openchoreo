@@ -38,7 +38,7 @@ on generic metadata now expects neutral resource metadata text.
 - `go test ./tools/lsp/hover/... ./tools/lsp/... -count=1 -timeout 120s`:
   passed, including completion, navigation, CodeLens and diagnostic lifecycle
   integration coverage (integration suite: 12.151s).
-- `go build -o /tmp/lsp-context-hover ./cmd/openchoreo-lsp`: passed.
+- `go build -o /tmp/lsp-context-hover ./cmd/occ`: passed.
 - Real `textDocument/hover` requests to the deployed extension LSP passed for
   ComponentType, Trait and Workflow reference values; unrelated Workflow prose
   was absent from ComponentType/Trait results.
@@ -123,7 +123,7 @@ Executed successfully:
 env NO_COLOR= go test ./internal/occ/cmd/lint ./tools/lint/cel-validator/... ./tools/lint/pre-render-validator ./tools/lint/ruleengine/... ./tools/lsp/... -count=1 -timeout 180s
 go test -race ./tools/lint/cel-validator ./tools/lsp/hover -run 'TestConcurrentSymbol|TestContextField|TestCELSymbol|TestCELIdentifier|TestPostRenderCEL|TestInspectionAndSuggestion' -count=1 -timeout 120s
 go build -o /tmp/occ-cel-symbols ./cmd/occ
-go build -o /tmp/lsp-cel-symbols ./cmd/openchoreo-lsp
+go build -o /tmp/lsp-cel-symbols ./cmd/occ
 python3 tools/lsp/hover/verify_cel_hover.py --cli ../bin/occ --lsp ../../vscode-extension/OpenChoreoToolkit/bin/openchoreo-lsp
 ```
 

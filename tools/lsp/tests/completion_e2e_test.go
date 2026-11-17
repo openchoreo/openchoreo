@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"io"
 	"os"
 	"os/exec"
@@ -16,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type jsonrpcMessage struct {
@@ -187,15 +191,16 @@ func completionKindString(kind int) string {
 }
 
 func TestCompletionE2E(t *testing.T) {
-	lspBinary := filepath.Join(t.TempDir(), "openchoreo-lsp")
+	lspBinary := filepath.Join(t.TempDir(), "occ")
 	if runtime.GOOS == "windows" {
 		lspBinary += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", lspBinary, "github.com/openchoreo/openchoreo/cmd/openchoreo-lsp")
+	build := exec.Command("go", "build", "-o", lspBinary, "github.com/openchoreo/openchoreo/cmd/occ")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build LSP: %v\n%s", err, output)
 	}
-	cmd := exec.Command(lspBinary)
+	cmd := exec.Command(lspBinary, "lsp")
+	cmd.Env = append(os.Environ(), "HOME="+authenticatedHome(t))
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatalf("stdin pipe: %v", err)
@@ -430,4 +435,18 @@ func printCompletionResponse(response *jsonrpcMessage) {
 				i+1, item.Label, completionKindString(item.Kind), item.Kind, item.InsertText, item.Detail)
 		}
 	}
+}
+
+func authenticatedHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"exp": time.Now().Add(time.Hour).Unix()}).SignedString([]byte("test-only"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
+		CurrentContext: "test", ControlPlanes: []config.ControlPlane{{Name: "test", URL: "http://127.0.0.1:1"}}, Credentials: []config.Credential{{Name: "test", Token: token}},
+		Contexts: []config.Context{{Name: "test", ControlPlane: "test", Credentials: "test"}},
+	})
+	return home
 }

@@ -73,6 +73,7 @@ func TestBuildRootCmd_Subcommands(t *testing.T) {
 		// The linter is a subtree of occ rather than a binary of its own, and it
 		// runs fully offline, so it needs no context bootstrap.
 		"lint",
+		"lsp",
 	}
 
 	commands := cmd.Commands()

@@ -28,12 +28,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/openchoreo/openchoreo/tools/lint/templateconfig"
 )
@@ -241,7 +245,7 @@ func runCLI(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 	cmd := exec.Command(binPath, args...)
 	// Golden contracts use plain markers regardless of the invoking environment.
-	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	cmd.Env = append(os.Environ(), "NO_COLOR=1", "HOME="+authenticatedHome(t))
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
@@ -280,4 +284,18 @@ func firstDiff(want, got string) string {
 		}
 	}
 	return "outputs are equal line by line but differ in length"
+}
+
+func authenticatedHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{"exp": time.Now().Add(time.Hour).Unix()}).SignedString([]byte("test-only"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.WriteOCConfig(t, home, &config.StoredConfig{
+		CurrentContext: "test", ControlPlanes: []config.ControlPlane{{Name: "test", URL: "http://127.0.0.1:1"}}, Credentials: []config.Credential{{Name: "test", Token: token}},
+		Contexts: []config.Context{{Name: "test", ControlPlane: "test", Credentials: "test"}},
+	})
+	return home
 }

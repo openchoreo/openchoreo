@@ -35,6 +35,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/lint"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/login"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/logout"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/lsp"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/namespace"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityalertsnotificationchannel"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/observabilityplane"
@@ -77,6 +78,7 @@ func BuildRootCmd() *cobra.Command {
 		logout.NewLogoutCmd(),
 		config.NewConfigCmd(),
 		lint.NewLintCmd(),
+		lsp.NewLSPCmd(),
 		version.NewVersionCmd(),
 		componentrelease.NewComponentReleaseCmd(f),
 		resourcerelease.NewResourceReleaseCmd(f),
