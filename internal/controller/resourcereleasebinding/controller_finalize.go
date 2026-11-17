@@ -10,6 +10,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,12 +50,15 @@ func (r *Reconciler) ensureFinalizer(ctx context.Context, binding *openchoreov1a
 //  1. Set the Finalizing condition the first time we observe deletion so the
 //     status surfaces "deletion in progress" and exit (status update
 //     re-enqueues).
-//  2. Resolve the effective retainPolicy (binding override > snapshot
-//     default > Delete).
-//  3. Retain → set Reason=RetainHold and exit; PE clears the finalizer
-//     manually after reclaiming DP-side state.
-//  4. Delete → cascade-delete the owned RenderedRelease and requeue while
-//     it still exists.
+//  2. Find the RenderedRelease the binding controls. One with its name that
+//     another object controls is treated as absent and never deleted.
+//  3. If deleting it could remove what Manage mode applied, resolve the
+//     effective retainPolicy (binding override > snapshot default > Delete).
+//     Retain → set Reason=RetainHold and exit; PE clears the finalizer
+//     manually after reclaiming DP-side state. Observe mode with nothing
+//     applied skips this: there is nothing to keep.
+//  4. Cascade-delete the owned RenderedRelease and requeue while it still
+//     exists.
 //  5. Once the RR is gone, remove the finalizer; K8s GCs the binding.
 func (r *Reconciler) finalize(ctx context.Context, old, binding *openchoreov1alpha1.ResourceReleaseBinding) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("binding", binding.Name)
@@ -68,34 +72,33 @@ func (r *Reconciler) finalize(ctx context.Context, old, binding *openchoreov1alp
 		return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, binding)
 	}
 
-	retain, err := r.effectiveRetainPolicy(ctx, binding)
+	rr, err := r.controlledRelease(ctx, binding)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("resolve effective retainPolicy: %w", err)
-	}
-	if retain == openchoreov1alpha1.ResourceRetainPolicyRetain {
-		if controller.MarkTrueCondition(binding, ConditionFinalizing, ReasonRetainHold,
-			"retainPolicy=Retain; finalizer held until cleared manually") {
-			return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, binding)
-		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
-	rrName := makeRenderedReleaseName(binding)
-	rr := &openchoreov1alpha1.RenderedRelease{}
-	err = r.Get(ctx, types.NamespacedName{Name: rrName, Namespace: binding.Namespace}, rr)
-	switch {
-	case err == nil:
+	if retainMayApply(binding, rr) {
+		retain, err := r.effectiveRetainPolicy(ctx, binding)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("resolve effective retainPolicy: %w", err)
+		}
+		if retain == openchoreov1alpha1.ResourceRetainPolicyRetain {
+			if controller.MarkTrueCondition(binding, ConditionFinalizing, ReasonRetainHold,
+				"retainPolicy=Retain; finalizer held until cleared manually") {
+				return controller.UpdateStatusConditionsAndReturn(ctx, r.Client, old, binding)
+			}
+			return ctrl.Result{}, nil
+		}
+	}
+
+	if rr != nil {
 		if rr.DeletionTimestamp.IsZero() {
 			if delErr := r.Delete(ctx, rr); delErr != nil && !apierrors.IsNotFound(delErr) {
-				return ctrl.Result{}, fmt.Errorf("delete RenderedRelease %q: %w", rrName, delErr)
+				return ctrl.Result{}, fmt.Errorf("delete RenderedRelease %q: %w", rr.Name, delErr)
 			}
-			logger.Info("Cascaded RenderedRelease delete", "renderedRelease", rrName)
+			logger.Info("Cascaded RenderedRelease delete", "renderedRelease", rr.Name)
 		}
 		return ctrl.Result{RequeueAfter: requeueWaitForChild}, nil
-	case apierrors.IsNotFound(err):
-		// fall through: clear finalizer
-	default:
-		return ctrl.Result{}, fmt.Errorf("get RenderedRelease %q: %w", rrName, err)
 	}
 
 	if controllerutil.RemoveFinalizer(binding, ResourceReleaseBindingFinalizer) {
@@ -104,6 +107,37 @@ func (r *Reconciler) finalize(ctx context.Context, old, binding *openchoreov1alp
 		}
 	}
 	return ctrl.Result{}, nil
+}
+
+// controlledRelease returns the binding's RenderedRelease if the binding
+// controls it, and nil when there is none or another object controls a release
+// with that name.
+func (r *Reconciler) controlledRelease(ctx context.Context,
+	binding *openchoreov1alpha1.ResourceReleaseBinding) (*openchoreov1alpha1.RenderedRelease, error) {
+	name := makeRenderedReleaseName(binding)
+	rr := &openchoreov1alpha1.RenderedRelease{}
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: binding.Namespace}, rr); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get RenderedRelease %q: %w", name, err)
+	}
+	if !metav1.IsControlledBy(rr, binding) {
+		return nil, nil
+	}
+	return rr, nil
+}
+
+// retainMayApply reports whether deleting the binding could remove what Manage
+// mode applied, so that its retainPolicy decides. A binding in Observe mode
+// without a release, and a release in Observe mode that applied nothing, have
+// nothing to keep. A binding in Manage mode holds without a release, as
+// before.
+func retainMayApply(binding *openchoreov1alpha1.ResourceReleaseBinding, rr *openchoreov1alpha1.RenderedRelease) bool {
+	if rr == nil {
+		return !binding.Spec.IsObserve()
+	}
+	return rr.Spec.Mode != openchoreov1alpha1.RenderedReleaseModeObserve || len(rr.Status.Resources) > 0
 }
 
 // effectiveRetainPolicy resolves the policy in priority order:

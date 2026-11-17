@@ -93,8 +93,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return r.reconcile(ctx, old, binding)
 }
 
-// reconcile is the live-object path: validate, render, emit RenderedRelease,
-// resolve outputs and readiness.
+// reconcile is the live-object path. Observe mode goes to reconcileObserve;
+// Manage mode validates, renders, emits the RenderedRelease, and resolves
+// outputs and readiness.
 func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1alpha1.ResourceReleaseBinding) (result ctrl.Result, rErr error) {
 	logger := log.FromContext(ctx)
 
@@ -113,6 +114,13 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	if binding.Spec.IsObserve() {
+		return ctrl.Result{}, r.reconcileObserve(ctx, binding)
+	}
+	if err := r.stopObservingUnlessAllowed(ctx, binding); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// The namespace comes from the project's ProjectReleaseBinding. Under an
 	// observed one, or while it is unsettled, nothing is rendered or applied.
