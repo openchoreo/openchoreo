@@ -27,7 +27,7 @@ import (
 func TestAlertServiceSendAlertNotification_NoChannels(t *testing.T) {
 	svc := &AlertService{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
-	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{AlertName: "test-rule"})
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{AlertName: "test-rule"}, nil)
 	if len(results) != 0 {
 		t.Fatalf("expected no results when no channels configured, got %v", results)
 	}
@@ -42,7 +42,7 @@ func TestAlertServiceSendAlertNotification_PartialFailure(t *testing.T) {
 		AlertName:            "test-rule",
 		Namespace:            "default",
 		NotificationChannels: []string{"webhook-good", "missing-channel"},
-	})
+	}, nil)
 	if len(results) != 2 {
 		t.Fatalf("expected a result per channel, got %v", results)
 	}
@@ -122,7 +122,7 @@ func TestAlertServiceSendAlertNotification_ResolvesChannelInAlertNamespace(t *te
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
+	}, nil)
 	if len(results) != 1 || !results[0].Sent {
 		t.Fatalf("sendAlertNotification() results = %+v, want one sent result", results)
 	}
@@ -144,7 +144,7 @@ func TestAlertServiceSendAlertNotification_ChannelOnlyInOtherNamespace(t *testin
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
+	}, nil)
 	if len(results) != 1 || results[0].Sent {
 		t.Fatal("expected a failed result for a channel that is not in the alert's namespace")
 	}
@@ -165,7 +165,7 @@ func TestAlertServiceSendAlertNotification_DoesNotMixNamespaces(t *testing.T) {
 		AlertName:            "test-rule",
 		Namespace:            "a-first",
 		NotificationChannels: []string{"oncall"},
-	})
+	}, nil)
 	if len(results) != 1 || results[0].Sent {
 		t.Fatal("expected a failed result for a channel whose Secret is missing")
 	}
@@ -186,7 +186,7 @@ func TestAlertServiceSendAlertNotification_WebhookURLFromSecret(t *testing.T) {
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
+	}, nil)
 	if len(results) != 1 || !results[0].Sent {
 		t.Fatalf("sendAlertNotification() results = %+v, want one sent result", results)
 	}

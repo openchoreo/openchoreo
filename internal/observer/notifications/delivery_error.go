@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/textproto"
 )
@@ -96,6 +97,10 @@ func ReasonOf(err error) Reason {
 			return ReasonSMTPTemporary
 		}
 		return ReasonSMTPPermanent
+	}
+	// A server that closes the connection mid-exchange surfaces as EOF.
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return ReasonConnection
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) {

@@ -521,18 +521,6 @@ func (c *Config) validateAlertNotifications() error {
 	return nil
 }
 
-// MaxNotificationDuration returns the longest a notification can take to reach one channel: every
-// attempt timing out, with the full backoff between attempts.
-func (a AlertingConfig) MaxNotificationDuration() time.Duration {
-	total := time.Duration(a.NotificationMaxAttempts) * a.NotificationAttemptTimeout
-	backoff := a.NotificationRetryBackoff
-	for i := 1; i < a.NotificationMaxAttempts; i++ {
-		total += backoff
-		backoff *= 2
-	}
-	return total
-}
-
 // validateDeliveryInsightsStore normalizes the delivery insights store backend and
 // DSN. The store defaults to sharing the alert store database so that
 // incident↔deployment attribution stays a local SQL join.

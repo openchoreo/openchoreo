@@ -18,6 +18,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	choreoapis "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -70,6 +71,9 @@ type AlertService struct {
 	stopDispatches context.CancelFunc
 	dispatches     sync.WaitGroup
 	dispatchOnce   sync.Once
+	// dispatchMu guards draining, which stops new dispatches once the drain has started.
+	dispatchMu sync.Mutex
+	draining   bool
 }
 
 // NewAlertService creates a new AlertService.
@@ -496,17 +500,31 @@ func (s *AlertService) storeIncidentEntry(alertID string, alertDetails *legacyty
 }
 
 // startNotificationDispatch sends the alert's notifications in the background and records each
-// channel's result. DrainNotifications waits for it.
+// channel's result as it finishes. DrainNotifications waits for it. Once the drain has started, the
+// alert's channels are recorded as interrupted instead.
 func (s *AlertService) startNotificationDispatch(alertID string, alertDetails *legacytypes.AlertDetails) {
-	dispatchCtx := s.dispatchContext()
 	store := s.alertEntryStore
+	record := func(r ChannelDeliveryResult) {
+		s.recordDeliveryResult(store, alertID, alertDetails.AlertName, r)
+	}
+
+	s.dispatchMu.Lock()
+	if s.draining {
+		s.dispatchMu.Unlock()
+		for _, channel := range alertDetails.NotificationChannels {
+			record(ChannelDeliveryResult{Channel: channel, Reason: notifications.ReasonInterrupted})
+		}
+		return
+	}
 	s.dispatches.Add(1)
+	s.dispatchMu.Unlock()
+
+	dispatchCtx := s.dispatchContext()
 	go func() {
 		defer s.dispatches.Done()
-		ctx, cancel := context.WithTimeout(dispatchCtx, s.maxDispatchDuration())
+		ctx, cancel := context.WithTimeout(dispatchCtx, s.MaxDispatchDuration())
 		defer cancel()
-		results := s.sendAlertNotification(ctx, s.notificationDetails(ctx, alertDetails))
-		s.recordDeliveryResults(store, alertID, alertDetails.AlertName, results)
+		s.sendAlertNotification(ctx, s.notificationDetails(ctx, alertDetails), record)
 	}()
 }
 
@@ -515,7 +533,9 @@ func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *le
 	if alertDetails.ReleaseLine != "" || alertDetails.Component == "" || s.resolver == nil {
 		return alertDetails
 	}
-	hasLines, err := s.resolver.HasReleaseLines(ctx, alertDetails.Namespace, alertDetails.Component)
+	lookupCtx, cancel := context.WithTimeout(ctx, s.effectiveRetryPolicy().AttemptTimeout)
+	defer cancel()
+	hasLines, err := s.resolver.HasReleaseLines(lookupCtx, alertDetails.Namespace, alertDetails.Component)
 	if err != nil {
 		s.logger.Warn("Failed to check the release lines of the alert's component", "error", err,
 			"namespace", alertDetails.Namespace, "component", alertDetails.Component)
@@ -530,7 +550,9 @@ func (s *AlertService) notificationDetails(ctx context.Context, alertDetails *le
 }
 
 // sendAlertNotification fetches the notification channel config from K8s and dispatches the notification.
-func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails) []ChannelDeliveryResult {
+// onResult, when set, is called with each channel's result as soon as that channel finishes.
+func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *legacytypes.AlertDetails,
+	onResult func(ChannelDeliveryResult)) []ChannelDeliveryResult {
 	if len(alertDetails.NotificationChannels) == 0 {
 		s.logger.Warn("No notification channels configured in alert details; this rule is invalid, skipping notification",
 			"ruleName", alertDetails.AlertName)
@@ -542,7 +564,7 @@ func (s *AlertService) sendAlertNotification(ctx context.Context, alertDetails *
 		send = notifications.SendAlertNotification
 	}
 	return DispatchAlertNotifications(ctx, alertDetails, alertDetails.NotificationChannels,
-		s.getNotificationChannelConfig, send, s.effectiveRetryPolicy(), s.logger)
+		s.getNotificationChannelConfig, send, s.effectiveRetryPolicy(), s.logger, onResult)
 }
 
 // getNotificationChannelConfig reads the K8s ConfigMap/Secret of the notification channel. The controller
@@ -560,7 +582,7 @@ func (s *AlertService) getNotificationChannelConfig(ctx context.Context, namespa
 
 	configMap := &corev1.ConfigMap{}
 	if err := s.k8sClient.Get(ctx, key, configMap); err != nil {
-		return nil, fmt.Errorf("failed to get notification channel ConfigMap %s: %w", key, err)
+		return nil, channelLookupError(fmt.Errorf("failed to get notification channel ConfigMap %s: %w", key, err))
 	}
 	if configMap.Labels[labels.LabelKeyNotificationChannelName] != channelName {
 		return nil, fmt.Errorf("notification channel ConfigMap %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
@@ -568,7 +590,7 @@ func (s *AlertService) getNotificationChannelConfig(ctx context.Context, namespa
 
 	secret := &corev1.Secret{}
 	if err := s.k8sClient.Get(ctx, key, secret); err != nil {
-		return nil, fmt.Errorf("failed to get notification channel Secret %s: %w", key, err)
+		return nil, channelLookupError(fmt.Errorf("failed to get notification channel Secret %s: %w", key, err))
 	}
 	if secret.Labels[labels.LabelKeyNotificationChannelName] != channelName {
 		return nil, fmt.Errorf("notification channel Secret %s is not labeled %s=%s", key, labels.LabelKeyNotificationChannelName, channelName)
@@ -839,4 +861,28 @@ func buildSyncResponse(action, logicalID, backendID string, lastSynced time.Time
 		RuleBackendId: &backendID,
 		LastSyncedAt:  &lastSyncedStr,
 	}
+}
+
+// channelLookupError classifies a failure to read a channel's ConfigMap or Secret. A missing,
+// forbidden or invalid object is a channel config error. A timeout, 429 or 5xx from the API server,
+// or a failure to reach it, is temporary and retried. The detail is the error text, which names the
+// object and never its contents.
+func channelLookupError(err error) error {
+	reason := notifications.ReasonChannelConfig
+	var status apierrors.APIStatus
+	switch {
+	case apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err):
+		reason = notifications.ReasonTimeout
+	case apierrors.IsTooManyRequests(err):
+		reason = notifications.ReasonHTTP429
+	case errors.As(err, &status):
+		if status.Status().Code >= http.StatusInternalServerError {
+			reason = notifications.ReasonHTTP5xx
+		}
+	default:
+		if r := notifications.ReasonOf(err); r.Retryable() || r == notifications.ReasonInterrupted {
+			reason = r
+		}
+	}
+	return &notifications.DeliveryError{Reason: reason, Detail: err.Error(), Err: err}
 }

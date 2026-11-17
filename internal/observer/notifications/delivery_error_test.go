@@ -8,9 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/smtp"
 	"net/textproto"
 	"strings"
 	"syscall"
@@ -34,6 +36,8 @@ func TestReasonOf(t *testing.T) {
 		{"smtp 451", &textproto.Error{Code: 451, Msg: "try later"}, ReasonSMTPTemporary},
 		{"smtp 550", &textproto.Error{Code: 550, Msg: "no such user"}, ReasonSMTPPermanent},
 		{"connection refused", &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}, ReasonConnection},
+		{"server closed the connection", fmt.Errorf("read: %w", io.EOF), ReasonConnection},
+		{"connection closed mid-reply", io.ErrUnexpectedEOF, ReasonConnection},
 		{"unclassified", errors.New("something else"), ReasonUnknown},
 		{"nil", nil, ""},
 	}
@@ -167,6 +171,12 @@ func fakeSMTPServer(t *testing.T, serve func(conn net.Conn)) string {
 
 // smtpDialogue answers a plain SMTP session, replying rcptReply to RCPT.
 func smtpDialogue(rcptReply string, received chan<- string) func(conn net.Conn) {
+	return smtpSession(rcptReply, received, false)
+}
+
+// smtpSession answers a plain SMTP session, replying rcptReply to RCPT. With dropQuit, it closes
+// the connection on QUIT without replying.
+func smtpSession(rcptReply string, received chan<- string, dropQuit bool) func(conn net.Conn) {
 	return func(conn net.Conn) {
 		r := bufio.NewReader(conn)
 		write := func(s string) { _, _ = conn.Write([]byte(s + "\r\n")) }
@@ -199,7 +209,9 @@ func smtpDialogue(rcptReply string, received chan<- string) func(conn net.Conn) 
 				inData = true
 				write("354 go ahead")
 			case cmd == "QUIT":
-				write("221 bye")
+				if !dropQuit {
+					write("221 bye")
+				}
 				return
 			default:
 				write("250 ok")
@@ -255,4 +267,44 @@ func TestSendMailContext_CancelUnblocksSend(t *testing.T) {
 	err := sendMailContext(ctx, addr, nil, "from@example.com", []string{"to@example.com"}, []byte("x"))
 	require.Error(t, err)
 	assert.Equal(t, ReasonInterrupted, ReasonOf(err))
+}
+
+func TestSendMailContext_DisconnectBeforeGreetingIsRetried(t *testing.T) {
+	addr := fakeSMTPServer(t, func(net.Conn) {
+		// Close the connection without a greeting.
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := sendMailContext(ctx, addr, nil, "from@example.com", []string{"to@example.com"}, []byte("x"))
+	require.Error(t, err)
+	assert.Equal(t, ReasonConnection, ReasonOf(err))
+	assert.True(t, ReasonOf(err).Retryable())
+}
+
+func TestSendMailContext_GreetingTimeoutWithAuthIsTimeout(t *testing.T) {
+	addr := fakeSMTPServer(t, func(conn net.Conn) {
+		// Greet, then never answer EHLO.
+		_, _ = conn.Write([]byte("220 fake ESMTP\r\n"))
+		_, _ = bufio.NewReader(conn).ReadString('\n')
+		<-time.After(2 * time.Second)
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	auth := smtp.PlainAuth("", "user", "pass", "127.0.0.1")
+	err := sendMailContext(ctx, addr, auth, "from@example.com", []string{"to@example.com"}, []byte("x"))
+	require.Error(t, err)
+	assert.Equal(t, ReasonTimeout, ReasonOf(err), "a stalled greeting is a timeout, not missing AUTH support")
+}
+
+func TestSendMailContext_QuitFailureAfterAcceptIsSent(t *testing.T) {
+	received := make(chan string, 1)
+	addr := fakeSMTPServer(t, smtpSession("250 ok", received, true))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := sendMailContext(ctx, addr, nil, "from@example.com", []string{"to@example.com"}, []byte("Subject: hi\r\n\r\nhello\r\n"))
+	require.NoError(t, err, "the server accepted the message, so it must not be resent")
+	assert.Contains(t, <-received, "hello")
 }

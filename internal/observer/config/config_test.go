@@ -50,15 +50,6 @@ func TestLoad_AlertNotificationEnvOverride(t *testing.T) {
 	assert.Equal(t, 500*time.Millisecond, cfg.Alerting.NotificationRetryBackoff)
 }
 
-func TestMaxNotificationDuration(t *testing.T) {
-	a := AlertingConfig{NotificationMaxAttempts: 3, NotificationAttemptTimeout: 10 * time.Second, NotificationRetryBackoff: time.Second}
-	// Three 10s attempts, with 1s and 2s of backoff between them.
-	assert.Equal(t, 33*time.Second, a.MaxNotificationDuration())
-
-	a.NotificationMaxAttempts = 1
-	assert.Equal(t, 10*time.Second, a.MaxNotificationDuration())
-}
-
 func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
 	t.Setenv("FINOPS_ADAPTER_URL", "http://custom-finops:1234")
 	t.Setenv("FINOPS_ADAPTER_TIMEOUT", "45s")

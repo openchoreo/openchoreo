@@ -6,13 +6,18 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/observer/notifications"
@@ -42,7 +47,7 @@ func TestDispatch_SlowChannelDoesNotDelayOthers(t *testing.T) {
 	start := time.Now()
 	policy := RetryPolicy{MaxAttempts: 1, AttemptTimeout: 300 * time.Millisecond}
 	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
-		[]string{"slow", "fast"}, webhookConfigs, send, policy, discardLogger())
+		[]string{"slow", "fast"}, webhookConfigs, send, policy, discardLogger(), nil)
 
 	require.Len(t, results, 2)
 	assert.False(t, results[0].Sent)
@@ -60,7 +65,7 @@ func TestDispatch_RetriesTemporaryFailures(t *testing.T) {
 		return nil
 	}
 	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
-		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger())
+		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger(), nil)
 
 	require.Len(t, results, 1)
 	assert.True(t, results[0].Sent)
@@ -75,7 +80,7 @@ func TestDispatch_DoesNotRetryPermanentFailures(t *testing.T) {
 		return &notifications.DeliveryError{Reason: notifications.ReasonHTTP4xx, Detail: "HTTP 400"}
 	}
 	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
-		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger())
+		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger(), nil)
 
 	assert.Equal(t, int32(1), calls.Load())
 	assert.Equal(t, notifications.ReasonHTTP4xx, results[0].Reason)
@@ -88,7 +93,7 @@ func TestDispatch_GivesUpAfterMaxAttempts(t *testing.T) {
 		return temporaryErr()
 	}
 	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
-		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger())
+		[]string{"hook"}, webhookConfigs, send, testPolicy, discardLogger(), nil)
 
 	assert.False(t, results[0].Sent)
 	assert.Equal(t, notifications.ReasonHTTP5xx, results[0].Reason)
@@ -104,26 +109,125 @@ func TestDispatch_ChannelConfigFailure(t *testing.T) {
 		return nil
 	}
 	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
-		[]string{"hook"}, getConfig, send, testPolicy, discardLogger())
+		[]string{"hook"}, getConfig, send, testPolicy, discardLogger(), nil)
 
 	assert.Equal(t, notifications.ReasonChannelConfig, results[0].Reason)
 	assert.Equal(t, "configmap not found", results[0].Detail, "the lookup error says what is wrong with the channel")
-	assert.Zero(t, results[0].Attempts)
+	assert.Equal(t, 1, results[0].Attempts, "a channel config error is not retried")
+}
+
+func TestDispatch_RetriesTemporaryLookupFailures(t *testing.T) {
+	var lookups, sends atomic.Int32
+	getConfig := func(ctx context.Context, ns, channel string) (*notifications.NotificationChannelConfig, error) {
+		if lookups.Add(1) < 3 {
+			return nil, channelLookupError(apierrors.NewServiceUnavailable("apiserver unavailable"))
+		}
+		return webhookConfigs(ctx, ns, channel)
+	}
+	send := func(context.Context, *notifications.NotificationChannelConfig, *observertypes.AlertDetails, *slog.Logger) error {
+		sends.Add(1)
+		return nil
+	}
+	results := DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
+		[]string{"hook"}, getConfig, send, testPolicy, discardLogger(), nil)
+
+	assert.True(t, results[0].Sent)
+	assert.Equal(t, 3, results[0].Attempts)
+	assert.Equal(t, int32(1), sends.Load(), "the channel is sent to once its config is read")
+}
+
+func TestChannelLookupError(t *testing.T) {
+	gr := schema.GroupResource{Resource: "configmaps"}
+	tests := []struct {
+		name string
+		err  error
+		want notifications.Reason
+	}{
+		{"not found", apierrors.NewNotFound(gr, "hook"), notifications.ReasonChannelConfig},
+		{"forbidden", apierrors.NewForbidden(gr, "hook", errors.New("rbac")), notifications.ReasonChannelConfig},
+		{"server timeout", apierrors.NewServerTimeout(gr, "get", 1), notifications.ReasonTimeout},
+		{"too many requests", apierrors.NewTooManyRequests("slow down", 1), notifications.ReasonHTTP429},
+		{"unavailable", apierrors.NewServiceUnavailable("down"), notifications.ReasonHTTP5xx},
+		{"internal error", apierrors.NewInternalError(errors.New("boom")), notifications.ReasonHTTP5xx},
+		{"deadline", context.DeadlineExceeded, notifications.ReasonTimeout},
+		{"connection refused", &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}, notifications.ReasonConnection},
+		{"other", errors.New("boom"), notifications.ReasonChannelConfig},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := channelLookupError(fmt.Errorf("failed to get notification channel ConfigMap tenant/hook: %w", tc.err))
+			assert.Equal(t, tc.want, notifications.ReasonOf(err))
+			assert.Contains(t, notifications.DetailOf(err), "tenant/hook")
+		})
+	}
 }
 
 func TestDispatch_StopDuringBackoffIsInterrupted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var calls atomic.Int32
 	send := func(context.Context, *notifications.NotificationChannelConfig, *observertypes.AlertDetails, *slog.Logger) error {
-		cancel()
+		calls.Add(1)
 		return temporaryErr()
 	}
 	policy := RetryPolicy{MaxAttempts: 3, AttemptTimeout: time.Second, Backoff: time.Minute}
-	results := DispatchAlertNotifications(ctx, &observertypes.AlertDetails{},
-		[]string{"hook"}, webhookConfigs, send, policy, discardLogger())
 
+	done := make(chan []ChannelDeliveryResult, 1)
+	go func() {
+		done <- DispatchAlertNotifications(ctx, &observertypes.AlertDetails{},
+			[]string{"hook"}, webhookConfigs, send, policy, discardLogger(), nil)
+	}()
+	// Stop the dispatch once it is waiting out the one-minute backoff.
+	require.Eventually(t, func() bool { return calls.Load() == 1 }, time.Second, time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	var results []ChannelDeliveryResult
+	select {
+	case results = <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the dispatch did not stop during its backoff")
+	}
 	assert.False(t, results[0].Sent)
 	assert.Equal(t, notifications.ReasonInterrupted, results[0].Reason)
 	assert.Equal(t, 1, results[0].Attempts)
+	assert.Equal(t, int32(1), calls.Load(), "no attempt after the stop")
+}
+
+func TestDispatch_ReportsEachChannelWhenItFinishes(t *testing.T) {
+	release := make(chan struct{})
+	send := func(_ context.Context, cfg *notifications.NotificationChannelConfig, _ *observertypes.AlertDetails, _ *slog.Logger) error {
+		if cfg.Webhook.URL == "slow" {
+			<-release
+			return temporaryErr()
+		}
+		return nil
+	}
+	reported := make(chan string, 2)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		DispatchAlertNotifications(context.Background(), &observertypes.AlertDetails{},
+			[]string{"slow", "fast"}, webhookConfigs, send, testPolicy, discardLogger(),
+			func(r ChannelDeliveryResult) { reported <- r.Channel })
+	}()
+
+	select {
+	case ch := <-reported:
+		assert.Equal(t, "fast", ch, "the fast channel is reported while the slow one is still sending")
+	case <-time.After(time.Second):
+		t.Fatal("the fast channel was not reported before the slow one finished")
+	}
+	close(release)
+	<-done
+	assert.Equal(t, "slow", <-reported)
+}
+
+func TestMaxDispatchDuration(t *testing.T) {
+	p := RetryPolicy{MaxAttempts: 3, AttemptTimeout: 10 * time.Second, Backoff: time.Second}
+	// The release line lookup and three attempts of 10s, backoffs of 1s and 2s with up to half again
+	// of jitter, and the slack.
+	assert.Equal(t, 40*time.Second+4500*time.Millisecond+dispatchSlack, MaxDispatchDuration(p))
 }
 
 // newDeliveryTestService returns a service that resolves webhook channels from the fake cluster
@@ -216,7 +320,7 @@ func TestRunStaleDeliverySweep(t *testing.T) {
 	store := &fakeAlertEntryStore{}
 	svc := &AlertService{logger: discardLogger(), alertEntryStore: store, retryPolicy: testPolicy}
 	ctx := context.Background()
-	old := time.Now().Add(-2*svc.maxDispatchDuration() - time.Minute)
+	old := time.Now().Add(-2*svc.MaxDispatchDuration() - time.Minute)
 	require.NoError(t, store.RecordNotificationDelivery(ctx, alertentry.NotificationDelivery{
 		AlertID: "old", Channel: "hook", Status: alertentry.DeliveryStatusPending, CreatedAt: old,
 	}))
@@ -241,4 +345,60 @@ func TestRunStaleDeliverySweep(t *testing.T) {
 	assert.Equal(t, string(notifications.ReasonInterrupted), oldDelivery.Reason)
 	newDelivery, _ := store.delivery("new", "hook")
 	assert.Equal(t, alertentry.DeliveryStatusPending, newDelivery.Status, "a recent pending delivery may still be in flight")
+}
+
+func TestDispatch_RecordsFinishedChannelWhileOthersRetry(t *testing.T) {
+	store := &fakeAlertEntryStore{}
+	release := make(chan struct{})
+	send := func(ctx context.Context, cfg *notifications.NotificationChannelConfig, _ *observertypes.AlertDetails, _ *slog.Logger) error {
+		if cfg.Webhook.URL == "http://slow" {
+			select {
+			case <-release:
+			case <-ctx.Done():
+			}
+			return temporaryErr()
+		}
+		return nil
+	}
+	svc := newDeliveryTestService(t, store, send, "fast", "slow")
+	svc.retryPolicy = RetryPolicy{MaxAttempts: 1, AttemptTimeout: 5 * time.Second}
+	details := &observertypes.AlertDetails{AlertName: "rule", Namespace: "tenant", NotificationChannels: []string{"fast", "slow"}}
+
+	svc.recordPendingDeliveries(context.Background(), "alert-1", details.NotificationChannels)
+	svc.startNotificationDispatch("alert-1", details)
+	require.Eventually(t, func() bool {
+		d, _ := store.delivery("alert-1", "fast")
+		return d.Status == alertentry.DeliveryStatusSent
+	}, 2*time.Second, 10*time.Millisecond, "the fast channel is recorded while the slow one is still sending")
+	slow, _ := store.delivery("alert-1", "slow")
+	assert.Equal(t, alertentry.DeliveryStatusPending, slow.Status)
+
+	close(release)
+	drainCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	svc.DrainNotifications(drainCtx)
+	slow, _ = store.delivery("alert-1", "slow")
+	assert.Equal(t, alertentry.DeliveryStatusFailed, slow.Status)
+}
+
+func TestStartNotificationDispatch_AfterDrainRecordsInterrupted(t *testing.T) {
+	store := &fakeAlertEntryStore{}
+	send := func(context.Context, *notifications.NotificationChannelConfig, *observertypes.AlertDetails, *slog.Logger) error {
+		t.Error("no notification is sent once the drain has started")
+		return nil
+	}
+	svc := newDeliveryTestService(t, store, send, "hook")
+	drainCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	svc.DrainNotifications(drainCtx)
+
+	details := &observertypes.AlertDetails{AlertName: "rule", Namespace: "tenant", NotificationChannels: []string{"hook"}}
+	svc.recordPendingDeliveries(context.Background(), "alert-1", details.NotificationChannels)
+	svc.startNotificationDispatch("alert-1", details)
+
+	d, ok := store.delivery("alert-1", "hook")
+	require.True(t, ok)
+	assert.Equal(t, alertentry.DeliveryStatusFailed, d.Status)
+	assert.Equal(t, string(notifications.ReasonInterrupted), d.Reason)
+	assert.Zero(t, d.Attempts)
 }

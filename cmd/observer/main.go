@@ -536,7 +536,7 @@ func main() {
 	shutdownServers(shutdownCtx, server, internalServer, backgroundWG, logger)
 
 	// The servers no longer accept alerts, so let the notifications in flight finish.
-	drainCtx, cancelDrain := context.WithTimeout(context.Background(), cfg.Alerting.MaxNotificationDuration())
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), alertService.MaxDispatchDuration())
 	defer cancelDrain()
 	alertService.DrainNotifications(drainCtx)
 	logger.Info("Server shutdown complete")

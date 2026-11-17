@@ -1970,8 +1970,8 @@
           "type": "object"
         },
         "terminationGracePeriodSeconds": {
-          "default": 60,
-          "description": "Seconds Kubernetes waits for the Observer to stop. On shutdown the Observer lets in-flight alert notifications finish for up to maxAttempts × attemptTimeout plus the retry backoff, after its 10s server shutdown, and records the rest as interrupted. Keep this above that sum when raising alertNotification settings.",
+          "default": 90,
+          "description": "Seconds Kubernetes waits for the Observer to stop. On shutdown the Observer stops its servers for up to 10s, then lets in-flight alert notifications finish for up to (maxAttempts + 1) × attemptTimeout plus the retry backoff with up to 50% jitter and 5s of slack, and then waits up to 10s to record the rest as interrupted. The default covers the default alertNotification settings, about 70s in all. Raise it with those settings.",
           "minimum": 1,
           "title": "terminationGracePeriodSeconds",
           "type": "integer"

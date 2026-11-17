@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
@@ -47,8 +48,9 @@ type ChannelDeliveryResult struct {
 
 // DispatchAlertNotifications sends the alert to every channel concurrently, each channel with its
 // own attempts and timeouts, so a slow channel does not hold up the others. Temporary failures are
-// retried with backoff. It returns one result per channel, in channel order. The channels are
-// resolved in the alert's namespace.
+// retried with backoff. onResult, when set, is called with each channel's result as soon as that
+// channel finishes. It returns one result per channel, in channel order. The channels are resolved
+// in the alert's namespace.
 func DispatchAlertNotifications(
 	ctx context.Context,
 	alertDetails *observertypes.AlertDetails,
@@ -57,6 +59,7 @@ func DispatchAlertNotifications(
 	send NotificationSender,
 	policy RetryPolicy,
 	logger *slog.Logger,
+	onResult func(ChannelDeliveryResult),
 ) []ChannelDeliveryResult {
 	results := make([]ChannelDeliveryResult, len(channels))
 	var wg sync.WaitGroup
@@ -65,13 +68,17 @@ func DispatchAlertNotifications(
 		go func() {
 			defer wg.Done()
 			results[i] = deliverToChannel(ctx, alertDetails, channel, getConfig, send, policy, logger)
+			if onResult != nil {
+				onResult(results[i])
+			}
 		}()
 	}
 	wg.Wait()
 	return results
 }
 
-// deliverToChannel sends the alert to one channel, retrying temporary failures.
+// deliverToChannel sends the alert to one channel, retrying temporary failures. Each attempt reads
+// the channel config, until a read succeeds, and sends within the attempt's timeout.
 func deliverToChannel(
 	ctx context.Context,
 	alertDetails *observertypes.AlertDetails,
@@ -82,29 +89,18 @@ func deliverToChannel(
 	logger *slog.Logger,
 ) ChannelDeliveryResult {
 	result := ChannelDeliveryResult{Channel: channel}
-
-	configCtx, cancel := context.WithTimeout(ctx, policy.AttemptTimeout)
-	channelConfig, err := getConfig(configCtx, alertDetails.Namespace, channel)
-	cancel()
-	if err != nil {
-		result.Reason = notifications.ReasonChannelConfig
-		// Lookup errors name the ConfigMap or Secret and why it could not be used, never their
-		// contents, so they are safe to log.
-		result.Detail = err.Error()
-		if ctx.Err() != nil {
-			result.Reason = notifications.ReasonInterrupted
-		}
-		return result
-	}
-	result.ChannelType = channelConfig.Type
+	var channelConfig *notifications.NotificationChannelConfig
 
 	backoff := policy.Backoff
 	for attempt := 1; attempt <= policy.MaxAttempts; attempt++ {
 		attemptCtx, cancel := context.WithTimeout(ctx, policy.AttemptTimeout)
-		err := send(attemptCtx, channelConfig, alertDetails, logger)
+		err := attemptDelivery(attemptCtx, alertDetails, channel, &channelConfig, getConfig, send, logger)
 		cancel()
 		result.Attempts = attempt
 		result.LastAttempt = time.Now().UTC()
+		if channelConfig != nil {
+			result.ChannelType = channelConfig.Type
+		}
 		if err == nil {
 			result.Sent, result.Reason, result.Detail = true, "", ""
 			return result
@@ -130,6 +126,46 @@ func deliverToChannel(
 		backoff *= 2
 	}
 	return result
+}
+
+// attemptDelivery reads the channel config into *channelConfig unless an earlier attempt did, then
+// sends. A failed read that is not classified is a channel config error, which is not retried.
+func attemptDelivery(
+	ctx context.Context,
+	alertDetails *observertypes.AlertDetails,
+	channel string,
+	channelConfig **notifications.NotificationChannelConfig,
+	getConfig NotificationChannelConfigGetter,
+	send NotificationSender,
+	logger *slog.Logger,
+) error {
+	if *channelConfig == nil {
+		cfg, err := getConfig(ctx, alertDetails.Namespace, channel)
+		if err != nil {
+			var de *notifications.DeliveryError
+			if errors.As(err, &de) {
+				return err
+			}
+			// Lookup errors name the ConfigMap or Secret and why it could not be used, never their
+			// contents, so they are safe to log.
+			return &notifications.DeliveryError{Reason: notifications.ReasonChannelConfig, Detail: err.Error(), Err: err}
+		}
+		*channelConfig = cfg
+	}
+	return send(ctx, *channelConfig, alertDetails, logger)
+}
+
+// MaxDispatchDuration returns the longest one alert's dispatch can take under policy. Channels are
+// sent concurrently, so this is one channel's worst case: the release line lookup and every attempt
+// timing out, plus the backoff with its full jitter and some slack.
+func MaxDispatchDuration(policy RetryPolicy) time.Duration {
+	total := time.Duration(policy.MaxAttempts+1)*policy.AttemptTimeout + dispatchSlack
+	backoff := policy.Backoff
+	for i := 1; i < policy.MaxAttempts; i++ {
+		total += backoff + backoff/2
+		backoff *= 2
+	}
+	return total
 }
 
 // withJitter adds up to half of d, so retries of many alerts do not line up.

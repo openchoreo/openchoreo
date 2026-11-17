@@ -128,6 +128,10 @@ func sendMailContext(ctx context.Context, addr string, auth smtp.Auth, from stri
 	}
 	defer c.Close()
 
+	// Extension hides a failed greeting, so greet first to report why it failed.
+	if err := c.Hello("localhost"); err != nil {
+		return contextErr(ctx, err)
+	}
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
 			return contextErr(ctx, err)
@@ -160,7 +164,9 @@ func sendMailContext(ctx context.Context, addr string, auth smtp.Auth, from stri
 	if err := w.Close(); err != nil {
 		return contextErr(ctx, err)
 	}
-	return contextErr(ctx, c.Quit())
+	// The server has accepted the message, so a failed QUIT must not cause a resend.
+	_ = c.Quit()
+	return nil
 }
 
 // contextErr reports an error caused by ctx ending as ctx's error, since closing the connection
