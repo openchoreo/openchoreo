@@ -105,6 +105,12 @@ var mcpEnrichment = map[string]mcpEnrichmentEntry{
 	"UpdateProjectReleaseBinding":  {ToolName: "update_project_release_binding", ResourceArg: "name"},
 	"DeleteProjectReleaseBinding":  {ToolName: "delete_project_release_binding", ResourceArg: "name"},
 
+	// Rollback tools: every call is audited, dry runs (the default) included; the
+	// handlers mark the record's resource with dryRun so a preview is not
+	// mistaken for an applied rollback.
+	"RollbackReleaseBinding":         {ToolName: "rollback_release_binding", ResourceArg: "name"},
+	"RollbackResourceReleaseBinding": {ToolName: "rollback_resource_release_binding", ResourceArg: "name"},
+
 	// Endpoint family — EndpointRelease has no create or update tool; releases
 	// are cut by the Endpoint controller.
 	"CreateEndpoint":               {ToolName: "create_endpoint", ResourceArg: "name"},
