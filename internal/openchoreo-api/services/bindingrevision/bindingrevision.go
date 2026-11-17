@@ -298,7 +298,7 @@ func SpecChanges(current, target any) ([]SpecChange, error) {
 		return nil, err
 	}
 
-	names := make(map[string]struct{}, len(cur)+len(tgt))
+	names := make(map[string]struct{})
 	for k := range cur {
 		names[k] = struct{}{}
 	}
