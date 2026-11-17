@@ -189,6 +189,12 @@ func (r *Reconciler) reconcileChannel(ctx context.Context, channel *openchoreode
 			logger.Error(err, "Failed to delete the ExternalSecret of a channel with invalid secret references")
 			return ctrl.Result{}, err
 		}
+		// A Secret copied for earlier, valid references still holds their values, and the observer
+		// would go on using them. Remove it too, so that delivery stops until the references resolve.
+		if err := r.deleteCopiedSecret(ctx, opClient, channel); err != nil {
+			logger.Error(err, "Failed to delete the copied Secret of a channel with invalid secret references")
+			return ctrl.Result{}, err
+		}
 		if invalid.reason == ReasonSecretStoreNotConfigured || invalid.reason == ReasonExternalSecretConflict {
 			// These depend on the observability plane, which is not watched, so poll for a fix.
 			return ctrl.Result{RequeueAfter: planeConfigPollInterval}, nil

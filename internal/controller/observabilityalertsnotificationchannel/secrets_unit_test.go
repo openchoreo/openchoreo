@@ -1134,6 +1134,34 @@ func TestReconcile_InvalidReferenceRemovesTheExternalSecret(t *testing.T) {
 	}
 }
 
+func TestReconcile_InvalidReferenceRemovesTheCopiedSecret(t *testing.T) {
+	channel := newWebhookChannelWithURLRef(testChannel, "webhook-url")
+	secret := newKubernetesSecret("webhook-url", map[string]string{testURLKey: "https://hooks.example.com/services/old"})
+	f := newReconcileFixture(t, []client.Object{channel, secret})
+	key := types.NamespacedName{Name: testChannel, Namespace: testNamespace}
+
+	f.reconcile(t)
+	copied := &corev1.Secret{}
+	if err := f.op.Get(context.Background(), key, copied); err != nil {
+		t.Fatalf("copied Secret was not applied: %v", err)
+	}
+	if string(copied.Data[webhookURLKey]) != "https://hooks.example.com/services/old" {
+		t.Fatalf("copied webhook URL = %q", copied.Data[webhookURLKey])
+	}
+
+	updated := f.channel(t)
+	updated.Spec.WebhookConfig.URLFrom.SecretKeyRef.Name = "missing"
+	if err := f.cp.Update(context.Background(), updated); err != nil {
+		t.Fatalf("update channel: %v", err)
+	}
+	f.reconcile(t)
+
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonSecretNotFound)
+	if err := f.op.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
+		t.Errorf("the copied Secret should be deleted so the observer stops using its values, got %v", err)
+	}
+}
+
 func newForeignExternalSecret() *unstructured.Unstructured {
 	es := newExternalSecretObject()
 	es.SetName(testChannel)
