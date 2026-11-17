@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
@@ -397,6 +398,9 @@ type fakeAlertEntryStore struct {
 
 	mu         sync.Mutex
 	deliveries map[string]map[string]alertentry.NotificationDelivery // alert ID, then channel
+	// failRecords is how many of the next RecordNotificationDelivery calls fail.
+	failRecords int
+	records     int
 }
 
 func (f *fakeAlertEntryStore) Initialize(context.Context) error { return nil }
@@ -415,6 +419,11 @@ func (f *fakeAlertEntryStore) Close() error { return nil }
 func (f *fakeAlertEntryStore) RecordNotificationDelivery(_ context.Context, d alertentry.NotificationDelivery) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.records++
+	if f.failRecords > 0 {
+		f.failRecords--
+		return errors.New("database is locked")
+	}
 	if f.deliveries == nil {
 		f.deliveries = map[string]map[string]alertentry.NotificationDelivery{}
 	}

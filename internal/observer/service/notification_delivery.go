@@ -17,6 +17,10 @@ var defaultRetryPolicy = RetryPolicy{MaxAttempts: 3, AttemptTimeout: 10 * time.S
 const (
 	// recordTimeout bounds writing a delivery result, which also runs after dispatches are stopped.
 	recordTimeout = 10 * time.Second
+	// recordAttempts bounds how many times a delivery result write is tried within recordTimeout.
+	recordAttempts = 3
+	// recordBackoff is the delay before the first retry of a failed result write. It doubles for each later retry.
+	recordBackoff = 500 * time.Millisecond
 	// drainRecordGrace is how long the drain waits for stopped dispatches to record their results.
 	drainRecordGrace = recordTimeout
 	// dispatchSlack covers the work of a dispatch outside its lookups and attempts.
@@ -83,15 +87,32 @@ func (s *AlertService) recordDeliveryResult(store alertentry.AlertEntryStore, al
 
 	ctx, cancel := context.WithTimeout(context.Background(), recordTimeout)
 	defer cancel()
-	if err := store.RecordNotificationDelivery(ctx, alertentry.NotificationDelivery{
+	writes, err := writeDeliveryResult(ctx, store, alertentry.NotificationDelivery{
 		AlertID:       alertID,
 		Channel:       r.Channel,
 		Status:        status,
 		Reason:        string(r.Reason),
 		Attempts:      r.Attempts,
 		LastAttemptAt: r.LastAttempt,
-	}); err != nil {
-		s.logger.Warn("Failed to record alert notification result", "alertID", alertID, "channel", r.Channel, "error", err)
+	})
+	if err != nil {
+		// The row stays pending, and the stale sweep later marks it interrupted.
+		s.logger.Warn("Failed to record alert notification result", "alertID", alertID, "channel", r.Channel,
+			"status", status, "writeAttempts", writes, "error", err)
+	}
+}
+
+// writeDeliveryResult writes d to store, retrying a failed write with backoff until recordAttempts
+// writes have failed or ctx ends, so a temporary database error does not lose the result. It
+// returns how many writes it made.
+func writeDeliveryResult(ctx context.Context, store alertentry.AlertEntryStore, d alertentry.NotificationDelivery) (int, error) {
+	backoff := recordBackoff
+	for attempt := 1; ; attempt++ {
+		err := store.RecordNotificationDelivery(ctx, d)
+		if err == nil || attempt == recordAttempts || !sleepContext(ctx, backoff) {
+			return attempt, err
+		}
+		backoff *= 2
 	}
 }
 

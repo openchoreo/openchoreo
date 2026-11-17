@@ -402,3 +402,44 @@ func TestStartNotificationDispatch_AfterDrainRecordsInterrupted(t *testing.T) {
 	assert.Equal(t, string(notifications.ReasonInterrupted), d.Reason)
 	assert.Zero(t, d.Attempts)
 }
+
+func TestRecordDeliveryResult_RetriesFailedWrite(t *testing.T) {
+	store := &fakeAlertEntryStore{failRecords: 1}
+	svc := newDeliveryTestService(t, store, nil)
+	last := time.Now().UTC()
+
+	svc.recordDeliveryResult(store, "alert-1", "rule",
+		ChannelDeliveryResult{Channel: "up", ChannelType: "webhook", Sent: true, Attempts: 2, LastAttempt: last})
+
+	assert.Equal(t, 2, store.records)
+	d, ok := store.delivery("alert-1", "up")
+	require.True(t, ok)
+	assert.Equal(t, alertentry.DeliveryStatusSent, d.Status)
+	assert.Equal(t, 2, d.Attempts)
+	assert.Equal(t, last, d.LastAttemptAt)
+}
+
+func TestRecordDeliveryResult_GivesUpAfterRecordAttempts(t *testing.T) {
+	store := &fakeAlertEntryStore{}
+	svc := newDeliveryTestService(t, store, nil)
+	svc.recordPendingDeliveries(context.Background(), "alert-1", []string{"up"})
+	store.failRecords = recordAttempts + 1
+
+	svc.recordDeliveryResult(store, "alert-1", "rule", ChannelDeliveryResult{Channel: "up", Sent: true, Attempts: 1})
+
+	assert.Equal(t, 1+recordAttempts, store.records)
+	d, _ := store.delivery("alert-1", "up")
+	assert.Equal(t, alertentry.DeliveryStatusPending, d.Status)
+}
+
+func TestWriteDeliveryResult_StopsWhenContextEnds(t *testing.T) {
+	store := &fakeAlertEntryStore{failRecords: recordAttempts}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	writes, err := writeDeliveryResult(ctx, store, alertentry.NotificationDelivery{AlertID: "alert-1", Channel: "up"})
+
+	require.Error(t, err)
+	assert.Equal(t, 1, writes)
+	assert.Equal(t, 1, store.records)
+}
