@@ -16,6 +16,7 @@ import (
 var testActionSuffixSegments = map[string]bool{
 	"trigger":          true,
 	"generate-release": true,
+	"rollback":         true,
 }
 
 func TestPathTail(t *testing.T) {
@@ -315,6 +316,29 @@ func TestDeriveDefinition_TriggerVerb(t *testing.T) {
 	// actionFromOperationID's doc comment.
 	if def.Action != "trigger_release_binding_cron_job" {
 		t.Errorf("Action = %q, want %q", def.Action, "trigger_release_binding_cron_job")
+	}
+	if def.ResourceType != "releasebinding" {
+		t.Errorf("ResourceType = %q, want %q", def.ResourceType, "releasebinding")
+	}
+	if def.RESTResourceParam != "releaseBindingName" {
+		t.Errorf("RESTResourceParam = %q, want %q", def.RESTResourceParam, "releaseBindingName")
+	}
+}
+
+func TestDeriveDefinition_RollbackVerb(t *testing.T) {
+	cfg := Config{
+		ResourceCategories:   map[string]string{"releasebindings": "CategoryManagement"},
+		ActionSuffixSegments: testActionSuffixSegments,
+	}
+	def, err := deriveDefinition(
+		"POST", "/api/v1/namespaces/{namespaceName}/releasebindings/{releaseBindingName}/rollback",
+		"RollbackReleaseBinding", cfg,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if def.Action != "rollback_release_binding" {
+		t.Errorf("Action = %q, want %q", def.Action, "rollback_release_binding")
 	}
 	if def.ResourceType != "releasebinding" {
 		t.Errorf("ResourceType = %q, want %q", def.ResourceType, "releasebinding")

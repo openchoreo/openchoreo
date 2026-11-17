@@ -15,6 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/bindingrevision"
+	releasebindingsvc "github.com/openchoreo/openchoreo/internal/openchoreo-api/services/releasebinding"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
 
 // The revision history limit is resolved from the binding's
@@ -178,6 +181,38 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 		}
 		Expect(after[1].Status.Active).To(BeTrue())
 		Expect(fetchRB(rbName).Status.CurrentRevision).To(Equal(rbName + "-r2"))
+	})
+
+	It("keeps the binding's current limit through a rollback", func() {
+		setBindingLimit(ptr.To(int32(5)))
+		reconcileRB() // r1, release A
+		rb := fetchRB(rbName)
+		rb.Spec.ReleaseName = crB
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+		reconcileRB() // r2, release B
+
+		By("changing the limit after r1 was recorded")
+		setBindingLimit(ptr.To(int32(3)))
+		reconcileRB()
+
+		svc := releasebindingsvc.NewService(k8sClient, testutil.TestLogger())
+		preview, err := svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		for _, change := range preview.Changes {
+			Expect(change.Field).NotTo(ContainSubstring("revisionHistoryLimit"), "the limit is not part of a rollback")
+		}
+
+		_, err = svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1})
+		Expect(err).NotTo(HaveOccurred())
+
+		rb = fetchRB(rbName)
+		Expect(rb.Spec.ReleaseName).To(Equal(crA))
+		Expect(rb.Spec.RevisionHistoryLimit).To(Equal(ptr.To(int32(3))), "the rollback leaves the limit as it is")
+
+		reconcileRB()
+		revs := listRevisions(fetchRB(rbName))
+		Expect(revs).To(HaveLen(2), "no revision is created: r1 becomes active again")
+		Expect(revs[0].Status.Active).To(BeTrue())
 	})
 
 	It("rejects a negative limit on a binding and on an Environment", func() {
