@@ -3179,7 +3179,7 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 	// Environment Name of the openchoreo environment this notification channel belongs to
 	Environment string `json:"environment"`
 
-	// IsEnvDefault Whether this is the default notification channel for the environment
+	// IsEnvDefault Marks this channel as the default notification channel for the environment. If several channels of an environment are marked, the most recently created one is used.
 	IsEnvDefault *bool `json:"isEnvDefault,omitempty"`
 
 	// Type Type of notification channel

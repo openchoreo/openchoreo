@@ -15621,7 +15621,9 @@ components:
           example: dev
         isEnvDefault:
           type: boolean
-          description: Whether this is the default notification channel for the environment
+          description: >-
+            Marks this channel as the default notification channel for the environment. If several channels
+            of an environment are marked, the most recently created one is used.
           default: false
         type:
           type: string

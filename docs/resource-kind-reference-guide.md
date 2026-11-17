@@ -946,7 +946,7 @@ gateway:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `environment` | string | Yes | Environment the channel belongs to (immutable) |
-| `isEnvDefault` | bool | No | Whether this is the environment's default channel |
+| `isEnvDefault` | bool | No | Marks this channel as the environment's default. If several channels of an environment are marked, the most recently created one is used; if none is marked, the environment has no default |
 | `type` | NotificationChannelType | Yes | `email` or `webhook` |
 | `emailConfig` | EmailConfig | Conditional | Email configuration (from, fromName, to, SMTP, template) — required when type=email |
 | `webhookConfig` | WebhookConfig | Conditional | Webhook configuration (URL, headers, template) — required when type=webhook |
