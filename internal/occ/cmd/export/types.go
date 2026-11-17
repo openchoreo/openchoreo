@@ -12,3 +12,9 @@ type Resource struct {
 	Name      string
 	Object    any
 }
+
+// SerializedFile is one manifest and its path relative to the export directory.
+type SerializedFile struct {
+	Path string
+	Data []byte
+}

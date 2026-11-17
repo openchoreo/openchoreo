@@ -3,7 +3,24 @@
 
 package export
 
-import "github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+)
+
+// Params specifies the destination of the export directory tree.
+type Params struct {
+	OutputDir string
+}
+
+func (p Params) validate() error {
+	if strings.TrimSpace(p.OutputDir) == "" {
+		return fmt.Errorf("output directory is required (use -o or --output)")
+	}
+	return nil
+}
 
 // pageParams supplies only pagination parameters. Fetching deliberately leaves
 // project, component, resource, and label selectors unset.

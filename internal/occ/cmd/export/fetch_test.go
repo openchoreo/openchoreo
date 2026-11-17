@@ -24,7 +24,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-const testComponentKind = "Component"
+const (
+	testComponentKind = "Component"
+	testNamespaceKind = "Namespace"
+	testWorkloadKind  = "Workload"
+)
 
 // The collection inventory comes from the export requirements, rather than the
 // fetch implementation, so tests can detect missing or accidentally added kinds.
@@ -66,7 +70,7 @@ var requiredNamespacedCollections = []collectionFixture{
 	{kind: "ProjectRelease", path: "projectreleases"},
 	{kind: "ProjectReleaseBinding", path: "projectreleasebindings"},
 	{kind: testComponentKind, path: "components"},
-	{kind: "Workload", path: "workloads"},
+	{kind: testWorkloadKind, path: "workloads"},
 	{kind: "ComponentRelease", path: "componentreleases"},
 	{kind: "ReleaseBinding", path: "releasebindings"},
 	{kind: "Resource", path: "resources"},
@@ -100,7 +104,7 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 			f.collections["/api/v1/namespaces/"+namespace+"/"+collection.path] = collection
 		}
 	}
-	f.collections["/api/v1/namespaces"] = collectionFixture{kind: "Namespace", path: "namespaces"}
+	f.collections["/api/v1/namespaces"] = collectionFixture{kind: testNamespaceKind, path: "namespaces"}
 
 	testHome := testutil.SetupTestHome(t)
 	testutil.WriteOCConfig(t, testHome, config.StoredConfig{
@@ -156,7 +160,7 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	items := make([]any, 0)
 	pagination := make(map[string]any)
 	if !f.empty {
-		if collection.kind == "Namespace" {
+		if collection.kind == testNamespaceKind {
 			for i, namespace := range []string{"acme", "payments"} {
 				if !f.paginated || i == page {
 					items = append(items, map[string]any{"metadata": map[string]any{"name": namespace}})
@@ -183,6 +187,16 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	}
 	object := map[string]any{
 		"apiVersion": "openchoreo.dev/v1alpha1", "kind": collection.kind, "metadata": metadata,
+	}
+	// Application fixtures include ownership because serialization uses these
+	// fields to place releases, bindings, and workloads in the repository tree.
+	switch collection.kind {
+	case "ProjectRelease", "ProjectReleaseBinding", "Resource":
+		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
+	case testWorkloadKind, "ComponentRelease", "ReleaseBinding":
+		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "componentName": "checkout"}}
+	case "ResourceRelease", "ResourceReleaseBinding":
+		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "resourceName": "database"}}
 	}
 	if collection.kind == testComponentKind {
 		object["spec"] = map[string]any{
@@ -276,7 +290,7 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 		laterPage                   bool
 	}{
 		{name: "cluster collection", path: "/api/v1/clustertraits", kind: "ClusterTrait", status: http.StatusForbidden},
-		{name: "namespace discovery", path: "/api/v1/namespaces", kind: "Namespace", status: http.StatusForbidden},
+		{name: "namespace discovery", path: "/api/v1/namespaces", kind: testNamespaceKind, status: http.StatusForbidden},
 		{name: "namespaced collection", path: "/api/v1/namespaces/acme/resources", kind: "Resource", namespace: "acme", status: http.StatusInternalServerError},
 		{name: "later release page", path: "/api/v1/namespaces/acme/resourcereleases", kind: "ResourceRelease", namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 	} {
