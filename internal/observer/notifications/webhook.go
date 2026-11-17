@@ -6,6 +6,8 @@ package notifications
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -72,12 +74,21 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 		return fmt.Errorf("failed to marshal alert details to JSON: %w", err)
 	}
 
-	// Note whether a connection to the receiver was obtained, to tell failures that came before
-	// the receiver could see the request from those that came after.
-	var connecting, connected atomic.Bool
+	// Note whether a connection to the receiver was made, to tell failures that came before the
+	// receiver could send anything (its certificate included) from those that came after.
+	var contacted, handshakeFailed atomic.Bool
 	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
-		GetConn: func(string) { connecting.Store(true) },
-		GotConn: func(httptrace.GotConnInfo) { connected.Store(true) },
+		ConnectDone: func(_, _ string, err error) {
+			if err == nil {
+				contacted.Store(true)
+			}
+		},
+		GotConn: func(httptrace.GotConnInfo) { contacted.Store(true) },
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			if err != nil {
+				handshakeFailed.Store(true)
+			}
+		},
 	})
 
 	// Create HTTP request
@@ -98,8 +109,8 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 	// Send the request using the shared HTTP client
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		beforeConnection := connecting.Load() && !connected.Load()
-		return fmt.Errorf("failed to send webhook request to %s: %w", RedactWebhookURL(config.URL), safeCause(err, beforeConnection))
+		progress := requestProgress{contacted: contacted.Load(), handshakeFailed: handshakeFailed.Load()}
+		return fmt.Errorf("failed to send webhook request to %s: %w", RedactWebhookURL(config.URL), safeCause(err, progress))
 	}
 	defer resp.Body.Close()
 
@@ -149,21 +160,31 @@ func isHTTPURL(u *url.URL) bool {
 }
 
 // What is reported for a request that failed after the receiver was contacted. From then on an
-// error's own text can repeat the webhook URL: the receiver may answer with a redirect, and the
-// error for following it names the host and path the receiver chose.
+// error's own text can repeat the webhook URL: the receiver chooses the names in its certificate
+// and where it redirects to, and the errors for both quote them.
 var (
-	errReceiverTimeout     = errors.New("timed out waiting for the receiver")
-	errRequestCanceled     = errors.New("the request was canceled")
-	errNetworkAfterContact = errors.New("a network error occurred after the receiver was contacted")
-	errCauseOmitted        = errors.New("the receiver's reply could not be processed; details are omitted because they could repeat the webhook URL")
+	errReceiverTimeout             = errors.New("timed out waiting for the receiver")
+	errRequestCanceled             = errors.New("the request was canceled")
+	errNetworkAfterContact         = errors.New("a network error occurred after the receiver was contacted")
+	errTLSHandshake                = errors.New("the TLS handshake with the receiver failed")
+	errCertificateWrongHost        = errors.New("the receiver's TLS certificate is not valid for its host")
+	errCertificateUnknownAuthority = errors.New("the receiver's TLS certificate is signed by an unknown authority")
+	errCertificateExpired          = errors.New("the receiver's TLS certificate has expired or is not yet valid")
+	errCertificateInvalid          = errors.New("the receiver's TLS certificate could not be verified")
+	errCauseOmitted                = errors.New("the receiver's reply could not be processed; details are omitted because they could repeat the webhook URL")
 )
 
-// safeCause returns what to report as the cause of a failed request. A failure before a
-// connection to the receiver existed (name resolution, connecting, the TLS handshake) involved
-// only the host, so its cause is returned as it is. A later failure is reduced to one of the
-// fixed errors above.
-func safeCause(err error, beforeConnection bool) error {
-	if beforeConnection {
+// requestProgress is how far a failed request got, as its httptrace hooks saw it.
+type requestProgress struct {
+	contacted       bool // a connection to the receiver (or to a redirect target) was made
+	handshakeFailed bool // a TLS handshake failed
+}
+
+// safeCause returns what to report as the cause of a failed request. A failure before the
+// receiver was contacted (name resolution, connecting) involved only the host, so its cause is
+// returned as it is. A later failure is reduced to one of the fixed errors above.
+func safeCause(err error, progress requestProgress) error {
+	if !progress.contacted {
 		// net/http puts the full URL in its error; keep only what it wraps.
 		for {
 			var urlErr *url.Error
@@ -176,15 +197,37 @@ func safeCause(err error, beforeConnection bool) error {
 
 	var netErr net.Error
 	var opErr *net.OpError
+	var certErr *tls.CertificateVerificationError
 	switch {
 	case errors.Is(err, context.Canceled):
 		return errRequestCanceled
 	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &netErr) && netErr.Timeout():
 		return errReceiverTimeout
+	case errors.As(err, &certErr):
+		return certificateProblem(certErr)
+	case progress.handshakeFailed:
+		return errTLSHandshake
 	case errors.As(err, &opErr), errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
 		return errNetworkAfterContact
 	default:
 		return errCauseOmitted
+	}
+}
+
+// certificateProblem names what is wrong with the receiver's certificate without quoting it.
+func certificateProblem(err *tls.CertificateVerificationError) error {
+	var hostErr x509.HostnameError
+	var authorityErr x509.UnknownAuthorityError
+	var invalidErr x509.CertificateInvalidError
+	switch {
+	case errors.As(err, &hostErr):
+		return errCertificateWrongHost
+	case errors.As(err, &authorityErr):
+		return errCertificateUnknownAuthority
+	case errors.As(err, &invalidErr) && invalidErr.Reason == x509.Expired:
+		return errCertificateExpired
+	default:
+		return errCertificateInvalid
 	}
 }
 

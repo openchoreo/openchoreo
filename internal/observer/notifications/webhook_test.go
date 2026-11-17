@@ -5,11 +5,18 @@ package notifications
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -551,59 +558,193 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 	})
 }
 
+func TestSendWebhookWithConfig_TLSFailuresLeaveOutTheCertificate(t *testing.T) {
+	const secretQuery = "key=s3cr3t-token"
+	noContent := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+
+	t.Run("receiver presents a certificate named after a credential", func(t *testing.T) {
+		cert := certificateNamedAfterACredential(t)
+		ts := httptest.NewUnstartedServer(noContent)
+		ts.TLS = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+		ts.Config.ErrorLog = log.New(io.Discard, "", 0)
+		ts.StartTLS()
+		defer ts.Close()
+
+		// Trust the certificate and send hooks.example.com to the test server, so that only the
+		// certificate's names fail verification.
+		roots := x509.NewCertPool()
+		roots.AddCert(cert.Leaf)
+		dialer := &net.Dialer{}
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return dialer.DialContext(ctx, network, ts.Listener.Addr().String())
+			},
+		}}
+
+		cfg := &WebhookConfig{URL: "https://hooks.example.com/hook?" + secretQuery, URLIsSecret: true}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errCertificateWrongHost)
+		assert.Contains(t, err.Error(), "https://hooks.example.com/"+redactedPlaceholder)
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+
+	t.Run("receiver presents a certificate from an unknown authority", func(t *testing.T) {
+		ts := httptest.NewUnstartedServer(noContent)
+		ts.Config.ErrorLog = log.New(io.Discard, "", 0)
+		ts.StartTLS()
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: x509.NewCertPool(), MinVersion: tls.VersionTLS12},
+		}}
+
+		err := SendWebhookWithConfig(context.Background(), &WebhookConfig{URL: ts.URL + "/hook?" + secretQuery}, map[string]interface{}{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errCertificateUnknownAuthority)
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+
+	t.Run("receiver does not speak TLS", func(t *testing.T) {
+		ts := httptest.NewServer(noContent)
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = &http.Client{}
+
+		cfg := &WebhookConfig{URL: strings.Replace(ts.URL, "http://", "https://", 1) + "/hook?" + secretQuery}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errTLSHandshake)
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+}
+
+// certificateNamedAfterACredential returns a self-signed certificate whose only name is built from
+// the credential in the tests' webhook URL.
+func certificateNamedAfterACredential(t *testing.T) tls.Certificate {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		DNSNames:              []string{"s3cr3t-token.invalid"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+	leaf, err := x509.ParseCertificate(der)
+	require.NoError(t, err)
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key, Leaf: leaf}
+}
+
 func TestSafeCause(t *testing.T) {
 	const webhookURL = "https://hooks.example.com/services/s3cr3t-token"
 	dialErr := &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
 	readErr := &net.OpError{Op: "read", Net: "tcp", Err: errors.New("connection reset by peer")}
 	quoting := errors.New(`failed to parse Location header "/services/s3cr3t-token/%zz"`)
 
+	certificateNaming := &x509.Certificate{DNSNames: []string{"s3cr3t-token.invalid"}}
+	contacted := requestProgress{contacted: true}
+	handshakeFailed := requestProgress{contacted: true, handshakeFailed: true}
+
 	tests := []struct {
-		name             string
-		err              error
-		beforeConnection bool
-		want             string
+		name     string
+		err      error
+		progress requestProgress
+		want     string
 	}{
 		{
-			name:             "before a connection: the cause without the URL",
-			err:              &url.Error{Op: "Post", URL: webhookURL, Err: dialErr},
-			beforeConnection: true,
-			want:             "dial tcp: connect: connection refused",
+			name: "before contact: the cause without the URL",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: dialErr},
+			want: "dial tcp: connect: connection refused",
 		},
 		{
-			name: "after a connection: a network error of this side",
-			err:  &url.Error{Op: "Post", URL: webhookURL, Err: fmt.Errorf("transport connection broken: %w", readErr)},
-			want: errNetworkAfterContact.Error(),
+			name:     "after contact: a network error of this side",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: fmt.Errorf("transport connection broken: %w", readErr)},
+			progress: contacted,
+			want:     errNetworkAfterContact.Error(),
 		},
 		{
-			name: "after a connection: a failed lookup of a redirect target the receiver chose",
+			name: "after contact: a failed lookup of a redirect target the receiver chose",
 			err: &url.Error{Op: "Post", URL: webhookURL, Err: &net.OpError{Op: "dial", Net: "tcp",
 				Err: &net.DNSError{Err: "no such host", Name: "s3cr3t-token.invalid", IsNotFound: true}}},
-			want: errNetworkAfterContact.Error(),
+			progress: contacted,
+			want:     errNetworkAfterContact.Error(),
 		},
 		{
-			name: "after a connection: the receiver closed the connection",
-			err:  &url.Error{Op: "Post", URL: webhookURL, Err: io.EOF},
-			want: errNetworkAfterContact.Error(),
+			name:     "after contact: the receiver closed the connection",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: io.EOF},
+			progress: contacted,
+			want:     errNetworkAfterContact.Error(),
 		},
 		{
-			name: "after a connection: a deadline",
-			err:  &url.Error{Op: "Post", URL: webhookURL, Err: context.DeadlineExceeded},
-			want: errReceiverTimeout.Error(),
+			name:     "after contact: a deadline",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: context.DeadlineExceeded},
+			progress: contacted,
+			want:     errReceiverTimeout.Error(),
 		},
 		{
-			name: "after a connection: a canceled request",
-			err:  &url.Error{Op: "Post", URL: webhookURL, Err: context.Canceled},
-			want: errRequestCanceled.Error(),
+			name:     "after contact: a canceled request",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: context.Canceled},
+			progress: contacted,
+			want:     errRequestCanceled.Error(),
 		},
 		{
-			name: "after a connection: anything else is left out",
-			err:  &url.Error{Op: "Post", URL: webhookURL, Err: quoting},
-			want: errCauseOmitted.Error(),
+			name: "after contact: a certificate whose names do not cover the host",
+			err: &url.Error{Op: "Post", URL: webhookURL, Err: &tls.CertificateVerificationError{
+				Err: x509.HostnameError{Certificate: certificateNaming, Host: "hooks.example.com"}}},
+			progress: handshakeFailed,
+			want:     errCertificateWrongHost.Error(),
+		},
+		{
+			name: "after contact: a certificate from an unknown authority",
+			err: &url.Error{Op: "Post", URL: webhookURL, Err: &tls.CertificateVerificationError{
+				Err: x509.UnknownAuthorityError{Cert: certificateNaming}}},
+			progress: handshakeFailed,
+			want:     errCertificateUnknownAuthority.Error(),
+		},
+		{
+			name: "after contact: an expired certificate",
+			err: &url.Error{Op: "Post", URL: webhookURL, Err: &tls.CertificateVerificationError{
+				Err: x509.CertificateInvalidError{Cert: certificateNaming, Reason: x509.Expired}}},
+			progress: handshakeFailed,
+			want:     errCertificateExpired.Error(),
+		},
+		{
+			name: "after contact: a certificate that fails verification otherwise",
+			err: &url.Error{Op: "Post", URL: webhookURL, Err: &tls.CertificateVerificationError{
+				Err: x509.CertificateInvalidError{Cert: certificateNaming, Reason: x509.NameMismatch}}},
+			progress: handshakeFailed,
+			want:     errCertificateInvalid.Error(),
+		},
+		{
+			name:     "after contact: a TLS handshake that failed otherwise",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: tls.RecordHeaderError{Msg: "tls: first record does not look like a TLS handshake"}},
+			progress: handshakeFailed,
+			want:     errTLSHandshake.Error(),
+		},
+		{
+			name:     "after contact: anything else is left out",
+			err:      &url.Error{Op: "Post", URL: webhookURL, Err: quoting},
+			progress: contacted,
+			want:     errCauseOmitted.Error(),
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := safeCause(tc.err, tc.beforeConnection)
+			got := safeCause(tc.err, tc.progress)
 			assert.Equal(t, tc.want, got.Error())
 			assert.NotContains(t, got.Error(), "s3cr3t")
 		})
