@@ -10,13 +10,17 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -44,7 +48,10 @@ const (
 // WebhookConfig holds webhook configuration for sending alerts
 type WebhookConfig struct {
 	// URL can carry a credential in its path or query. Log it only through RedactWebhookURL.
-	URL             string
+	URL string
+	// URLIsSecret is set when the URL comes from a secret reference. What the receiver sends
+	// back is then never reported, since it could repeat the URL.
+	URLIsSecret     bool
 	Headers         map[string]string
 	PayloadTemplate string // Optional JSON template with CEL expressions
 }
@@ -65,10 +72,19 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 		return fmt.Errorf("failed to marshal alert details to JSON: %w", err)
 	}
 
+	// Note whether a connection to the receiver was obtained, to tell failures that came before
+	// the receiver could see the request from those that came after.
+	var connecting, connected atomic.Bool
+	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+		GetConn: func(string) { connecting.Store(true) },
+		GotConn: func(httptrace.GotConnInfo) { connected.Store(true) },
+	})
+
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, config.URL, bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return fmt.Errorf("failed to create HTTP request for %s: %w", RedactWebhookURL(config.URL), scrubbedCause(err, config.URL))
+		// The cause quotes the URL, which validateWebhookURL has already accepted, so leave it out.
+		return fmt.Errorf("failed to create HTTP request for %s", RedactWebhookURL(config.URL))
 	}
 
 	// Set Content-Type header
@@ -82,7 +98,8 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 	// Send the request using the shared HTTP client
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to send webhook request to %s: %w", RedactWebhookURL(config.URL), scrubbedCause(err, config.URL))
+		beforeConnection := connecting.Load() && !connected.Load()
+		return fmt.Errorf("failed to send webhook request to %s: %w", RedactWebhookURL(config.URL), safeCause(err, beforeConnection))
 	}
 	defer resp.Body.Close()
 
@@ -92,7 +109,7 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 		var responseBody bytes.Buffer
 		if _, readErr := responseBody.ReadFrom(resp.Body); readErr == nil && responseBody.Len() > 0 {
 			return fmt.Errorf("webhook request failed with status code: %d, %s",
-				resp.StatusCode, describeResponse(responseBody.String(), config.URL))
+				resp.StatusCode, describeResponse(responseBody.String(), config))
 		}
 		return fmt.Errorf("webhook request failed with status code: %d", resp.StatusCode)
 	}
@@ -131,10 +148,18 @@ func isHTTPURL(u *url.URL) bool {
 	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
-// scrubbedCause returns the cause of an error from net/http or net/url without the webhook URL.
-// Those errors carry the URL, and their cause can quote parts of it too, as the error for a
-// redirect with a malformed Location does.
-func scrubbedCause(err error, rawURL string) error {
+// errCauseOmitted stands in for the cause of a failed request whose text could repeat the
+// webhook URL.
+var errCauseOmitted = errors.New("the receiver's reply could not be processed; details are omitted because they could repeat the webhook URL")
+
+// safeCause returns the cause of a failed request when its text cannot repeat the webhook URL.
+// That holds for a failure before a connection to the receiver existed (name resolution,
+// connecting, the TLS handshake), since only the host was involved, and for a timeout or a
+// network error reported by this side. Anything else can quote what the receiver sent back,
+// as the error for a redirect with a malformed Location does, and is left out.
+func safeCause(err error, beforeConnection bool) error {
+	// net/http puts the full URL in its error; keep only what it wraps. That error also reports
+	// itself as a timeout, so it has to go before the checks below.
 	for {
 		var urlErr *url.Error
 		if !errors.As(err, &urlErr) {
@@ -142,10 +167,25 @@ func scrubbedCause(err error, rawURL string) error {
 		}
 		err = urlErr.Err
 	}
-	if scrubbed := scrubWebhookURL(err.Error(), rawURL); scrubbed != err.Error() {
-		return errors.New(scrubbed)
+	if beforeConnection {
+		return err
 	}
-	return err
+
+	// Return the matching error itself, not what wraps it.
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return netErr
+	}
+	for _, local := range []error{io.EOF, io.ErrUnexpectedEOF, context.Canceled, context.DeadlineExceeded} {
+		if errors.Is(err, local) {
+			return local
+		}
+	}
+	return errCauseOmitted
 }
 
 // scrubWebhookURL removes the webhook URL from text that may quote it, such as a receiver's
@@ -158,12 +198,15 @@ func scrubWebhookURL(text, rawURL string) string {
 	return text
 }
 
-// describeResponse returns the receiver's response for an error message, with the webhook URL
-// scrubbed. A response that still quotes a piece of the URL in an escaped form, which cannot be
-// removed reliably, is left out.
-func describeResponse(body, rawURL string) string {
-	scrubbed := scrubWebhookURL(body, rawURL)
-	if quotesWebhookURL(scrubbed, rawURL) {
+// describeResponse returns the receiver's response for an error message. For a URL that comes
+// from a secret the response is always left out. Otherwise it is given with the webhook URL
+// scrubbed, or left out when it still quotes a piece of the URL in an escaped form.
+func describeResponse(body string, config *WebhookConfig) string {
+	if config.URLIsSecret {
+		return "response omitted because the webhook URL is a secret"
+	}
+	scrubbed := scrubWebhookURL(body, config.URL)
+	if quotesWebhookURL(scrubbed, config.URL) {
 		return "response omitted because it quotes the webhook URL"
 	}
 	return "response: " + scrubbed
@@ -189,17 +232,20 @@ func quotesWebhookURL(text, rawURL string) bool {
 
 var (
 	unicodeEscape = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
+	simpleEscape  = regexp.MustCompile(`\\["\\/bfnrt]`)
 	percentEscape = regexp.MustCompile(`%([0-9a-fA-F]{2})`)
 )
 
-// decodeEscapes undoes JSON unicode escapes, percent-encoding and HTML entities, a few times
-// over to cover text that was escaped more than once.
+// decodeEscapes undoes JSON escapes, percent-encoding and HTML entities, a few times over to
+// cover text that was escaped more than once.
 func decodeEscapes(s string) string {
 	for range 3 {
 		decoded := unicodeEscape.ReplaceAllStringFunc(s, func(m string) string {
-			n, _ := strconv.ParseUint(m[2:], 16, 32)
+			n, _ := strconv.ParseInt(m[2:], 16, 32)
 			return string(rune(n))
 		})
+		// What a simple escape such as \n stands for is never a letter or a digit, so a space will do.
+		decoded = simpleEscape.ReplaceAllString(decoded, " ")
 		decoded = percentEscape.ReplaceAllStringFunc(decoded, func(m string) string {
 			n, _ := strconv.ParseUint(m[1:], 16, 8)
 			return string([]byte{byte(n)})
@@ -228,8 +274,11 @@ func alphanumerics(s string) string {
 func webhookURLPieces(u *url.URL) []string {
 	pieces := strings.Split(u.EscapedPath(), "/")
 	pieces = append(pieces, strings.FieldsFunc(u.RawQuery, func(r rune) bool { return r == '&' || r == ';' || r == '=' })...)
-	if password, ok := u.User.Password(); ok {
-		pieces = append(pieces, u.User.Username(), password)
+	if u.User != nil {
+		pieces = append(pieces, u.User.Username())
+		if password, ok := u.User.Password(); ok {
+			pieces = append(pieces, password)
+		}
 	}
 	return pieces
 }
@@ -273,8 +322,10 @@ func PrepareWebhookNotificationConfig(configMap *corev1.ConfigMap, secret *corev
 	// The URL is in the ConfigMap when it is inline, and in the Secret when it comes from a secret
 	// reference. Secret values often end in a newline.
 	webhookURL := configMap.Data[webhookURLKey]
+	urlIsSecret := false
 	if webhookURL == "" && secret != nil {
 		webhookURL = strings.TrimSpace(string(secret.Data[webhookURLKey]))
+		urlIsSecret = webhookURL != ""
 	}
 	if webhookURL == "" {
 		return WebhookConfig{}, fmt.Errorf("webhook URL not found in ConfigMap or Secret")
@@ -306,6 +357,7 @@ func PrepareWebhookNotificationConfig(configMap *corev1.ConfigMap, secret *corev
 
 	webhookConfig := WebhookConfig{
 		URL:             webhookURL,
+		URLIsSecret:     urlIsSecret,
 		Headers:         headers,
 		PayloadTemplate: payloadTemplate,
 	}

@@ -6,13 +6,17 @@ package notifications
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +54,7 @@ func TestPrepareWebhookNotificationConfig(t *testing.T) {
 			},
 			check: func(t *testing.T, cfg WebhookConfig) {
 				assert.Equal(t, "https://hooks.example.com/services/T000/B000/token", cfg.URL)
+				assert.True(t, cfg.URLIsSecret)
 			},
 		},
 		{
@@ -60,6 +65,7 @@ func TestPrepareWebhookNotificationConfig(t *testing.T) {
 			},
 			check: func(t *testing.T, cfg WebhookConfig) {
 				assert.Equal(t, "https://example.com/hook", cfg.URL)
+				assert.False(t, cfg.URLIsSecret)
 			},
 		},
 		{
@@ -383,6 +389,63 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 		{name: "percent-encoded twice", body: "invalid credential ab%2526cdef12345"},
 		{name: "backslash-escaped", body: `invalid credential ab\&cdef12345`},
 	}
+
+	t.Run("receiver quotes a credential with a JSON newline escape", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = io.WriteString(w, `{"error":"invalid credential ab\ncdef12345"}`)
+		}))
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = ts.Client()
+
+		cfg := &WebhookConfig{URL: ts.URL + "/hook?key=ab%0Acdef12345"}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "response omitted because it quotes the webhook URL")
+		assert.NotContains(t, err.Error(), "cdef12345")
+	})
+
+	t.Run("receiver quotes a username-only credential", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, _, _ := r.BasicAuth()
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = io.WriteString(w, "invalid credential "+user)
+		}))
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = ts.Client()
+
+		cfg := &WebhookConfig{URL: strings.Replace(ts.URL, "http://", "http://token-s3cr3t-123@", 1) + "/hook"}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "401")
+		assert.Contains(t, err.Error(), "invalid credential "+redactedPlaceholder)
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+
+	t.Run("receiver's response is never shown for a URL from a secret", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, "unrelated receiver text")
+		}))
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = ts.Client()
+
+		cfg := &WebhookConfig{URL: ts.URL + secretPath, URLIsSecret: true}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "400")
+		assert.Contains(t, err.Error(), "response omitted because the webhook URL is a secret")
+		assert.NotContains(t, err.Error(), "unrelated receiver text")
+	})
 	for _, tc := range escaped {
 		t.Run("receiver quotes a credential with a "+tc.name, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -418,9 +481,95 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 		cfg := &WebhookConfig{URL: ts.URL + secretPath + "?" + secretQuery}
 		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse Location header")
+		assert.ErrorIs(t, err, errCauseOmitted)
+		assert.NotContains(t, err.Error(), "Location")
 		assert.NotContains(t, err.Error(), "s3cr3t")
 	})
+
+	t.Run("receiver redirects to a malformed Location that quotes a credential in another escaping", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Location", "/ab%2526cdef12345/%zz")
+			w.WriteHeader(http.StatusTemporaryRedirect)
+		}))
+		defer ts.Close()
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = ts.Client()
+
+		cfg := &WebhookConfig{URL: ts.URL + "/hook?key=ab%26cdef12345"}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errCauseOmitted)
+		assert.NotContains(t, err.Error(), "cdef12345")
+	})
+
+	t.Run("receiver that does not answer in time", func(t *testing.T) {
+		release := make(chan struct{})
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			<-release
+		}))
+		defer ts.Close()
+		defer close(release) // lets the handler return, so that the server can close
+
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = &http.Client{Timeout: 100 * time.Millisecond}
+
+		cfg := &WebhookConfig{URL: ts.URL + secretPath + "?" + secretQuery}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "Client.Timeout exceeded")
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+}
+
+func TestSafeCause(t *testing.T) {
+	const webhookURL = "https://hooks.example.com/services/s3cr3t-token"
+	dialErr := &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
+	readErr := &net.OpError{Op: "read", Net: "tcp", Err: errors.New("connection reset by peer")}
+	quoting := errors.New(`failed to parse Location header "/services/s3cr3t-token/%zz"`)
+
+	tests := []struct {
+		name             string
+		err              error
+		beforeConnection bool
+		want             string
+	}{
+		{
+			name:             "before a connection: the cause without the URL",
+			err:              &url.Error{Op: "Post", URL: webhookURL, Err: dialErr},
+			beforeConnection: true,
+			want:             "dial tcp: connect: connection refused",
+		},
+		{
+			name: "after a connection: a network error of this side",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: fmt.Errorf("transport connection broken: %w", readErr)},
+			want: "read tcp: connection reset by peer",
+		},
+		{
+			name: "after a connection: the receiver closed the connection",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: io.EOF},
+			want: "EOF",
+		},
+		{
+			name: "after a connection: a deadline",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: context.DeadlineExceeded},
+			want: "context deadline exceeded",
+		},
+		{
+			name: "after a connection: anything else is left out",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: quoting},
+			want: errCauseOmitted.Error(),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := safeCause(tc.err, tc.beforeConnection)
+			assert.Equal(t, tc.want, got.Error())
+			assert.NotContains(t, got.Error(), "s3cr3t")
+		})
+	}
 }
 
 func TestRedactWebhookURL(t *testing.T) {
@@ -481,6 +630,11 @@ func TestScrubWebhookURL(t *testing.T) {
 		assert.Equal(t, "bad credentials for <redacted>: <redacted>", got)
 	})
 
+	t.Run("username without a password is removed", func(t *testing.T) {
+		got := scrubWebhookURL("invalid credential token-s3cr3t-123", "https://token-s3cr3t-123@hooks.example.com/hook")
+		assert.Equal(t, "invalid credential <redacted>", got)
+	})
+
 	t.Run("short pieces are left alone", func(t *testing.T) {
 		got := scrubWebhookURL("invalid id in v1 request", "https://hooks.example.com/v1/hook-abcdef?id=7")
 		assert.Equal(t, "invalid id in v1 request", got)
@@ -506,6 +660,7 @@ func TestQuotesWebhookURL(t *testing.T) {
 		{name: "HTML numeric entity", text: "invalid credential ab&#x26;cdef12345", want: true},
 		{name: "percent-encoded twice", text: "invalid credential ab%2526cdef12345", want: true},
 		{name: "piece split by punctuation", text: "unknown hook tok3n_abc", want: true},
+		{name: "JSON simple escape", text: `unknown hook tok3n\tabc`, want: true},
 		{name: "unrelated text", text: "invalid_payload: no text field", want: false},
 		{name: "short pieces are ignored", text: "missing key", want: false},
 		{name: "scrubbed text", text: "unknown hook <redacted>", want: false},
