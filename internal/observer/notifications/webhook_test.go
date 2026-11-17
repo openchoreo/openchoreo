@@ -504,6 +504,33 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 		assert.NotContains(t, err.Error(), "cdef12345")
 	})
 
+	t.Run("receiver redirects to a host built from a credential", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Location", "http://"+r.URL.Query().Get("key")+".invalid/")
+			w.WriteHeader(http.StatusTemporaryRedirect)
+		}))
+		defer ts.Close()
+
+		// Fail the lookup of the redirect target the way the resolver would, without using the network.
+		dialer := &net.Dialer{}
+		origClient := httpClient
+		t.Cleanup(func() { httpClient = origClient })
+		httpClient = &http.Client{Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				if host, _, _ := net.SplitHostPort(addr); strings.HasSuffix(host, ".invalid") {
+					return nil, &net.OpError{Op: "dial", Net: network, Err: &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}}
+				}
+				return dialer.DialContext(ctx, network, addr)
+			},
+		}}
+
+		cfg := &WebhookConfig{URL: ts.URL + "/hook?" + secretQuery, URLIsSecret: true}
+		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errNetworkAfterContact)
+		assert.NotContains(t, err.Error(), "s3cr3t")
+	})
+
 	t.Run("receiver that does not answer in time", func(t *testing.T) {
 		release := make(chan struct{})
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -519,7 +546,7 @@ func TestSendWebhookWithConfig_ErrorsLeaveOutTheURL(t *testing.T) {
 		cfg := &WebhookConfig{URL: ts.URL + secretPath + "?" + secretQuery}
 		err := SendWebhookWithConfig(context.Background(), cfg, map[string]interface{}{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "Client.Timeout exceeded")
+		assert.ErrorIs(t, err, errReceiverTimeout)
 		assert.NotContains(t, err.Error(), "s3cr3t")
 	})
 }
@@ -545,17 +572,28 @@ func TestSafeCause(t *testing.T) {
 		{
 			name: "after a connection: a network error of this side",
 			err:  &url.Error{Op: "Post", URL: webhookURL, Err: fmt.Errorf("transport connection broken: %w", readErr)},
-			want: "read tcp: connection reset by peer",
+			want: errNetworkAfterContact.Error(),
+		},
+		{
+			name: "after a connection: a failed lookup of a redirect target the receiver chose",
+			err: &url.Error{Op: "Post", URL: webhookURL, Err: &net.OpError{Op: "dial", Net: "tcp",
+				Err: &net.DNSError{Err: "no such host", Name: "s3cr3t-token.invalid", IsNotFound: true}}},
+			want: errNetworkAfterContact.Error(),
 		},
 		{
 			name: "after a connection: the receiver closed the connection",
 			err:  &url.Error{Op: "Post", URL: webhookURL, Err: io.EOF},
-			want: "EOF",
+			want: errNetworkAfterContact.Error(),
 		},
 		{
 			name: "after a connection: a deadline",
 			err:  &url.Error{Op: "Post", URL: webhookURL, Err: context.DeadlineExceeded},
-			want: "context deadline exceeded",
+			want: errReceiverTimeout.Error(),
+		},
+		{
+			name: "after a connection: a canceled request",
+			err:  &url.Error{Op: "Post", URL: webhookURL, Err: context.Canceled},
+			want: errRequestCanceled.Error(),
 		},
 		{
 			name: "after a connection: anything else is left out",

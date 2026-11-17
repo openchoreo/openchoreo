@@ -148,44 +148,44 @@ func isHTTPURL(u *url.URL) bool {
 	return (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 
-// errCauseOmitted stands in for the cause of a failed request whose text could repeat the
-// webhook URL.
-var errCauseOmitted = errors.New("the receiver's reply could not be processed; details are omitted because they could repeat the webhook URL")
+// What is reported for a request that failed after the receiver was contacted. From then on an
+// error's own text can repeat the webhook URL: the receiver may answer with a redirect, and the
+// error for following it names the host and path the receiver chose.
+var (
+	errReceiverTimeout     = errors.New("timed out waiting for the receiver")
+	errRequestCanceled     = errors.New("the request was canceled")
+	errNetworkAfterContact = errors.New("a network error occurred after the receiver was contacted")
+	errCauseOmitted        = errors.New("the receiver's reply could not be processed; details are omitted because they could repeat the webhook URL")
+)
 
-// safeCause returns the cause of a failed request when its text cannot repeat the webhook URL.
-// That holds for a failure before a connection to the receiver existed (name resolution,
-// connecting, the TLS handshake), since only the host was involved, and for a timeout or a
-// network error reported by this side. Anything else can quote what the receiver sent back,
-// as the error for a redirect with a malformed Location does, and is left out.
+// safeCause returns what to report as the cause of a failed request. A failure before a
+// connection to the receiver existed (name resolution, connecting, the TLS handshake) involved
+// only the host, so its cause is returned as it is. A later failure is reduced to one of the
+// fixed errors above.
 func safeCause(err error, beforeConnection bool) error {
-	// net/http puts the full URL in its error; keep only what it wraps. That error also reports
-	// itself as a timeout, so it has to go before the checks below.
-	for {
-		var urlErr *url.Error
-		if !errors.As(err, &urlErr) {
-			break
-		}
-		err = urlErr.Err
-	}
 	if beforeConnection {
-		return err
+		// net/http puts the full URL in its error; keep only what it wraps.
+		for {
+			var urlErr *url.Error
+			if !errors.As(err, &urlErr) {
+				return err
+			}
+			err = urlErr.Err
+		}
 	}
 
-	// Return the matching error itself, not what wraps it.
-	var opErr *net.OpError
-	if errors.As(err, &opErr) {
-		return opErr
-	}
 	var netErr net.Error
-	if errors.As(err, &netErr) && netErr.Timeout() {
-		return netErr
+	var opErr *net.OpError
+	switch {
+	case errors.Is(err, context.Canceled):
+		return errRequestCanceled
+	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &netErr) && netErr.Timeout():
+		return errReceiverTimeout
+	case errors.As(err, &opErr), errors.Is(err, io.EOF), errors.Is(err, io.ErrUnexpectedEOF):
+		return errNetworkAfterContact
+	default:
+		return errCauseOmitted
 	}
-	for _, local := range []error{io.EOF, io.ErrUnexpectedEOF, context.Canceled, context.DeadlineExceeded} {
-		if errors.Is(err, local) {
-			return local
-		}
-	}
-	return errCauseOmitted
 }
 
 // scrubWebhookURL removes the webhook URL from text that may quote it, such as a receiver's
