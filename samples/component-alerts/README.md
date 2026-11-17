@@ -83,7 +83,7 @@ Platform Engineers configure notification channels once per environment (email/w
    kubectl get observabilityalertsnotificationchannels -n default
    ```
 
-4. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The first notification channel created will be marked as the default notification channel for the environment by OpenChoreo.
+4. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The email channel sets `isEnvDefault: true`, which makes it the default notification channel for the environment. OpenChoreo does not pick a default for you: if no channel is marked, alert rules that list no channels of their own fail to render. If several channels of an environment are marked, the most recently created one is used. To change the default, mark the channel you want and unmark the others.
 
 ---
 

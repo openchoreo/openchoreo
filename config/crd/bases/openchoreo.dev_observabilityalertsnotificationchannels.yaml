@@ -218,9 +218,9 @@ spec:
               isEnvDefault:
                 default: false
                 description: |-
-                  IsEnvDefault indicates if this is the default notification channel for the environment
-                  There can be only one default notification channel for an environment
-                  First notification channel created for an environment will be the default unless otherwise specified
+                  IsEnvDefault marks this channel as the default notification channel for the environment.
+                  If several channels of an environment are marked, the most recently created one is used.
+                  If none is marked, the environment has no default notification channel.
                 type: boolean
               type:
                 description: |-

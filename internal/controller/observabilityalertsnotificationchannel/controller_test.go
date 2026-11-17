@@ -300,7 +300,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(configMap.Labels["app.kubernetes.io/managed-by"]).To(Equal("observabilityalertsnotificationchannel-controller"))
 			Expect(configMap.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 			Expect(configMap.Data["type"]).To(Equal("email"))
-			Expect(configMap.Data["isEnvDefault"]).To(Equal("true"))
+			Expect(configMap.Data["isEnvDefault"]).To(Equal("false"))
 			Expect(configMap.Data["from"]).To(Equal("test@example.com"))
 			Expect(configMap.Data["to"]).To(ContainSubstring("recipient1@example.com"))
 			Expect(configMap.Data["smtp.host"]).To(Equal("smtp.example.com"))
@@ -318,7 +318,7 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(secret.Labels[labels.LabelKeyNotificationChannelName]).To(Equal(channel.Name))
 		})
 
-		It("should mark the first channel in an environment as default", func() {
+		It("should not mark the first channel in an environment as default", func() {
 			localMockProvider := &k8sMocks.MockObservabilityPlaneClientProvider{}
 			localMockProvider.EXPECT().ObservabilityPlaneClient(mock.Anything).Return(opClient, nil).Once()
 
@@ -338,14 +338,9 @@ var _ = Describe("ObservabilityAlertsNotificationChannel Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
 
-			Eventually(func() bool {
-				updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
-				err := k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)
-				if err != nil {
-					return false
-				}
-				return updatedChannel.Spec.IsEnvDefault
-			}, time.Second*5, time.Millisecond*200).Should(BeTrue())
+			updatedChannel := &openchoreodevv1alpha1.ObservabilityAlertsNotificationChannel{}
+			Expect(k8sClient.Get(testCtx, types.NamespacedName{Name: channel.Name, Namespace: namespace}, updatedChannel)).To(Succeed())
+			Expect(updatedChannel.Spec.IsEnvDefault).To(BeFalse())
 		})
 	})
 
