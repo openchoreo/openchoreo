@@ -70,7 +70,7 @@ Platform Engineers configure notification channels once per environment (email/w
 
 2. Edit `samples/component-alerts/alert-notification-channels.yaml` and replace the placeholder values:
    - SMTP host, port, and from/to email addresses
-   - Webhook URL and custom headers (if required)
+   - Webhook URL and custom headers (if required). If the URL itself carries a credential, as a Slack incoming webhook does, add it to the secret (`--from-literal=url=<webhook-url>`) and reference it with `urlFrom.secretKeyRef` instead of setting `url`, as the comment in the sample shows.
    - **Email template** (optional): For emails that require specific formatting, you can provide a `template` using CEL expressions. The sample includes a template. If not provided, the raw alertDetails object will be sent.
    - **Webhook payload template** (optional): For webhooks that require specific JSON formats (like Slack), you can provide a `payloadTemplate` using CEL expressions. The sample includes a Slack-compatible template. If not provided, the raw alertDetails object will be sent.
 
