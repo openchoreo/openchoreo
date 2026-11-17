@@ -72,6 +72,7 @@ import (
 	ciliumv2 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/cilium.io/v2"
 	esv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/externalsecrets/v1"
 	csisecretv1 "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes/types/secretstorecsi/v1"
+	"github.com/openchoreo/openchoreo/internal/revision"
 	"github.com/openchoreo/openchoreo/internal/version"
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
@@ -132,6 +133,7 @@ func setupControlPlaneControllers(
 	secretRemoteKeys observabilityalertsnotificationchannel.RemoteKeyFormat,
 	referencedConfigRollout bool,
 	rrIntervals renderedReleaseIntervals,
+	revisions revisionSettings,
 ) error {
 	// Create gateway client for plane lifecycle notifications
 	var gwClient *gatewayClient.Client
@@ -219,10 +221,11 @@ func setupControlPlaneControllers(
 		&resource.Reconciler{Client: c, Scheme: s},
 		&resourcerelease.Reconciler{Client: c, Scheme: s},
 		&resourcereleasebinding.Reconciler{
-			Client:        c,
-			Scheme:        s,
-			CELCostLimit:  celCostLimit,
-			RenderTimeout: renderTimeout,
+			Client:                  c,
+			Scheme:                  s,
+			CELCostLimit:            celCostLimit,
+			RenderTimeout:           renderTimeout,
+			RevisionKnownGoodWindow: revisions.knownGoodWindow,
 		},
 		// Endpoint family — templates (cluster-scoped before namespaced),
 		// then instance, immutable release snapshot, per-env binding.
@@ -243,6 +246,7 @@ func setupControlPlaneControllers(
 			CELCostLimit:            celCostLimit,
 			RenderTimeout:           renderTimeout,
 			ReferencedConfigRollout: referencedConfigRollout,
+			RevisionKnownGoodWindow: revisions.knownGoodWindow,
 		},
 		&renderedrelease.Reconciler{
 			Client:              c,
@@ -352,6 +356,7 @@ func main() {
 	var secretRemoteKeySeparator string
 	var referencedConfigRollout bool
 	var rrIntervals renderedReleaseIntervals
+	var revisions revisionSettings
 	var tlsOpts []func(*tls.Config)
 	// Environment defaults are resolved before the flags are declared, so a malformed value
 	// is reported after flag.Parse rather than silently replaced by the built-in default.
@@ -421,6 +426,9 @@ func main() {
 		"How long a RenderedRelease with transitioning resources waits before its next check, unless the "+
 			"release sets spec.progressingInterval. 20% jitter is added. Must be greater than 0. Defaults to "+
 			"the RENDEREDRELEASE_PROGRESSING_INTERVAL environment variable when set.")
+	flag.DurationVar(&revisions.knownGoodWindow, "revision-known-good-window", revision.DefaultKnownGoodWindow,
+		"How long a binding revision must stay Healthy before it is marked known-good. "+
+			"0 marks it on its first Healthy observation.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -468,6 +476,10 @@ func main() {
 	}
 	if err := validateRequeueInterval(rrIntervals.progressing); err != nil {
 		setupLog.Error(err, "invalid --renderedrelease-progressing-interval")
+		os.Exit(1)
+	}
+	if err := revisions.validate(); err != nil {
+		setupLog.Error(err, "invalid revision settings")
 		os.Exit(1)
 	}
 
@@ -576,7 +588,7 @@ func main() {
 		}, celCostLimit, renderTimeout, observabilityalertsnotificationchannel.RemoteKeyFormat{
 			Prefix:    secretRemoteKeyPrefix,
 			Separator: secretRemoteKeySeparator,
-		}, referencedConfigRollout, rrIntervals)
+		}, referencedConfigRollout, rrIntervals, revisions)
 		if err != nil {
 			setupLog.Error(err, "unable to setup control plane controllers")
 			os.Exit(1)
@@ -712,6 +724,20 @@ func getEnvDuration(key string, defaultValue time.Duration) (time.Duration, erro
 		return 0, fmt.Errorf("parse %s=%q: %w", key, value, err)
 	}
 	return parsed, nil
+}
+
+// revisionSettings configures how the binding controllers keep revision history.
+type revisionSettings struct {
+	// knownGoodWindow is how long a revision must stay Healthy to become known-good.
+	knownGoodWindow time.Duration
+}
+
+// validate rejects negative settings, which have no meaning.
+func (s revisionSettings) validate() error {
+	if s.knownGoodWindow < 0 {
+		return fmt.Errorf("revision known-good window must not be negative: %s", s.knownGoodWindow)
+	}
+	return nil
 }
 
 func validateRenderTimeout(timeout time.Duration) error {

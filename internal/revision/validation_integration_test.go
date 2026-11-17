@@ -294,11 +294,11 @@ var _ = Describe("ResourceReleaseBindingRevision mutability", func() {
 			s.Cause = openchoreov1alpha1.RevisionCauseOverride
 		}),
 		Entry("spec.resourceReleaseName", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {
-			s.ResourceReleaseName = "db-def456"
+			s.ResourceReleaseName = secondResourceRelease
 		}),
 		Entry("spec.snapshotHash", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) { s.SnapshotHash = "hash-2" }),
 		Entry("spec.bindingSpec.resourceRelease", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {
-			s.BindingSpec.ResourceRelease = "db-def456"
+			s.BindingSpec.ResourceRelease = secondResourceRelease
 		}),
 		Entry("spec.bindingSpec.retainPolicy", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {
 			s.BindingSpec.RetainPolicy = openchoreov1alpha1.ResourceRetainPolicyRetain

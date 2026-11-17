@@ -74,6 +74,8 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 			ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.payments.svc", Port: 8080},
 		}}
 		rb.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: "rollout-1"}
+		rb.Status.CurrentRevision = rb.Name + "-r2"
+		rb.Status.HighestRevision = 2
 		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
 			Type:   string(ConditionConnectionsResolved),
 			Status: metav1.ConditionTrue,
@@ -371,6 +373,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(conditionFor(updated, string(ConditionReady)).Reason).
 			To(Equal(string(ReasonProjectReleaseBindingNotFound)))
 		Expect(updated.Status.Endpoints).To(HaveLen(1), "consumers keep resolving the running release's endpoints")
+		Expect(updated.Status.CurrentRevision).To(Equal(rb.Name+"-r2"), "the running release still applies it")
 		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).NotTo(BeNil())
 		_, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
@@ -387,6 +390,8 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		updated := fetchRB(rb.Name)
 		Expect(updated.Status.Endpoints).To(BeEmpty())
 		Expect(updated.Status.Delivery).To(BeNil())
+		Expect(updated.Status.CurrentRevision).To(BeEmpty(), "an observed binding applies no revision")
+		Expect(updated.Status.HighestRevision).To(Equal(int64(2)), "kept so revision numbers are never reused")
 		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).To(BeNil())
 		rr, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
