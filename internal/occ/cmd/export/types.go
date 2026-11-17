@@ -4,8 +4,9 @@
 package export
 
 // Resource associates an API object with its export identity. Namespace is empty
-// for cluster-scoped objects, including Namespace objects. Object retains the
-// generated API value, including its exposed metadata, spec, and status.
+// for cluster-scoped objects, including Namespace objects. Fetch supplies a
+// generated API value in Object; Filter replaces it with an independent JSON
+// document containing the approved fields for export.
 type Resource struct {
 	Kind      string
 	Namespace string

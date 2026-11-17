@@ -5,6 +5,7 @@ package export
 
 import (
 	"context"
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"os"
@@ -18,7 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
-func TestRun_ExportsFetchedObjects(t *testing.T) {
+func TestRun_ExportsFilteredObjects(t *testing.T) {
 	f := newFetchFixture(t, false)
 	directory := filepath.Join(t.TempDir(), "nested", "export")
 	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
@@ -28,20 +29,33 @@ func TestRun_ExportsFetchedObjects(t *testing.T) {
 		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(file.Path)))
 		require.NoError(t, err)
 		assert.Equal(t, file.Data, data)
+		var document map[string]json.RawMessage
+		require.NoError(t, yaml.Unmarshal(data, &document))
+		assert.NotContains(t, document, "status", file.Path)
+		var metadata map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(document["metadata"], &metadata))
+		for field := range metadata {
+			assert.Contains(t, []string{"name", "namespace", "labels", "annotations"}, field, file.Path)
+		}
+		if annotations, exists := metadata["annotations"]; exists {
+			var entries map[string]string
+			require.NoError(t, json.Unmarshal(annotations, &entries))
+			assert.NotContains(t, entries, lastAppliedAnnotation)
+			assert.NotContains(t, entries, restartedAtAnnotation)
+			assert.Equal(t, "annotation", entries["keep"])
+			assert.Equal(t, "existing-release", entries["meta.helm.sh/release-name"])
+			assert.Equal(t, "Ignore", entries["kustomize.toolkit.fluxcd.io/ssa"])
+		}
 	}
 	data, err := os.ReadFile(filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml"))
 	require.NoError(t, err)
 	var component struct {
-		Metadata struct {
-			UID string `json:"uid"`
-		} `json:"metadata"`
-		Status struct {
-			ObservedGeneration int `json:"observedGeneration"`
-		} `json:"status"`
+		Spec struct {
+			AutoDeploy bool `json:"autoDeploy"`
+		} `json:"spec"`
 	}
 	require.NoError(t, yaml.Unmarshal(data, &component))
-	assert.Equal(t, "keep-uid", component.Metadata.UID)
-	assert.Equal(t, 7, component.Status.ObservedGeneration)
+	assert.True(t, component.Spec.AutoDeploy, "filtering must not change deployment behavior")
 	data, err = os.ReadFile(filepath.Join(directory, "namespaces", "acme", "namespace.yaml"))
 	require.NoError(t, err)
 	var namespace struct {
@@ -125,4 +139,31 @@ func TestRun_EmptyInventoryCreatesOutputFolder(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, files)
 	assert.DirExists(t, directory)
+}
+
+func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
+	f := newFetchFixture(t, false)
+	f.override = func(req *http.Request) (*http.Response, error) {
+		var collection collectionFixture
+		switch req.URL.Path {
+		case "/api/v1/clustertraits":
+			collection = collectionFixture{kind: "ClusterTrait", path: "clustertraits"}
+		case "/api/v1/namespaces/acme/components":
+			collection = collectionFixture{kind: testComponentKind, path: "components"}
+		default:
+			return nil, nil
+		}
+		active := fixtureObject(collection, req.URL.Path, 0)
+		deleting := fixtureObject(collection, req.URL.Path, 1)
+		deleting["metadata"].(map[string]any)["deletionTimestamp"] = "2026-11-17T08:00:00Z"
+		return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{active, deleting}, "pagination": map[string]any{}}), nil
+	}
+	directory := t.TempDir()
+	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Len(t, files, 58, "two additional deleting objects must be excluded from the fetched inventory")
+	assert.FileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-0.yaml"))
+	assert.NoFileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-1.yaml"))
+	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml"))
+	assert.NoFileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-1", "component.yaml"))
 }

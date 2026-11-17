@@ -23,8 +23,10 @@ accessible OpenChoreo control-plane namespace and write one YAML manifest per
 resource beneath the output directory. Missing directories are created;
 existing destination files are never overwritten.
 
-Manifests preserve the fields exposed by the API, including status and server
-metadata. Filtering, redaction, and canonicalization are not yet implemented.`,
+Objects marked for deletion are skipped. Manifests omit top-level status,
+server metadata, the last-applied-configuration annotation, and the OpenChoreo
+restart annotation. Specs and other labels and annotations are preserved.
+Redaction and canonicalization are not yet implemented.`,
 		Example: `  occ export -o ./gitops-export
   occ export --output /path/to/gitops-repository
   occ export -o .`,

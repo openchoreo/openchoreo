@@ -9,8 +9,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
-// Run fetches, serializes, and writes the export inventory. Filtering, redaction,
-// and canonicalization remain future stages; exposed API fields are preserved.
+// Run fetches, filters, serializes, and writes the export inventory.
+// Redaction and canonicalization remain future stages.
 func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFile, error) {
 	if err := params.validate(); err != nil {
 		return nil, err
@@ -19,7 +19,11 @@ func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFi
 	if err != nil {
 		return nil, err
 	}
-	files, err := Serialize(ctx, resources)
+	filtered, err := Filter(ctx, resources)
+	if err != nil {
+		return nil, err
+	}
+	files, err := Serialize(ctx, filtered)
 	if err != nil {
 		return nil, err
 	}

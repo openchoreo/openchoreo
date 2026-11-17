@@ -180,7 +180,11 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	metadata := map[string]any{
 		"name": collection.path + "-" + strconv.Itoa(page),
 		"uid":  "keep-uid", "creationTimestamp": "2026-01-01T00:00:00Z",
-		"labels": map[string]string{"keep": "label"}, "annotations": map[string]string{"keep": "annotation"},
+		"labels": map[string]string{"keep": "label"},
+		"annotations": map[string]string{
+			"keep": "annotation", lastAppliedAnnotation: "previous apply data", restartedAtAnnotation: "old-restart",
+			"meta.helm.sh/release-name": "existing-release", "kustomize.toolkit.fluxcd.io/ssa": "Ignore",
+		},
 	}
 	if strings.HasPrefix(path, "/api/v1/namespaces/") {
 		metadata["namespace"] = strings.Split(path, "/")[4]
@@ -202,6 +206,7 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 		object["spec"] = map[string]any{
 			"owner":         map[string]string{"projectName": "store"},
 			"componentType": map[string]string{"kind": "ClusterComponentType", "name": "deployment/service"},
+			"autoDeploy":    true,
 			"parameters":    map[string]any{"replicas": 3, "nested": map[string]any{"keep": "value"}},
 		}
 		object["status"] = map[string]any{"observedGeneration": 7, "latestRelease": map[string]string{"name": "checkout-old-release"}}
