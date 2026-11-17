@@ -512,13 +512,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// This will be passed to the rendering pipeline and made available in the trait CEL context
 	defaultNotificationChannel, err := r.getDefaultNotificationChannelName(ctx, releaseBinding.Namespace, releaseBinding.Spec.Environment)
 	if err != nil {
-		if strings.Contains(err.Error(), "no default ObservabilityAlertsNotificationChannel found for environment") {
-			logger.V(1).Info("Default notification channel not configured", "environment", releaseBinding.Spec.Environment)
-			defaultNotificationChannel = ""
-		} else {
-			logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
-			return ctrl.Result{}, err
-		}
+		logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
+		return ctrl.Result{}, err
 	}
 
 	// Build Component from ComponentRelease for rendering
@@ -1684,20 +1679,37 @@ func resolveGatewayEndpointByVisibility(
 	return spec.Ingress.Internal
 }
 
-// getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.
+// getDefaultNotificationChannelName returns the name of the environment's default
+// ObservabilityAlertsNotificationChannel, or "" when no channel is marked as default.
+// When several are marked, the most recently created one wins, with the name as tie-break.
 func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, namespace, environment string) (string, error) {
 	var channels openchoreov1alpha1.ObservabilityAlertsNotificationChannelList
 	if err := r.List(ctx, &channels, client.InNamespace(namespace)); err != nil {
 		return "", fmt.Errorf("failed to list ObservabilityAlertsNotificationChannels: %w", err)
 	}
 
-	for _, ch := range channels.Items {
-		if ch.Spec.Environment == environment && ch.Spec.IsEnvDefault && ch.DeletionTimestamp.IsZero() {
-			return ch.Name, nil
+	var def *openchoreov1alpha1.ObservabilityAlertsNotificationChannel
+	marked := 0
+	for i := range channels.Items {
+		ch := &channels.Items[i]
+		if ch.Spec.Environment != environment || !ch.Spec.IsEnvDefault || !ch.DeletionTimestamp.IsZero() {
+			continue
+		}
+		marked++
+		if def == nil ||
+			ch.CreationTimestamp.After(def.CreationTimestamp.Time) ||
+			(ch.CreationTimestamp.Time.Equal(def.CreationTimestamp.Time) && ch.Name < def.Name) {
+			def = ch
 		}
 	}
-
-	return "", fmt.Errorf("no default ObservabilityAlertsNotificationChannel found for environment %q", environment)
+	if def == nil {
+		return "", nil
+	}
+	if marked > 1 {
+		log.FromContext(ctx).V(1).Info("Multiple default notification channels found, using the most recently created",
+			"environment", environment, "channel", def.Name, "count", marked)
+	}
+	return def.Name, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
