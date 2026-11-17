@@ -31,7 +31,7 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		return err
 	}
 	if namespace == "" {
-		markNotObserving(releaseBinding, notObserving, why)
+		markNotSynced(releaseBinding, notObserving, why)
 		return r.stopObserving(ctx, releaseBinding)
 	}
 
@@ -40,7 +40,7 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		claims = releaseBinding.Spec.Observe.Resources
 	}
 	if len(claims) == 0 {
-		markNotObserving(releaseBinding, ReasonNothingObserved,
+		markNotSynced(releaseBinding, ReasonNothingObserved,
 			"spec.observe.resources is empty; list the objects this component runs as")
 		return r.stopObserving(ctx, releaseBinding)
 	}
@@ -55,7 +55,7 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		Namespace: releaseBinding.Namespace,
 	}, component); err != nil {
 		if apierrors.IsNotFound(err) {
-			markNotObserving(releaseBinding, ReasonComponentNotFound,
+			markNotSynced(releaseBinding, ReasonComponentNotFound,
 				fmt.Sprintf("Component %q not found", releaseBinding.Spec.Owner.ComponentName))
 			return nil
 		}
@@ -123,7 +123,7 @@ func (r *Reconciler) emitObservedRelease(
 		})
 	if err != nil {
 		if errors.Is(err, renderedrelease.ErrNotOwned) {
-			markNotObserving(releaseBinding, ReasonReleaseOwnershipConflict,
+			markNotSynced(releaseBinding, ReasonReleaseOwnershipConflict,
 				fmt.Sprintf("Release %q exists but is owned by another resource", name))
 			return nil, op, nil
 		}
@@ -181,9 +181,9 @@ func observedReleaseName(releaseBinding *openchoreov1alpha1.ReleaseBinding) stri
 	return releaseline.RenderedReleaseName(owner.ComponentName, owner.ReleaseLine, releaseBinding.Spec.Environment)
 }
 
-// markNotObserving reports why the binding observes nothing on both
-// ReleaseSynced and ResourcesReady.
-func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason controller.ConditionReason, msg string) {
+// markNotSynced reports why the binding has no current release, observed or
+// rendered, on both ReleaseSynced and ResourcesReady.
+func markNotSynced(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason controller.ConditionReason, msg string) {
 	controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced, reason, msg)
 	controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady, reason, msg)
 }

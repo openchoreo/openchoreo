@@ -17,6 +17,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 func lookupPRB(name, project, env string, mode openchoreov1alpha1.BindingMode, namespace string) *openchoreov1alpha1.ProjectReleaseBinding {
@@ -105,6 +106,51 @@ func TestObservedNamespace(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			ns, reason, msg, err := ObservedNamespace(context.Background(), c, "acme", tc.project, tc.env)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantNamespace, ns)
+			assert.Equal(t, tc.wantReason, reason)
+			assert.Contains(t, msg, tc.wantMessage)
+		})
+	}
+}
+
+func TestManagedNamespace(t *testing.T) {
+	observe := openchoreov1alpha1.BindingModeObserve
+	manage := openchoreov1alpha1.BindingModeManage
+	unpinned := lookupPRB("billing-prod", "billing", "prod", manage, "")
+	unpinned.Status.Conditions = []metav1.Condition{{
+		Type:    string(ConditionReady),
+		Status:  metav1.ConditionFalse,
+		Reason:  string(ReasonProjectReleaseNotSet),
+		Message: "spec.projectRelease is unset",
+	}}
+	c := lookupClient(t,
+		lookupPRB("payments-prod", "payments", "prod", manage, "payments-runtime"),
+		lookupPRB("payments-dev", "payments", "dev", observe, "payments-dev"),
+		lookupPRB("payments-qa", "payments", "qa", observe, ""),
+		unpinned,
+		lookupPRB("orders-prod-a", "orders", "prod", manage, "dp-a"),
+		lookupPRB("orders-prod-b", "orders", "prod", manage, "dp-a"),
+	)
+
+	cases := []struct {
+		name, project, env string
+		wantNamespace      string
+		wantReason         controller.ConditionReason
+		wantMessage        string
+	}{
+		{"managed reports its namespace", "payments", "prod", "payments-runtime", "", ""},
+		{"no ProjectReleaseBinding falls back to dp-*", "payments", "staging",
+			dpkubernetes.DataPlaneNamespace("acme", "payments", "staging"), "", ""},
+		{"observed holds", "payments", "dev", "", ReasonProjectObserved, "is in Observe mode"},
+		{"observed without a namespace holds", "payments", "qa", "", ReasonProjectObserved, "is in Observe mode"},
+		{"managed without a namespace waits", "billing", "prod", "", ReasonProjectNamespacePending,
+			"has not reported its namespace yet: spec.projectRelease is unset"},
+		{"several conflict", "orders", "prod", "", ReasonProjectReleaseBindingConflict, "Several ProjectReleaseBindings"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ns, reason, msg, err := ManagedNamespace(context.Background(), c, "acme", tc.project, tc.env)
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantNamespace, ns)
 			assert.Equal(t, tc.wantReason, reason)

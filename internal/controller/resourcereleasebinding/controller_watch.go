@@ -71,3 +71,29 @@ func (r *Reconciler) listResourceReleaseBindingsForResourceRelease(ctx context.C
 	}
 	return requests
 }
+
+// listResourceReleaseBindingsForProjectReleaseBinding returns reconcile
+// requests for the ResourceReleaseBindings of the ProjectReleaseBinding's
+// project and environment, which take their namespace from it.
+func (r *Reconciler) listResourceReleaseBindingsForProjectReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	prb, ok := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ResourceReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(prb.Namespace)); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings for ProjectReleaseBinding",
+			"projectReleaseBinding", prb.Name, "namespace", prb.Namespace)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		b := &bindings.Items[i]
+		if b.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName && b.Spec.Environment == prb.Spec.Environment {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: b.Name, Namespace: b.Namespace},
+			})
+		}
+	}
+	return requests
+}

@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -24,6 +25,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -59,6 +61,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings/finalizers,verbs=update
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleases,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
@@ -110,6 +113,18 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	// The namespace comes from the project's ProjectReleaseBinding. Under an
+	// observed one, or while it is unsettled, nothing is rendered or applied.
+	dataPlaneNamespace, held, why, err := projectreleasebinding.ManagedNamespace(ctx, r.Client,
+		binding.Namespace, binding.Spec.Owner.ProjectName, binding.Spec.Environment)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if dataPlaneNamespace == "" {
+		markSyncedFalse(binding, held, why)
+		return ctrl.Result{}, nil
+	}
 
 	if binding.Spec.ResourceRelease == "" {
 		markSyncedFalse(binding, ReasonResourceReleaseNotSet,
@@ -199,7 +214,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	// needing a second context threaded to whatever renders.
 	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
 
-	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, resource, project)
+	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -208,7 +223,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, nil
 	}
 
-	retryAfter := r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, rr)
+	retryAfter := r.evaluateReadiness(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace, rr)
 	return ctrl.Result{RequeueAfter: retryAfter}, nil
 }
 
@@ -225,12 +240,13 @@ func (r *Reconciler) renderAndEmit(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 ) (*openchoreov1alpha1.RenderedRelease, error) {
 	logger := log.FromContext(ctx)
 
 	resourceType := buildResourceTypeFromRelease(release)
 	snapshotResource := buildResourceFromRelease(release)
-	metadataCtx := buildMetadataContext(binding, environment, dataPlane, resource, project)
+	metadataCtx := buildMetadataContext(binding, environment, dataPlane, resource, project, dataPlaneNamespace)
 	dpCtx := resourcepipeline.BuildDataPlaneContext(dataPlane)
 	envCtx := resourcepipeline.BuildEnvironmentContext(environment, dataPlane)
 
@@ -392,9 +408,10 @@ func buildResourceFromRelease(release *openchoreov1alpha1.ResourceRelease) *open
 }
 
 // buildMetadataContext computes the platform-injected metadata surface
-// exposed to CEL templates. Name and Namespace follow the platform naming
-// scheme; the remaining fields are populated from the binding, environment,
-// dataplane, owning Resource, and owning Project.
+// exposed to CEL templates. Name follows the platform naming scheme, and
+// Namespace is dataPlaneNamespace, the namespace the project's
+// ProjectReleaseBinding reports; the remaining fields are populated from the
+// binding, environment, dataplane, owning Resource, and owning Project.
 //
 // The base name uses an "r_" discriminator on the first hash input. The
 // underscore is non-alphanumeric, so dpkubernetes.sanitizeName replaces it
@@ -410,6 +427,7 @@ func buildMetadataContext(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 ) resourcepipeline.MetadataContext {
 	resourceName := binding.Spec.Owner.ResourceName
 	projectName := binding.Spec.Owner.ProjectName
@@ -417,7 +435,6 @@ func buildMetadataContext(
 	bindingNamespace := binding.Namespace
 
 	baseName := dpkubernetes.GenerateK8sName("r_"+resourceName, envName)
-	dpNamespace := dpkubernetes.DataPlaneNamespace(bindingNamespace, projectName, envName)
 
 	standardLabels := map[string]string{
 		labels.LabelKeyNamespaceName:   bindingNamespace,
@@ -431,7 +448,7 @@ func buildMetadataContext(
 
 	return resourcepipeline.MetadataContext{
 		Name:              baseName,
-		Namespace:         dpNamespace,
+		Namespace:         dataPlaneNamespace,
 		ResourceNamespace: bindingNamespace,
 		ResourceName:      resourceName,
 		ResourceUID:       string(resource.UID),
@@ -472,6 +489,9 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 //     live binding's pinned release is removed; in the normal teardown
 //     path bindings are already deleting under their own finalizer by
 //     the time the Resource finalizer cascades the snapshot.
+//   - Watches: ProjectReleaseBinding — the binding takes its namespace from the
+//     ProjectReleaseBinding of its project and environment, and renders
+//     nothing while that one is observed, unsettled, or one of several.
 //
 // (Cluster)ResourceType is intentionally not watched. Rendering reads from
 // the immutable ResourceRelease.spec.resourceType.spec snapshot, so live
@@ -495,6 +515,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.ResourceRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResourceRelease)).
+		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForProjectReleaseBinding),
+			builder.WithPredicates(projectreleasebinding.ObserveChangedPredicate())).
 		Named("resourcereleasebinding").
 		Complete(r)
 }

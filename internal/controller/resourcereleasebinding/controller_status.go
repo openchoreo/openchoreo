@@ -40,13 +40,16 @@ func (r *Reconciler) evaluateReadiness(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	rr *openchoreov1alpha1.RenderedRelease,
 ) time.Duration {
 	logger := log.FromContext(ctx)
 
 	observed := observedStatusByID(rr.Status.Resources, logger)
-	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
-	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, observed, logger)
+	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace,
+		observed, logger)
+	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace,
+		rr, observed, logger)
 	return retryAfter
 }
 
@@ -86,10 +89,11 @@ func (r *Reconciler) evaluateOutputs(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	observed map[string]map[string]any,
 	logger logr.Logger,
 ) time.Duration {
-	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project, dataPlaneNamespace)
 
 	resolved, err := r.Pipeline.ResolveOutputs(ctx, input, observed)
 	if err == nil {
@@ -154,6 +158,7 @@ func (r *Reconciler) evaluateResourcesReady(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	rr *openchoreov1alpha1.RenderedRelease,
 	observed map[string]map[string]any,
 	logger logr.Logger,
@@ -179,7 +184,7 @@ func (r *Reconciler) evaluateResourcesReady(
 		renderedIDs[rr.Spec.Resources[i].ID] = true
 	}
 
-	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project, dataPlaneNamespace)
 	entries := release.Spec.ResourceType.Spec.Resources
 
 	rendered := 0
@@ -291,12 +296,13 @@ func buildPipelineInput(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 ) *resourcepipeline.RenderInput {
 	return &resourcepipeline.RenderInput{
 		ResourceType:           buildResourceTypeFromRelease(release),
 		Resource:               buildResourceFromRelease(release),
 		ResourceReleaseBinding: binding,
-		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project),
+		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project, dataPlaneNamespace),
 		DataPlane:              resourcepipeline.BuildDataPlaneContext(dataPlane),
 		Environment:            resourcepipeline.BuildEnvironmentContext(environment, dataPlane),
 	}

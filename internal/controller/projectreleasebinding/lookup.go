@@ -15,6 +15,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 // Reasons the other bindings report when their project's ProjectReleaseBinding
@@ -37,6 +38,19 @@ const (
 	// Observe mode but not observing a namespace, for example because its
 	// Environment does not allow the namespace.
 	ReasonNamespaceNotObserved controller.ConditionReason = "NamespaceNotObserved"
+)
+
+// Reasons a binding in Manage mode reports when its project's
+// ProjectReleaseBinding stops it rendering.
+const (
+	// ReasonProjectObserved indicates the project's ProjectReleaseBinding is in
+	// Observe mode. Manage mode under it is not supported yet, so the binding
+	// renders and applies nothing.
+	ReasonProjectObserved controller.ConditionReason = "ProjectObserved"
+
+	// ReasonProjectNamespacePending indicates the project's ProjectReleaseBinding
+	// is in Manage mode but hasn't reported its namespace yet.
+	ReasonProjectNamespacePending controller.ConditionReason = "ProjectNamespacePending"
 )
 
 // ErrAmbiguous is returned when several ProjectReleaseBindings target one
@@ -84,8 +98,7 @@ func ObservedNamespace(
 	prb, err := Find(ctx, c, namespace, project, environment)
 	switch {
 	case errors.Is(err, ErrAmbiguous):
-		return "", ReasonProjectReleaseBindingConflict,
-			fmt.Sprintf("Several ProjectReleaseBindings target project %q in environment %q", project, environment), nil
+		return "", ReasonProjectReleaseBindingConflict, conflictMessage(project, environment), nil
 	case err != nil:
 		return "", "", "", err
 	case prb == nil:
@@ -97,17 +110,60 @@ func ObservedNamespace(
 			fmt.Sprintf("ProjectReleaseBinding %q is in Manage mode; Observe mode under it is not supported yet",
 				prb.Name), nil
 	case prb.Status.Namespace == "":
-		msg := fmt.Sprintf("ProjectReleaseBinding %q is not observing a namespace", prb.Name)
-		if ready := meta.FindStatusCondition(prb.Status.Conditions, string(ConditionReady)); ready != nil && ready.Message != "" {
-			msg += ": " + ready.Message
-		}
-		return "", ReasonNamespaceNotObserved, msg, nil
+		return "", ReasonNamespaceNotObserved,
+			withReadyMessage(prb, fmt.Sprintf("ProjectReleaseBinding %q is not observing a namespace", prb.Name)), nil
 	}
 	return prb.Status.Namespace, "", "", nil
 }
 
+// ManagedNamespace returns the data-plane namespace a binding in Manage mode
+// renders into for project and environment: the ProjectReleaseBinding's
+// status.namespace, or the generated dp-* name when the project has no
+// ProjectReleaseBinding there, as before ProjectReleaseBindings existed. When
+// the binding must render nothing, it returns "" with the reason and a message
+// for its conditions: several ProjectReleaseBindings, an observed one, or a
+// managed one that hasn't reported its namespace yet.
+func ManagedNamespace(
+	ctx context.Context,
+	c client.Reader,
+	namespace, project, environment string,
+) (string, controller.ConditionReason, string, error) {
+	prb, err := Find(ctx, c, namespace, project, environment)
+	switch {
+	case errors.Is(err, ErrAmbiguous):
+		return "", ReasonProjectReleaseBindingConflict, conflictMessage(project, environment), nil
+	case err != nil:
+		return "", "", "", err
+	case prb == nil:
+		return dpkubernetes.DataPlaneNamespace(namespace, project, environment), "", "", nil
+	case prb.Spec.IsObserve():
+		return "", ReasonProjectObserved,
+			fmt.Sprintf("ProjectReleaseBinding %q is in Observe mode; Manage mode under it is not supported yet",
+				prb.Name), nil
+	case prb.Status.Namespace == "":
+		return "", ReasonProjectNamespacePending,
+			withReadyMessage(prb, fmt.Sprintf("ProjectReleaseBinding %q has not reported its namespace yet", prb.Name)), nil
+	}
+	return prb.Status.Namespace, "", "", nil
+}
+
+// conflictMessage says that several ProjectReleaseBindings target project and
+// environment.
+func conflictMessage(project, environment string) string {
+	return fmt.Sprintf("Several ProjectReleaseBindings target project %q in environment %q", project, environment)
+}
+
+// withReadyMessage adds the ProjectReleaseBinding's Ready message to msg, so
+// the binding says why its ProjectReleaseBinding has no namespace.
+func withReadyMessage(prb *openchoreov1alpha1.ProjectReleaseBinding, msg string) string {
+	if ready := meta.FindStatusCondition(prb.Status.Conditions, string(ConditionReady)); ready != nil && ready.Message != "" {
+		msg += ": " + ready.Message
+	}
+	return msg
+}
+
 // ObserveChangedPredicate passes creates, deletes, and updates that change
-// what another binding reads from a ProjectReleaseBinding: the mode and the
+// what the other bindings read from a ProjectReleaseBinding: the mode and the
 // namespace in status.
 func ObserveChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{

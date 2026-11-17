@@ -71,3 +71,41 @@ var _ = Describe("ResourceRelease watch mapper", func() {
 		Expect(r.listResourceReleaseBindingsForResourceRelease(mapperCtx, release)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("ProjectReleaseBinding watch mapper", func() {
+	It("enqueues the bindings of the ProjectReleaseBinding's project and environment", func() {
+		binding := func(name, ns, project, env string) *openchoreov1alpha1.ResourceReleaseBinding {
+			return &openchoreov1alpha1.ResourceReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+				Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+					Owner:       openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: project, ResourceName: name},
+					Environment: env,
+				},
+			}
+		}
+		s := runtime.NewScheme()
+		Expect(openchoreov1alpha1.AddToScheme(s)).To(Succeed())
+		r := &Reconciler{Client: fake.NewClientBuilder().WithScheme(s).WithObjects(
+			binding("cache-prod", "ns1", "payments", "prod"),
+			binding("db-prod", "ns1", "payments", "prod"),
+			binding("cache-dev", "ns1", "payments", "dev"),
+			binding("orders-prod", "ns1", "orders", "prod"),
+			binding("other-ns-prod", "ns2", "payments", "prod"),
+		).Build()}
+		prb := &openchoreov1alpha1.ProjectReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "payments-prod", Namespace: "ns1"},
+			Spec: openchoreov1alpha1.ProjectReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.ProjectReleaseBindingOwner{ProjectName: "payments"},
+				Environment: "prod",
+			},
+		}
+
+		requests := r.listResourceReleaseBindingsForProjectReleaseBinding(context.Background(), prb)
+
+		names := make([]string, 0, len(requests))
+		for _, req := range requests {
+			names = append(names, req.Name)
+		}
+		Expect(names).To(ConsistOf("cache-prod", "db-prod"))
+	})
+})
