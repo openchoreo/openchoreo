@@ -6,6 +6,7 @@ package apply
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -357,6 +359,18 @@ func TestReadResourceContent(t *testing.T) {
 		_, err := readResourceContent(ctx, "-")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "standard input is empty")
+	})
+
+	t.Run("read from stdin read error", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		stdinReader = iotest.ErrReader(errors.New("simulated read error"))
+
+		_, err := readResourceContent(ctx, "-")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "error reading from standard input")
+		assert.Contains(t, err.Error(), "simulated read error")
 	})
 }
 
