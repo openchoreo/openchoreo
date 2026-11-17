@@ -14924,9 +14924,7 @@ components:
             urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
           example: https://webhook.example.com/alerts
         urlFrom:
-          description: Secret reference to the webhook endpoint URL, as an alternative to url
-          allOf:
-            - $ref: '#/components/schemas/NotificationSecretValueFrom'
+          $ref: '#/components/schemas/NotificationWebhookURLFrom'
         headers:
           type: object
           description: Optional HTTP headers to include in the webhook request
@@ -14935,6 +14933,20 @@ components:
         payloadTemplate:
           type: string
           description: Optional JSON payload template using CEL expressions
+      oneOf:
+        - required:
+            - url
+        - required:
+            - urlFrom
+
+    NotificationWebhookURLFrom:
+      type: object
+      description: Secret reference to the webhook endpoint URL, as an alternative to url
+      required:
+        - secretKeyRef
+      properties:
+        secretKeyRef:
+          $ref: '#/components/schemas/NotificationSecretKeyRef'
 
     NotificationWebhookHeaderValue:
       type: object
@@ -14960,13 +14972,18 @@ components:
         such as one created with the secrets API targeting the channel's observability plane, and the key
         to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
         name and key is used instead; referencing Kubernetes Secrets is deprecated.
+      required:
+        - name
+        - key
       properties:
         name:
           type: string
+          minLength: 1
           description: Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
           example: smtp-credentials
         key:
           type: string
+          minLength: 1
           description: Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
           example: password
 

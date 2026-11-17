@@ -195,11 +195,8 @@ func TestObservabilityAlertsNotificationChannelHTTPCreateWithURLFromSecret(t *te
 			Type:        gen.Webhook,
 			Environment: "dev",
 			WebhookConfig: &gen.NotificationWebhookConfig{
-				UrlFrom: &gen.NotificationSecretValueFrom{
-					SecretKeyRef: &gen.NotificationSecretKeyRef{
-						Name: ptr.To("slack-webhook"),
-						Key:  ptr.To("url"),
-					},
+				UrlFrom: &gen.NotificationWebhookURLFrom{
+					SecretKeyRef: gen.NotificationSecretKeyRef{Name: "slack-webhook", Key: "url"},
 				},
 			},
 		},
@@ -228,6 +225,45 @@ func TestObservabilityAlertsNotificationChannelHTTPCreateWithURLFromSecret(t *te
 		k8sObj.Spec.WebhookConfig.URLFrom.SecretKeyRef)
 
 	assertConformsToSpec(t, req, rec.Code, rec.Result().Header, bodyBytes)
+}
+
+// The API server leaves request validation to the CRD, so the spec has to state the same rules
+// for clients: exactly one URL source, and a complete secret reference.
+func TestNotificationWebhookConfigSchemaMatchesCRDRules(t *testing.T) {
+	swagger, err := gen.GetSwagger()
+	require.NoError(t, err)
+	schemaRef := swagger.Components.Schemas["NotificationWebhookConfig"]
+	require.NotNil(t, schemaRef)
+
+	tests := []struct {
+		name          string
+		webhookConfig string
+		valid         bool
+	}{
+		{name: "inline url", webhookConfig: `{"url":"https://example.com/hook"}`, valid: true},
+		{name: "url from a secret", webhookConfig: `{"urlFrom":{"secretKeyRef":{"name":"slack-webhook","key":"url"}}}`, valid: true},
+		{
+			name:          "both url and urlFrom",
+			webhookConfig: `{"url":"https://example.com/hook","urlFrom":{"secretKeyRef":{"name":"slack-webhook","key":"url"}}}`,
+		},
+		{name: "neither url nor urlFrom", webhookConfig: `{"payloadTemplate":"{}"}`},
+		{name: "urlFrom without a secretKeyRef", webhookConfig: `{"urlFrom":{}}`},
+		{name: "secretKeyRef without a key", webhookConfig: `{"urlFrom":{"secretKeyRef":{"name":"slack-webhook"}}}`},
+		{name: "secretKeyRef with an empty name", webhookConfig: `{"urlFrom":{"secretKeyRef":{"name":"","key":"url"}}}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var value any
+			require.NoError(t, json.Unmarshal([]byte(tc.webhookConfig), &value))
+
+			err := schemaRef.Value.VisitJSON(value)
+			if tc.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
 }
 
 func TestObservabilityAlertsNotificationChannelHTTPCreateAlreadyExists(t *testing.T) {
