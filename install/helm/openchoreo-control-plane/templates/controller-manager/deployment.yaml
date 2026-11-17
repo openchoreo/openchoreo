@@ -100,11 +100,14 @@ spec:
         {{- /* Always passed, so the chart value wins over the controller's built-in default.
                dig: an upgrade with --reuse-values from a chart without this value has no key. */}}
         - --referenced-config-rollout={{ dig "referencedConfigRollout" "enabled" false .Values.features }}
-        {{- /* Rendered whenever set, not only when truthy: "0" is meaningful
-               (known-good on the first Healthy observation). */}}
+        {{- /* Rendered whenever set, not only when truthy: "0" and 0 are meaningful
+               (known-good on the first Healthy observation; keep no old revision). */}}
         {{- with .Values.controllerManager.manager }}
         {{- if not (kindIs "invalid" .revisionKnownGoodWindow) }}
         - --revision-known-good-window={{ .revisionKnownGoodWindow }}
+        {{- end }}
+        {{- if not (kindIs "invalid" .componentRevisionHistoryLimit) }}
+        - --component-revision-history-limit={{ int64 .componentRevisionHistoryLimit }}
         {{- end }}
         {{- end }}
         env:

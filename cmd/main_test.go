@@ -114,8 +114,8 @@ func TestValidateRequeueInterval(t *testing.T) {
 func TestRevisionSettingsValidate(t *testing.T) {
 	valid := []revisionSettings{
 		{},
-		{knownGoodWindow: time.Minute},
-		{knownGoodWindow: 0},
+		{knownGoodWindow: time.Minute, historyLimit: 10},
+		{knownGoodWindow: 0, historyLimit: 0},
 	}
 	for _, s := range valid {
 		if err := s.validate(); err != nil {
@@ -124,6 +124,7 @@ func TestRevisionSettingsValidate(t *testing.T) {
 	}
 	invalid := []revisionSettings{
 		{knownGoodWindow: -time.Second},
+		{historyLimit: -1},
 	}
 	for _, s := range invalid {
 		if err := s.validate(); err == nil {

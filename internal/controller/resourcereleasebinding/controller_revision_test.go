@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -149,6 +150,9 @@ var _ = Describe("ResourceReleaseBinding controller — revisions", func() {
 			Client:   k8sClient,
 			Scheme:   k8sClient.Scheme(),
 			Pipeline: resourcepipeline.NewPipeline(),
+			// High enough that these tests lose no revision; the controller's
+			// own default is 10.
+			RevisionHistoryLimit: 100,
 		}
 
 		for _, name := range []string{releaseA, releaseB} {
@@ -315,5 +319,97 @@ var _ = Describe("ResourceReleaseBinding controller — revisions", func() {
 			}
 		}
 		Expect(fetchBinding().Status.CurrentRevision).To(Equal(bindingName + "-r2"))
+	})
+
+	// The history limit is resolved from the binding's spec.revisionHistoryLimit,
+	// then its Environment's, then the controller's, and counts old revisions.
+	Describe("history limit", func() {
+		revisionNumbers := func() []int64 {
+			GinkgoHelper()
+			revs := listRevisions(fetchBinding())
+			numbers := make([]int64, 0, len(revs))
+			for _, rev := range revs {
+				numbers = append(numbers, rev.Spec.Revision)
+			}
+			return numbers
+		}
+		setEnvironmentLimit := func(limit *int32) {
+			GinkgoHelper()
+			env := &openchoreov1alpha1.Environment{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: envName}, env)).To(Succeed())
+			env.Spec.ComponentRevisionHistoryLimit = limit
+			Expect(k8sClient.Update(ctx, env)).To(Succeed())
+		}
+		setBindingLimit := func(limit *int32) {
+			GinkgoHelper()
+			updateBinding(func(b *openchoreov1alpha1.ResourceReleaseBinding) { b.Spec.RevisionHistoryLimit = limit })
+		}
+		// threeRevisions records r1, r2 and r3.
+		threeRevisions := func() {
+			GinkgoHelper()
+			reconcileBinding()
+			for _, size := range []string{"medium", "large"} {
+				updateBinding(func(b *openchoreov1alpha1.ResourceReleaseBinding) {
+					b.Spec.ResourceTypeEnvironmentConfigs = sizeOverride(size)
+				})
+				reconcileBinding()
+			}
+		}
+
+		It("keeps only the active revision under a controller limit of 0", func() {
+			reconciler.RevisionHistoryLimit = 0
+			threeRevisions()
+
+			Expect(revisionNumbers()).To(Equal([]int64{3}))
+			Expect(fetchBinding().Status.CurrentRevision).To(Equal(bindingName + "-r3"))
+		})
+
+		It("uses the Environment's limit when the binding sets none, and trims when it is lowered", func() {
+			reconciler.RevisionHistoryLimit = 0
+			setEnvironmentLimit(ptr.To(int32(10)))
+			threeRevisions()
+			Expect(revisionNumbers()).To(Equal([]int64{1, 2, 3}))
+
+			setEnvironmentLimit(ptr.To(int32(0)))
+			reconcileBinding()
+			Expect(revisionNumbers()).To(Equal([]int64{3}))
+		})
+
+		It("lets the binding's limit override the Environment's, recording no revision for it", func() {
+			reconciler.RevisionHistoryLimit = 0
+			setEnvironmentLimit(ptr.To(int32(0)))
+			setBindingLimit(ptr.To(int32(10)))
+			threeRevisions()
+			Expect(revisionNumbers()).To(Equal([]int64{1, 2, 3}))
+
+			setBindingLimit(ptr.To(int32(5)))
+			reconcileBinding()
+			revs := listRevisions(fetchBinding())
+			Expect(revs).To(HaveLen(3), "changing the limit is not a change to what is deployed")
+			for i := range revs {
+				Expect(revs[i].Spec.BindingSpec.RevisionHistoryLimit).To(BeNil())
+			}
+
+			setBindingLimit(nil)
+			reconcileBinding()
+			Expect(revisionNumbers()).To(Equal([]int64{3}), "unset falls back to the Environment's 0")
+		})
+
+		It("enqueues an Environment's bindings, and no others, when the Environment changes", func() {
+			other := &openchoreov1alpha1.ResourceReleaseBinding{
+				ObjectMeta: metav1.ObjectMeta{Name: "rev-db-other-env", Namespace: "default"},
+				Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+					Owner:       openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: "test-project", ResourceName: "test-resource"},
+					Environment: "other-env",
+				},
+			}
+			Expect(k8sClient.Create(ctx, other)).To(Succeed())
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, other) })
+
+			env := &openchoreov1alpha1.Environment{}
+			Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: envName}, env)).To(Succeed())
+			Expect(reconciler.listResourceReleaseBindingsForEnvironment(ctx, env)).To(ConsistOf(
+				reconcile.Request{NamespacedName: client.ObjectKey{Namespace: "default", Name: bindingName}}))
+		})
 	})
 })

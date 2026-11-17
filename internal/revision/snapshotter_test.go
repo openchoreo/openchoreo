@@ -168,7 +168,7 @@ func TestReleaseBindingSnapshotter_FirstRevision(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func TestReleaseBindingSnapshotter_SpecChanges(t *testing.T) {
 				binding.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"a":1,"b":2}`)}
 			}
 			c := newTestClient(t)
-			s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+			s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 			_, err := s.Record(ctx, binding)
 			require.NoError(t, err)
@@ -352,7 +352,7 @@ func TestReleaseBindingSnapshotter_Causes(t *testing.T) {
 				binding.Annotations = tt.annotations
 			}
 			c := newTestClient(t, binding.DeepCopy())
-			s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+			s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 			res, err := s.Record(ctx, binding)
 			require.NoError(t, err)
@@ -389,7 +389,7 @@ func TestReleaseBindingSnapshotter_CauseAnnotationsRemovedAfterWrite(t *testing.
 	// Status the controller has changed in memory but not written yet.
 	binding.Status.ObservedGeneration = 7
 
-	res, err := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{}).Record(ctx, binding)
+	res, err := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit}).Record(ctx, binding)
 	require.NoError(t, err)
 	assert.Equal(t, openchoreov1alpha1.RevisionCausePromote, res.Cause)
 
@@ -424,7 +424,7 @@ func TestReleaseBindingSnapshotter_CauseAnnotationsRetriedAfterPatchFailure(t *t
 		}).
 		Build()
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.ErrorContains(t, err, "injected patch failure")
@@ -448,7 +448,7 @@ func TestReleaseBindingSnapshotter_StaleBindingKeepsCauseAnnotations(t *testing.
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	// Generation 2 is recorded first; a lagging cache then hands back generation 1
 	// carrying a cause marker meant for a change that is not recorded yet.
@@ -470,7 +470,7 @@ func TestReleaseBindingSnapshotter_StaleBindingRecordsNothing(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	stale := binding.DeepCopy()
 	bump(binding, func(s *openchoreov1alpha1.ReleaseBindingSpec) { s.ReleaseName = secondRelease })
@@ -492,7 +492,7 @@ func TestReleaseBindingSnapshotter_AlreadyExistsIsSuccess(t *testing.T) {
 	// has not seen it yet: it is invisible to List but occupies the name.
 	existing := earlierRevision(binding, binding.UID)
 	c := newTestClient(t, existing)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -512,7 +512,7 @@ func TestReleaseBindingSnapshotter_NameHeldByDeletedBindingsRevision(t *testing.
 	// not been garbage collected yet and still occupies the name.
 	leftover := earlierRevision(binding, "uid-of-deleted-binding")
 	c := newTestClient(t, leftover)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.ErrorContains(t, err, "held by a revision of another binding")
@@ -555,7 +555,7 @@ func TestReleaseBindingSnapshotter_ProjectionKeepsHealthAndIsIdempotent(t *testi
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -582,7 +582,7 @@ func TestReleaseBindingSnapshotter_ProjectionRepairsActive(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -608,7 +608,7 @@ func TestReleaseBindingSnapshotter_IgnoresOtherBindingsRevisions(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	// A same-named binding that was deleted and recreated leaves revisions with
 	// the old UID behind until garbage collection removes them.
@@ -643,7 +643,7 @@ func TestReleaseBindingSnapshotter_EachEnvironmentCountsFromOne(t *testing.T) {
 	staging := newBinding("frontend-staging")
 	staging.Spec.Environment = stagingEnv
 	c := newTestClient(t, dev.DeepCopy(), staging.DeepCopy())
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, dev)
 	require.NoError(t, err)
@@ -672,7 +672,7 @@ func TestReleaseBindingSnapshotter_LongNamesStayValid(t *testing.T) {
 	binding.UID = "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b" // a real 36-character UID
 	binding.Spec.Owner.ComponentName = strings.Repeat("c", 100)
 	c := newTestClient(t)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -714,7 +714,7 @@ func reactivationFixture(t *testing.T) (*Snapshotter[*openchoreov1alpha1.Release
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
 	recorder := record.NewFakeRecorder(10)
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{Recorder: recorder})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{Recorder: recorder, HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -859,7 +859,7 @@ func TestReleaseBindingSnapshotter_NumbersAboveStatusHighestRevision(t *testing.
 	binding := newBinding("frontend-development")
 	binding.Status.HighestRevision = 7 // r1..r7 were recorded and later deleted
 	c := newTestClient(t, binding.DeepCopy())
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -872,7 +872,7 @@ func TestResourceReleaseBindingSnapshotter_NumbersAboveStatusHighestRevision(t *
 	binding := newResourceBinding("db-development", "development", "db-abc123")
 	binding.Status.HighestRevision = 4
 	c := newTestClient(t, binding.DeepCopy())
-	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -885,7 +885,7 @@ func TestResourceReleaseBindingSnapshotter(t *testing.T) {
 	ctx := context.Background()
 	dev := newResourceBinding("db-development", "development", "db-abc123")
 	c := newTestClient(t, dev)
-	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	getRRBR := func(name string) *openchoreov1alpha1.ResourceReleaseBindingRevision {
 		rev := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
@@ -1000,7 +1000,7 @@ func TestReleaseBindingSnapshotter_RecordsThePreviouslyActiveRevision(t *testing
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	record := func() Result {
 		t.Helper()
 		res, err := s.Record(ctx, binding)
@@ -1043,7 +1043,7 @@ func TestReleaseBindingSnapshotter_RecordsThePreviouslyActiveRevision(t *testing
 	assert.True(t, record().Reactivated)
 
 	// A controller restart: a new Snapshotter reads the same history from the objects.
-	s = NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s = NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	cur, prev, err = previous()
 	require.NoError(t, err)
 	assert.Equal(t, [2]int64{2, 1}, [2]int64{cur, prev})
@@ -1065,7 +1065,7 @@ func TestResourceReleaseBindingSnapshotter_RecordsThePreviouslyActiveRevision(t 
 	binding := newResourceBinding("db-development", "development", "db-def456")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	for _, release := range []string{"db-abc123", "db-def456", "db-abc123"} {
 		binding.Spec.ResourceRelease = release
@@ -1103,7 +1103,7 @@ func TestReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	record := func() {
 		t.Helper()
 		res, err := s.Record(ctx, binding)
@@ -1150,7 +1150,7 @@ func TestReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {
 	assert.Equal(t, int64(3), undoTarget(), "the next undo returns to r3")
 
 	// A controller restart rebuilds nothing; the objects carry the history.
-	s = NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s = NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	record()
 	assert.Equal(t, int64(3), undoTarget())
 
@@ -1170,12 +1170,51 @@ func TestReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {
 	assert.Len(t, listRBRs(t, c), 5, "rollbacks create no revisions")
 }
 
+// TestReleaseBindingSnapshotter_HistoryLimitKeepsTheUndoTarget: a rollback to
+// the oldest revision followed by a new deploy must not evict the revision an
+// undo returns to.
+func TestReleaseBindingSnapshotter_HistoryLimitKeepsTheUndoTarget(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	// Two old revisions are kept besides the active one.
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: 2})
+	record := func() {
+		t.Helper()
+		res, err := s.Record(ctx, binding)
+		require.NoError(t, err)
+		binding.Status.HighestRevision = res.Highest
+	}
+	record() // r1
+	for i := 2; i <= 3; i++ {
+		bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) {
+			spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"replicas":` + strconv.Itoa(i) + `}`)}
+		})
+		record()
+	}
+	rollbackTo(t, c, binding, 1)
+	record()
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = secondRelease })
+	record() // r4 replaces r1; the limit of 2 old revisions evicts one revision
+
+	_, prev, _, err := PreviousActive(activationsOf(t, c), binding.Status.HighestRevision)
+	require.NoError(t, err, "the undo target was not evicted")
+	assert.Equal(t, int64(1), prev.Number)
+	stored := listRBRs(t, c)
+	numbers := make([]int64, 0, len(stored))
+	for _, r := range stored {
+		numbers = append(numbers, r.Spec.Revision)
+	}
+	assert.ElementsMatch(t, []int64{1, 3, 4}, numbers, "r2, the oldest revision that is not protected, went")
+}
+
 func TestResourceReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {
 	ctx := context.Background()
 	binding := newResourceBinding("db-development", "development", "db-r1")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	var highest int64
 	deploy := func(release string) {
 		t.Helper()

@@ -91,9 +91,19 @@ func releaseBindingHashInput(spec *openchoreov1alpha1.ReleaseBindingSpec) any {
 }
 
 // ReleaseBindingRecordedSpec returns the part of spec a revision records: a copy
-// of spec. A revision is hashed from, and stores, this part only.
+// of spec without the fields that configure the history itself and not what is
+// deployed (revisionHistoryLimit). A revision is hashed from, and stores, this
+// part only, as a Deployment's revision is its pod template and not its
+// revisionHistoryLimit. Changing an excluded field therefore creates no
+// revision, and a rollback must carry the binding's current value over.
 func ReleaseBindingRecordedSpec(spec *openchoreov1alpha1.ReleaseBindingSpec) *openchoreov1alpha1.ReleaseBindingSpec {
-	return spec.DeepCopy()
+	recorded := spec.DeepCopy()
+	recorded.RevisionHistoryLimit = nil
+	return recorded
+}
+
+func (releaseBindingAdapter) HistoryLimit(binding *openchoreov1alpha1.ReleaseBinding) *int32 {
+	return binding.Spec.RevisionHistoryLimit
 }
 
 // ReleaseBindingSpecHash returns the snapshotHash a ReleaseBindingRevision of
@@ -214,7 +224,13 @@ func resourceReleaseBindingHashInput(spec *openchoreov1alpha1.ResourceReleaseBin
 // ResourceReleaseBindingRecordedSpec returns the part of spec a revision
 // records; see ReleaseBindingRecordedSpec.
 func ResourceReleaseBindingRecordedSpec(spec *openchoreov1alpha1.ResourceReleaseBindingSpec) *openchoreov1alpha1.ResourceReleaseBindingSpec {
-	return spec.DeepCopy()
+	recorded := spec.DeepCopy()
+	recorded.RevisionHistoryLimit = nil
+	return recorded
+}
+
+func (resourceReleaseBindingAdapter) HistoryLimit(binding *openchoreov1alpha1.ResourceReleaseBinding) *int32 {
+	return binding.Spec.RevisionHistoryLimit
 }
 
 // ResourceReleaseBindingSpecHash returns the snapshotHash a

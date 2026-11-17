@@ -598,3 +598,28 @@ func projectReleaseBindingObserveChangedPredicate() predicate.Predicate {
 		},
 	}
 }
+
+// findReleaseBindingsForEnvironment enqueues every ReleaseBinding that targets
+// the changed Environment.
+func (r *Reconciler) findReleaseBindingsForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
+	env, ok := obj.(*openchoreov1alpha1.Environment)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(env.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for environment change", "environment", env.Name)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Environment != env.Name {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+		})
+	}
+	return requests
+}

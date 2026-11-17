@@ -102,7 +102,7 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		GinkgoHelper()
 		cr := &openchoreov1alpha1.ComponentRelease{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: crName}, cr)).To(Succeed())
-		requeueAfter, err := r.observeRevisionHealth(ctx, r.revisionSnapshotter(), fetchRB(rbName), cr)
+		requeueAfter, err := r.observeRevisionHealth(ctx, r.revisionSnapshotter(nil), fetchRB(rbName), cr)
 		Expect(err).NotTo(HaveOccurred())
 		return requeueAfter
 	}
@@ -242,6 +242,37 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		observe()
 		Expect(revisionNamed(2).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthDegraded))
 		Expect(revisionNamed(1).Status).To(Equal(r1.Status))
+	})
+
+	It("keeps the only known-good revision when 12 revisions exceed a limit of 9 old revisions", func() {
+		r.RevisionKnownGoodWindow = 0
+		// Nine old revisions and the active one: ten in all.
+		r.RevisionHistoryLimit = 9
+
+		By("r1, then r2 which becomes the only known-good revision")
+		reconcileRB()
+		override(2)
+		reconcileRB()
+		markApplied()
+		setResourcesReady(metav1.ConditionTrue, ReasonReady)
+		observe()
+		Expect(revisionNamed(2).Status.KnownGood).To(BeTrue())
+
+		By("r3 to r12, none of which is known-good")
+		for replicas := 3; replicas <= 12; replicas++ {
+			override(replicas)
+			reconcileRB()
+		}
+
+		revs := listRevisions(fetchRB(rbName))
+		numbers := make([]int64, 0, len(revs))
+		for _, rev := range revs {
+			numbers = append(numbers, rev.Spec.Revision)
+		}
+		Expect(numbers).To(Equal([]int64{2, 4, 5, 6, 7, 8, 9, 10, 11, 12}),
+			"r1 and r3 are evicted; r2 survives as the only known-good revision")
+		Expect(revs[0].Status.KnownGood).To(BeTrue())
+		Expect(revs[len(revs)-1].Status.Active).To(BeTrue())
 	})
 
 	It("requeues Reconcile for the rest of the known-good window", func() {

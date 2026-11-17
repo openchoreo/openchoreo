@@ -226,6 +226,7 @@ func setupControlPlaneControllers(
 			CELCostLimit:            celCostLimit,
 			RenderTimeout:           renderTimeout,
 			RevisionKnownGoodWindow: revisions.knownGoodWindow,
+			RevisionHistoryLimit:    revisions.historyLimit,
 		},
 		// Endpoint family — templates (cluster-scoped before namespaced),
 		// then instance, immutable release snapshot, per-env binding.
@@ -247,6 +248,7 @@ func setupControlPlaneControllers(
 			RenderTimeout:           renderTimeout,
 			ReferencedConfigRollout: referencedConfigRollout,
 			RevisionKnownGoodWindow: revisions.knownGoodWindow,
+			RevisionHistoryLimit:    revisions.historyLimit,
 		},
 		&renderedrelease.Reconciler{
 			Client:              c,
@@ -429,6 +431,12 @@ func main() {
 	flag.DurationVar(&revisions.knownGoodWindow, "revision-known-good-window", revision.DefaultKnownGoodWindow,
 		"How long a binding revision must stay Healthy before it is marked known-good. "+
 			"0 marks it on its first Healthy observation.")
+	flag.IntVar(&revisions.historyLimit, "component-revision-history-limit", revision.DefaultHistoryLimit,
+		"Number of old revisions kept per ReleaseBinding, and per ResourceReleaseBinding too, to allow rollback; "+
+			"the oldest are deleted first. The active revision is always kept and does not count. 0 keeps no old "+
+			"revision, so nothing can be rolled back. An Environment's spec.componentRevisionHistoryLimit "+
+			"overrides it for that environment, and a binding's spec.revisionHistoryLimit overrides both. "+
+			"Must not be negative.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -730,12 +738,17 @@ func getEnvDuration(key string, defaultValue time.Duration) (time.Duration, erro
 type revisionSettings struct {
 	// knownGoodWindow is how long a revision must stay Healthy to become known-good.
 	knownGoodWindow time.Duration
+	// historyLimit is the number of old revisions kept per binding; 0 keeps none.
+	historyLimit int
 }
 
 // validate rejects negative settings, which have no meaning.
 func (s revisionSettings) validate() error {
 	if s.knownGoodWindow < 0 {
 		return fmt.Errorf("revision known-good window must not be negative: %s", s.knownGoodWindow)
+	}
+	if s.historyLimit < 0 {
+		return fmt.Errorf("revision history limit must not be negative: %d", s.historyLimit)
 	}
 	return nil
 }

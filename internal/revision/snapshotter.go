@@ -65,9 +65,18 @@ const (
 	// active again.
 	EventReasonRevisionReactivated = "RevisionReactivated"
 
+	// EventReasonRevisionHistoryLimitExceeded is emitted on a binding whose
+	// spared revisions alone exceed the history limit.
+	EventReasonRevisionHistoryLimitExceeded = "RevisionHistoryLimitExceeded"
+
 	// DefaultKnownGoodWindow is how long a revision must stay Healthy before it
 	// is marked known-good, when no window is configured.
 	DefaultKnownGoodWindow = 60 * time.Second
+
+	// DefaultHistoryLimit is the number of old revisions kept per binding when
+	// no limit is configured, as a Deployment's revisionHistoryLimit defaults
+	// to 10.
+	DefaultHistoryLimit = 10
 )
 
 // Adapter supplies the kind-specific parts of recording a revision. B is the
@@ -89,6 +98,8 @@ type Adapter[B client.Object, R client.Object] interface {
 	Status(rev R) *openchoreov1alpha1.BindingRevisionStatus
 	// HashInput returns the part of the binding spec whose changes create a revision.
 	HashInput(binding B) any
+	// HistoryLimit returns the binding's spec.revisionHistoryLimit, nil when unset.
+	HistoryLimit(binding B) *int32
 	// Labels returns the kind-specific labels for the binding's revisions.
 	Labels(binding B) map[string]string
 	// Build returns a revision with its spec filled in. Metadata is set by the Snapshotter.
@@ -109,6 +120,11 @@ type Options struct {
 	// it is marked known-good. Zero marks it known-good on its first Healthy
 	// observation.
 	KnownGoodWindow time.Duration
+	// HistoryLimit is the number of old revisions kept for a binding that sets
+	// no spec.revisionHistoryLimit: its Environment's limit, or else the
+	// controller's. The active revision is always kept and does not count. Zero
+	// or less keeps no old revisions.
+	HistoryLimit int
 	// Recorder receives events about the binding. Optional.
 	Recorder record.EventRecorder
 	// Now returns the current time. Defaults to time.Now.
@@ -236,6 +252,9 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 	if recorded {
 		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
 	}
+	// Trimmed on every call, not only after a new revision: lowering a limit
+	// on the binding or its Environment creates no revision.
+	errs = append(errs, s.evict(ctx, binding, revs, result.Number, result.Created))
 	return result, kerrors.NewAggregate(errs)
 }
 
@@ -558,6 +577,69 @@ func (s *Snapshotter[B, R]) updateStatus(ctx context.Context, rev R,
 		}
 		return s.Client.Status().Update(ctx, rev)
 	})
+}
+
+// evict deletes the binding's oldest revisions beyond its history limit (see
+// historyLimit and SelectEvictions). The active revision is always kept. Under a
+// limit above zero the revision active before the active one (the target of an
+// undo) and the newest known-good revision are kept too. When the kept revisions
+// alone exceed the limit and announce is set, a warning event is recorded on the binding;
+// announce is set when a revision was just created, so that an unchanged
+// history is not reported on every reconcile.
+func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, active int64, announce bool) error {
+	limit := s.historyLimit(binding)
+
+	// The revision active before the active one is the target of an undo.
+	undoTarget := int64(0)
+	for _, rev := range revs {
+		if s.Adapter.Number(rev) == active {
+			undoTarget, _ = strconv.ParseInt(rev.GetAnnotations()[AnnotationKeyPreviousRevision], 10, 64)
+		}
+	}
+
+	byName := make(map[string]R, len(revs))
+	candidates := make([]EvictionCandidate, 0, len(revs))
+	for _, rev := range revs {
+		byName[rev.GetName()] = rev
+		candidates = append(candidates, EvictionCandidate{
+			Name:       rev.GetName(),
+			Number:     s.Adapter.Number(rev),
+			Active:     s.Adapter.Number(rev) == active,
+			KnownGood:  s.Adapter.Status(rev).KnownGood,
+			UndoTarget: undoTarget > 0 && s.Adapter.Number(rev) == undoTarget,
+		})
+	}
+
+	evict, overLimit := SelectEvictions(candidates, limit)
+	var errs []error
+	for _, c := range evict {
+		err := s.Client.Delete(ctx, byName[c.Name])
+		if client.IgnoreNotFound(err) != nil {
+			errs = append(errs, fmt.Errorf("delete revision %q: %w", c.Name, err))
+		}
+	}
+	if overLimit && announce && s.Recorder != nil {
+		kept := 0
+		for _, c := range candidates {
+			if !c.Active {
+				kept++
+			}
+		}
+		s.Recorder.Eventf(binding, corev1.EventTypeWarning, EventReasonRevisionHistoryLimitExceeded,
+			"%d old revisions are kept, above the history limit of %d: under a limit above 0 the revision "+
+				"active before the current one and the newest known-good revision are never deleted",
+			kept-len(evict), limit)
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+// historyLimit returns the number of old revisions kept for binding: its
+// spec.revisionHistoryLimit when set, otherwise HistoryLimit. Never negative.
+func (s *Snapshotter[B, R]) historyLimit(binding B) int {
+	if limit := s.Adapter.HistoryLimit(binding); limit != nil {
+		return max(int(*limit), 0)
+	}
+	return max(s.HistoryLimit, 0)
 }
 
 // now returns the current time from Options.Now, or time.Now.

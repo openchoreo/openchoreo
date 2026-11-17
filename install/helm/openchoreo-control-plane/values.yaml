@@ -838,6 +838,13 @@ controllerManager:
     # @schema
     revisionKnownGoodWindow: "60s"
     # @schema
+    # type: integer
+    # minimum: 0
+    # description: Number of old revisions kept per ReleaseBinding, and per ResourceReleaseBinding too, to allow rollback, passed as --component-revision-history-limit. The active revision is always kept and does not count. The default is 10. 0 keeps no old revision, so bindings then have no rollback history. An Environment (spec.componentRevisionHistoryLimit) overrides this value for its bindings, and a binding (spec.revisionHistoryLimit) overrides both. Over the limit, the oldest revisions are deleted first, except, under a limit above 0, the revision active before the current one and the newest known-good revision.
+    # default: 10
+    # @schema
+    componentRevisionHistoryLimit: 10
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema

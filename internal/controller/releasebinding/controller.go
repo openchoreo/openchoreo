@@ -105,8 +105,14 @@ type Reconciler struct {
 	// is marked known-good. Zero marks it known-good on its first Healthy observation.
 	RevisionKnownGoodWindow time.Duration
 
-	// Recorder records events on ReleaseBindings, such as a revision made active
-	// again. Set by SetupWithManager.
+	// RevisionHistoryLimit is the number of old ReleaseBindingRevisions kept per
+	// binding, for bindings whose spec sets no revisionHistoryLimit and whose
+	// Environment sets no componentRevisionHistoryLimit: the controller's
+	// --component-revision-history-limit. Zero keeps no old revision.
+	RevisionHistoryLimit int
+
+	// Recorder records events on ReleaseBindings, such as a revision history
+	// that protected revisions keep above the limit. Set by SetupWithManager.
 	Recorder record.EventRecorder
 }
 
@@ -293,7 +299,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// controller acts on -- including Undeploy -- has a revision. Recording fails
 	// open: a revision error never blocks the rollout; it is returned after
 	// reconcileRelease so the request is retried with backoff.
-	snapshotter := r.revisionSnapshotter()
+	snapshotter := r.revisionSnapshotter(environment)
 	revErr := r.recordRevision(ctx, snapshotter, releaseBinding)
 
 	res, err := r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID)
@@ -346,10 +352,13 @@ func (r *Reconciler) recordRevision(
 }
 
 // revisionSnapshotter returns the Snapshotter recording this controller's
-// ReleaseBindingRevisions.
-func (r *Reconciler) revisionSnapshotter() *revision.Snapshotter[*openchoreov1alpha1.ReleaseBinding, *openchoreov1alpha1.ReleaseBindingRevision] {
+// ReleaseBindingRevisions for a binding in environment. A binding that sets no
+// spec.revisionHistoryLimit takes the Environment's limit, and when that is
+// unset too, the controller's.
+func (r *Reconciler) revisionSnapshotter(environment *openchoreov1alpha1.Environment) *revision.Snapshotter[*openchoreov1alpha1.ReleaseBinding, *openchoreov1alpha1.ReleaseBindingRevision] {
 	return revision.NewReleaseBindingSnapshotter(r.Client, r.Scheme, revision.Options{
 		KnownGoodWindow: r.RevisionKnownGoodWindow,
+		HistoryLimit:    revision.EnvironmentHistoryLimit(environment, r.RevisionHistoryLimit),
 		Recorder:        r.Recorder,
 	})
 }
@@ -1874,6 +1883,12 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
+		// An Environment's componentRevisionHistoryLimit applies to its bindings that set
+		// none, so a change to it trims their histories without waiting for
+		// their next reconcile.
+		Watches(&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEnvironment),
+			builder.WithPredicates(revision.EnvironmentHistoryLimitChanged())).
 		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForProjectReleaseBinding),
 			builder.WithPredicates(projectReleaseBindingObserveChangedPredicate())).

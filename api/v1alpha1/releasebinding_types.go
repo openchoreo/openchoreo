@@ -208,6 +208,19 @@ type ReleaseBindingSpec struct {
 	// +optional
 	State ReleaseState `json:"state,omitempty"`
 
+	// RevisionHistoryLimit is the number of old revisions kept for this binding
+	// to allow rollback, as a Deployment's revisionHistoryLimit is. The active
+	// revision is always kept and does not count. 0 keeps no old revisions, so
+	// the binding cannot be rolled back. When unset, the Environment's
+	// spec.componentRevisionHistoryLimit applies, and when that is unset too,
+	// the controller's --component-revision-history-limit.
+	//
+	// It configures the history and is not part of what a revision records:
+	// changing it creates no revision, revisions do not capture it, and a
+	// rollback leaves it as it is.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 	// Mode decides whether this binding deploys the component's release
 	// (Manage) or reads objects the component already runs (Observe). Observe
 	// needs a ProjectReleaseBinding in Observe mode for the same project and

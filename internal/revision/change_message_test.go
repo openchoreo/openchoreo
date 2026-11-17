@@ -35,7 +35,7 @@ func TestReleaseBindingSnapshotter_ChangeMessageIsRecordedAndRemoved(t *testing.
 	}
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestReleaseBindingSnapshotter_StaleBindingKeepsTheChangeMessage(t *testing.
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
 
@@ -95,7 +95,7 @@ func TestResourceReleaseBindingSnapshotter_ChangeMessage(t *testing.T) {
 	c := newTestClient(t, dev)
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(dev), dev))
 
-	_, err := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{}).Record(ctx, dev)
+	_, err := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit}).Record(ctx, dev)
 	require.NoError(t, err)
 	r1 := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "db-development-r1"}, r1))

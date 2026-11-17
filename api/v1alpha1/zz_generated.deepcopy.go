@@ -3682,6 +3682,11 @@ func (in *EnvironmentSpec) DeepCopyInto(out *EnvironmentSpec) {
 		**out = **in
 	}
 	in.Gateway.DeepCopyInto(&out.Gateway)
+	if in.ComponentRevisionHistoryLimit != nil {
+		in, out := &in.ComponentRevisionHistoryLimit, &out.ComponentRevisionHistoryLimit
+		*out = new(int32)
+		**out = **in
+	}
 	if in.Observe != nil {
 		in, out := &in.Observe, &out.Observe
 		*out = new(EnvironmentObserve)
@@ -5263,6 +5268,11 @@ func (in *ReleaseBindingSpec) DeepCopyInto(out *ReleaseBindingSpec) {
 		*out = new(WorkloadOverrideTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RevisionHistoryLimit != nil {
+		in, out := &in.RevisionHistoryLimit, &out.RevisionHistoryLimit
+		*out = new(int32)
+		**out = **in
+	}
 	if in.Observe != nil {
 		in, out := &in.Observe, &out.Observe
 		*out = new(ReleaseBindingObserve)
@@ -6104,6 +6114,11 @@ func (in *ResourceReleaseBindingSpec) DeepCopyInto(out *ResourceReleaseBindingSp
 		in, out := &in.ResourceTypeEnvironmentConfigs, &out.ResourceTypeEnvironmentConfigs
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.RevisionHistoryLimit != nil {
+		in, out := &in.RevisionHistoryLimit, &out.RevisionHistoryLimit
+		*out = new(int32)
+		**out = **in
 	}
 }
 
