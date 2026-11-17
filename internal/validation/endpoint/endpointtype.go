@@ -20,8 +20,10 @@ import (
 //
 // What this validates:
 //   - parameters / environmentConfigs schemas parse as well-formed OpenAPI v3.
-//   - every CEL expression in resources[] (template, includeWhen, forEach) and
-//     validations[] type-checks against the endpoint render context.
+//   - every CEL expression in resources[] (template, includeWhen, forEach),
+//     validations[] and urls (every field) type-checks against the endpoint
+//     render context; literal URL schemes, security schemes and API key
+//     locations are among the allowed values.
 //   - resources[].targetPlane, when set, is the data plane: a binding emits one
 //     data-plane RenderedRelease, so a template aimed elsewhere could never be
 //     delivered.
@@ -30,7 +32,7 @@ func ValidateEndpointTypeSpec(spec *v1alpha1.EndpointTypeSpec, basePath *field.P
 		return nil
 	}
 	return validateEndpointTypeSpecCommon(spec.Parameters, spec.EnvironmentConfigs,
-		spec.Validations, spec.Resources, basePath)
+		spec.Validations, spec.Resources, spec.URLs, basePath)
 }
 
 // ValidateClusterEndpointTypeSpec is the cluster-scoped sibling. The spec shape
@@ -41,7 +43,7 @@ func ValidateClusterEndpointTypeSpec(spec *v1alpha1.ClusterEndpointTypeSpec, bas
 		return nil
 	}
 	return validateEndpointTypeSpecCommon(spec.Parameters, spec.EnvironmentConfigs,
-		spec.Validations, spec.Resources, basePath)
+		spec.Validations, spec.Resources, spec.URLs, basePath)
 }
 
 func validateEndpointTypeSpecCommon(
@@ -49,6 +51,7 @@ func validateEndpointTypeSpecCommon(
 	environmentConfigs *v1alpha1.SchemaSection,
 	validations []v1alpha1.ValidationRule,
 	resources []v1alpha1.ResourceTemplate,
+	urls *v1alpha1.EndpointTypeURLs,
 	basePath *field.Path,
 ) field.ErrorList {
 	parametersSchema, envConfigsSchema, allErrs := schemautil.ExtractAndValidateSchemas(
@@ -64,7 +67,7 @@ func validateEndpointTypeSpecCommon(
 	}
 
 	allErrs = append(allErrs, componentvalidation.ValidateEndpointTypeResourcesWithSchema(
-		resources, validations, parametersSchema, envConfigsSchema, basePath,
+		resources, validations, urls, parametersSchema, envConfigsSchema, basePath,
 	)...)
 	return allErrs
 }

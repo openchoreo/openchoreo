@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 func TestParseComponentType(t *testing.T) {
@@ -144,7 +145,7 @@ func TestFindRootEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := findRootEnvironment(makePipeline(tt.paths))
+			env, err := controller.FindRootEnvironment(makePipeline(tt.paths))
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("expected error, got env=%q", env)

@@ -138,7 +138,7 @@ func newComponent(name, projectName, clusterComponentTypeName string) gen.Compon
 // newWorkload returns a gen.Workload with a minimal container and HTTP endpoint.
 func newWorkload(name, componentName, projectName string) gen.Workload {
 	port := 8080
-	epType := gen.WorkloadEndpointTypeHTTP
+	protocol := gen.WorkloadEndpointProtocolHTTP
 	basePath := "/"
 	args := []string{"-listen=:8080", "-text=api-e2e"}
 	return gen.Workload{
@@ -161,7 +161,7 @@ func newWorkload(name, componentName, projectName string) gen.Workload {
 			Endpoints: &map[string]gen.WorkloadEndpoint{
 				"http-ep": {
 					Port:     port,
-					Type:     epType,
+					Protocol: &protocol,
 					BasePath: &basePath,
 				},
 			},

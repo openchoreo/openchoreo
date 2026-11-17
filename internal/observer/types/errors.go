@@ -51,6 +51,9 @@ const (
 	ErrorCodeV1TracesRawQueryRejected        = "OBS-V1-T-12"
 	ErrorCodeV1TracesRawQueryRequestTooLarge = "OBS-V1-T-13"
 	ErrorCodeV1TracesRawQueryMediaType       = "OBS-V1-T-14"
+	// Over the raw query concurrency limit or the caller's rate limit.
+	ErrorCodeV1TracesRawQueryConcurrencyLimited = "OBS-V1-T-15"
+	ErrorCodeV1TracesRawQueryRateLimited        = "OBS-V1-T-16"
 
 	// Runtime topology API (v1alpha1) internal server error codes.
 	ErrorCodeV1RuntimeTopologyInternalGeneric = "OBS-V1-RG-01"

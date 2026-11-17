@@ -22,6 +22,7 @@ import (
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
+	"github.com/openchoreo/openchoreo/internal/template"
 	endpointvalidation "github.com/openchoreo/openchoreo/internal/validation/endpoint"
 )
 
@@ -58,6 +59,9 @@ type reconcileInputs struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpointreleases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=endpoints,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=componentreleases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
@@ -110,6 +114,8 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		}
 	}()
 
+	trackSpecUpdate(binding)
+
 	in, err := r.loadInputs(ctx, binding)
 	if err != nil || in == nil {
 		// in == nil: a Synced=False condition explains what is missing.
@@ -118,7 +124,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 
 	md := buildMetadataContext(binding, in)
 
-	resolved, err := r.resolveBackends(ctx, binding, in.release, md.Namespace)
+	resolved, err := r.resolveBackends(ctx, binding, in.release, md)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -141,11 +147,20 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,
 		fmt.Sprintf("%d backend(s) resolved", len(resolved.backends)))
 
-	rr, err := r.renderAndEmit(ctx, binding, in, md, resolved.backends)
+	// One CEL cost budget per reconcile, shared by rendering and URLs.
+	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
+	input := buildRenderInput(binding, in, md, resolved.backends)
+	policies, err := networkPolicyManifests(binding, in, md, resolved.policyTargets)
+	if err != nil {
+		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to render network policies: %v", err))
+		return ctrl.Result{}, err
+	}
+	rr, err := r.renderAndEmit(ctx, binding, input, policies)
 	if err != nil || rr == nil {
 		return ctrl.Result{}, err
 	}
 
+	r.resolveURLs(ctx, binding, input)
 	evaluateResourcesReady(binding, rr)
 	return ctrl.Result{}, nil
 }
@@ -249,6 +264,8 @@ func (r *Reconciler) getOrMark(
 //   - Owns: RenderedRelease, so data-plane status flows back into readiness.
 //   - Watches: ReleaseBinding, so a backend component being deployed, moved,
 //     or undeployed in an environment re-resolves the bindings routing to it.
+//   - Watches: ReleaseLine, so a backend naming a line that is created or
+//     deleted re-resolves.
 //   - Watches: EndpointRelease, Endpoint, Environment, DataPlane,
 //     ClusterDataPlane, Project, so a binding that settled into a "*NotFound"
 //     state because an input landed after it recovers on its own.
@@ -268,6 +285,8 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.ReleaseBinding{},
 			handler.EnqueueRequestsFromMapFunc(r.listBindingsForReleaseBinding)).
+		Watches(&openchoreov1alpha1.ReleaseLine{},
+			handler.EnqueueRequestsFromMapFunc(r.listBindingsForReleaseLine)).
 		Watches(&openchoreov1alpha1.EndpointRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listBindingsForEndpointRelease)).
 		Watches(&openchoreov1alpha1.Endpoint{},

@@ -601,7 +601,7 @@ observer:
     timeout: "30s"
     # @schema
     # type: object
-    # description: Limits for raw trace queries (POST /api/v1alpha1/traces/raw-query). A raw query is the tracing backend's native request and is not scoped, so these bound how it runs. Set the tracing module's own raw query limits to match.
+    # description: Limits for raw trace queries (POST /api/v1alpha1/traces/raw-query). A raw query is the tracing backend's native request and is not scoped, so these bound how it runs and how many run. Set the tracing module's own raw query timeout and size limits to match.
     # @schema
     rawQuery:
       # @schema
@@ -624,6 +624,27 @@ observer:
       # default: 10485760
       # @schema
       maxResponseBytes: 10485760
+      # @schema
+      # type: integer
+      # description: Most raw trace queries that may run at once, per Observer replica. A query over it gets 429. 0 turns the limit off
+      # minimum: 0
+      # default: 4
+      # @schema
+      maxConcurrent: 4
+      # @schema
+      # type: integer
+      # description: Raw trace queries each caller may start per minute, per Observer replica. A query over it gets 429 with Retry-After. 0 turns the limit off
+      # minimum: 0
+      # default: 10
+      # @schema
+      requestsPerMinute: 10
+      # @schema
+      # type: integer
+      # description: Raw trace queries a caller may start at once before requestsPerMinute applies. Ignored when requestsPerMinute is 0; at least 1 otherwise
+      # minimum: 0
+      # default: 5
+      # @schema
+      burst: 5
 
   # @schema
   # type: object

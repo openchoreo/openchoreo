@@ -1373,6 +1373,31 @@ var _ = Describe("ComponentType Webhook", func() {
 			Expect(k8sClient.Create(ctx, ct)).To(Succeed())
 		})
 
+		It("accepts only known protocols in allowedEndpoints", func() {
+			if k8sClient == nil {
+				Skip("envtest apiserver not available")
+			}
+			withProtocol := func(protocol openchoreodevv1alpha1.EndpointProtocol) *openchoreodevv1alpha1.ComponentType {
+				spec := validSpec()
+				spec.AllowedEndpoints = []openchoreodevv1alpha1.AllowedEndpointType{{
+					Protocols: []openchoreodevv1alpha1.EndpointProtocol{protocol},
+					Ref: openchoreodevv1alpha1.EndpointTypeRef{
+						Kind: openchoreodevv1alpha1.EndpointTypeRefKindClusterEndpointType, Name: "http-route",
+					},
+				}}
+				return &openchoreodevv1alpha1.ComponentType{
+					ObjectMeta: metav1.ObjectMeta{GenerateName: "protocols-", Namespace: "default"},
+					Spec:       spec,
+				}
+			}
+
+			Expect(k8sClient.Create(ctx, withProtocol(openchoreodevv1alpha1.EndpointProtocolGRPC))).To(Succeed())
+
+			err := k8sClient.Create(ctx, withProtocol("http"))
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(`Unsupported value: "http"`))
+		})
+
 		It("accepts a ComponentType with postRenderValidations and defaults mustMatch to true", func() {
 			if k8sClient == nil {
 				Skip("envtest apiserver not available")

@@ -4,6 +4,8 @@
 package endpointreleasebinding
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -107,6 +109,34 @@ var _ = Describe("EndpointReleaseBinding Controller", func() {
 		updated := reconcileTwice(b)
 		cond := expectCondition(updated, string(ConditionSynced), metav1.ConditionFalse, string(ReasonInvalidEnvironmentConfigs))
 		Expect(cond.Message).To(ContainSubstring("timeout"))
+	})
+
+	It("stamps lastSpecUpdateTime when the spec changes, and only then", func() {
+		b := newBinding("erb-spec-update", "")
+		create(b)
+		req := reconcile.Request{NamespacedName: client.ObjectKeyFromObject(b)}
+
+		updated := reconcileTwice(b)
+		Expect(updated.Status.LastSpecUpdateTime).NotTo(BeNil(), "first observation of the spec")
+
+		// Backdate the stamp so a later one is distinguishable at second precision.
+		past := metav1.NewTime(time.Now().Add(-24 * time.Hour).Truncate(time.Second))
+		updated.Status.LastSpecUpdateTime = &past
+		Expect(k8sClient.Status().Update(ctx, updated)).To(Succeed())
+
+		// A reconcile without a spec change keeps the stamp.
+		_, err := reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(ctx, req.NamespacedName, updated)).To(Succeed())
+		Expect(updated.Status.LastSpecUpdateTime.Equal(&past)).To(BeTrue())
+
+		// Pinning a release (a deploy) bumps the generation and the stamp.
+		updated.Spec.EndpointRelease = "erb-spec-update-release"
+		Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+		_, err = reconciler.Reconcile(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(ctx, req.NamespacedName, updated)).To(Succeed())
+		Expect(updated.Status.LastSpecUpdateTime.After(past.Time)).To(BeTrue())
 	})
 
 	It("reports EnvironmentNotFound when the target environment does not exist", func() {

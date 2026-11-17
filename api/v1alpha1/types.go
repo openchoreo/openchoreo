@@ -83,6 +83,42 @@ const (
 	RevisionHealthUnknown RevisionHealth = "Unknown"
 )
 
+// BindingMode decides whether a binding deploys what OpenChoreo renders or
+// observes objects that already run on the data plane.
+// +kubebuilder:validation:Enum=Manage;Observe
+type BindingMode string
+
+const (
+	// BindingModeManage renders the binding's release and applies it.
+	BindingModeManage BindingMode = "Manage"
+
+	// BindingModeObserve renders nothing. The binding reads the objects it
+	// claims and reports their status, without writing to them.
+	BindingModeObserve BindingMode = "Observe"
+)
+
+// ObservedResourceClaim names an existing object for a binding in observe mode
+// to read. The object is in the namespace the binding observes, so only
+// namespaced kinds can be claimed.
+type ObservedResourceClaim struct {
+	// APIVersion is the object's API version, such as "apps/v1" or "v1".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^([^/]+/)?[^/]+$`
+	APIVersion string `json:"apiVersion"`
+
+	// Kind is the object's kind, such as "Deployment".
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[A-Z][A-Za-z0-9]*$`
+	Kind string `json:"kind"`
+
+	// Name is the object's name.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+}
+
 // EntitlementClaim represents a claim-value pair for subject identification
 // Used by AuthzRoleBinding and ClusterAuthzRoleBinding
 type EntitlementClaim struct {

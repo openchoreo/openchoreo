@@ -488,7 +488,7 @@ func (r *Reconciler) validateAndFetchDeploymentPipeline(ctx context.Context, com
 	}
 
 	// Find the root environment using pure function
-	firstEnv, err := findRootEnvironment(pipeline)
+	firstEnv, err := controller.FindRootEnvironment(pipeline)
 	if err != nil {
 		// Configuration errors are non-retryable
 		msg := fmt.Sprintf("Invalid deployment pipeline configuration: %v", err)
@@ -566,12 +566,6 @@ func (r *Reconciler) fetchAllTraits(ctx context.Context, ct *openchoreov1alpha1.
 	}
 
 	return traits, clusterTraits, nil
-}
-
-// findRootEnvironment finds the root environment in a deployment pipeline: the
-// environment components are first deployed to. See DeploymentPipeline.RootEnvironment.
-func findRootEnvironment(pipeline *openchoreov1alpha1.DeploymentPipeline) (string, error) {
-	return pipeline.RootEnvironment()
 }
 
 // handleAutoDeploy handles automatic deployment when autoDeploy is enabled.

@@ -375,6 +375,31 @@ spec:
                 type: object
               isProduction:
                 type: boolean
+              observe:
+                description: |-
+                  Observe controls which data-plane namespaces bindings in observe mode can
+                  read in this environment.
+                properties:
+                  allowedNamespaces:
+                    description: |-
+                      AllowedNamespaces lists the data-plane namespaces that a
+                      ProjectReleaseBinding in observe mode can map to. If empty or omitted, no
+                      namespace can be observed.
+                    items:
+                      description: AllowedNamespace names a data-plane namespace that
+                        can be observed.
+                      properties:
+                        name:
+                          description: Name is the namespace's name.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                type: object
               revisionHistoryLimit:
                 description: |-
                   RevisionHistoryLimit is the number of old revisions kept, to allow

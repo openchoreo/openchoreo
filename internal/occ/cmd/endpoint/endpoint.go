@@ -176,14 +176,15 @@ func printList(items []gen.Endpoint, showProject bool) error {
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	if showProject {
-		fmt.Fprintln(w, "NAME\tTYPE\tVISIBILITY\tPROJECT\tAGE")
+		fmt.Fprintln(w, "NAME\tTYPE\tVISIBILITY\tPROJECT\tCOMPONENT\tAGE")
 	} else {
-		fmt.Fprintln(w, "NAME\tTYPE\tVISIBILITY\tAGE")
+		fmt.Fprintln(w, "NAME\tTYPE\tVISIBILITY\tCOMPONENT\tAGE")
 	}
 
 	for _, ep := range items {
 		typeStr := ""
 		project := ""
+		component := ""
 		visibility := make([]string, 0)
 		if ep.Spec != nil {
 			kind := "EndpointType"
@@ -192,6 +193,9 @@ func printList(items []gen.Endpoint, showProject bool) error {
 			}
 			typeStr = fmt.Sprintf("%s/%s", kind, ep.Spec.Type.Name)
 			project = ep.Spec.Owner.ProjectName
+			if ep.Spec.Owner.ComponentName != nil {
+				component = *ep.Spec.Owner.ComponentName
+			}
 			for _, v := range ep.Spec.Visibility {
 				visibility = append(visibility, string(v))
 			}
@@ -201,10 +205,11 @@ func printList(items []gen.Endpoint, showProject bool) error {
 			age = utils.FormatAge(*ep.Metadata.CreationTimestamp)
 		}
 		if showProject {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				ep.Metadata.Name, typeStr, strings.Join(visibility, ","), project, age)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				ep.Metadata.Name, typeStr, strings.Join(visibility, ","), project, component, age)
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", ep.Metadata.Name, typeStr, strings.Join(visibility, ","), age)
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				ep.Metadata.Name, typeStr, strings.Join(visibility, ","), component, age)
 		}
 	}
 

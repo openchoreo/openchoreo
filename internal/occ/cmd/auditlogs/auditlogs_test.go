@@ -83,6 +83,22 @@ func sampleRecord(t *testing.T, eventTime string) obsgen.AuditLogRecord {
 	}
 }
 
+func TestQuery_CustomColumns(t *testing.T) {
+	setupConfig(t)
+	mc := enabledMetadata(t)
+	testutil.SetTransport(t, testutil.RoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return testutil.JSONResp(http.StatusOK, obsgen.AuditLogsResponse{
+			Records: []obsgen.AuditLogRecord{sampleRecord(t, "2026-11-10T08:21:04.512Z")},
+		}), nil
+	}))
+	params := defaultParams()
+	params.Output = "custom-columns=event_time,actor.id,resource.namespace,action,result"
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, New(mc).Query(params))
+	})
+	assert.Equal(t, "2026-11-10T08:21:04.512Z\talice@example.com\tacme-corp\tcreate_project\tsuccess\n", out)
+}
+
 func TestQuery_SendsFiltersAndPrintsTable(t *testing.T) {
 	setupConfig(t)
 	mc := enabledMetadata(t)
@@ -271,13 +287,38 @@ func TestQuery_ObserverErrors(t *testing.T) {
 	}
 }
 
+func TestBuildRequest_OutputValidation(t *testing.T) {
+	for _, tc := range []struct {
+		output  string
+		wantErr string
+	}{
+		{output: ""},
+		{output: outputText},
+		{output: outputJSON},
+		{output: "custom-columns=event_time,action,result"},
+		{output: "yaml", wantErr: `invalid log format "yaml": must be text, json, or 'custom-columns=FIELD,...'`},
+		{output: "custom-columns=event_time,,result", wantErr: `invalid custom column "": use non-empty dot-separated attribute names`},
+	} {
+		t.Run(tc.output, func(t *testing.T) {
+			params := defaultParams()
+			params.Output = tc.output
+			_, err := buildRequest(params, time.Now())
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tc.wantErr)
+		})
+	}
+}
+
 func TestBuildRequest_Validation(t *testing.T) {
 	tests := []struct {
 		name    string
 		modify  func(*QueryParams)
 		wantErr string
 	}{
-		{name: "output", modify: func(p *QueryParams) { p.Output = "yaml" }, wantErr: `invalid --output "yaml"`},
+		{name: "output", modify: func(p *QueryParams) { p.Output = "yaml" }, wantErr: `invalid log format "yaml"`},
 		{name: "sort", modify: func(p *QueryParams) { p.SortOrder = "newest" }, wantErr: `invalid --sort "newest"`},
 		{name: "limit too low", modify: func(p *QueryParams) { p.Limit = 0 }, wantErr: "invalid --limit 0"},
 		{name: "limit too high", modify: func(p *QueryParams) { p.Limit = 1001 }, wantErr: "invalid --limit 1001"},

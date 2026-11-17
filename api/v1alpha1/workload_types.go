@@ -118,14 +118,27 @@ const (
 type WorkloadEndpoint struct {
 	// Visibility is an array of additional endpoint visibilities beyond the implicit project visibility.
 	// Every endpoint always gets project visibility. This array adds extra scopes.
+	//
+	// Deprecated: expose the endpoint through an Endpoint, whose spec.visibility
+	// carries the requested visibilities. Still honored by ComponentType templates
+	// that read it; new clients do not set it.
 	// +optional
 	// +listType=set
 	Visibility []EndpointVisibility `json:"visibility,omitempty"`
 
-	// Type indicates the protocol/technology of the endpoint.
-	// +kubebuilder:validation:Required
+	// Protocol is the protocol the endpoint serves. Replaces type; the admission
+	// webhook keeps the two equal, and one of them must be set.
+	// +optional
 	// +kubebuilder:validation:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
-	Type EndpointProtocol `json:"type"`
+	Protocol EndpointProtocol `json:"protocol,omitempty"`
+
+	// Type indicates the protocol/technology of the endpoint.
+	//
+	// Deprecated: use protocol. The admission webhook copies one to the other, so
+	// readers of either keep working; read it through EffectiveProtocol.
+	// +optional
+	// +kubebuilder:validation:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
+	Type EndpointProtocol `json:"type,omitempty"`
 
 	// Port exposed by the endpoint. If targetPort is not set, platform defaults to port for both.
 	// +kubebuilder:validation:Required
@@ -150,6 +163,18 @@ type WorkloadEndpoint struct {
 	// Schema for the endpoint API definition.
 	// +optional
 	Schema *Schema `json:"schema,omitempty"`
+}
+
+// EffectiveProtocol returns the endpoint's protocol: protocol when set,
+// otherwise the deprecated type. Objects stored before protocol existed, and
+// ComponentRelease snapshots of them, carry only type, so every reader goes
+// through this rather than either field.
+func (e WorkloadEndpoint) EffectiveProtocol() EndpointProtocol {
+	if e.Protocol != "" {
+		return e.Protocol
+	}
+	//nolint:staticcheck // deprecated field still supported for backward compatibility
+	return e.Type
 }
 
 // Schema defines the API definition for an endpoint.

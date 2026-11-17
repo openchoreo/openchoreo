@@ -93,6 +93,18 @@ type ComponentTypeSpec struct {
 	// +optional
 	AllowedTraits []TraitRef `json:"allowedTraits,omitempty"`
 
+	// AllowedEndpoints declares which EndpointType or ClusterEndpointType may
+	// expose a workload endpoint of a Component of this type, keyed on the
+	// endpoint's protocol. Clients creating a Component (portal, occ, GitOps
+	// tooling) create one Endpoint per workload endpoint the developer exposes,
+	// from the entry they choose or the default entry for its protocol. If empty
+	// or omitted, no Endpoints are created for Components of this type.
+	// At most one default entry may match a protocol.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	AllowedEndpoints []AllowedEndpointType `json:"allowedEndpoints,omitempty"`
+
 	// Validations are CEL-based rules evaluated during rendering.
 	//
 	// Deprecated: use PreRenderValidations. Retained for backward compatibility;
@@ -117,6 +129,37 @@ type ComponentTypeSpec struct {
 	// is "proxy", a matching resource id is not required.
 	// +kubebuilder:validation:MinItems=1
 	Resources []ResourceTemplate `json:"resources"`
+}
+
+// AllowedEndpointType maps workload endpoints of a given protocol to the
+// EndpointType that may expose them. The developer chooses the visibility on the
+// Endpoint; the EndpointType renders what each requested visibility needs (and
+// rejects, through its validations, any it does not support).
+type AllowedEndpointType struct {
+	// Name is an optional alias for this entry. A workload endpoint may name it
+	// to pick this entry when several match the same protocol.
+	// +optional
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name,omitempty"`
+
+	// Protocols are the workload endpoint protocols this entry applies to.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=6
+	// +kubebuilder:validation:items:Enum=HTTP;gRPC;GraphQL;Websocket;TCP;UDP
+	// +listType=set
+	Protocols []EndpointProtocol `json:"protocols"`
+
+	// Ref is the EndpointType or ClusterEndpointType that exposes matching
+	// workload endpoints.
+	// +kubebuilder:validation:Required
+	Ref EndpointTypeRef `json:"ref"`
+
+	// Default marks this entry as the automatic choice for its protocols. At
+	// most one default entry may match a protocol. Matching entries without it
+	// are still allowed, but only when chosen explicitly.
+	// +optional
+	Default bool `json:"default,omitempty"`
 }
 
 // EffectivePreRenderValidations returns the pre-render validation rules to apply.

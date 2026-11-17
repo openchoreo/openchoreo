@@ -13,7 +13,6 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -116,23 +115,6 @@ type Reconciler struct {
 	Recorder record.EventRecorder
 }
 
-// networkPolicyProviderFromDataPlane reads the "openchoreo.dev/networkpolicyprovider" annotation
-// from the DataPlane or ClusterDataPlane CR and returns the matching Provider.
-// Absent annotation or any value other than "cilium" defaults to ProviderKubernetes.
-func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkpolicy.Provider {
-	var annotations map[string]string
-	switch {
-	case dp.DataPlane != nil:
-		annotations = dp.DataPlane.Annotations
-	case dp.ClusterDataPlane != nil:
-		annotations = dp.ClusterDataPlane.Annotations
-	}
-	if annotations["openchoreo.dev/networkpolicyprovider"] == string(networkpolicy.ProviderCilium) {
-		return networkpolicy.ProviderCilium
-	}
-	return networkpolicy.ProviderKubernetes
-}
-
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings/finalizers,verbs=update
@@ -142,6 +124,7 @@ func networkPolicyProviderFromDataPlane(dp *controller.DataPlaneResult) networkp
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
@@ -203,6 +186,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	if releaseBinding.Spec.IsObserve() {
+		return ctrl.Result{}, r.reconcileObserve(ctx, releaseBinding)
+	}
+	if err := r.stopObservingUnlessAllowed(ctx, releaseBinding); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Fetch ComponentRelease
 	componentRelease := &openchoreov1alpha1.ComponentRelease{}
@@ -309,25 +299,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// open: a revision error never blocks the rollout; it is returned after
 	// reconcileRelease so the request is retried with backoff.
 	snapshotter := r.revisionSnapshotter(environment)
-	revResult, revErr := snapshotter.Record(ctx, releaseBinding)
-	if revErr != nil {
-		logger.Error(revErr, "Failed to record ReleaseBinding revision")
-	} else {
-		switch {
-		case revResult.Created:
-			logger.Info("Recorded ReleaseBinding revision",
-				"revision", revResult.Number, "cause", revResult.Cause)
-		case revResult.Reactivated:
-			logger.Info("Reactivated ReleaseBinding revision", "revision", revResult.Number)
-		}
-	}
-	// Point the binding at its active revision and record the highest revision
-	// number it has used; persisted with the rest of the status by the deferred
-	// update.
-	if revResult.Name != "" {
-		releaseBinding.Status.CurrentRevision = revResult.Name
-	}
-	releaseBinding.Status.HighestRevision = max(releaseBinding.Status.HighestRevision, revResult.Highest)
+	revErr := r.recordRevision(ctx, snapshotter, releaseBinding)
 
 	res, err := r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID)
 
@@ -347,6 +319,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 		return res, kerrors.NewAggregate([]error{err, fmt.Errorf("record revision: %w", revErr)})
 	}
 	return res, err
+}
+
+// recordRevision records the binding's spec as a revision (see
+// revision.Snapshotter.Record), logs what changed, and points the binding's
+// status at its active revision and the highest revision number it has used.
+// The status is persisted with the rest by the deferred update in Reconcile.
+func (r *Reconciler) recordRevision(
+	ctx context.Context,
+	snapshotter *revision.Snapshotter[*openchoreov1alpha1.ReleaseBinding, *openchoreov1alpha1.ReleaseBindingRevision],
+	releaseBinding *openchoreov1alpha1.ReleaseBinding,
+) error {
+	logger := log.FromContext(ctx)
+	revResult, revErr := snapshotter.Record(ctx, releaseBinding)
+	if revErr != nil {
+		logger.Error(revErr, "Failed to record ReleaseBinding revision")
+	} else {
+		switch {
+		case revResult.Created:
+			logger.Info("Recorded ReleaseBinding revision",
+				"revision", revResult.Number, "cause", revResult.Cause)
+		case revResult.Reactivated:
+			logger.Info("Reactivated ReleaseBinding revision", "revision", revResult.Number)
+		}
+	}
+	if revResult.Name != "" {
+		releaseBinding.Status.CurrentRevision = revResult.Name
+	}
+	releaseBinding.Status.HighestRevision = max(releaseBinding.Status.HighestRevision, revResult.Highest)
+	return revErr
 }
 
 // revisionSnapshotter returns the Snapshotter recording this controller's
@@ -483,24 +484,21 @@ func (r *Reconciler) buildMetadataContext(
 	}
 
 	// Build pod selectors
-	podSelectors := map[string]string{
-		labels.LabelKeyNamespaceName:   namespaceName,
-		labels.LabelKeyProjectName:     projectName,
-		labels.LabelKeyComponentName:   componentName,
-		labels.LabelKeyEnvironmentName: environmentName,
-		labels.LabelKeyComponentUID:    componentUID,
-		labels.LabelKeyEnvironmentUID:  environmentUID,
-		labels.LabelKeyProjectUID:      projectUID,
-	}
+	podSelectors := controller.ComponentPodSelectors(controller.PodSelectorInput{
+		NamespaceName:   namespaceName,
+		ProjectName:     projectName,
+		ComponentName:   componentName,
+		EnvironmentName: environmentName,
+		ComponentUID:    componentUID,
+		EnvironmentUID:  environmentUID,
+		ProjectUID:      projectUID,
+		ReleaseLine:     releaseLine,
+		ReleaseLineUID:  releaseLineUID,
+	})
 
 	if releaseLine != "" {
 		standardLabels[labels.LabelKeyReleaseLine] = releaseLine
-		podSelectors[labels.LabelKeyReleaseLine] = releaseLine
 		standardLabels[labels.LabelKeyReleaseLineUID] = releaseLineUID
-		podSelectors[labels.LabelKeyReleaseLineUID] = releaseLineUID
-		// The main line selects on the component UID, so a line's pods carry it under another key.
-		delete(podSelectors, labels.LabelKeyComponentUID)
-		podSelectors[labels.LabelKeyReleaseLineComponentUID] = componentUID
 	}
 
 	return pipelinecontext.MetadataContext{
@@ -758,6 +756,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 
 	// Inject per-component network policies into dataplane resources.
 	// The provider is determined by the "openchoreo.dev/networkpolicyprovider" annotation on the DataPlane CR.
+	// Ingress follows the workload endpoints' own visibility. An Endpoint routing
+	// to the component ships its own policy with its routes, in its own release.
 	componentNetpols := networkpolicy.MakeComponentPolicies(networkpolicy.ComponentPolicyParams{
 		Namespace:     metadataContext.Namespace,
 		CPNamespace:   metadataContext.ComponentNamespace,
@@ -765,7 +765,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		ComponentName: releaseline.ComponentLineName(metadataContext.ComponentName, metadataContext.ReleaseLineName),
 		PodSelectors:  metadataContext.PodSelectors,
 		Endpoints:     snapshotWorkload.Spec.Endpoints,
-		Provider:      networkPolicyProviderFromDataPlane(dataPlaneResult),
+		Provider:      networkpolicy.ProviderFromAnnotations(dataPlaneResult.ToDataPlane().Annotations),
 	})
 	dataPlaneResources = append(dataPlaneResources, componentNetpols...)
 
@@ -865,6 +865,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
 			Resources:       dataPlaneReleaseResources,
 		}
 
@@ -899,7 +900,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// on the rollout's own health (deliveryHealthIsCurrent) and the deferred
 	// status update persists its markers on every return path.
 	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources,
-		dataPlaneApplyFailed(dataPlaneRelease) != nil)
+		renderedrelease.ApplyFailedCondition(dataPlaneRelease) != nil)
 
 	// Reconcile observability plane Release (create, update, or cleanup)
 	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
@@ -960,7 +961,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Check if the Release controller recorded a resource apply failure.
 	// Only act on the condition when it matches the current Release generation
 	// to avoid surfacing stale errors from a previous spec revision.
-	if applyCond := dataPlaneApplyFailed(dataPlaneRelease); applyCond != nil {
+	if applyCond := renderedrelease.ApplyFailedCondition(dataPlaneRelease); applyCond != nil {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
 		return ctrl.Result{}, nil
@@ -984,19 +985,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// dataPlaneApplyFailed returns the RenderedRelease's ResourcesApplied condition
-// when it reports a failed apply of the current generation, and nil otherwise.
-// A failure recorded against an earlier generation is stale -- it describes a
-// spec revision that has since been replaced -- so it is not reported.
-func dataPlaneApplyFailed(renderedRelease *openchoreov1alpha1.RenderedRelease) *metav1.Condition {
-	applyCond := meta.FindStatusCondition(renderedRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
-	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
-		applyCond.ObservedGeneration == renderedRelease.Generation {
-		return applyCond
-	}
-	return nil
 }
 
 // handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
@@ -1182,6 +1170,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				},
 				EnvironmentName: releaseBinding.Spec.Environment,
 				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Mode:            renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
 				Resources:       observabilityPlaneReleaseResources,
 			}
 
@@ -1520,16 +1509,17 @@ func resolveEndpointURLStatuses(
 	// during the indexing pass below.
 	routableEndpoints := make(map[string]endpointMeta, len(endpoints))
 	for name, ep := range endpoints {
-		if !isRoutableEndpointType(ep.Type) {
+		protocol := ep.EffectiveProtocol()
+		if !isRoutableEndpointType(protocol) {
 			logger.Info("Skipping endpoint type not exposed by any Gateway API route",
-				"name", name, "type", ep.Type)
+				"name", name, "protocol", protocol)
 			continue
 		}
 		routableEndpoints[name] = endpointMeta{
-			endpointType: ep.Type,
-			visibility:   ep.Visibility,
+			endpointType: protocol,
+			visibility:   ep.Visibility, //nolint:staticcheck // deprecated field still supported for backward compatibility
 		}
-		logger.Info("Registered routable endpoint", "name", name, "type", ep.Type)
+		logger.Info("Registered routable endpoint", "name", name, "protocol", protocol)
 	}
 
 	// First pass: index Gateway API routes by endpoint name into external/internal
@@ -1875,6 +1865,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
+		Watches(&openchoreov1alpha1.ComponentRelease{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponentRelease),
+			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
 		// An Environment's revisionHistoryLimit applies to its bindings that set
@@ -1883,6 +1876,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&openchoreov1alpha1.Environment{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEnvironment),
 			builder.WithPredicates(revision.EnvironmentHistoryLimitChanged())).
+		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForProjectReleaseBinding),
+			builder.WithPredicates(projectReleaseBindingObserveChangedPredicate())).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),

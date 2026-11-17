@@ -130,7 +130,8 @@ var _ = Describe("ClusterObservabilityPlane Controller", func() {
 			r := testReconciler()
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			fresh := &openchoreov1alpha1.ClusterObservabilityPlane{}
 			Expect(k8sClient.Get(ctx, nn, fresh)).To(Succeed())
@@ -176,7 +177,8 @@ var _ = Describe("ClusterObservabilityPlane Controller", func() {
 			r := testReconciler()
 			result, err := r.Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 		})
 
 		It("should not overwrite the Created condition", func() {

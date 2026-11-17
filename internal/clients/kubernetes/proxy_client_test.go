@@ -428,7 +428,9 @@ func TestBuildGetPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pc.buildGetPath(tt.gvk, tt.namespace, tt.resName))
+			got, err := pc.buildGetPath(tt.gvk, tt.namespace, tt.resName)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -470,7 +472,9 @@ func TestBuildListPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, pc.buildListPath(tt.gvk, tt.namespace))
+			got, err := pc.buildListPath(tt.gvk, tt.namespace)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -479,7 +483,8 @@ func TestBuildStatusPath(t *testing.T) {
 	pc := &ProxyClient{}
 	gvk := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 
-	got := pc.buildStatusPath(gvk, testPodNamespace, "web")
+	got, err := pc.buildStatusPath(gvk, testPodNamespace, "web")
+	require.NoError(t, err)
 	assert.Equal(t, "/apis/apps/v1/namespaces/default/deployments/web/status", got)
 }
 
@@ -489,9 +494,77 @@ func TestBuildPathDelegates(t *testing.T) {
 	pc := &ProxyClient{}
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	assert.Equal(t, pc.buildListPath(gvk, testPodNamespace), pc.buildCreatePath(gvk, testPodNamespace), "buildCreatePath should delegate to buildListPath")
-	assert.Equal(t, pc.buildGetPath(gvk, testPodNamespace, testPodName), pc.buildUpdatePath(gvk, testPodNamespace, testPodName), "buildUpdatePath should delegate to buildGetPath")
-	assert.Equal(t, pc.buildGetPath(gvk, testPodNamespace, testPodName), pc.buildDeletePath(gvk, testPodNamespace, testPodName), "buildDeletePath should delegate to buildGetPath")
+	path := func(p string, err error) string {
+		require.NoError(t, err)
+		return p
+	}
+	assert.Equal(t, path(pc.buildListPath(gvk, testPodNamespace)), path(pc.buildCreatePath(gvk, testPodNamespace)), "buildCreatePath should delegate to buildListPath")
+	assert.Equal(t, path(pc.buildGetPath(gvk, testPodNamespace, testPodName)), path(pc.buildUpdatePath(gvk, testPodNamespace, testPodName)), "buildUpdatePath should delegate to buildGetPath")
+	assert.Equal(t, path(pc.buildGetPath(gvk, testPodNamespace, testPodName)), path(pc.buildDeletePath(gvk, testPodNamespace, testPodName)), "buildDeletePath should delegate to buildGetPath")
+}
+
+func TestBuildPathRejectsPartsThatAreNotOneSegment(t *testing.T) {
+	pc := &ProxyClient{}
+	configMap := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+
+	tests := []struct {
+		name      string
+		gvk       schema.GroupVersionKind
+		namespace string
+		resName   string
+	}{
+		{"a name that climbs out", configMap, "payments", "../../default"},
+		{"a name with a slash", configMap, "payments", "orders/status"},
+		{"a name with a percent sign", configMap, "payments", "orders%2Fstatus"},
+		{"a dot-dot name", configMap, "payments", ".."},
+		{"a name with a fragment", configMap, "payments", "orders#ignored"},
+		{"a name with a query", configMap, "payments", "orders?x"},
+		{"a namespace with a query", configMap, "kube-system?", "orders"},
+		{"a namespace that climbs out", configMap, "../kube-system", "orders"},
+		{"a group that climbs out", schema.GroupVersionKind{Group: "..", Version: "v1", Kind: "Widget"}, "payments", "orders"},
+		{"a version that climbs out", schema.GroupVersionKind{Group: "apps", Version: "..", Kind: "Deployment"}, "payments", "orders"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := pc.buildGetPath(tt.gvk, tt.namespace, tt.resName)
+			assert.Error(t, err)
+		})
+	}
+
+	_, err := pc.buildListPath(configMap, "../kube-system")
+	assert.Error(t, err, "list path with a namespace that climbs out")
+
+	// Names Kubernetes allows that aren't DNS names still pass.
+	got, err := pc.buildGetPath(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"},
+		"", "system:controller:job-controller")
+	require.NoError(t, err)
+	assert.Equal(t, "/apis/rbac.authorization.k8s.io/v1/clusterroles/system:controller:job-controller", got)
+}
+
+func TestProxyClientSendsNoRequestForANameThatClimbsOut(t *testing.T) {
+	requests := 0
+	pc := newTestProxyClient(t, func(w http.ResponseWriter, _ *http.Request) {
+		requests++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"apiVersion":"v1","kind":"ConfigMapList","items":[]}`))
+	})
+	ctx := context.Background()
+	escaping := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "../../default", Namespace: "payments"}}
+
+	assert.Error(t, pc.Get(ctx, client.ObjectKey{Namespace: "payments", Name: "../../default"}, &corev1.ConfigMap{}))
+	assert.Error(t, pc.Update(ctx, escaping.DeepCopy()))
+	assert.Error(t, pc.Patch(ctx, escaping.DeepCopy(), client.MergeFrom(&corev1.ConfigMap{})))
+	assert.Error(t, pc.Delete(ctx, escaping.DeepCopy()))
+	assert.Error(t, pc.Status().Update(ctx, escaping.DeepCopy()))
+	assert.Error(t, pc.List(ctx, &corev1.ConfigMapList{}, client.InNamespace("../kube-system")))
+	assert.Error(t, pc.Get(ctx, client.ObjectKey{Namespace: "payments", Name: "orders#ignored"}, &corev1.ConfigMap{}))
+	assert.Error(t, pc.Get(ctx, client.ObjectKey{Namespace: "payments", Name: "orders?x"}, &corev1.ConfigMap{}))
+	assert.Zero(t, requests, "no request reaches the gateway")
+
+	// A list's own query string is added after the check.
+	require.NoError(t, pc.List(ctx, &corev1.ConfigMapList{}, client.InNamespace("payments"),
+		client.MatchingLabels{"app": "orders"}))
+	assert.Equal(t, 1, requests)
 }
 
 func TestBuildProxyURL(t *testing.T) {

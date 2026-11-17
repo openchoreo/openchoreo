@@ -82,6 +82,9 @@ type LogEntry struct {
 	NamespaceName   string `json:"namespaceName,omitempty"`
 	PodNamespace    string `json:"podNamespace,omitempty"`
 	PodName         string `json:"podName,omitempty"`
+	// ReleaseLineName and ReleaseLineID identify the release line, empty for the main line.
+	ReleaseLineName string `json:"releaseLineName,omitempty"`
+	ReleaseLineID   string `json:"releaseLineId,omitempty"`
 }
 
 // WorkflowLogEntry represents a parsed log entry for workflow logs

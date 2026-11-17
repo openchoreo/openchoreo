@@ -9,6 +9,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -126,10 +127,16 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   occ clusterworkflow logs dockerfile-builder --namespace acme-corp
 
   # Follow logs
-  occ clusterworkflow logs dockerfile-builder --namespace acme-corp -f`,
+  occ clusterworkflow logs dockerfile-builder --namespace acme-corp -f
+
+  # Print each log entry as JSON
+  occ clusterworkflow logs dockerfile-builder --namespace acme-corp -o json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -140,12 +147,14 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
 				RunName:      flags.GetWorkflowRun(cmd),
 				Follow:       flags.GetFollow(cmd),
 				Since:        flags.GetSince(cmd),
+				Output:       flags.GetOutput(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	flags.AddWorkflowRun(cmd)
 	return cmd
 }

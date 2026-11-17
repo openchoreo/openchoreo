@@ -29,6 +29,42 @@ type EnvironmentSpec struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+	// Observe controls which data-plane namespaces bindings in observe mode can
+	// read in this environment.
+	// +optional
+	Observe *EnvironmentObserve `json:"observe,omitempty"`
+}
+
+// EnvironmentObserve controls observe mode in an environment.
+type EnvironmentObserve struct {
+	// AllowedNamespaces lists the data-plane namespaces that a
+	// ProjectReleaseBinding in observe mode can map to. If empty or omitted, no
+	// namespace can be observed.
+	// +optional
+	AllowedNamespaces []AllowedNamespace `json:"allowedNamespaces,omitempty"`
+}
+
+// AllowedNamespace names a data-plane namespace that can be observed.
+type AllowedNamespace struct {
+	// Name is the namespace's name.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+}
+
+// IsNamespaceObservable reports whether the environment allows observing the
+// named data-plane namespace.
+func (e *Environment) IsNamespaceObservable(namespace string) bool {
+	if e.Spec.Observe == nil {
+		return false
+	}
+	for _, allowed := range e.Spec.Observe.AllowedNamespaces {
+		if allowed.Name == namespace {
+			return true
+		}
+	}
+	return false
 }
 
 // EnvironmentStatus defines the observed state of Environment.

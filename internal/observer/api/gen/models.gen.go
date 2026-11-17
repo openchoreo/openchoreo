@@ -1560,6 +1560,12 @@ type LogEntryMetadata struct {
 
 	// ProjectUid The OpenChoreo project UID that generated the log
 	ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+
+	// ReleaseLineName The component's release line that generated the log. Absent for its main line.
+	ReleaseLineName *string `json:"releaseLineName,omitempty"`
+
+	// ReleaseLineUid The UID of the component's release line that generated the log. Absent for its main line.
+	ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 }
 
 // LogsQueryRequest defines model for LogsQueryRequest.

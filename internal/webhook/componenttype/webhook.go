@@ -123,6 +123,11 @@ func validateComponentType(ct *openchoreodevv1alpha1.ComponentType) field.ErrorL
 	allowedWorkflowErrs := validateAllowedWorkflows(ct)
 	allErrs = append(allErrs, allowedWorkflowErrs...)
 
+	// Validate allowedEndpoints
+	allErrs = append(allErrs, component.ValidateAllowedEndpoints(
+		ct.Spec.AllowedEndpoints, field.NewPath("spec", "allowedEndpoints"),
+	)...)
+
 	return allErrs
 }
 

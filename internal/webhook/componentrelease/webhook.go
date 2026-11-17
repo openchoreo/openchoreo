@@ -20,6 +20,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/schema"
 	"github.com/openchoreo/openchoreo/internal/validation/component"
 	"github.com/openchoreo/openchoreo/internal/validation/schemautil"
+	workloadwebhook "github.com/openchoreo/openchoreo/internal/webhook/workload"
 )
 
 // nolint:unused
@@ -128,6 +129,12 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 			field.NewPath("spec", "workload", "container", "image"),
 			"workload container must have an image"))
 	}
+
+	// The CRD accepts an endpoint with neither protocol nor the deprecated type,
+	// so check them as the Workload webhook does; releases cut from a Workload
+	// have already passed it.
+	allErrs = append(allErrs, workloadwebhook.ValidateEndpointProtocols(
+		componentrelease.Spec.Workload.Endpoints, field.NewPath("spec", "workload", "endpoints"))...)
 
 	if len(allErrs) > 0 {
 		return nil, apierrors.NewInvalid(componentrelease.GroupVersionKind().GroupKind(), componentrelease.GetName(), allErrs)

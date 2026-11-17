@@ -47,7 +47,8 @@ var _ = Describe("WorkflowPlane Controller — gateway paths", func() {
 
 			result, err := reconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 			Expect(*calls).To(Equal(1))
 
 			// After gateway notification, status poll is intentionally skipped to avoid
@@ -72,7 +73,8 @@ var _ = Describe("WorkflowPlane Controller — gateway paths", func() {
 
 			result, err := reconcilerWithGateway(gwClient).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 		})
 	})
 

@@ -66,6 +66,21 @@ func TestLogsCmd_Flags(t *testing.T) {
 
 // --- args ---
 
+func TestLogsCmd_Output(t *testing.T) {
+	for _, newCmd := range []func(client.NewClientFunc) *cobra.Command{
+		NewClusterPlaneLogsCmd, NewNamespacedPlaneLogsCmd,
+	} {
+		for _, format := range []string{outputJSON, "custom-columns=timestamp,podName,log"} {
+			for _, flag := range []string{"--output", "-o"} {
+				cmd := newCmd(errFactory("unused"))
+				require.NoError(t, cmd.ParseFlags([]string{flag, format}))
+				assert.Equal(t, format, logsParams(cmd).Output)
+				require.NoError(t, cmd.ValidateFlagGroups())
+			}
+		}
+	}
+}
+
 func TestLogsCmd_MissingArg(t *testing.T) {
 	cmd := NewClusterPlaneLogsCmd(errFactory("unused"))
 	err := cmd.Args(cmd, nil)

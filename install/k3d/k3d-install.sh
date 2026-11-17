@@ -423,6 +423,25 @@ spec:
     - secretKey: password
       remoteRef: { key: opensearch-password, property: value }
 ---
+# Users of the OpenSearch tracing module, apart from the admin credentials: the read-only user raw trace queries run as
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: opensearch-traces-users
+  namespace: ${OBSERVABILITY_NS}
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  target:
+    name: opensearch-traces-users
+  data:
+    - secretKey: rawQueryUsername
+      remoteRef: { key: opensearch-raw-query-username, property: value }
+    - secretKey: rawQueryPassword
+      remoteRef: { key: opensearch-raw-query-password, property: value }
+---
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -441,7 +460,7 @@ spec:
 EOF
     $KUBECTL wait -n "$OBSERVABILITY_NS" \
         --for=condition=Ready externalsecret/opensearch-admin-credentials \
-        externalsecret/observer-secret --timeout=120s
+        externalsecret/opensearch-traces-users externalsecret/observer-secret --timeout=120s
 
     # Fluent Bit needs /etc/machine-id; k3d nodes don't have one by default.
     docker exec "k3d-${CLUSTER_NAME}-server-0" sh -c \

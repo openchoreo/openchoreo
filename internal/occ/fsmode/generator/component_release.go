@@ -192,6 +192,14 @@ func defaultTraitKinds(ctSpec *v1alpha1.ComponentTypeSpec, comp *v1alpha1.Compon
 			ctSpec.AllowedTraits[i].Kind = ctDefaultKind
 		}
 	}
+	// allowedEndpoints refs default to EndpointType in both scopes (EndpointTypeRef
+	// admission default); a ClusterComponentType rejects that at admission, so a valid source
+	// always carries an explicit kind there.
+	for i := range ctSpec.AllowedEndpoints {
+		if ctSpec.AllowedEndpoints[i].Ref.Kind == "" {
+			ctSpec.AllowedEndpoints[i].Ref.Kind = v1alpha1.EndpointTypeRefKindEndpointType
+		}
+	}
 	for i := range comp.Spec.Traits {
 		if comp.Spec.Traits[i].Kind == "" {
 			comp.Spec.Traits[i].Kind = v1alpha1.TraitRefKindTrait

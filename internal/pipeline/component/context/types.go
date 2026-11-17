@@ -334,12 +334,16 @@ type ContainerData struct {
 
 // EndpointData contains endpoint information.
 type EndpointData struct {
-	DisplayName string   `json:"displayName,omitempty"`
-	Port        int32    `json:"port"`
-	TargetPort  int32    `json:"targetPort"`
-	Type        string   `json:"type"`
-	BasePath    string   `json:"basePath,omitempty"`
-	Visibility  []string `json:"visibility"`
+	DisplayName string `json:"displayName,omitempty"`
+	Port        int32  `json:"port"`
+	TargetPort  int32  `json:"targetPort"`
+	// Protocol and Type carry the same value: the workload endpoint's protocol,
+	// read through EffectiveProtocol. Type stays for templates written before
+	// the workload field was renamed.
+	Protocol   string   `json:"protocol"`
+	Type       string   `json:"type"`
+	BasePath   string   `json:"basePath,omitempty"`
+	Visibility []string `json:"visibility"`
 }
 
 // EndpointResourceMap maps an endpoint name to the routes extracted from its API

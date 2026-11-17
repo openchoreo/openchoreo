@@ -33,7 +33,16 @@ type AgentConnection struct {
 	clientCert      *x509.Certificate // Client certificate for re-validation on CR updates
 	intermediates   *x509.CertPool    // Handshake intermediate CAs, used to chain the client cert on re-validation
 	mu              sync.Mutex
+	// writeMu serializes socket writes. It is separate from mu so that a slow
+	// or stalled write never blocks readers of the connection's state, which
+	// the manager consults while holding its own lock.
+	writeMu sync.Mutex
 }
+
+// agentWriteTimeout bounds one message write to an agent. Without it a write to
+// an agent that has stopped reading blocks forever, and with it every request
+// queued behind that write.
+const agentWriteTimeout = 15 * time.Second
 
 // IsValidForCR checks if this connection is authorized for the specified CR
 func (ac *AgentConnection) IsValidForCR(crKey string) bool {
@@ -154,8 +163,12 @@ type ConnectionManager struct {
 
 	mu         sync.RWMutex
 	roundRobin map[string]int // Track round-robin index per planeIdentifier
-	listener   ConnectionListener
-	logger     *slog.Logger
+	// crRevocations counts the deletions seen per CR, keyed like the CR's
+	// round-robin cursor. RevalidateCR uses it to reject a revalidation that a
+	// deletion overtook.
+	crRevocations map[string]uint64
+	listener      ConnectionListener
+	logger        *slog.Logger
 }
 
 // SetListener registers a connection lifecycle listener. Must be called before
@@ -167,9 +180,10 @@ func (cm *ConnectionManager) SetListener(l ConnectionListener) {
 // NewConnectionManager creates a new ConnectionManager
 func NewConnectionManager(logger *slog.Logger) *ConnectionManager {
 	return &ConnectionManager{
-		connections: make(map[string][]*AgentConnection),
-		roundRobin:  make(map[string]int),
-		logger:      logger.With("component", "connection-manager"),
+		connections:   make(map[string][]*AgentConnection),
+		roundRobin:    make(map[string]int),
+		crRevocations: make(map[string]uint64),
+		logger:        logger.With("component", "connection-manager"),
 	}
 }
 
@@ -445,17 +459,103 @@ func (cm *ConnectionManager) DisconnectAllForPlane(planeType, planeID string) in
 	return disconnectedCount
 }
 
+// CRRevocations returns how many times the CR has been revoked by deletion.
+// A caller revalidating the CR reads it before looking the CR up and passes it
+// to RevalidateCR, which then refuses to act on a CA read before a deletion.
+func (cm *ConnectionManager) CRRevocations(planeType, planeID, crNamespace, crName string) uint64 {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	return cm.crRevocations[fmt.Sprintf("%s/%s/%s/%s", planeType, planeID, crNamespace, crName)]
+}
+
+// RevokeCR removes a deleted CR's authorization from the plane's connections.
+// Many CRs can share one planeID, so a connection stays open while it is still
+// authorized for another CR. A connection left with no authorized CR is closed,
+// including one that had already lost its other authorizations to an earlier
+// revalidation. Returns how many connections lost the authorization and how
+// many were disconnected.
+func (cm *ConnectionManager) RevokeCR(planeType, planeID, crNamespace, crName string) (revoked int, disconnected int) {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
+	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
+
+	// The CR is gone, so its round-robin cursor is too.
+	crRoutingKey := fmt.Sprintf("%s/%s", planeIdentifier, crKey)
+	delete(cm.roundRobin, crRoutingKey)
+	// Counted even with no connections: a revalidation already in flight may
+	// yet see one register, and must not grant it the deleted CR.
+	cm.crRevocations[crRoutingKey]++
+
+	conns := cm.connections[planeIdentifier]
+	if len(conns) == 0 {
+		cm.logger.Debug("no connections to revoke CR from",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+		)
+		return 0, 0
+	}
+
+	remaining := make([]*AgentConnection, 0, len(conns))
+	for _, conn := range conns {
+		wasValid := conn.IsValidForCR(crKey)
+		if wasValid {
+			conn.RemoveValidCR(crKey)
+			revoked++
+		}
+		validCRs := conn.GetValidCRs()
+
+		if len(validCRs) > 0 {
+			remaining = append(remaining, conn)
+			if wasValid && cm.listener != nil {
+				cm.listener.OnAgentCRsChanged(planeIdentifier, conn.ID, validCRs)
+			}
+			continue
+		}
+
+		conn.Conn.Close()
+		disconnected++
+		cm.logger.Info("disconnecting agent, no authorized CR remains after CR deletion",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+			"connectionID", conn.ID,
+		)
+		if cm.listener != nil {
+			cm.listener.OnAgentUnregistered(planeIdentifier, conn.ID)
+		}
+	}
+
+	if len(remaining) == 0 {
+		delete(cm.connections, planeIdentifier)
+		delete(cm.roundRobin, planeIdentifier)
+		cm.cleanupPerCRRoundRobinKeys(planeIdentifier)
+	} else {
+		cm.connections[planeIdentifier] = remaining
+	}
+
+	cm.logger.Info("revoked deleted CR from plane connections",
+		"planeType", planeType,
+		"planeID", planeID,
+		"cr", crKey,
+		"authorizationsRevoked", revoked,
+		"disconnectedAgents", disconnected,
+	)
+
+	return revoked, disconnected
+}
+
 // SendHTTPTunnelRequest sends an HTTPTunnelRequest through this connection
 func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelRequest) error {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-
 	data, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("SendHTTPTunnelRequest: failed to marshal request: %w", err)
 	}
 
-	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := ac.write(data); err != nil {
 		return fmt.Errorf("SendHTTPTunnelRequest: failed to send request: %w", err)
 	}
 
@@ -464,13 +564,28 @@ func (ac *AgentConnection) SendHTTPTunnelRequest(req *messaging.HTTPTunnelReques
 
 // SendRawMessage sends a pre-marshaled JSON message through this connection.
 func (ac *AgentConnection) SendRawMessage(data []byte) error {
-	ac.mu.Lock()
-	defer ac.mu.Unlock()
-
-	if err := ac.Conn.WriteMessage(websocket.TextMessage, data); err != nil {
+	if err := ac.write(data); err != nil {
 		return fmt.Errorf("SendRawMessage: failed to send message: %w", err)
 	}
 	return nil
+}
+
+// write sends one text message within agentWriteTimeout. A write that fails or
+// times out leaves the WebSocket unusable for further writes, so the connection
+// is closed: its read loop then ends and unregisters it, and the agent
+// reconnects.
+func (ac *AgentConnection) write(data []byte) error {
+	ac.writeMu.Lock()
+	defer ac.writeMu.Unlock()
+
+	err := ac.Conn.SetWriteDeadline(time.Now().Add(agentWriteTimeout))
+	if err == nil {
+		err = ac.Conn.WriteMessage(websocket.TextMessage, data)
+	}
+	if err != nil {
+		_ = ac.Conn.Close()
+	}
+	return err
 }
 
 // Close closes the agent connection
@@ -488,6 +603,9 @@ type PlaneConnectionStatus struct {
 	Connected       bool      `json:"connected"`
 	ConnectedAgents int       `json:"connectedAgents"`
 	LastSeen        time.Time `json:"lastSeen,omitempty"`
+	// PlaneConnectedAgents is set only on a CR-specific status. It counts the
+	// agents connected to the plane whether or not they are authorized for the CR.
+	PlaneConnectedAgents int `json:"planeConnectedAgents,omitempty"`
 }
 
 // GetPlaneStatus returns connection status for a specific plane
@@ -636,29 +754,44 @@ func splitPlaneIdentifier(identifier string) []string {
 // RevalidateCR re-validates all connections for a specific CR without disconnecting
 // This is called when a CR is updated (e.g., certificate rotation) to enforce new security policy
 // without causing service disruption. Returns counts of authorizations granted and revoked.
+//
+// revocations is what CRRevocations returned before the caller looked the CR up.
+// If the CR has been deleted since, newCAData is stale and nothing is changed:
+// granting from it would make the deleted CR routable again, with no later
+// event left to revoke it.
 func (cm *ConnectionManager) RevalidateCR(
 	planeType, planeID, crNamespace, crName string,
 	newCAData []byte,
+	revocations uint64,
 ) (updated int, removed int, err error) {
-	cm.mu.RLock()
 	planeIdentifier := fmt.Sprintf("%s/%s", planeType, planeID)
-	conns, exists := cm.connections[planeIdentifier]
-	// Make a copy of the connections slice to safely iterate without holding the lock
-	// This prevents race conditions if another goroutine modifies the slice during iteration
-	connsCopy := make([]*AgentConnection, len(conns))
-	copy(connsCopy, conns)
-	cm.mu.RUnlock()
+	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
 
-	if !exists || len(connsCopy) == 0 {
-		cm.logger.Debug("no connections to revalidate",
+	// Held for the whole pass so RevokeCR cannot run between the staleness
+	// check and the grants below. Routing lookups on every plane wait while
+	// this plane's client certificates are verified. That is short: CRs that
+	// share a planeID share its agent connections, so a plane has only a few.
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	if cm.crRevocations[fmt.Sprintf("%s/%s", planeIdentifier, crKey)] != revocations {
+		cm.logger.Info("skipping revalidation of a CR deleted while it was in progress",
 			"planeType", planeType,
 			"planeID", planeID,
-			"cr", fmt.Sprintf("%s/%s", crNamespace, crName),
+			"cr", crKey,
 		)
 		return 0, 0, nil
 	}
 
-	crKey := fmt.Sprintf("%s/%s", crNamespace, crName)
+	conns := cm.connections[planeIdentifier]
+	if len(conns) == 0 {
+		cm.logger.Debug("no connections to revalidate",
+			"planeType", planeType,
+			"planeID", planeID,
+			"cr", crKey,
+		)
+		return 0, 0, nil
+	}
 
 	// Parse new CA certificate
 	certPool := x509.NewCertPool()
@@ -670,11 +803,11 @@ func (cm *ConnectionManager) RevalidateCR(
 		"planeType", planeType,
 		"planeID", planeID,
 		"cr", crKey,
-		"totalConnections", len(connsCopy),
+		"totalConnections", len(conns),
 	)
 
 	// Re-validate each connection using the extracted UpdateCRValidity method
-	for _, conn := range connsCopy {
+	for _, conn := range conns {
 		granted, revoked, verifyErr := conn.UpdateCRValidity(crKey, certPool)
 
 		if granted {
@@ -704,23 +837,18 @@ func (cm *ConnectionManager) RevalidateCR(
 		"planeType", planeType,
 		"planeID", planeID,
 		"cr", crKey,
-		"totalConnections", len(connsCopy),
+		"totalConnections", len(conns),
 		"authorizationsGranted", updated,
 		"authorizationsRevoked", removed,
 	)
 
 	// If authorizations were revoked, clean up per-CR round-robin key if no connections remain authorized
 	if removed > 0 {
-		cm.mu.Lock()
-		defer cm.mu.Unlock()
-
 		hasAuthorizedConn := false
-		if conns, exists := cm.connections[planeIdentifier]; exists {
-			for _, conn := range conns {
-				if conn.IsValidForCR(crKey) {
-					hasAuthorizedConn = true
-					break
-				}
+		for _, conn := range conns {
+			if conn.IsValidForCR(crKey) {
+				hasAuthorizedConn = true
+				break
 			}
 		}
 

@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -83,5 +84,38 @@ var _ = Describe("Watch mappers", func() {
 		w := newWorkload("p", "greeter", "http")
 		w.Namespace = "ns1"
 		Expect(r.listEndpointsForWorkload(watchCtx, w)).To(ConsistOf(request("ns1", "routes")))
+	})
+
+	It("maps a Component to the Endpoints routing to it, which include the ones it owns", func() {
+		r := buildReconciler(
+			inNamespace(ownedByComponent(newEndpoint("owned", "p", clusterTypeRef("t"),
+				componentBackend("s", "greeter", "http", 1)), "greeter"), "ns1"),
+			inNamespace(newEndpoint("other-project", "q", clusterTypeRef("t"), componentBackend("s", "greeter", "http", 1)), "ns1"),
+			inNamespace(newEndpoint("other-namespace", "p", clusterTypeRef("t"), componentBackend("s", "greeter", "http", 1)), "ns2"),
+		)
+		comp := newComponent("p", "greeter")
+		comp.Namespace = "ns1"
+		Expect(r.listEndpointsForComponent(watchCtx, comp)).To(ConsistOf(request("ns1", "owned")))
+	})
+
+	It("maps a ReleaseLine to the Endpoints routing to its component, which include the ones it owns", func() {
+		const ns = "lines"
+		r := buildReconciler(
+			inNamespace(ownedByLine(newEndpoint("owned", "p", clusterTypeRef("t"),
+				lineBackend("s", "greeter", testLineNext)), "greeter", testLineNext), ns),
+			inNamespace(newEndpoint("other-component", "p", clusterTypeRef("t"), componentBackend("s", "billing", "http", 1)), ns),
+		)
+		rl := newReleaseLine("p", "greeter", testLineNext)
+		rl.Namespace = ns
+		Expect(r.listEndpointsForReleaseLine(watchCtx, rl)).To(ConsistOf(request(ns, "owned")))
+	})
+
+	It("passes only creation to the Component and ReleaseLine watches", func() {
+		p := createOnly()
+		comp := newComponent("p", "greeter")
+		Expect(p.Create(event.CreateEvent{Object: comp})).To(BeTrue())
+		Expect(p.Update(event.UpdateEvent{ObjectOld: comp, ObjectNew: comp})).To(BeFalse())
+		Expect(p.Delete(event.DeleteEvent{Object: comp})).To(BeFalse())
+		Expect(p.Generic(event.GenericEvent{Object: comp})).To(BeFalse())
 	})
 })

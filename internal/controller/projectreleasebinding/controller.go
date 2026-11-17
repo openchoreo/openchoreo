@@ -87,7 +87,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return r.reconcile(ctx, binding)
 }
 
-// reconcile validates the pinned ProjectRelease (existence, owner agreement),
+// reconcile hands Observe mode to reconcileObserve. In Manage mode it validates
+// the pinned ProjectRelease (existence, owner agreement),
 // resolves the binding's environment / dataplane / project, renders the
 // inlined (Cluster)ProjectType resources via the project pipeline, validates
 // the rendered output (mandatory project namespace present, no duplicate
@@ -111,6 +112,10 @@ func (r *Reconciler) reconcile(ctx context.Context, binding *openchoreov1alpha1.
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	if binding.Spec.IsObserve() {
+		return ctrl.Result{}, r.reconcileObserve(ctx, binding)
+	}
 
 	if binding.Spec.ProjectRelease == "" {
 		markSyncedFalse(binding, ReasonProjectReleaseNotSet,

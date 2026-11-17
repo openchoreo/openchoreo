@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/querylimit"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
@@ -28,6 +29,8 @@ type TracesService struct {
 	config         *config.Config
 	resolver       *ResourceUIDResolver
 	logger         *slog.Logger
+	// rawQueryLimiter bounds raw trace queries; nil when no limit is set.
+	rawQueryLimiter *querylimit.Limiter
 }
 
 func NewTracesService(
@@ -39,11 +42,20 @@ func NewTracesService(
 	if tracingAdapter == nil {
 		return nil, fmt.Errorf("tracing adapter is required")
 	}
+	var rawQueryLimiter *querylimit.Limiter
+	if cfg != nil {
+		rawQueryLimiter = querylimit.New(querylimit.Config{
+			MaxConcurrent:     cfg.Adapters.TracingRawQueryMaxConcurrent,
+			RequestsPerMinute: cfg.Adapters.TracingRawQueryRequestsPerMinute,
+			Burst:             cfg.Adapters.TracingRawQueryBurst,
+		})
+	}
 	return &TracesService{
-		tracingAdapter: tracingAdapter,
-		config:         cfg,
-		resolver:       resolver,
-		logger:         logger,
+		tracingAdapter:  tracingAdapter,
+		config:          cfg,
+		resolver:        resolver,
+		logger:          logger,
+		rawQueryLimiter: rawQueryLimiter,
 	}, nil
 }
 

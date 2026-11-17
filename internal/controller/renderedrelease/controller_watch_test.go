@@ -134,19 +134,27 @@ func TestTransitioningRequeuePriority(t *testing.T) {
 	tests := []struct {
 		name      string
 		resources []openchoreov1alpha1.RenderedManifestStatus
+		observed  []openchoreov1alpha1.RenderedManifestStatus
 		want      int
 	}{
-		{"progressing is active", health(openchoreov1alpha1.HealthStatusProgressing), 0},
-		{"unknown is active", health(openchoreov1alpha1.HealthStatusUnknown), 0},
-		{"degraded only is a poll", health(openchoreov1alpha1.HealthStatusDegraded), handler.LowPriority},
+		{"progressing is active", health(openchoreov1alpha1.HealthStatusProgressing), nil, 0},
+		{"unknown is active", health(openchoreov1alpha1.HealthStatusUnknown), nil, 0},
+		{"degraded only is a poll", health(openchoreov1alpha1.HealthStatusDegraded), nil, handler.LowPriority},
 		{"degraded with healthy is a poll",
-			health(openchoreov1alpha1.HealthStatusHealthy, openchoreov1alpha1.HealthStatusDegraded), handler.LowPriority},
+			health(openchoreov1alpha1.HealthStatusHealthy, openchoreov1alpha1.HealthStatusDegraded), nil, handler.LowPriority},
 		{"degraded with progressing is active",
-			health(openchoreov1alpha1.HealthStatusDegraded, openchoreov1alpha1.HealthStatusProgressing), 0},
+			health(openchoreov1alpha1.HealthStatusDegraded, openchoreov1alpha1.HealthStatusProgressing), nil, 0},
+		{"observed progressing is active", nil, health(openchoreov1alpha1.HealthStatusProgressing), 0},
+		// An observed resource was read directly, so Unknown means missing or
+		// unreadable: it does not settle on its own and must not hold priority 0.
+		{"observed unknown is a poll", nil, health(openchoreov1alpha1.HealthStatusUnknown), handler.LowPriority},
+		{"observed degraded is a poll", nil, health(openchoreov1alpha1.HealthStatusDegraded), handler.LowPriority},
+		{"applied unknown with observed degraded is active",
+			health(openchoreov1alpha1.HealthStatusUnknown), health(openchoreov1alpha1.HealthStatusDegraded), 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := transitioningRequeuePriority(tt.resources); got != tt.want {
+			if got := transitioningRequeuePriority(tt.resources, tt.observed); got != tt.want {
 				t.Errorf("transitioningRequeuePriority() = %d, want %d", got, tt.want)
 			}
 		})

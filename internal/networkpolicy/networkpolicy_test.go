@@ -687,3 +687,134 @@ func TestMakeComponentPolicies_NameTruncation(t *testing.T) {
 		t.Errorf("policy name exceeds 253 chars: %d", len(name))
 	}
 }
+
+func endpointPolicyParams(visibility ...openchoreov1alpha1.EndpointVisibility) EndpointPolicyParams {
+	return EndpointPolicyParams{
+		Name:         "openchoreo-e-greeter-api-stable-1a2b3c4d",
+		Namespace:    "dp-ns",
+		CPNamespace:  "cp-ns",
+		Environment:  "development",
+		PodSelectors: map[string]string{"app": "greeter"},
+		Port:         9090,
+		Protocol:     openchoreov1alpha1.EndpointProtocolHTTP,
+		Visibility:   visibility,
+	}
+}
+
+func TestMakeEndpointPolicy_ExternalAdmitsOnlyTheGateways(t *testing.T) {
+	policy := MakeEndpointPolicy(endpointPolicyParams(openchoreov1alpha1.EndpointVisibilityExternal))
+
+	// No project rule: the backend component's own policy already admits its project.
+	assertYAMLEqual(t, "endpoint-external", policy, `
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openchoreo-e-greeter-api-stable-1a2b3c4d
+  namespace: dp-ns
+spec:
+  podSelector:
+    matchLabels:
+      app: greeter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchExpressions:
+              - key: openchoreo.dev/system-component
+                operator: Exists
+      ports:
+        - protocol: TCP
+          port: 9090
+`)
+}
+
+func TestMakeEndpointPolicy_NamespaceAndInternal(t *testing.T) {
+	policy := MakeEndpointPolicy(endpointPolicyParams(
+		openchoreov1alpha1.EndpointVisibilityNamespace, openchoreov1alpha1.EndpointVisibilityInternal))
+
+	assertYAMLEqual(t, "endpoint-namespace-internal", policy, `
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openchoreo-e-greeter-api-stable-1a2b3c4d
+  namespace: dp-ns
+spec:
+  podSelector:
+    matchLabels:
+      app: greeter
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              openchoreo.dev/namespace: cp-ns
+              openchoreo.dev/environment: development
+      ports:
+        - protocol: TCP
+          port: 9090
+    - from:
+        - namespaceSelector: {}
+          podSelector:
+            matchExpressions:
+              - key: openchoreo.dev/system-component
+                operator: Exists
+      ports:
+        - protocol: TCP
+          port: 9090
+`)
+}
+
+func TestMakeEndpointPolicy_ProjectScopeRendersNothing(t *testing.T) {
+	if policy := MakeEndpointPolicy(endpointPolicyParams(openchoreov1alpha1.EndpointVisibilityProject)); policy != nil {
+		t.Fatalf("expected no policy for project scope, which the component policy already admits; got %v", policy)
+	}
+}
+
+func TestMakeEndpointPolicy_Cilium(t *testing.T) {
+	params := endpointPolicyParams(openchoreov1alpha1.EndpointVisibilityExternal)
+	params.Provider = ProviderCilium
+
+	assertYAMLEqual(t, "endpoint-cilium", MakeEndpointPolicy(params), `
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openchoreo-e-greeter-api-stable-1a2b3c4d
+  namespace: dp-ns
+spec:
+  endpointSelector:
+    matchLabels:
+      app: greeter
+  ingress:
+    - fromEndpoints:
+        - matchExpressions:
+            - key: openchoreo.dev/system-component
+              operator: Exists
+            - key: k8s:io.kubernetes.pod.namespace
+              operator: Exists
+      toPorts:
+        - ports:
+            - port: "9090"
+              protocol: TCP
+          rules:
+            http:
+              - {}
+`)
+}
+
+func TestProviderFromAnnotations(t *testing.T) {
+	for _, tc := range []struct {
+		annotations map[string]string
+		want        Provider
+	}{
+		{nil, ProviderKubernetes},
+		{map[string]string{ProviderAnnotation: "cilium"}, ProviderCilium},
+		{map[string]string{ProviderAnnotation: "calico"}, ProviderKubernetes},
+	} {
+		if got := ProviderFromAnnotations(tc.annotations); got != tc.want {
+			t.Errorf("ProviderFromAnnotations(%v) = %s, want %s", tc.annotations, got, tc.want)
+		}
+	}
+}

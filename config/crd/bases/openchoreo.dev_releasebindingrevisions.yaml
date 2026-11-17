@@ -81,6 +81,63 @@ spec:
                     x-kubernetes-validations:
                     - message: spec.environment is immutable
                       rule: self == oldSelf
+                  mode:
+                    default: Manage
+                    description: |-
+                      Mode decides whether this binding deploys the component's release
+                      (Manage) or reads objects the component already runs (Observe). Observe
+                      needs a ProjectReleaseBinding in Observe mode for the same project and
+                      environment. In Observe mode, releaseName, the environment configs,
+                      workloadOverrides and state are kept but have no effect.
+                    enum:
+                    - Manage
+                    - Observe
+                    type: string
+                  observe:
+                    description: Observe configures Observe mode. It is ignored in
+                      Manage mode.
+                    properties:
+                      resources:
+                        description: |-
+                          Resources lists objects in the namespace of the project's
+                          ProjectReleaseBinding that make up this component, such as its
+                          Deployment and Service.
+                        items:
+                          description: |-
+                            ObservedResourceClaim names an existing object for a binding in observe mode
+                            to read. The object is in the namespace the binding observes, so only
+                            namespaced kinds can be claimed.
+                          properties:
+                            apiVersion:
+                              description: APIVersion is the object's API version,
+                                such as "apps/v1" or "v1".
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^([^/]+/)?[^/]+$
+                              type: string
+                            kind:
+                              description: Kind is the object's kind, such as "Deployment".
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[A-Z][A-Za-z0-9]*$
+                              type: string
+                            name:
+                              description: Name is the object's name.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - apiVersion
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - apiVersion
+                        - kind
+                        - name
+                        x-kubernetes-list-type: map
+                    type: object
                   owner:
                     description: Owner identifies the component and project this ReleaseBinding
                       belongs to

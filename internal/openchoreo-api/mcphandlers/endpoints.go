@@ -92,8 +92,10 @@ func (h *MCPHandler) CreateEndpoint(
 }
 
 // UpdateEndpoint applies the provided fields onto the stored Endpoint, so the
-// immutable spec.owner and spec.type, and anything the caller did not send,
-// are preserved.
+// project, the immutable spec.type, and anything the caller did not send are
+// preserved. An owning component or release line in the request narrows
+// ownership; the endpoint service widens it again to the narrowest owner every
+// backend routes to.
 func (h *MCPHandler) UpdateEndpoint(
 	ctx context.Context, namespaceName string, req *gen.UpdateEndpointJSONRequestBody,
 ) (any, error) {
@@ -125,12 +127,21 @@ func (h *MCPHandler) UpdateEndpoint(
 			}
 			existing.Spec.BackendRefs = backends
 		}
+		if req.Spec.AutoDeploy != nil {
+			existing.Spec.AutoDeploy = *req.Spec.AutoDeploy
+		}
 		if req.Spec.Parameters != nil {
 			paramsBytes, err := json.Marshal(*req.Spec.Parameters)
 			if err != nil {
 				return nil, fmt.Errorf("marshal parameters: %w", err)
 			}
 			existing.Spec.Parameters = &runtime.RawExtension{Raw: paramsBytes}
+		}
+		if req.Spec.Owner.ComponentName != nil {
+			existing.Spec.Owner.ComponentName = *req.Spec.Owner.ComponentName
+		}
+		if req.Spec.Owner.ReleaseLineName != nil {
+			existing.Spec.Owner.ReleaseLineName = *req.Spec.Owner.ReleaseLineName
 		}
 	}
 

@@ -355,7 +355,10 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 		// Build visibility array: always include "project", then append additional unique visibilities.
 		visibilitySet := map[string]struct{}{string(v1alpha1.EndpointVisibilityProject): {}}
 		visibility := []string{string(v1alpha1.EndpointVisibilityProject)}
-		for _, v := range endpoint.Visibility {
+		// The workload field is deprecated in favor of Endpoint.spec.visibility,
+		// but ComponentType templates written against it keep working for the
+		// deprecation window.
+		for _, v := range endpoint.Visibility { //nolint:staticcheck // deprecated field still supported for backward compatibility
 			vs := string(v)
 			if _, exists := visibilitySet[vs]; !exists {
 				visibilitySet[vs] = struct{}{}
@@ -367,7 +370,8 @@ func ExtractWorkloadData(workload *v1alpha1.Workload) WorkloadData {
 			DisplayName: endpoint.DisplayName,
 			Port:        endpoint.Port,
 			TargetPort:  targetPort,
-			Type:        string(endpoint.Type),
+			Protocol:    string(endpoint.EffectiveProtocol()),
+			Type:        string(endpoint.EffectiveProtocol()),
 			BasePath:    endpoint.BasePath,
 			Visibility:  visibility,
 		}
@@ -392,11 +396,12 @@ func ExtractEndpointResources(workload *v1alpha1.Workload) EndpointResourceMap {
 		return result
 	}
 	for name, endpoint := range workload.Spec.Endpoints {
-		resources, err := schemaextract.Extract(endpoint.Type, endpoint.Schema)
+		protocol := endpoint.EffectiveProtocol()
+		resources, err := schemaextract.Extract(protocol, endpoint.Schema)
 		if err != nil {
 			logf.Log.WithName("schemaextract").Info(
 				"failed to extract endpoint API schema; falling back to catch-all routing",
-				"endpoint", name, "type", endpoint.Type, "error", err.Error())
+				"endpoint", name, "protocol", protocol, "error", err.Error())
 		}
 		if len(resources) > 0 {
 			result[name] = resources

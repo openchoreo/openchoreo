@@ -26,6 +26,16 @@ type ClusterEndpointTypeSpec struct {
 	// +optional
 	Validations []ValidationRule `json:"validations,omitempty"`
 
+	// URLs declares, per visibility, where clients reach the endpoint and how
+	// to call it. Each entry is optional: a type declares only the visibilities
+	// it serves. Every field is a ${...} CEL template evaluated at render time
+	// against the same context as resources (metadata.*, parameters.*,
+	// environmentConfigs.*, visibility, backends[], dataplane.*, environment.*
+	// and gateway.*); nothing is read back from the data plane. Resolved values
+	// are reported on EndpointReleaseBinding.status.urls.
+	// +optional
+	URLs *EndpointTypeURLs `json:"urls,omitempty"`
+
 	// Resources are the routing manifests (e.g. HTTPRoute, Ingress, OpenShift
 	// Route) the ClusterEndpointType emits on the data plane for each
 	// EndpointReleaseBinding. Uses the same templating engine as ComponentType.

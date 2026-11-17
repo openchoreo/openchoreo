@@ -76,6 +76,29 @@ const (
 	// the main line's pods carry
 	ReasonReleaseLinePodLabelOverlap controller.ConditionReason = "ReleaseLinePodLabelOverlap"
 
+	// Observe mode issues (Status=False)
+
+	// ReasonProjectReleaseBindingNotFound indicates there is no
+	// ProjectReleaseBinding for the binding's project and environment, which
+	// Observe mode needs
+	ReasonProjectReleaseBindingNotFound controller.ConditionReason = "ProjectReleaseBindingNotFound"
+
+	// ReasonProjectReleaseBindingConflict indicates several ProjectReleaseBindings
+	// target the binding's project and environment
+	ReasonProjectReleaseBindingConflict controller.ConditionReason = "ProjectReleaseBindingConflict"
+
+	// ReasonProjectNotObserved indicates the project's ProjectReleaseBinding is in
+	// Manage mode. Observing a component under it is not supported yet.
+	ReasonProjectNotObserved controller.ConditionReason = "ProjectNotObserved"
+
+	// ReasonNamespaceNotObserved indicates the project's ProjectReleaseBinding is in
+	// Observe mode but not observing a namespace, for example because its
+	// Environment does not allow the namespace
+	ReasonNamespaceNotObserved controller.ConditionReason = "NamespaceNotObserved"
+
+	// ReasonNothingObserved indicates an Observe-mode binding lists no resources
+	ReasonNothingObserved controller.ConditionReason = "NothingObserved"
+
 	// Rendering issues (Status=False)
 
 	// ReasonRenderingFailed indicates failure to render resources

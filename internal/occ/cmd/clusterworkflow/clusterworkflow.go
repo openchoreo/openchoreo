@@ -125,6 +125,7 @@ func (c *ClusterWorkflow) Logs(params LogsParams) error {
 		WorkflowRunName: runName,
 		Follow:          params.Follow,
 		Since:           params.Since,
+		Output:          params.Output,
 	})
 }
 

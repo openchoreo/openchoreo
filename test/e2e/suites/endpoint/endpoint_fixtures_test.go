@@ -139,11 +139,10 @@ func platformResourcesYAML() string {
 }
 
 // backendComponentYAML returns a Component and Workload answering with its own
-// name on an "http" endpoint. The endpoint is external: an Endpoint exposes
-// workload endpoints the developer has already made reachable through the
-// gateway, and that visibility is what the component's NetworkPolicy admits
-// gateway traffic for. The component also renders its own route, on its
-// project's host, so it does not collide with the Endpoint's.
+// name on an "http" endpoint. The endpoint declares no visibility: the
+// Endpoint carries it, and the network policy the Endpoint renders with its
+// routes is what admits the gateway to the component's pods. The component's
+// own policy admits only its project.
 func backendComponentYAML(name string) string {
 	comp := &openchoreov1alpha1.Component{
 		TypeMeta:   metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Component"},
@@ -168,10 +167,12 @@ func backendComponentYAML(name string) string {
 					Args:  []string{"-text=" + name, "-listen=:8080"},
 				},
 				Endpoints: map[string]openchoreov1alpha1.WorkloadEndpoint{
+					// No visibility on the workload: the Endpoint carries it, and
+					// its own network policy admits the gateway. The ComponentType
+					// renders no route of its own.
 					"http": {
-						Type:       openchoreov1alpha1.EndpointProtocolHTTP,
-						Port:       8080,
-						Visibility: []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityExternal},
+						Protocol: openchoreov1alpha1.EndpointProtocolHTTP,
+						Port:     8080,
 					},
 				},
 			},
@@ -201,6 +202,15 @@ func clusterEndpointTypeYAML() string {
 				ID:          "httproute-external",
 				IncludeWhen: `${"external" in visibility}`,
 				Template:    &runtime.RawExtension{Raw: []byte(weightedRouteTemplate)},
+			}},
+			// Built from the same gateway data as the route's hostname, so the
+			// test can call the endpoint on the URL the binding reports.
+			URLs: &openchoreov1alpha1.EndpointTypeURLs{External: &openchoreov1alpha1.EndpointURLTemplate{
+				Scheme:   "http",
+				Host:     "${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.external.http.host}",
+				Port:     "${gateway.ingress.external.http.port}",
+				Path:     "/",
+				Security: &openchoreov1alpha1.EndpointSecurityTemplate{Scheme: "none"},
 			}},
 		},
 	})

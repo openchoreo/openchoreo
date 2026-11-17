@@ -30,6 +30,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .spec.mode
+      name: Mode
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -67,7 +70,8 @@ spec:
               Pins a ProjectRelease to an Environment and carries per-env overrides for
               the schema declared on the inlined (Cluster)ProjectType environmentConfigs.
               Owns the cell namespace for (Project, Environment); applies the inlined
-              (Cluster)ProjectType.spec.resources to that namespace.
+              (Cluster)ProjectType.spec.resources to that namespace. In Observe mode it
+              maps the environment to an existing namespace and writes nothing to it.
               An empty projectRelease pin is seeded once by the Project controller with
               the project's latest release; advancing the pin afterwards is manual
               (e.g. via `occ project promote` or kubectl edit).
@@ -87,6 +91,76 @@ spec:
                   the schema on the referenced ProjectRelease by the binding controller;
                   failures surface via status.conditions.
                 x-kubernetes-preserve-unknown-fields: true
+              mode:
+                default: Manage
+                description: |-
+                  Mode decides whether this binding owns a generated namespace and applies
+                  the inlined (Cluster)ProjectType resources to it (Manage), or maps the
+                  environment to an existing namespace and only reads it (Observe). In
+                  Observe mode, projectRelease and environmentConfigs are ignored.
+                enum:
+                - Manage
+                - Observe
+                type: string
+                x-kubernetes-validations:
+                - message: spec.mode is immutable
+                  rule: self == oldSelf
+              observe:
+                description: Observe configures Observe mode.
+                properties:
+                  namespace:
+                    description: |-
+                      Namespace is the existing data-plane namespace this binding observes. The
+                      environment must list it in spec.observe.allowedNamespaces.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: spec.observe.namespace is immutable
+                      rule: self == oldSelf
+                  resources:
+                    description: |-
+                      Resources lists project-level objects in the namespace to observe, such
+                      as NetworkPolicies or ResourceQuotas.
+                    items:
+                      description: |-
+                        ObservedResourceClaim names an existing object for a binding in observe mode
+                        to read. The object is in the namespace the binding observes, so only
+                        namespaced kinds can be claimed.
+                      properties:
+                        apiVersion:
+                          description: APIVersion is the object's API version, such
+                            as "apps/v1" or "v1".
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^([^/]+/)?[^/]+$
+                          type: string
+                        kind:
+                          description: Kind is the object's kind, such as "Deployment".
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[A-Z][A-Za-z0-9]*$
+                          type: string
+                        name:
+                          description: Name is the object's name.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - apiVersion
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - apiVersion
+                    - kind
+                    - name
+                    x-kubernetes-list-type: map
+                required:
+                - namespace
+                type: object
               owner:
                 description: Owner identifies the project this ProjectReleaseBinding
                   belongs to.
@@ -114,6 +188,10 @@ spec:
             - environment
             - owner
             type: object
+            x-kubernetes-validations:
+            - message: spec.observe is required when spec.mode is Observe, and not
+                allowed otherwise
+              rule: (has(self.mode) && self.mode == 'Observe') == has(self.observe)
           status:
             description: ProjectReleaseBindingStatus defines the observed state of
               ProjectReleaseBinding.
@@ -183,9 +261,10 @@ spec:
                 x-kubernetes-list-type: map
               namespace:
                 description: |-
-                  Namespace is the actual data-plane namespace owned by this binding
-                  (dp-{ns}-{project}-{env}-{hash}). Surfaced here for kubectl describe and
-                  debugging.
+                  Namespace is the data-plane namespace of this binding. In Manage mode it
+                  is the generated namespace the binding owns (dp-{ns}-{project}-{env}-{hash}).
+                  In Observe mode it is spec.observe.namespace, set only while the
+                  environment allows observing it.
                 type: string
               observedGeneration:
                 description: ObservedGeneration is the most recent generation observed

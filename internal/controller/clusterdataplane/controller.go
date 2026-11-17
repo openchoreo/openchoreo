@@ -100,7 +100,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Requeue to refresh agent connection status
-		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+		return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 	}
 
 	// Set the observed generation
@@ -146,7 +146,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.Recorder.Event(clusterDataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", clusterDataPlane.Name))
 
 	// Requeue to refresh agent connection status
-	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(clusterDataPlane *openchoreov1alpha1.ClusterDataPlane) bool {
@@ -218,6 +218,18 @@ func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, clusterD
 		return err
 	}
 
+	// Agents are connected to the plane but none is authorized for this CR: the
+	// gateway missed its grant. It grants only when notified, so notify it again.
+	if status.GrantMissing() {
+		logger.Info("plane has connected agents but none is authorized for this ClusterDataPlane, re-notifying gateway",
+			"planeID", clusterDataPlane.Spec.PlaneID,
+			"planeConnectedAgents", status.PlaneConnectedAgents,
+		)
+		if err := r.notifyGateway(ctx, clusterDataPlane, "updated"); err != nil {
+			logger.Error(err, "failed to re-notify gateway", "planeID", clusterDataPlane.Spec.PlaneID)
+		}
+	}
+
 	// Populate ClusterDataPlane status fields (caller will persist to API server)
 	now := metav1.Now()
 	if clusterDataPlane.Status.AgentConnection == nil {
@@ -268,7 +280,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	// Cluster-scoped planes don't watch namespace-scoped resources like Environments
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.ClusterDataPlane{}).
+		For(&openchoreov1alpha1.ClusterDataPlane{}, builder.WithPredicates(controller.PlaneChangedPredicate())).
 		// A removed control plane namespace triggers a sweep of its plane namespaces.
 		Watches(
 			&corev1.Namespace{},

@@ -3184,6 +3184,17 @@ backstage:
       enabled: false
     # @schema
     # type: object
+    # description: Scorecards portal feature
+    # @schema
+    scorecards:
+      # @schema
+      # type: boolean
+      # description: Show Scorecards (Tech Insights checks) in the portal. Maps to OPENCHOREO_FEATURES_SCORECARDS_ENABLED in the Backstage container. Checks authored in the portal are stored in the Backstage database, which is SQLite on an emptyDir by default, so they are lost when the pod restarts. Set backstage.database.type to postgresql or enable backstage.database.sqlite.persistence to keep them.
+      # default: true
+      # @schema
+      enabled: true
+    # @schema
+    # type: object
     # description: Authentication feature flags
     # @schema
     auth:
@@ -3985,6 +3996,13 @@ clusterGateway:
   # default: 10s
   # @schema
   drainWindow: 10s
+
+  # @schema
+  # type: string
+  # description: How long the gateway waits for its plane CR cache to load before it exits and is restarted. While it waits it is not ready and refuses agent connections. The default, 0s, waits without limit.
+  # default: 0s
+  # @schema
+  planeCacheSyncTimeout: 0s
 
   # @schema
   # type: object

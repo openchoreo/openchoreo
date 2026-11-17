@@ -2341,7 +2341,7 @@ func TestUpdateStatusPersistsConditionOnlyChange(t *testing.T) {
 		LastTransitionTime: metav1.Now(),
 	}}
 
-	changed, err := r.updateStatus(ctx, old, updated, statuses)
+	changed, err := r.updateStatus(ctx, old, updated, statuses, nil)
 	if err != nil {
 		t.Fatalf("updateStatus returned %v", err)
 	}

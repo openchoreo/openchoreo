@@ -1062,7 +1062,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "429":
-          description: Too many raw queries; retry later
+          description: |
+            Too many raw queries: the maximum number of raw trace queries are
+            already running, or the caller has run more than its rate allows.
+            Both limits are configured on the observability plane, per Observer
+            replica. Retry after the time in the Retry-After header.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+                minimum: 1
           content:
             application/json:
               schema:
@@ -1737,6 +1747,13 @@ components:
         environmentUid:
           type: string
           description: The OpenChoreo environment UID that generated the log
+          format: uuid
+        releaseLineName:
+          type: string
+          description: The component's release line that generated the log. Absent for its main line.
+        releaseLineUid:
+          type: string
+          description: The UID of the component's release line that generated the log. Absent for its main line.
           format: uuid
         containerName:
           type: string

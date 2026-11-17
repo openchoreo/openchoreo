@@ -22,8 +22,10 @@ import (
 	coremocks "github.com/openchoreo/openchoreo/internal/authz/core/mocks"
 	observerAuthz "github.com/openchoreo/openchoreo/internal/observer/authz"
 	"github.com/openchoreo/openchoreo/internal/observer/config"
+	"github.com/openchoreo/openchoreo/internal/observer/querylimit"
 	"github.com/openchoreo/openchoreo/internal/observer/service/mocks"
 	"github.com/openchoreo/openchoreo/internal/observer/types"
+	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
 
@@ -145,5 +147,135 @@ func TestTracesAuthz_QueryRawTraces(t *testing.T) {
 		assert.Equal(t, string(observerAuthz.ActionRawQueryTraces), captured.Action)
 		assert.Equal(t, authzcore.ResourceHierarchy{}, captured.Resource.Hierarchy,
 			"raw trace queries must evaluate at cluster scope")
+	})
+}
+
+// blockingRawAdapter holds each raw query until release is closed.
+type blockingRawAdapter struct {
+	fakeTracingAdapter
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingRawAdapter) QueryRawTraces(ctx context.Context,
+	_ observability.RawTracesQueryParams,
+) (*observability.RawTracesQueryResult, error) {
+	b.entered <- struct{}{}
+	select {
+	case <-b.release:
+		return &observability.RawTracesQueryResult{Body: json.RawMessage(`{}`)}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func limitedTracesService(t *testing.T, adapter observability.TracingAdapter, maxConcurrent, perMinute, burst int) *TracesService {
+	t.Helper()
+	cfg := &config.Config{}
+	cfg.Adapters.TracingRawQueryMaxConcurrent = maxConcurrent
+	cfg.Adapters.TracingRawQueryRequestsPerMinute = perMinute
+	cfg.Adapters.TracingRawQueryBurst = burst
+	svc, err := NewTracesService(adapter, nil, cfg, testLogger())
+	require.NoError(t, err)
+	return svc
+}
+
+func subjectCtx(id string) context.Context {
+	return auth.SetSubjectContext(context.Background(), &auth.SubjectContext{ID: id, Issuer: "idp", Type: "user"})
+}
+
+func requireRawLimited(t *testing.T, err error, reason querylimit.Reason) {
+	t.Helper()
+	require.ErrorIs(t, err, ErrRawTracesLimited)
+	var limited *querylimit.LimitedError
+	require.ErrorAs(t, err, &limited)
+	assert.Equal(t, reason, limited.Reason)
+}
+
+func TestTracesService_QueryRawTraces_Limits(t *testing.T) {
+	t.Parallel()
+
+	t.Run("refuses a query while the maximum are running", func(t *testing.T) {
+		t.Parallel()
+		adapter := &blockingRawAdapter{entered: make(chan struct{}, 1), release: make(chan struct{})}
+		svc := limitedTracesService(t, adapter, 1, 0, 0)
+
+		done := make(chan error, 1)
+		go func() {
+			_, err := svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+			done <- err
+		}()
+		<-adapter.entered
+
+		_, err := svc.QueryRawTraces(subjectCtx("bob"), rawRequest())
+		requireRawLimited(t, err, querylimit.ReasonConcurrency)
+
+		close(adapter.release)
+		require.NoError(t, <-done)
+
+		// The finished query gave its slot back.
+		_, err = svc.QueryRawTraces(subjectCtx("bob"), rawRequest())
+		require.NoError(t, err)
+	})
+
+	t.Run("gives the slot back when the adapter fails", func(t *testing.T) {
+		t.Parallel()
+		adapter := &fakeTracingAdapter{rawErr: ErrRawTracesTimeout}
+		svc := limitedTracesService(t, adapter, 1, 0, 0)
+
+		for range 3 {
+			_, err := svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+			require.ErrorIs(t, err, ErrRawTracesTimeout)
+		}
+	})
+
+	t.Run("gives the slot back when the caller cancels", func(t *testing.T) {
+		t.Parallel()
+		adapter := &blockingRawAdapter{entered: make(chan struct{}, 1), release: make(chan struct{})}
+		svc := limitedTracesService(t, adapter, 1, 0, 0)
+
+		ctx, cancel := context.WithCancel(subjectCtx("alice"))
+		done := make(chan error, 1)
+		go func() {
+			_, err := svc.QueryRawTraces(ctx, rawRequest())
+			done <- err
+		}()
+		<-adapter.entered
+		cancel()
+		require.ErrorIs(t, <-done, context.Canceled)
+
+		close(adapter.release)
+		go func() { <-adapter.entered }()
+		_, err := svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+		require.NoError(t, err)
+	})
+
+	t.Run("limits each caller's rate separately", func(t *testing.T) {
+		t.Parallel()
+		adapter := &fakeTracingAdapter{rawResult: &observability.RawTracesQueryResult{Body: json.RawMessage(`{}`)}}
+		svc := limitedTracesService(t, adapter, 0, 1, 2)
+
+		for range 2 {
+			_, err := svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+			require.NoError(t, err)
+		}
+		adapter.lastRawParams = nil
+		_, err := svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+		requireRawLimited(t, err, querylimit.ReasonRate)
+		assert.Nil(t, adapter.lastRawParams, "a refused query must not reach the adapter")
+
+		_, err = svc.QueryRawTraces(subjectCtx("bob"), rawRequest())
+		require.NoError(t, err)
+	})
+
+	t.Run("an empty request uses up no limit", func(t *testing.T) {
+		t.Parallel()
+		adapter := &fakeTracingAdapter{rawResult: &observability.RawTracesQueryResult{Body: json.RawMessage(`{}`)}}
+		svc := limitedTracesService(t, adapter, 0, 1, 1)
+
+		_, err := svc.QueryRawTraces(subjectCtx("alice"), &types.RawTracesQueryRequest{ContentType: "text/plain"})
+		require.ErrorIs(t, err, ErrRawTracesInvalidRequest)
+		_, err = svc.QueryRawTraces(subjectCtx("alice"), rawRequest())
+		require.NoError(t, err)
 	})
 }

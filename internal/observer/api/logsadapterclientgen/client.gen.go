@@ -820,6 +820,12 @@ type ComponentLogEntry struct {
 
 		// ProjectUid The OpenChoreo project UID that generated the log
 		ProjectUid *openapi_types.UUID `json:"projectUid,omitempty"`
+
+		// ReleaseLineName The component's release line that generated the log, from the pod's openchoreo.dev/release-line label. Absent for its main line.
+		ReleaseLineName *string `json:"releaseLineName,omitempty"`
+
+		// ReleaseLineUid The UID of the component's release line that generated the log, from the pod's openchoreo.dev/release-line-uid label. Absent for its main line.
+		ReleaseLineUid *openapi_types.UUID `json:"releaseLineUid,omitempty"`
 	} `json:"metadata,omitempty"`
 
 	// Timestamp The timestamp of the log entry
