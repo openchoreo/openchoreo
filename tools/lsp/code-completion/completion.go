@@ -514,6 +514,9 @@ func referenceNames(ctx completionContext, idx ResourceIndexer) ([]string, bool)
 		if names := byKind[kindRef]; len(names) > 0 {
 			return names, true
 		}
+		if _, cluster := idx.(interface{ ClusterNames(string) []string }); cluster {
+			return nil, true
+		}
 	}
 	var all []string
 	seen := make(map[string]bool)

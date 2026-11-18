@@ -55,6 +55,22 @@ func bindingReleaseItems(text string, line, col int, uri string, idx ResourceInd
 			counts[d.Metadata.Name]++
 		}
 	}
+
+	if remote, ok := idx.(interface{ ClusterNames(string) []string }); ok {
+		key := rel.release
+		if rel.release == "ComponentRelease" {
+			component := dynamicScalar(dynamicAt(doc.Spec, "owner.componentName"))
+			if component == "" {
+				component = dynamicScalar(dynamicAt(doc.Spec, "componentName"))
+			}
+			key += ":" + component
+		}
+		for _, name := range remote.ClusterNames(key) {
+			if counts[name] == 0 {
+				counts[name] = 1
+			}
+		}
+	}
 	var names []string
 	for name, count := range counts {
 		if name != "" && count == 1 {

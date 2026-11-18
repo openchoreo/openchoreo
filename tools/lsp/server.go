@@ -32,6 +32,7 @@ type outboundNotification struct {
 }
 
 type Server struct {
+	cluster               clusterFeed
 	schemaMu              sync.Mutex
 	schemaScopes          map[string]schemaScopeEntry
 	schemaDependencyPaths map[string]struct{}
@@ -137,6 +138,7 @@ func NewServer() *Server {
 		outbox:               make(chan outboundNotification, 256),
 		logger:               slog.New(slog.NewTextHandler(os.Stderr, nil)),
 	}
+	s.server = server.NewServer(&clusterHandler{Handler: &handler, feed: &s.cluster, report: func(err error) { s.logger.Warn("invalid cluster feed", "error", err) }}, "OpenChoreo Language Server", false)
 	handler.Initialize = WithRequestRecovery(s, "initialize", s.Initialize)
 	handler.Initialized = WithHandlerRecovery(s, "initialized", s.Initialized)
 	handler.SetTrace = WithHandlerRecovery(s, "setTrace", s.SetTrace)
@@ -271,7 +273,13 @@ func (s *Server) Completion(
 	if s.indexer == nil {
 		return codecompletion.Handle(doc.Text, cursorLine, cursorCol)
 	}
-	return codecompletion.HandleWithIndex(doc.Text, cursorLine, cursorCol, s.indexer, uri)
+	s.cluster.mu.RLock()
+	hasCluster := len(s.cluster.names) > 0 || len(s.cluster.schemas) > 0
+	s.cluster.mu.RUnlock()
+	if !hasCluster {
+		return codecompletion.HandleWithIndex(doc.Text, cursorLine, cursorCol, s.indexer, uri)
+	}
+	return codecompletion.HandleWithIndex(doc.Text, cursorLine, cursorCol, s.clusterCompletionIndex(uri, doc.Text), uri)
 }
 
 // CodeAction handles textDocument/codeAction requests, delegating to the
