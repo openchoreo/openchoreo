@@ -151,6 +151,7 @@ func TestAlertService_MetricsAdapter_GetAlertRule(t *testing.T) {
 			// Verify request
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v1alpha1/alerts/rules/"+ruleName, r.URL.Path)
+			assert.Equal(t, testNamespace, r.URL.Query().Get("namespace"))
 
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
@@ -178,7 +179,7 @@ func TestAlertService_MetricsAdapter_GetAlertRule(t *testing.T) {
 			logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 		}
 
-		resp, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeMetric)
+		resp, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeMetric)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -197,7 +198,7 @@ func TestAlertService_MetricsAdapter_GetAlertRule(t *testing.T) {
 			logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 		}
 
-		_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeMetric)
+		_, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeMetric)
 
 		// Should attempt Prometheus path and fail (since not mocked)
 		require.Error(t, err)
@@ -258,6 +259,7 @@ func TestAlertService_MetricsAdapter_UpdateAlertRule(t *testing.T) {
 			// Verify request
 			assert.Equal(t, http.MethodPut, r.Method)
 			assert.Equal(t, "/api/v1alpha1/alerts/rules/"+ruleName, r.URL.Path)
+			assert.Equal(t, "test-ns", r.URL.Query().Get("namespace"))
 			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 			// Capture request body
@@ -327,6 +329,7 @@ func TestAlertService_MetricsAdapter_DeleteAlertRule(t *testing.T) {
 			// Verify request
 			assert.Equal(t, http.MethodDelete, r.Method)
 			assert.Equal(t, "/api/v1alpha1/alerts/rules/"+ruleName, r.URL.Path)
+			assert.Equal(t, testNamespace, r.URL.Query().Get("namespace"))
 
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
@@ -349,7 +352,7 @@ func TestAlertService_MetricsAdapter_DeleteAlertRule(t *testing.T) {
 			logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 		}
 
-		resp, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeMetric)
+		resp, err := svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeMetric)
 
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -365,7 +368,7 @@ func TestAlertService_MetricsAdapter_DeleteAlertRule(t *testing.T) {
 			logger:               slog.New(slog.NewTextHandler(io.Discard, nil)),
 		}
 
-		_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeMetric)
+		_, err := svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeMetric)
 
 		// Should attempt Prometheus path and fail (since not mocked)
 		require.Error(t, err)
@@ -433,7 +436,7 @@ func TestAlertService_MetricsAdapter_HTTPErrors(t *testing.T) {
 			}
 
 			// Test with Get operation
-			resp, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeMetric)
+			resp, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeMetric)
 
 			assert.Nil(t, resp)
 			require.Error(t, err)

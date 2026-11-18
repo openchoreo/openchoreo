@@ -59,7 +59,7 @@ func TestGetAlertRule_UnsupportedSourceType(t *testing.T) {
 	t.Parallel()
 
 	svc := newTestAlertService()
-	_, err := svc.GetAlertRule(context.Background(), testRuleName, "unsupported")
+	_, err := svc.GetAlertRule(context.Background(), testNamespace, testRuleName, "unsupported")
 	require.Error(t, err)
 }
 
@@ -67,7 +67,7 @@ func TestDeleteAlertRule_UnsupportedSourceType(t *testing.T) {
 	t.Parallel()
 
 	svc := newTestAlertService()
-	_, err := svc.DeleteAlertRule(context.Background(), testRuleName, "unsupported")
+	_, err := svc.DeleteAlertRule(context.Background(), testNamespace, testRuleName, "unsupported")
 	require.Error(t, err)
 }
 

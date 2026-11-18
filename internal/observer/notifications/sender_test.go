@@ -4,9 +4,11 @@
 package notifications
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/smtp"
@@ -384,6 +386,49 @@ func TestSendAlertNotification_WebhookRoute(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to send alert notification webhook")
 	})
+}
+
+func TestSendAlertNotification_WebhookLogsLeaveOutTheURL(t *testing.T) {
+	const secretPath = "/services/T000/B000/s3cr3t-token"
+
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    bool
+	}{
+		{name: "delivered", statusCode: http.StatusOK},
+		{name: "rejected by the receiver", statusCode: http.StatusForbidden, wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.statusCode)
+				_, _ = io.WriteString(w, "request to "+r.URL.Path)
+			}))
+			defer ts.Close()
+
+			origClient := httpClient
+			t.Cleanup(func() { httpClient = origClient })
+			httpClient = ts.Client()
+
+			var logs bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			config := &NotificationChannelConfig{
+				Type:    "webhook",
+				Webhook: WebhookConfig{URL: ts.URL + secretPath},
+			}
+
+			err := SendAlertNotification(context.Background(), config, newTestAlertDetails(), logger)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.NotContains(t, err.Error(), "s3cr3t")
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Contains(t, logs.String(), ts.URL+"/<redacted>")
+			assert.NotContains(t, logs.String(), "s3cr3t")
+		})
+	}
 }
 
 func TestSendAlertNotification_EmailRoute(t *testing.T) {
