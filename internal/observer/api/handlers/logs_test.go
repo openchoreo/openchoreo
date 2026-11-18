@@ -43,6 +43,56 @@ func TestQueryLogs_Success(t *testing.T) {
 	assert.Contains(t, rr.Body.String(), `"total":1`)
 }
 
+func TestQueryLogs_ContainerNameReachesService(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                string
+		bodyContainerFilter string
+		wantContainerName   string
+	}{
+		{
+			name:                "present",
+			bodyContainerFilter: `"containerName":"sidecar"`,
+			wantContainerName:   "sidecar",
+		},
+		{name: "absent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got *types.LogsQueryRequest
+			svc := servicemocks.NewMockLogsQuerier(t)
+			svc.On("QueryLogs", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					got = args.Get(1).(*types.LogsQueryRequest)
+				}).
+				Return(&types.LogsQueryResponse{Logs: []types.LogEntry{}}, nil)
+
+			h := &Handler{
+				baseHandler: baseHandler{logger: noopLogger()},
+				logsService: svc,
+			}
+			body := `{"startTime":"2026-01-01T00:00:00Z","endTime":"2026-01-01T01:00:00Z",` +
+				`"searchScope":{"namespace":"ns","project":"project","component":"component"}`
+			if tt.bodyContainerFilter != "" {
+				body += `,` + tt.bodyContainerFilter
+			}
+			body += `}`
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/logs/query", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rr := serve(t, h, req)
+
+			require.Equal(t, http.StatusOK, rr.Code, rr.Body.String())
+			require.NotNil(t, got)
+			assert.Equal(t, tt.wantContainerName, got.ContainerName)
+		})
+	}
+}
+
 func TestQueryLogs_InvalidBody(t *testing.T) {
 	t.Parallel()
 
