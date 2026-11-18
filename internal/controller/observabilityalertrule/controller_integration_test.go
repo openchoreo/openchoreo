@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -949,6 +950,11 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
 
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"metadata":{"namespace":"default"}}`))
+					return
+				}
 				if r.Method == http.MethodDelete {
 					w.WriteHeader(http.StatusNoContent)
 					return
@@ -1008,6 +1014,11 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer GinkgoRecover()
+				if r.Method == http.MethodGet {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"metadata":{"namespace":"default"}}`))
+					return
+				}
 				if r.Method == http.MethodDelete {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
@@ -1061,12 +1072,16 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 		nn := types.NamespacedName{Name: name, Namespace: "default"}
 		var testServer *httptest.Server
 		var origEndpoint string
+		var deleteCalled atomic.Bool
 
 		BeforeEach(func() {
 			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
 
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// 404 means already deleted — controller should still succeed
+				// 404 means already deleted — controller should still succeed without a DELETE
+				if r.Method == http.MethodDelete {
+					deleteCalled.Store(true)
+				}
 				w.WriteHeader(http.StatusNotFound)
 			}))
 			os.Setenv("OBSERVER_INTERNAL_ENDPOINT", testServer.URL)
@@ -1098,6 +1113,7 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			r := newReconciler()
 			_, err := r.Reconcile(ctx, reconcileRequest(name))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(deleteCalled.Load()).To(BeFalse(), "a rule that is already gone must not be deleted by name")
 
 			By("Resource should be gone")
 			Eventually(func() bool {
@@ -1120,6 +1136,11 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			origEndpoint = os.Getenv("OBSERVER_INTERNAL_ENDPOINT")
 
 			testServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"metadata":{"namespace":"default"}}`))
+					return
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte(`{"message":"internal error"}`))
@@ -1374,7 +1395,7 @@ var _ = Describe("ObservabilityAlertRule Controller", func() {
 			Expect(k8sClient.Get(ctx, nn, rule)).To(Succeed())
 			Expect(k8sClient.Delete(ctx, rule)).To(Succeed())
 
-			By("Reconciling — finalize() should fail on the DELETE HTTP call")
+			By("Reconciling — finalize() should fail on the observer call")
 			r := newReconciler()
 			_, err := r.Reconcile(ctx, reconcileRequest(name))
 			Expect(err).To(HaveOccurred())

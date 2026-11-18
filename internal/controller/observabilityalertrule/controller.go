@@ -7,9 +7,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
+	neturl "net/url"
 	"os"
+	"sync"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +38,9 @@ const (
 	conditionTypeSynced            = "Synced"
 	// observerAPITimeout is the default timeout for HTTP calls to the observer internal API.
 	observerAPITimeout = 10 * time.Second
+	// resyncInterval and resyncJitter set how often a synced rule's backend rule is checked.
+	resyncInterval = 10 * time.Minute
+	resyncJitter   = 2 * time.Minute
 	// AlertRuleCleanupFinalizer is used to ensure alert rules are deleted from the backend before the CR is removed
 	AlertRuleCleanupFinalizer = "openchoreo.dev/alertrule-cleanup"
 )
@@ -83,13 +90,23 @@ type alertRuleSyncResponse struct {
 type alertRuleGetResponse struct {
 	RuleLogicalID string `json:"ruleLogicalId"`
 	RuleBackendID string `json:"ruleBackendId"`
+	Metadata      struct {
+		// Namespace is the namespace of the rule the backend rule was built from, when the adapter reports it.
+		Namespace string `json:"namespace"`
+	} `json:"metadata"`
 }
+
+// errRuleOwnedByOtherNamespace reports a backend rule built from another namespace's rule of the same
+// name. Adapters that identify rules by name alone return such a rule.
+var errRuleOwnedByOtherNamespace = errors.New("backend alert rule belongs to another namespace")
 
 // Reconciler reconciles a ObservabilityAlertRule object
 type Reconciler struct {
 	client.Client
 	Scheme     *runtime.Scheme
 	httpClient *http.Client
+	// syncedGenerations maps the UID of each rule this process has synced to the generation it synced.
+	syncedGenerations sync.Map
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=observabilityalertrules,verbs=get;list;watch;create;update;patch;delete
@@ -130,6 +147,50 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		logger.Error(err, "failed to build alert rule request")
 		return r.updateStatusWithError(ctx, alertRule, err)
 	}
+
+	if r.isSynced(alertRule) {
+		return r.resync(ctx, alertRule, requestPayload)
+	}
+	return r.sync(ctx, alertRule, requestPayload)
+}
+
+// isSynced reports whether this process already synced the rule's current generation.
+func (r *Reconciler) isSynced(alertRule *openchoreov1alpha1.ObservabilityAlertRule) bool {
+	gen, ok := r.syncedGenerations.Load(alertRule.UID)
+	return ok && gen == alertRule.GetGeneration() &&
+		alertRule.Status.Phase == openchoreov1alpha1.ObservabilityAlertRulePhaseReady
+}
+
+// resync checks that the backend rule of a synced rule still exists, and syncs the rule again when it
+// does not. It does not rewrite an existing backend rule, because some backends reset a firing alert
+// when its rule is updated. A failed check is retried as a check, not as a sync.
+func (r *Reconciler) resync(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (ctrl.Result, error) {
+	getResp, statusCode, err := r.getAlertRule(ctx, getObserverInternalBaseURL(), alertRule)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to check backend alert rule: %w", err)
+	}
+	switch {
+	case statusCode == http.StatusOK && ownsBackendRule(alertRule, getResp):
+		return ctrl.Result{RequeueAfter: resyncAfter()}, nil
+	case statusCode != http.StatusOK && statusCode != http.StatusNotFound:
+		return ctrl.Result{}, fmt.Errorf("unexpected GET status %d when checking alert rule %q", statusCode, alertRule.Name)
+	}
+	log.FromContext(ctx).Info("Backend alert rule is missing or belongs to another namespace; syncing it again",
+		"name", alertRule.Name, "statusCode", statusCode)
+	r.syncedGenerations.Delete(alertRule.UID)
+	return r.sync(ctx, alertRule, payload)
+}
+
+// resyncAfter returns the delay before the next resync: resyncInterval plus up to resyncJitter.
+func resyncAfter() time.Duration {
+	//nolint:gosec // Spreading resyncs over time, not a security decision.
+	return resyncInterval + rand.N(resyncJitter)
+}
+
+// sync creates or updates the backend rule and records the result in the rule's status.
+func (r *Reconciler) sync(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, requestPayload *alertRuleRequest) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(alertRule)}
 
 	// Use GET-first logic to decide between POST (create) and PUT (update).
 	syncResp, err := r.upsertAlertRule(ctx, alertRule, requestPayload)
@@ -182,7 +243,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	if latest.Status.Phase != openchoreov1alpha1.ObservabilityAlertRulePhaseReady {
+		return ctrl.Result{}, nil
+	}
+	r.syncedGenerations.Store(alertRule.UID, alertRule.GetGeneration())
+	return ctrl.Result{RequeueAfter: resyncAfter()}, nil
+}
+
+// ownsBackendRule reports whether a backend rule was built from the given rule. Adapters that do not
+// report the namespace are trusted.
+//
+// TODO(#5421): remove this check and errRuleOwnedByOtherNamespace in v1.5 if every adapter's v1.4
+// release identifies rules by namespace and name; otherwise remove them once that is true.
+func ownsBackendRule(alertRule *openchoreov1alpha1.ObservabilityAlertRule, getResp *alertRuleGetResponse) bool {
+	return getResp == nil || getResp.Metadata.Namespace == "" || getResp.Metadata.Namespace == alertRule.Namespace
 }
 
 // upsertAlertRule performs a GET-first upsert by rule name:
@@ -192,16 +266,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (r *Reconciler) upsertAlertRule(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
 	baseURL := getObserverInternalBaseURL()
 	ruleName := alertRule.Name
-	sourceType := string(alertRule.Spec.Source.Type)
 
-	_, statusCode, err := r.getAlertRule(ctx, baseURL, ruleName, sourceType)
+	getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule)
 	if err != nil {
 		return nil, fmt.Errorf("failed to GET alert rule: %w", err)
 	}
 
 	switch statusCode {
 	case http.StatusOK:
-		return r.putAlertRule(ctx, baseURL, ruleName, payload)
+		if !ownsBackendRule(alertRule, getResp) {
+			return nil, fmt.Errorf("%w: rule %q is synced to namespace %q; upgrade the observability module "+
+				"of source type %q to one that identifies alert rules by namespace and name",
+				errRuleOwnedByOtherNamespace, ruleName, getResp.Metadata.Namespace, alertRule.Spec.Source.Type)
+		}
+		return r.putAlertRule(ctx, baseURL, alertRule, payload)
 	case http.StatusNotFound:
 		return r.postAlertRule(ctx, baseURL, payload)
 	default:
@@ -209,9 +287,16 @@ func (r *Reconciler) upsertAlertRule(ctx context.Context, alertRule *openchoreov
 	}
 }
 
+// alertRuleURL returns the observer URL of the given rule:
+// /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}?namespace={namespace}
+func alertRuleURL(baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule) string {
+	return fmt.Sprintf("%s%s/%s/rules/%s?namespace=%s", baseURL, alertsV1alpha1BasePath,
+		alertRule.Spec.Source.Type, neturl.PathEscape(alertRule.Name), neturl.QueryEscape(alertRule.Namespace))
+}
+
 // getAlertRule calls GET /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}
-func (r *Reconciler) getAlertRule(ctx context.Context, baseURL, ruleName, sourceType string) (*alertRuleGetResponse, int, error) {
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, sourceType, ruleName)
+func (r *Reconciler) getAlertRule(ctx context.Context, baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule) (*alertRuleGetResponse, int, error) {
+	url := alertRuleURL(baseURL, alertRule)
 	reqCtx, cancel := context.WithTimeout(ctx, observerAPITimeout)
 	defer cancel()
 
@@ -255,8 +340,8 @@ func (r *Reconciler) postAlertRuleWithStatus(ctx context.Context, baseURL string
 }
 
 // putAlertRule calls PUT /api/v1alpha1/alerts/sources/{sourceType}/rules/{ruleName}.
-func (r *Reconciler) putAlertRule(ctx context.Context, baseURL, ruleName string, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, payload.Source.Type, ruleName)
+func (r *Reconciler) putAlertRule(ctx context.Context, baseURL string, alertRule *openchoreov1alpha1.ObservabilityAlertRule, payload *alertRuleRequest) (*alertRuleSyncResponse, error) {
+	url := alertRuleURL(baseURL, alertRule)
 	syncResp, statusCode, err := r.callWriteEndpoint(ctx, http.MethodPut, url, payload)
 	if err != nil {
 		return nil, err
@@ -440,9 +525,32 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 
 	logger.Info("Deleting alert rule from observer backend", "name", alertRule.Name, "sourceType", alertRule.Spec.Source.Type)
 
+	r.syncedGenerations.Delete(alertRule.UID)
 	baseURL := getObserverInternalBaseURL()
-	url := fmt.Sprintf("%s%s/%s/rules/%s", baseURL, alertsV1alpha1BasePath, alertRule.Spec.Source.Type, alertRule.Name)
 
+	// An adapter that identifies rules by name alone would delete another namespace's rule, so the
+	// rule is only deleted once the check shows it is this rule's. When it is gone there is nothing to
+	// delete, and a delete by name could remove a same-named rule created since the check.
+	getResp, statusCode, err := r.getAlertRule(ctx, baseURL, alertRule)
+	if err != nil {
+		logger.Error(err, "failed to check the backend alert rule before deleting it")
+		return ctrl.Result{}, fmt.Errorf("failed to check backend alert rule before deleting it: %w", err)
+	}
+	switch {
+	case statusCode == http.StatusNotFound:
+		logger.Info("Backend alert rule is already gone", "name", alertRule.Name)
+		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+	case statusCode == http.StatusOK && !ownsBackendRule(alertRule, getResp):
+		logger.Info("Backend alert rule belongs to another namespace; not deleting it",
+			"name", alertRule.Name, "backendNamespace", getResp.Metadata.Namespace)
+		return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+	case statusCode != http.StatusOK:
+		statusErr := fmt.Errorf("unexpected GET status %d when checking alert rule %q before deleting it", statusCode, alertRule.Name)
+		logger.Error(statusErr, "failed to check the backend alert rule before deleting it")
+		return ctrl.Result{}, statusErr
+	}
+
+	url := alertRuleURL(baseURL, alertRule)
 	reqCtx, cancel := context.WithTimeout(ctx, observerAPITimeout)
 	defer cancel()
 
@@ -472,15 +580,20 @@ func (r *Reconciler) finalize(ctx context.Context, alertRule *openchoreov1alpha1
 		return ctrl.Result{}, err
 	}
 
-	// Remove finalizer after successful cleanup.
+	return ctrl.Result{}, r.removeFinalizer(ctx, alertRule)
+}
+
+// removeFinalizer removes the cleanup finalizer once the backend rule is gone.
+func (r *Reconciler) removeFinalizer(ctx context.Context, alertRule *openchoreov1alpha1.ObservabilityAlertRule) error {
+	logger := log.FromContext(ctx)
 	controllerutil.RemoveFinalizer(alertRule, AlertRuleCleanupFinalizer)
 	if err := r.Update(ctx, alertRule); err != nil {
 		logger.Error(err, "failed to remove finalizer")
-		return ctrl.Result{}, err
+		return err
 	}
 
 	logger.Info("Successfully finalized alert rule", "name", alertRule.Name)
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
