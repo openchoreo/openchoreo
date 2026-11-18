@@ -306,6 +306,14 @@ var _ = Describe("Backend resolution and rendering", func() {
 			rb.Status.Conditions[0].Status = metav1.ConditionFalse
 			return rb
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
+		Entry("endpoint without an address on a synced Observe-mode ReleaseBinding", func() *openchoreov1alpha1.ReleaseBinding {
+			// Observe mode syncs without rendering the release, so the missing
+			// address says nothing about the ComponentType's Service, and the
+			// observed pods do not carry the selectors a type would select.
+			rb := renderedWithoutService()
+			rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
+			return rb
+		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
 		Entry("Service in another namespace", func() *openchoreov1alpha1.ReleaseBinding {
 			return deployedComponent("greeter", "some-other-namespace")
 		}, BackendReasonNamespaceMismatch, `is served from namespace "some-other-namespace"`),
@@ -316,7 +324,7 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" is not in the release deployed`),
 	)
 
-	DescribeTable("reports a backend whose released endpoint no route can carry",
+	DescribeTable("reports a backend whose endpoint no route can carry",
 		func(rb func() *openchoreov1alpha1.ReleaseBinding) {
 			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
 			b := newBinding("udp", testRelease)
@@ -333,11 +341,40 @@ var _ = Describe("Backend resolution and rendering", func() {
 			Expect(st.Reason).To(Equal(BackendReasonUnsupportedProtocol))
 			Expect(st.Message).To(ContainSubstring("uses protocol UDP"))
 		},
-		Entry("with the component's Service", func() *openchoreov1alpha1.ReleaseBinding {
-			return deployedComponent("greeter", dpNS)
+		Entry("with the component's Service, as its status reports it", func() *openchoreov1alpha1.ReleaseBinding {
+			rb := deployedComponent("greeter", dpNS)
+			rb.Status.Endpoints[0].Type = openchoreov1alpha1.EndpointProtocolUDP
+			return rb
 		}),
-		Entry("without the component's Service", renderedWithoutService),
+		Entry("without the component's Service, as the release declares it", renderedWithoutService),
 	)
+
+	It("pairs the component Service's protocol and port with its address while a new release rolls out", func() {
+		// The ReleaseBinding already points at a release whose endpoint is gRPC
+		// on 9090, but its status still reports the HTTP Service it rendered
+		// for the previous release. Routes must target that Service as it is.
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+		release.Spec.EndpointType.Spec.Validations = []openchoreov1alpha1.ValidationRule{{
+			Rule:    `${backends.all(b, b.protocol == "HTTP" && b.port == 8080)}`,
+			Message: "backend protocol and port must match the rendered Service",
+		}}
+		b := newBinding("rollout", testRelease)
+		rb := deployedComponent("greeter", dpNS)
+		r, cli := build(release, b, rb)
+		setReleasedEndpoint(cli, rb, func(ep *openchoreov1alpha1.WorkloadEndpoint) {
+			ep.Protocol = openchoreov1alpha1.EndpointProtocolGRPC
+		})
+
+		updated := reconcileBinding(r, cli, b)
+
+		synced := condition(updated, ConditionSynced)
+		Expect(synced.Status).To(Equal(metav1.ConditionTrue), synced.Message)
+		rr, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routeBackendRefs(rr)).To(Equal([]any{
+			map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(1)},
+		}))
+	})
 
 	It("reports RenderingFailed when a type validation rule rejects the backends", func() {
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 1))

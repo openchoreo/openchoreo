@@ -153,7 +153,8 @@ func (r *Reconciler) resolveBackend(
 //
 // The component's own Service is optional. When the ComponentType renders one,
 // the ReleaseBinding's status reports its in-cluster address for the endpoint,
-// and the backend carries its name and URL so routes can target it. When the
+// and the backend carries its name, URL, port and protocol from that status
+// entry, so routes target the Service as it was rendered. When the
 // ReleaseBinding has rendered its current spec without reporting one, the
 // ComponentType renders no Service for the endpoint, and the backend resolves
 // without it. Until the ReleaseBinding has rendered, the address may still
@@ -220,11 +221,16 @@ func (r *Reconciler) resolveComponentBackend(
 		return unresolved(BackendReasonNotDeployed, "%s is undeployed in environment %q", subject, env)
 	}
 
-	// The component's own Service, when its ComponentType renders one.
+	// The component's own Service, when its ComponentType renders one. Its
+	// address and protocol come from the same status entry, so they describe
+	// the same rendered release even while the ReleaseBinding is rolling out a
+	// new one.
 	var serviceURL *openchoreov1alpha1.EndpointURL
+	var serviceProtocol openchoreov1alpha1.EndpointProtocol
 	for i := range rb.Status.Endpoints {
 		if rb.Status.Endpoints[i].Name == endpoint {
 			serviceURL = rb.Status.Endpoints[i].ServiceURL
+			serviceProtocol = rb.Status.Endpoints[i].Type
 			break
 		}
 	}
@@ -269,6 +275,9 @@ func (r *Reconciler) resolveComponentBackend(
 			"endpoint %q of %s is not in the release deployed in environment %q", endpoint, subject, env)
 	}
 	protocol := wep.EffectiveProtocol()
+	if serviceURL != nil && serviceProtocol != "" {
+		protocol = serviceProtocol
+	}
 	if !isRoutableProtocol(protocol) {
 		return unresolved(BackendReasonUnsupportedProtocol,
 			"endpoint %q of %s uses protocol %s, which no route can carry", endpoint, subject, protocol)
@@ -329,7 +338,14 @@ func (r *Reconciler) resolveComponentBackend(
 // computed from those rendered manifests in the same reconcile, so an endpoint
 // without a service address then has no Service from the ComponentType, rather
 // than one not reported yet.
+//
+// An Observe-mode binding never counts: it syncs without rendering the
+// release, and its pods are the observed workload's, which do not carry the
+// pod selectors a type would render a Service with.
 func hasRenderedCurrentSpec(rb *openchoreov1alpha1.ReleaseBinding) bool {
+	if rb.Spec.IsObserve() {
+		return false
+	}
 	cond := meta.FindStatusCondition(rb.Status.Conditions, string(releasebinding.ConditionReleaseSynced))
 	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == rb.Generation
 }

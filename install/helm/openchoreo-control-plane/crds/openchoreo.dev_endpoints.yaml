@@ -264,10 +264,12 @@ spec:
 
                   Project visibility asks the EndpointType to serve callers in the
                   Endpoint's project, typically with a Kubernetes Service in front of the
-                  backends. While ComponentTypes still render each component's own Service,
-                  the project scope also stays reachable without it: the component's
-                  network policy admits its project, and the type's urls.project is
-                  resolved whether or not project is listed.
+                  backends. What makes a scope reachable is what the types render: a
+                  network policy only admits traffic. Without project listed, callers in the
+                  project reach a backend only through the Service its ComponentType
+                  renders, when it renders one. The type's urls.project is evaluated
+                  whether or not project is listed, so a type that does not gate it on
+                  project can report a URL for a Service only the ComponentType provides.
                 items:
                   description: |-
                     EndpointVisibility defines the visibility scope for an endpoint.

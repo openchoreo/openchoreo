@@ -13,6 +13,13 @@ spec:
         pathPrefix:
           type: string
           default: /
+  # The external route targets each backend component's own Service, which
+  # only a ComponentType that renders one provides.
+  validations:
+    - rule: ${!("external" in visibility) || backends.all(b, b.serviceName != "")}
+      message: >-
+        External visibility routes to each backend component's own Service, and a backend's
+        ComponentType renders none; use an EndpointType that renders its own Service.
   resources:
     - id: httproute-external
       includeWhen: ${"external" in visibility}

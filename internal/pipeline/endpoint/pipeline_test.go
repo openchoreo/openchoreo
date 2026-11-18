@@ -92,6 +92,23 @@ func sampleInput(t *testing.T) *RenderInput {
 	}
 }
 
+func TestRender_SampleRejectsAnExternalBackendWithoutAService(t *testing.T) {
+	// A backend whose ComponentType renders no Service has no name to route to.
+	input := sampleInput(t)
+	input.Backends[1].ServiceName = ""
+	input.Backends[1].ServiceURL = ""
+
+	_, err := NewPipeline().Render(context.Background(), input)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "use an EndpointType that renders its own Service")
+
+	// Without external visibility the sample routes nothing, so it does not care.
+	input.Visibility = []v1alpha1.EndpointVisibility{v1alpha1.EndpointVisibilityProject}
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	assert.Empty(t, out.Entries)
+}
+
 func TestRender_SampleRendersWeightedHTTPRoute(t *testing.T) {
 	out, err := NewPipeline().Render(context.Background(), sampleInput(t))
 	require.NoError(t, err)

@@ -46,12 +46,14 @@ func endpointBackendRefsProperty(description string) map[string]any {
 				"component": stringProperty(
 					"Name of the Component that serves this backend, in the Endpoint's project"),
 				"endpoint": stringProperty(
-					"Name of the workload endpoint on that component."),
+					"Name of the workload endpoint on that component. UDP endpoints cannot be Endpoint backends."),
 				"release_line": stringProperty(
 					"Optional: the component's release line to route to. Omit for its main line."),
 				"weight": map[string]any{
-					"type":        "integer",
-					"description": "Optional: relative share of traffic (default 1; 0 sends none)",
+					"type": "integer",
+					"description": "Optional: relative share of traffic (default 1). The EndpointType applies it: " +
+						"gateway routes split by weight and 0 sends none, but a plain Service selects every " +
+						"backend's pods regardless of weight.",
 				},
 			},
 			"required": []string{"name", "component", "endpoint"},
@@ -147,8 +149,9 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 		Name: name,
 		Description: "Create an endpoint in a project that routes traffic to component workload endpoints " +
 			"through an EndpointType (namespace-scoped) or ClusterEndpointType (cluster-scoped) template. " +
-			"Each backend names a component and one of its workload endpoints. Traffic is split by " +
-			"relative weight. Parameters must conform to the " +
+			"Each backend names a component and one of its workload endpoints, with a relative weight " +
+			"that the EndpointType applies; a type that renders a plain Service for project visibility " +
+			"cannot split by weight. Parameters must conform to the " +
 			"template's parameters schema; use get_endpoint_type_schema with the matching scope to inspect it. " +
 			"Bind a release to an environment with create_endpoint_release_binding to render its routes.",
 		InputSchema: createSchema(map[string]any{

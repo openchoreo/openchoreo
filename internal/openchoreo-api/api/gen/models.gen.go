@@ -2387,7 +2387,7 @@ type EndpointSpec struct {
 	// Type Reference to an EndpointType or ClusterEndpointType template.
 	Type EndpointTypeRef `json:"type"`
 
-	// Visibility Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service; while ComponentTypes still render each component's Service, the project scope stays reachable without it.
+	// Visibility Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service. Reachability comes from what the types render; without project listed, callers in the project reach a backend only through the Service its ComponentType renders, when it renders one.
 	Visibility []EndpointSpecVisibility `json:"visibility"`
 }
 
@@ -2502,23 +2502,27 @@ type EndpointTypeSpecResourcesTargetPlane string
 // context as resources; nothing is read back from the data plane.
 type EndpointTypeURLs struct {
 	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
-	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	External *EndpointURLTemplate `json:"external,omitempty"`
 
 	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
-	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Internal *EndpointURLTemplate `json:"internal,omitempty"`
 
 	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
-	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
 
 	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
-	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 }
 
@@ -2562,8 +2566,9 @@ type EndpointURLStatus struct {
 type EndpointURLStatusType string
 
 // EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
-// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
-// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
+// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+// with includeWhen: ${"project" in visibility}.
 type EndpointURLTemplate struct {
 	// Host Hostname or IP address clients connect to.
 	Host string `json:"host"`
