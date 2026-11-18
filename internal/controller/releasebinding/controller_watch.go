@@ -623,3 +623,57 @@ func (r *Reconciler) findReleaseBindingsForEnvironment(ctx context.Context, obj 
 	}
 	return requests
 }
+
+// notificationChannelDefaultChangedPredicate passes the channel events that can change an
+// environment's default notification channel, which is part of the render input: a marked
+// channel appearing or going away, or a channel's mark changing.
+func notificationChannelDefaultChangedPredicate() predicate.Predicate {
+	isMarked := func(obj client.Object) bool {
+		ch, ok := obj.(*openchoreov1alpha1.ObservabilityAlertsNotificationChannel)
+		return ok && ch.Spec.IsEnvDefault
+	}
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return isMarked(e.Object) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isMarked(e.Object) },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if isMarked(e.ObjectOld) != isMarked(e.ObjectNew) {
+				return true
+			}
+			// A marked channel stops being the default once its deletion starts, before the
+			// delete event arrives (the channel controller holds it with a finalizer).
+			return isMarked(e.ObjectNew) &&
+				e.ObjectOld.GetDeletionTimestamp().IsZero() &&
+				!e.ObjectNew.GetDeletionTimestamp().IsZero()
+		},
+	}
+}
+
+// findReleaseBindingsForNotificationChannel enqueues the ReleaseBindings of the channel's
+// environment, so they re-render with the environment's current default channel.
+func (r *Reconciler) findReleaseBindingsForNotificationChannel(ctx context.Context, obj client.Object) []reconcile.Request {
+	ch, ok := obj.(*openchoreov1alpha1.ObservabilityAlertsNotificationChannel)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(ch.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for notification channel change",
+			"namespace", ch.Namespace, "channel", ch.Name)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Environment != ch.Spec.Environment {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+		})
+	}
+	return requests
+}
