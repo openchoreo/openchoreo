@@ -68,7 +68,9 @@ func TestLogAlertRoutesViaAdapter(t *testing.T) {
 
 	type operation struct {
 		name string
-		call func(svc *AlertService) error
+		// namespace is the namespace query parameter the adapter must receive.
+		namespace string
+		call      func(svc *AlertService) error
 	}
 
 	operations := []operation{
@@ -76,16 +78,16 @@ func TestLogAlertRoutesViaAdapter(t *testing.T) {
 			_, err := svc.CreateAlertRule(context.Background(), newLogAlertRoutingRequest(ruleName))
 			return err
 		}},
-		{name: "Get", call: func(svc *AlertService) error {
-			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeLog)
+		{name: "Get", namespace: testNamespace, call: func(svc *AlertService) error {
+			_, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeLog)
 			return err
 		}},
-		{name: "Update", call: func(svc *AlertService) error {
+		{name: "Update", namespace: "test-ns", call: func(svc *AlertService) error {
 			_, err := svc.UpdateAlertRule(context.Background(), ruleName, newLogAlertRoutingRequest(ruleName))
 			return err
 		}},
-		{name: "Delete", call: func(svc *AlertService) error {
-			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeLog)
+		{name: "Delete", namespace: testNamespace, call: func(svc *AlertService) error {
+			_, err := svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeLog)
 			return err
 		}},
 	}
@@ -95,8 +97,10 @@ func TestLogAlertRoutesViaAdapter(t *testing.T) {
 			t.Parallel()
 
 			var adapterCallCount atomic.Int32
+			var gotNamespace atomic.Value
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				adapterCallCount.Add(1)
+				gotNamespace.Store(r.URL.Query().Get("namespace"))
 				w.Header().Set("Content-Type", "application/json")
 				if r.Method == http.MethodGet {
 					_ = json.NewEncoder(w).Encode(internalgen.AlertRuleResponse{})
@@ -128,6 +132,9 @@ func TestLogAlertRoutesViaAdapter(t *testing.T) {
 			if adapterCallCount.Load() == 0 {
 				t.Fatalf("expected logs adapter to be called, but it was not")
 			}
+			if got, _ := gotNamespace.Load().(string); got != op.namespace {
+				t.Fatalf("expected namespace query %q, got %q", op.namespace, got)
+			}
 		})
 	}
 }
@@ -152,7 +159,7 @@ func TestLogAlertWithoutAdapter(t *testing.T) {
 			return err
 		}},
 		{"Get", func() error {
-			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeLog)
+			_, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeLog)
 			return err
 		}},
 		{"Update", func() error {
@@ -160,7 +167,7 @@ func TestLogAlertWithoutAdapter(t *testing.T) {
 			return err
 		}},
 		{"Delete", func() error {
-			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeLog)
+			_, err := svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeLog)
 			return err
 		}},
 	}
@@ -272,11 +279,11 @@ func TestBudgetAlertServiceRouting(t *testing.T) {
 		t.Fatalf("UpdateAlertRule response invalid: %+v", resp)
 	}
 
-	if _, err = svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget); err != nil {
+	if _, err = svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeBudget); err != nil {
 		t.Fatalf("GetAlertRule failed: %v", err)
 	}
 
-	resp, err = svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
+	resp, err = svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeBudget)
 	if err != nil {
 		t.Fatalf("DeleteAlertRule failed: %v", err)
 	}
@@ -349,11 +356,11 @@ func TestBudgetAlertWithoutAdapter(t *testing.T) {
 			return err
 		}},
 		{"Get", func() error {
-			_, err := svc.GetAlertRule(context.Background(), ruleName, sourceTypeBudget)
+			_, err := svc.GetAlertRule(context.Background(), testNamespace, ruleName, sourceTypeBudget)
 			return err
 		}},
 		{"Delete", func() error {
-			_, err := svc.DeleteAlertRule(context.Background(), ruleName, sourceTypeBudget)
+			_, err := svc.DeleteAlertRule(context.Background(), testNamespace, ruleName, sourceTypeBudget)
 			return err
 		}},
 	}
