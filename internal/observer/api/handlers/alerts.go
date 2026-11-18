@@ -91,7 +91,13 @@ func (h *InternalHandler) GetAlertRule(
 				"ruleName path parameter is required")), nil
 	}
 
-	resp, err := h.alertService.GetAlertRule(ctx, request.RuleName, request.SourceType)
+	if request.Params.Namespace == "" {
+		return internalgen.GetAlertRule400JSONResponse(
+			errorPayload(gen.BadRequest, "INVALID_NAMESPACE",
+				"namespace query parameter is required")), nil
+	}
+
+	resp, err := h.alertService.GetAlertRule(ctx, request.Params.Namespace, request.RuleName, request.SourceType)
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleNotFound) {
 			return internalgen.GetAlertRule404JSONResponse(
@@ -129,6 +135,12 @@ func (h *InternalHandler) UpdateAlertRule(
 				"ruleName path parameter is required")), nil
 	}
 
+	if request.Params.Namespace == "" {
+		return internalgen.UpdateAlertRule400JSONResponse(
+			errorPayload(gen.BadRequest, "INVALID_NAMESPACE",
+				"namespace query parameter is required")), nil
+	}
+
 	if request.Body == nil {
 		return internalgen.UpdateAlertRule400JSONResponse(
 			errorPayload(gen.BadRequest, "INVALID_REQUEST_BODY", "request body is required")), nil
@@ -145,6 +157,13 @@ func (h *InternalHandler) UpdateAlertRule(
 			errorPayload(gen.BadRequest, "SOURCE_TYPE_MISMATCH",
 				fmt.Sprintf("path sourceType %q does not match body source.type %q",
 					request.SourceType, string(req.Source.Type)))), nil
+	}
+
+	if req.Metadata.Namespace != request.Params.Namespace {
+		return internalgen.UpdateAlertRule400JSONResponse(
+			errorPayload(gen.BadRequest, "NAMESPACE_MISMATCH",
+				fmt.Sprintf("namespace query parameter %q does not match body metadata.namespace %q",
+					request.Params.Namespace, req.Metadata.Namespace))), nil
 	}
 
 	resp, err := h.alertService.UpdateAlertRule(ctx, request.RuleName, req)
@@ -185,7 +204,13 @@ func (h *InternalHandler) DeleteAlertRule(
 				"ruleName path parameter is required")), nil
 	}
 
-	resp, err := h.alertService.DeleteAlertRule(ctx, request.RuleName, request.SourceType)
+	if request.Params.Namespace == "" {
+		return internalgen.DeleteAlertRule400JSONResponse(
+			errorPayload(gen.BadRequest, "INVALID_NAMESPACE",
+				"namespace query parameter is required")), nil
+	}
+
+	resp, err := h.alertService.DeleteAlertRule(ctx, request.Params.Namespace, request.RuleName, request.SourceType)
 	if err != nil {
 		if errors.Is(err, service.ErrAlertRuleNotFound) {
 			return internalgen.DeleteAlertRule404JSONResponse(
