@@ -2904,7 +2904,7 @@ backstage:
 
   # @schema
   # type: string
-  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: github-actions-token (required when externalCI.githubActions.enabled=true), github-token (or the key set in integrations.github.tokenSecretKey, when integrations.github.enabled=true), service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
+  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: the GitHub token, needed for authenticated GitHub access but not for the pod to start, read from integrations.github.tokenSecretKey (default github-token) when integrations.github.enabled=true, else from github-actions-token when externalCI.githubActions.enabled=true; service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
   # default: ""
   # @schema
   secretName: ""
@@ -3252,7 +3252,7 @@ backstage:
       apiBaseUrl: ""
       # @schema
       # type: string
-      # description: Key within backstage.secretName that holds the GitHub token (a PAT or GitHub App installation token). Set it to `github-actions-token` to reuse the token already provided for externalCI.githubActions.
+      # description: Key within backstage.secretName that holds the GitHub personal access token. Set it to `github-actions-token` to reuse the token already provided for externalCI.githubActions.
       # default: "github-token"
       # @schema
       tokenSecretKey: "github-token"

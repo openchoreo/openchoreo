@@ -207,7 +207,7 @@ wins over backstage.externalCI.githubActions, since Backstage takes one
 integration per host. An empty object when neither is enabled.
 */}}
 {{- define "openchoreo-control-plane.backstage.githubIntegration" -}}
-{{- $integration := .Values.backstage.integrations.github -}}
+{{- $integration := (.Values.backstage.integrations | default dict).github | default dict -}}
 {{- $actions := .Values.backstage.externalCI.githubActions -}}
 {{- if $integration.enabled -}}
 {{- dict "host" $integration.host "apiBaseUrl" $integration.apiBaseUrl "tokenSecretKey" ($integration.tokenSecretKey | default "github-token") | toJson -}}

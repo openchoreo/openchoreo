@@ -196,7 +196,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
-              key: {{ $github.tokenSecretKey }}
+              key: {{ $github.tokenSecretKey | quote }}
               optional: true
         {{- end }}
         # GitHub OAuth App for per-user sign-in (powers the GitHub Actions card's
