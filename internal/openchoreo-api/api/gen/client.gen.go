@@ -562,6 +562,29 @@ type ClientInterface interface {
 
 	UpdateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetEndpointRollout request
+	GetEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AbortEndpointRolloutWithBody request with any body
+	AbortEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AbortEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body AbortEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// FinishEndpointRolloutWithBody request with any body
+	FinishEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	FinishEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body FinishEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartEndpointRolloutWithBody request with any body
+	StartEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StartEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StepEndpointRolloutWithBody request with any body
+	StepEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StepEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StepEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListEndpointTypes request
 	ListEndpointTypes(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3068,6 +3091,114 @@ func (c *Client) UpdateEndpointWithBody(ctx context.Context, namespaceName Names
 
 func (c *Client) UpdateEndpoint(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateEndpointRequest(c.Server, namespaceName, endpointName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetEndpointRolloutRequest(c.Server, namespaceName, endpointName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AbortEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAbortEndpointRolloutRequestWithBody(c.Server, namespaceName, endpointName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AbortEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body AbortEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAbortEndpointRolloutRequest(c.Server, namespaceName, endpointName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FinishEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFinishEndpointRolloutRequestWithBody(c.Server, namespaceName, endpointName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) FinishEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body FinishEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewFinishEndpointRolloutRequest(c.Server, namespaceName, endpointName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartEndpointRolloutRequestWithBody(c.Server, namespaceName, endpointName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StartEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StartEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartEndpointRolloutRequest(c.Server, namespaceName, endpointName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StepEndpointRolloutWithBody(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStepEndpointRolloutRequestWithBody(c.Server, namespaceName, endpointName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StepEndpointRollout(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StepEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStepEndpointRolloutRequest(c.Server, namespaceName, endpointName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11383,6 +11514,263 @@ func NewUpdateEndpointRequestWithBody(server string, namespaceName NamespaceName
 	return req, nil
 }
 
+// NewGetEndpointRolloutRequest generates requests for GetEndpointRollout
+func NewGetEndpointRolloutRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s/rollout", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAbortEndpointRolloutRequest calls the generic AbortEndpointRollout builder with application/json body
+func NewAbortEndpointRolloutRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body AbortEndpointRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAbortEndpointRolloutRequestWithBody(server, namespaceName, endpointName, "application/json", bodyReader)
+}
+
+// NewAbortEndpointRolloutRequestWithBody generates requests for AbortEndpointRollout with any type of body
+func NewAbortEndpointRolloutRequestWithBody(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s/rollout/abort", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewFinishEndpointRolloutRequest calls the generic FinishEndpointRollout builder with application/json body
+func NewFinishEndpointRolloutRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body FinishEndpointRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewFinishEndpointRolloutRequestWithBody(server, namespaceName, endpointName, "application/json", bodyReader)
+}
+
+// NewFinishEndpointRolloutRequestWithBody generates requests for FinishEndpointRollout with any type of body
+func NewFinishEndpointRolloutRequestWithBody(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s/rollout/finish", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStartEndpointRolloutRequest calls the generic StartEndpointRollout builder with application/json body
+func NewStartEndpointRolloutRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StartEndpointRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartEndpointRolloutRequestWithBody(server, namespaceName, endpointName, "application/json", bodyReader)
+}
+
+// NewStartEndpointRolloutRequestWithBody generates requests for StartEndpointRollout with any type of body
+func NewStartEndpointRolloutRequestWithBody(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s/rollout/start", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStepEndpointRolloutRequest calls the generic StepEndpointRollout builder with application/json body
+func NewStepEndpointRolloutRequest(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StepEndpointRolloutJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStepEndpointRolloutRequestWithBody(server, namespaceName, endpointName, "application/json", bodyReader)
+}
+
+// NewStepEndpointRolloutRequestWithBody generates requests for StepEndpointRollout with any type of body
+func NewStepEndpointRolloutRequestWithBody(server string, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "namespaceName", runtime.ParamLocationPath, namespaceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "endpointName", runtime.ParamLocationPath, endpointName)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/namespaces/%s/endpoints/%s/rollout/step", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListEndpointTypesRequest generates requests for ListEndpointTypes
 func NewListEndpointTypesRequest(server string, namespaceName NamespaceNameParam, params *ListEndpointTypesParams) (*http.Request, error) {
 	var err error
@@ -18341,6 +18729,29 @@ type ClientWithResponsesInterface interface {
 
 	UpdateEndpointWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body UpdateEndpointJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateEndpointResp, error)
 
+	// GetEndpointRolloutWithResponse request
+	GetEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*GetEndpointRolloutResp, error)
+
+	// AbortEndpointRolloutWithBodyWithResponse request with any body
+	AbortEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AbortEndpointRolloutResp, error)
+
+	AbortEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body AbortEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*AbortEndpointRolloutResp, error)
+
+	// FinishEndpointRolloutWithBodyWithResponse request with any body
+	FinishEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FinishEndpointRolloutResp, error)
+
+	FinishEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body FinishEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*FinishEndpointRolloutResp, error)
+
+	// StartEndpointRolloutWithBodyWithResponse request with any body
+	StartEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartEndpointRolloutResp, error)
+
+	StartEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StartEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartEndpointRolloutResp, error)
+
+	// StepEndpointRolloutWithBodyWithResponse request with any body
+	StepEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StepEndpointRolloutResp, error)
+
+	StepEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StepEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StepEndpointRolloutResp, error)
+
 	// ListEndpointTypesWithResponse request
 	ListEndpointTypesWithResponse(ctx context.Context, namespaceName NamespaceNameParam, params *ListEndpointTypesParams, reqEditors ...RequestEditorFn) (*ListEndpointTypesResp, error)
 
@@ -22152,6 +22563,144 @@ func (r UpdateEndpointResp) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateEndpointResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetEndpointRolloutResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRolloutStatus
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetEndpointRolloutResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetEndpointRolloutResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AbortEndpointRolloutResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRolloutStatus
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r AbortEndpointRolloutResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AbortEndpointRolloutResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type FinishEndpointRolloutResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRolloutStatus
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r FinishEndpointRolloutResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r FinishEndpointRolloutResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StartEndpointRolloutResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRolloutStatus
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r StartEndpointRolloutResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartEndpointRolloutResp) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StepEndpointRolloutResp struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EndpointRolloutStatus
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *NotFound
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r StepEndpointRolloutResp) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StepEndpointRolloutResp) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -26806,6 +27355,83 @@ func (c *ClientWithResponses) UpdateEndpointWithResponse(ctx context.Context, na
 		return nil, err
 	}
 	return ParseUpdateEndpointResp(rsp)
+}
+
+// GetEndpointRolloutWithResponse request returning *GetEndpointRolloutResp
+func (c *ClientWithResponses) GetEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, reqEditors ...RequestEditorFn) (*GetEndpointRolloutResp, error) {
+	rsp, err := c.GetEndpointRollout(ctx, namespaceName, endpointName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetEndpointRolloutResp(rsp)
+}
+
+// AbortEndpointRolloutWithBodyWithResponse request with arbitrary body returning *AbortEndpointRolloutResp
+func (c *ClientWithResponses) AbortEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AbortEndpointRolloutResp, error) {
+	rsp, err := c.AbortEndpointRolloutWithBody(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAbortEndpointRolloutResp(rsp)
+}
+
+func (c *ClientWithResponses) AbortEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body AbortEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*AbortEndpointRolloutResp, error) {
+	rsp, err := c.AbortEndpointRollout(ctx, namespaceName, endpointName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAbortEndpointRolloutResp(rsp)
+}
+
+// FinishEndpointRolloutWithBodyWithResponse request with arbitrary body returning *FinishEndpointRolloutResp
+func (c *ClientWithResponses) FinishEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FinishEndpointRolloutResp, error) {
+	rsp, err := c.FinishEndpointRolloutWithBody(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFinishEndpointRolloutResp(rsp)
+}
+
+func (c *ClientWithResponses) FinishEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body FinishEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*FinishEndpointRolloutResp, error) {
+	rsp, err := c.FinishEndpointRollout(ctx, namespaceName, endpointName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFinishEndpointRolloutResp(rsp)
+}
+
+// StartEndpointRolloutWithBodyWithResponse request with arbitrary body returning *StartEndpointRolloutResp
+func (c *ClientWithResponses) StartEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartEndpointRolloutResp, error) {
+	rsp, err := c.StartEndpointRolloutWithBody(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartEndpointRolloutResp(rsp)
+}
+
+func (c *ClientWithResponses) StartEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StartEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StartEndpointRolloutResp, error) {
+	rsp, err := c.StartEndpointRollout(ctx, namespaceName, endpointName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartEndpointRolloutResp(rsp)
+}
+
+// StepEndpointRolloutWithBodyWithResponse request with arbitrary body returning *StepEndpointRolloutResp
+func (c *ClientWithResponses) StepEndpointRolloutWithBodyWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StepEndpointRolloutResp, error) {
+	rsp, err := c.StepEndpointRolloutWithBody(ctx, namespaceName, endpointName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStepEndpointRolloutResp(rsp)
+}
+
+func (c *ClientWithResponses) StepEndpointRolloutWithResponse(ctx context.Context, namespaceName NamespaceNameParam, endpointName EndpointNameParam, body StepEndpointRolloutJSONRequestBody, reqEditors ...RequestEditorFn) (*StepEndpointRolloutResp, error) {
+	rsp, err := c.StepEndpointRollout(ctx, namespaceName, endpointName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStepEndpointRolloutResp(rsp)
 }
 
 // ListEndpointTypesWithResponse request returning *ListEndpointTypesResp
@@ -35577,6 +36203,332 @@ func ParseUpdateEndpointResp(rsp *http.Response) (*UpdateEndpointResp, error) {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetEndpointRolloutResp parses an HTTP response from a GetEndpointRolloutWithResponse call
+func ParseGetEndpointRolloutResp(rsp *http.Response) (*GetEndpointRolloutResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetEndpointRolloutResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRolloutStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAbortEndpointRolloutResp parses an HTTP response from a AbortEndpointRolloutWithResponse call
+func ParseAbortEndpointRolloutResp(rsp *http.Response) (*AbortEndpointRolloutResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AbortEndpointRolloutResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRolloutStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseFinishEndpointRolloutResp parses an HTTP response from a FinishEndpointRolloutWithResponse call
+func ParseFinishEndpointRolloutResp(rsp *http.Response) (*FinishEndpointRolloutResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &FinishEndpointRolloutResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRolloutStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartEndpointRolloutResp parses an HTTP response from a StartEndpointRolloutWithResponse call
+func ParseStartEndpointRolloutResp(rsp *http.Response) (*StartEndpointRolloutResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartEndpointRolloutResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRolloutStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStepEndpointRolloutResp parses an HTTP response from a StepEndpointRolloutWithResponse call
+func ParseStepEndpointRolloutResp(rsp *http.Response) (*StepEndpointRolloutResp, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StepEndpointRolloutResp{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EndpointRolloutStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError

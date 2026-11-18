@@ -324,6 +324,66 @@ func TestUpdateEndpointHandler(t *testing.T) {
 		assert.Equal(t, "r-1", typed.Metadata.Name)
 	})
 
+	t.Run("keeps backend matches, mirrors and the rollout plan", func(t *testing.T) {
+		svc := newEndpointService(t, []client.Object{testEndpointObj("r-1")}, &allowAllPDP{})
+		h := newHandlerWithEndpointService(svc)
+
+		body := gen.Endpoint{
+			Metadata: gen.ObjectMeta{Name: "r-1"},
+			Spec: &gen.EndpointSpec{
+				Owner: struct {
+					ComponentName   *string `json:"componentName,omitempty"`
+					ProjectName     string  `json:"projectName"`
+					ReleaseLineName *string `json:"releaseLineName,omitempty"`
+				}{ProjectName: testEndpointProject},
+				Type: gen.EndpointTypeRef{Name: "http-gateway"},
+				BackendRefs: []gen.EndpointBackendRef{
+					{
+						Name:      "stable",
+						Component: &gen.EndpointComponentBackend{Name: "greeter", Endpoint: "http"},
+						Weight:    ptr.To[int32](100),
+					},
+					{
+						Name:      "canary",
+						Component: &gen.EndpointComponentBackend{Name: "greeter-v2", Endpoint: "http"},
+						Weight:    ptr.To[int32](0),
+						Match:     &gen.EndpointMatch{Headers: &[]gen.EndpointHeaderMatch{{Name: "x-canary", Value: "true"}}},
+					},
+					{
+						Name:      "shadow",
+						Component: &gen.EndpointComponentBackend{Name: "greeter-go", Endpoint: "http"},
+						Weight:    ptr.To[int32](0),
+						Mirror:    &gen.EndpointMirror{Percent: 10},
+					},
+				},
+				Rollout: &gen.EndpointRollout{
+					Strategy: gen.EndpointRolloutStrategyCanary,
+					Stable:   "stable",
+					Candidates: []struct {
+						Name string `json:"name"`
+					}{{Name: "canary"}},
+				},
+			},
+		}
+		resp, err := h.UpdateEndpoint(ctx, gen.UpdateEndpointRequestObject{
+			NamespaceName: testEndpointNs,
+			EndpointName:  "r-1",
+			Body:          &body,
+		})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.UpdateEndpoint200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		refs := typed.Spec.BackendRefs
+		require.Len(t, refs, 3)
+		require.NotNil(t, refs[1].Match)
+		assert.Equal(t, "x-canary", (*refs[1].Match.Headers)[0].Name)
+		require.NotNil(t, refs[2].Mirror)
+		assert.Equal(t, int32(10), refs[2].Mirror.Percent)
+		require.NotNil(t, typed.Spec.Rollout)
+		assert.Equal(t, "stable", typed.Spec.Rollout.Stable)
+		assert.Equal(t, "canary", typed.Spec.Rollout.Candidates[0].Name)
+	})
+
 	t.Run("nil body returns 400", func(t *testing.T) {
 		svc := newEndpointService(t, nil, &allowAllPDP{})
 		h := newHandlerWithEndpointService(svc)

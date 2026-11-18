@@ -36,12 +36,22 @@ type ClusterEndpointTypeSpec struct {
 	// +optional
 	URLs *EndpointTypeURLs `json:"urls,omitempty"`
 
+	// Capabilities lists the routing features this type renders beyond
+	// weighted backends. An Endpoint that uses one the type doesn't list is not
+	// released, and clients offer only the strategies it supports. Unset means
+	// the type doesn't declare them, and nothing is checked.
+	// +optional
+	// +listType=set
+	Capabilities []EndpointCapability `json:"capabilities,omitempty"`
+
 	// Resources are the routing manifests (e.g. HTTPRoute, Ingress, OpenShift
 	// Route) the ClusterEndpointType emits on the data plane for each
 	// EndpointReleaseBinding. Uses the same templating engine as ComponentType.
 	// At render time the CEL context exposes metadata.*, parameters.*,
 	// environmentConfigs.*, dataplane.*, environment.* (aliased gateway.*),
-	// and backends[] resolved for the binding's environment.
+	// and backends[] resolved for the binding's environment. rules[] lists the
+	// same backends as routing rules: one per backend with a match, in order,
+	// then the default rule that splits by weight.
 	// +kubebuilder:validation:MinItems=1
 	// +listType=map
 	// +listMapKey=id

@@ -24,6 +24,67 @@ func (_m *MockInterface) EXPECT() *MockInterface_Expecter {
 	return &MockInterface_Expecter{mock: &_m.Mock}
 }
 
+// AbortEndpointRollout provides a mock function with given fields: ctx, namespaceName, endpointName, req
+func (_m *MockInterface) AbortEndpointRollout(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutAbortRequest) (*gen.EndpointRolloutStatus, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AbortEndpointRollout")
+	}
+
+	var r0 *gen.EndpointRolloutStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest) (*gen.EndpointRolloutStatus, error)); ok {
+		return rf(ctx, namespaceName, endpointName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest) *gen.EndpointRolloutStatus); ok {
+		r0 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRolloutStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutAbortRequest) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_AbortEndpointRollout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AbortEndpointRollout'
+type MockInterface_AbortEndpointRollout_Call struct {
+	*mock.Call
+}
+
+// AbortEndpointRollout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - req gen.EndpointRolloutAbortRequest
+func (_e *MockInterface_Expecter) AbortEndpointRollout(ctx interface{}, namespaceName interface{}, endpointName interface{}, req interface{}) *MockInterface_AbortEndpointRollout_Call {
+	return &MockInterface_AbortEndpointRollout_Call{Call: _e.mock.On("AbortEndpointRollout", ctx, namespaceName, endpointName, req)}
+}
+
+func (_c *MockInterface_AbortEndpointRollout_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutAbortRequest)) *MockInterface_AbortEndpointRollout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutAbortRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_AbortEndpointRollout_Call) Return(_a0 *gen.EndpointRolloutStatus, _a1 error) *MockInterface_AbortEndpointRollout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_AbortEndpointRollout_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutAbortRequest) (*gen.EndpointRolloutStatus, error)) *MockInterface_AbortEndpointRollout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // CreateClusterEndpointType provides a mock function with given fields: ctx, cet
 func (_m *MockInterface) CreateClusterEndpointType(ctx context.Context, cet gen.ClusterEndpointType) (*gen.ClusterEndpointType, error) {
 	ret := _m.Called(ctx, cet)
@@ -3227,6 +3288,67 @@ func (_c *MockInterface_DeleteWorkload_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// FinishEndpointRollout provides a mock function with given fields: ctx, namespaceName, endpointName, req
+func (_m *MockInterface) FinishEndpointRollout(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutFinishRequest) (*gen.EndpointRolloutStatus, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinishEndpointRollout")
+	}
+
+	var r0 *gen.EndpointRolloutStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest) (*gen.EndpointRolloutStatus, error)); ok {
+		return rf(ctx, namespaceName, endpointName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest) *gen.EndpointRolloutStatus); ok {
+		r0 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRolloutStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutFinishRequest) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_FinishEndpointRollout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinishEndpointRollout'
+type MockInterface_FinishEndpointRollout_Call struct {
+	*mock.Call
+}
+
+// FinishEndpointRollout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - req gen.EndpointRolloutFinishRequest
+func (_e *MockInterface_Expecter) FinishEndpointRollout(ctx interface{}, namespaceName interface{}, endpointName interface{}, req interface{}) *MockInterface_FinishEndpointRollout_Call {
+	return &MockInterface_FinishEndpointRollout_Call{Call: _e.mock.On("FinishEndpointRollout", ctx, namespaceName, endpointName, req)}
+}
+
+func (_c *MockInterface_FinishEndpointRollout_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutFinishRequest)) *MockInterface_FinishEndpointRollout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutFinishRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_FinishEndpointRollout_Call) Return(_a0 *gen.EndpointRolloutStatus, _a1 error) *MockInterface_FinishEndpointRollout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_FinishEndpointRollout_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutFinishRequest) (*gen.EndpointRolloutStatus, error)) *MockInterface_FinishEndpointRollout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GenerateRelease provides a mock function with given fields: ctx, namespaceName, componentName, req
 func (_m *MockInterface) GenerateRelease(ctx context.Context, namespaceName string, componentName string, req gen.GenerateReleaseRequest) (*gen.ComponentRelease, error) {
 	ret := _m.Called(ctx, namespaceName, componentName, req)
@@ -4888,6 +5010,66 @@ func (_c *MockInterface_GetEndpointReleaseBinding_Call) Return(_a0 *gen.Endpoint
 }
 
 func (_c *MockInterface_GetEndpointReleaseBinding_Call) RunAndReturn(run func(context.Context, string, string) (*gen.EndpointReleaseBinding, error)) *MockInterface_GetEndpointReleaseBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointRollout provides a mock function with given fields: ctx, namespaceName, endpointName
+func (_m *MockInterface) GetEndpointRollout(ctx context.Context, namespaceName string, endpointName string) (*gen.EndpointRolloutStatus, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointRollout")
+	}
+
+	var r0 *gen.EndpointRolloutStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*gen.EndpointRolloutStatus, error)); ok {
+		return rf(ctx, namespaceName, endpointName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *gen.EndpointRolloutStatus); ok {
+		r0 = rf(ctx, namespaceName, endpointName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRolloutStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_GetEndpointRollout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointRollout'
+type MockInterface_GetEndpointRollout_Call struct {
+	*mock.Call
+}
+
+// GetEndpointRollout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+func (_e *MockInterface_Expecter) GetEndpointRollout(ctx interface{}, namespaceName interface{}, endpointName interface{}) *MockInterface_GetEndpointRollout_Call {
+	return &MockInterface_GetEndpointRollout_Call{Call: _e.mock.On("GetEndpointRollout", ctx, namespaceName, endpointName)}
+}
+
+func (_c *MockInterface_GetEndpointRollout_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string)) *MockInterface_GetEndpointRollout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointRollout_Call) Return(_a0 *gen.EndpointRolloutStatus, _a1 error) *MockInterface_GetEndpointRollout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_GetEndpointRollout_Call) RunAndReturn(run func(context.Context, string, string) (*gen.EndpointRolloutStatus, error)) *MockInterface_GetEndpointRollout_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -9436,6 +9618,128 @@ func (_c *MockInterface_ListWorkloads_Call) Return(_a0 *gen.WorkloadList, _a1 er
 }
 
 func (_c *MockInterface_ListWorkloads_Call) RunAndReturn(run func(context.Context, string, *gen.ListWorkloadsParams) (*gen.WorkloadList, error)) *MockInterface_ListWorkloads_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StartEndpointRollout provides a mock function with given fields: ctx, namespaceName, endpointName, req
+func (_m *MockInterface) StartEndpointRollout(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutStartRequest) (*gen.EndpointRolloutStatus, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StartEndpointRollout")
+	}
+
+	var r0 *gen.EndpointRolloutStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStartRequest) (*gen.EndpointRolloutStatus, error)); ok {
+		return rf(ctx, namespaceName, endpointName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStartRequest) *gen.EndpointRolloutStatus); ok {
+		r0 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRolloutStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutStartRequest) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_StartEndpointRollout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StartEndpointRollout'
+type MockInterface_StartEndpointRollout_Call struct {
+	*mock.Call
+}
+
+// StartEndpointRollout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - req gen.EndpointRolloutStartRequest
+func (_e *MockInterface_Expecter) StartEndpointRollout(ctx interface{}, namespaceName interface{}, endpointName interface{}, req interface{}) *MockInterface_StartEndpointRollout_Call {
+	return &MockInterface_StartEndpointRollout_Call{Call: _e.mock.On("StartEndpointRollout", ctx, namespaceName, endpointName, req)}
+}
+
+func (_c *MockInterface_StartEndpointRollout_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutStartRequest)) *MockInterface_StartEndpointRollout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutStartRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_StartEndpointRollout_Call) Return(_a0 *gen.EndpointRolloutStatus, _a1 error) *MockInterface_StartEndpointRollout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_StartEndpointRollout_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutStartRequest) (*gen.EndpointRolloutStatus, error)) *MockInterface_StartEndpointRollout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StepEndpointRollout provides a mock function with given fields: ctx, namespaceName, endpointName, req
+func (_m *MockInterface) StepEndpointRollout(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutStepRequest) (*gen.EndpointRolloutStatus, error) {
+	ret := _m.Called(ctx, namespaceName, endpointName, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StepEndpointRollout")
+	}
+
+	var r0 *gen.EndpointRolloutStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStepRequest) (*gen.EndpointRolloutStatus, error)); ok {
+		return rf(ctx, namespaceName, endpointName, req)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, gen.EndpointRolloutStepRequest) *gen.EndpointRolloutStatus); ok {
+		r0 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.EndpointRolloutStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, gen.EndpointRolloutStepRequest) error); ok {
+		r1 = rf(ctx, namespaceName, endpointName, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockInterface_StepEndpointRollout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StepEndpointRollout'
+type MockInterface_StepEndpointRollout_Call struct {
+	*mock.Call
+}
+
+// StepEndpointRollout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointName string
+//   - req gen.EndpointRolloutStepRequest
+func (_e *MockInterface_Expecter) StepEndpointRollout(ctx interface{}, namespaceName interface{}, endpointName interface{}, req interface{}) *MockInterface_StepEndpointRollout_Call {
+	return &MockInterface_StepEndpointRollout_Call{Call: _e.mock.On("StepEndpointRollout", ctx, namespaceName, endpointName, req)}
+}
+
+func (_c *MockInterface_StepEndpointRollout_Call) Run(run func(ctx context.Context, namespaceName string, endpointName string, req gen.EndpointRolloutStepRequest)) *MockInterface_StepEndpointRollout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(gen.EndpointRolloutStepRequest))
+	})
+	return _c
+}
+
+func (_c *MockInterface_StepEndpointRollout_Call) Return(_a0 *gen.EndpointRolloutStatus, _a1 error) *MockInterface_StepEndpointRollout_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockInterface_StepEndpointRollout_Call) RunAndReturn(run func(context.Context, string, string, gen.EndpointRolloutStepRequest) (*gen.EndpointRolloutStatus, error)) *MockInterface_StepEndpointRollout_Call {
 	_c.Call.Return(run)
 	return _c
 }

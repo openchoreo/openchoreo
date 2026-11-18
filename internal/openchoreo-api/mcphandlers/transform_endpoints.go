@@ -133,6 +133,12 @@ func endpointBackends(refs []openchoreov1alpha1.EndpointBackendRef) []map[string
 		if ref.Weight != nil {
 			b["weight"] = *ref.Weight
 		}
+		if ref.Match != nil {
+			b["match"] = ref.Match
+		}
+		if ref.Mirror != nil {
+			b["mirror"] = ref.Mirror
+		}
 		out = append(out, b)
 	}
 	return out
@@ -195,6 +201,9 @@ func endpointReleaseBindingDetail(b *openchoreov1alpha1.EndpointReleaseBinding) 
 	if b.Spec.EndpointTypeEnvironmentConfigs != nil {
 		m["endpointTypeEnvironmentConfigs"] = rawExtensionToAny(b.Spec.EndpointTypeEnvironmentConfigs)
 	}
+	if len(b.Spec.BackendOverrides) > 0 {
+		m["backendOverrides"] = b.Spec.BackendOverrides
+	}
 	m["backends"] = resolvedEndpointBackends(b.Status.Backends)
 	if urls := resolvedEndpointURLs(b.Status.URLs); urls != nil {
 		m["urls"] = urls
@@ -216,6 +225,9 @@ func resolvedEndpointBackends(backends []openchoreov1alpha1.ResolvedEndpointBack
 			"kind":     string(rb.Kind),
 			"weight":   rb.Weight,
 			"resolved": rb.Resolved,
+		}
+		if rb.Mirror != nil {
+			b["mirror"] = rb.Mirror
 		}
 		if rb.ServiceURL != nil {
 			b["serviceURL"] = map[string]any{

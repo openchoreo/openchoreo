@@ -135,6 +135,11 @@ func (s *endpointService) UpdateEndpoint(ctx context.Context, namespaceName stri
 	existing.Spec = endpoint.Spec
 	existing.Labels = endpoint.Labels
 	existing.Annotations = endpoint.Annotations
+	// A caller that read the object can save over only that version, so a
+	// change made since is refused as a conflict instead of overwritten.
+	if endpoint.ResourceVersion != "" {
+		existing.ResourceVersion = endpoint.ResourceVersion
+	}
 
 	// Preserve special labels
 	if existing.Labels == nil {
@@ -275,6 +280,10 @@ func widenOwner(ep *openchoreov1alpha1.Endpoint) {
 		}
 	}
 }
+
+// WidenOwner widens an Endpoint's owner as UpdateEndpoint does, so a dry run
+// can show the owner a save would keep.
+func WidenOwner(ep *openchoreov1alpha1.Endpoint) { widenOwner(ep) }
 
 // validateOwner checks that the owning component and release line, if any,
 // exist in the Endpoint's project, so a typo is reported to the client instead

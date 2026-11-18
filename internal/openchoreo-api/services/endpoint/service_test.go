@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -241,6 +242,26 @@ func TestUpdateEndpoint(t *testing.T) {
 		assert.Equal(t, endpointTypeMeta, result.TypeMeta)
 		assert.Equal(t, "prod", result.Labels["env"])
 		assert.Equal(t, testProject, result.Labels[labels.LabelKeyProjectName])
+	})
+
+	t.Run("refuses to save over a change made since the caller read it", func(t *testing.T) {
+		svc := newService(t, testutil.NewEndpoint(testNamespace, testProject, "test-r"))
+
+		read, err := svc.GetEndpoint(ctx, testNamespace, "test-r")
+		require.NoError(t, err)
+		moved := read.DeepCopy()
+		moved.Labels = map[string]string{"env": "prod"}
+		_, err = svc.UpdateEndpoint(ctx, testNamespace, moved)
+		require.NoError(t, err)
+
+		read.Labels = map[string]string{"env": "dev"}
+		_, err = svc.UpdateEndpoint(ctx, testNamespace, read)
+		require.True(t, apierrors.IsConflict(err), "got %v", err)
+
+		read.ResourceVersion = ""
+		result, err := svc.UpdateEndpoint(ctx, testNamespace, read)
+		require.NoError(t, err, "without a resourceVersion the save goes through")
+		assert.Equal(t, "dev", result.Labels["env"])
 	})
 
 	t.Run("nil input", func(t *testing.T) {

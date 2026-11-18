@@ -1,0 +1,188 @@
+# An EndpointType for a Cilium data plane that serves both directions with
+# the same split: an HTTPRoute on the external gateway for external callers,
+# and a CiliumEnvoyConfig for in-cluster callers (namespace and internal
+# visibility). The CiliumEnvoyConfig redirects the backend components' own
+# Services to Cilium's per-node Envoy, so callers keep calling the address they
+# already use, and Envoy applies ${rules}. It needs Cilium with
+# kubeProxyReplacement and envoyConfig.enabled. The gateway is expected outside
+# the mesh, so each request is split once. Callers that reach internal
+# visibility through the internal gateway need http-progressive instead.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  name: cilium-http
+spec:
+  parameters:
+    openAPIV3Schema:
+      type: object
+      properties:
+        pathPrefix:
+          type: string
+          default: /
+  capabilities: [Match, RegularExpression, Mirror, MirrorPercent]
+  validations:
+    - rule: ${backends.all(b, b.protocol in ["HTTP", "GraphQL", "Websocket"])}
+      message: cilium-http only routes HTTP, GraphQL and Websocket endpoints
+    - rule: ${!("external" in visibility) || gateway.?ingress.?external.hasValue()}
+      message: the environment has no external gateway for external visibility
+    # Every backend serves under one base path: a rule rewrites to, and a mesh
+    # match is joined to, its first backend's.
+    - rule: ${backends.all(b, b.basePath == backends[0].basePath)}
+      message: cilium-http needs every backend to serve under the same base path
+    # Gateway API ranks an exact path, then the longer path, then more
+    # headers, ahead of rule order; a match without a path counts as "/". Refuse
+    # a later match that would outrank an earlier one it overlaps, so the first
+    # matching backend still wins. Paths overlap by whole segments: /api and
+    # /api/v2 do, /api and /apiv2 don't. Only the external HTTPRoute ranks
+    # them: the mesh routes keep rule order.
+    - rule: >-
+        ${!("external" in visibility) ||
+          rules.all(i, a, size(a.matches) == 0 || rules.all(j, b, j <= i || size(b.matches) == 0 ||
+          (has(a.matches[0].path) && has(b.matches[0].path) &&
+            !b.matches[0].path.value.startsWith(a.matches[0].path.value.endsWith("/") ?
+              a.matches[0].path.value : a.matches[0].path.value + "/") &&
+            !a.matches[0].path.value.startsWith(b.matches[0].path.value.endsWith("/") ?
+              b.matches[0].path.value : b.matches[0].path.value + "/") &&
+            a.matches[0].path.value != b.matches[0].path.value) ||
+          !((has(b.matches[0].path) && b.matches[0].path.type == "Exact") &&
+              !(has(a.matches[0].path) && a.matches[0].path.type == "Exact") ||
+            (has(b.matches[0].path) && b.matches[0].path.type == "Exact") ==
+              (has(a.matches[0].path) && a.matches[0].path.type == "Exact") &&
+            ((has(b.matches[0].path) ? size(b.matches[0].path.value) : 1) >
+                (has(a.matches[0].path) ? size(a.matches[0].path.value) : 1) ||
+              (has(b.matches[0].path) ? size(b.matches[0].path.value) : 1) ==
+                (has(a.matches[0].path) ? size(a.matches[0].path.value) : 1) &&
+              size(b.matches[0].conditions) > size(a.matches[0].conditions)))))}
+      message: >-
+        cilium-http can't keep the first-match order: a backend's match is more specific
+        than an earlier one's it overlaps, and Gateway API would pick it first; list
+        the more specific match first
+  urls:
+    external:
+      includeWhen: ${gateway.?ingress.?external.?http.hasValue()}
+      scheme: http
+      host: ${metadata.environmentName}-${metadata.endpointName}.${gateway.ingress.external.http.host}
+      port: ${gateway.ingress.external.http.port}
+      path: ${parameters.pathPrefix}
+      security:
+        scheme: none
+  resources:
+    - id: httproute
+      includeWhen: ${"external" in visibility}
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "external")}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs:
+            - name: ${gateway.ingress.external.name}
+              namespace: ${gateway.ingress.external.namespace}
+          hostnames: |
+            ${[gateway.ingress.external.?http, gateway.ingress.external.?https]
+              .filter(g, g.hasValue()).map(g, g.value().host).distinct()
+              .map(h, metadata.environmentName + "-" + metadata.endpointName + "." + h)}
+          # One rule per entry in ${rules}: matched backends first, then the
+          # weighted default, as in http-progressive.
+          rules: |
+            ${rules.map(r, {
+                "matches": (size(r.matches) > 0 ? dyn(r.matches) : dyn([{"conditions": []}])).map(m, {
+                  "path": has(m.path)
+                    ? {"type": m.path.type, "value": (parameters.pathPrefix.endsWith("/") ? parameters.pathPrefix.substring(0, size(parameters.pathPrefix) - 1) : parameters.pathPrefix) + m.path.value}
+                    : {"type": "PathPrefix", "value": parameters.pathPrefix},
+                  "headers": size(m.conditions) > 0
+                    ? m.conditions.map(h, {"type": h.type, "name": h.name, "value": h.value})
+                    : oc_omit()
+                }),
+                "filters": [size(r.matches) > 0 && has(r.matches[0].path) && r.matches[0].path.type == "Exact"
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplaceFullPath",
+                        "replaceFullPath": (r.backends[0].basePath == "/" ? "" : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : size(r.matches) > 0 && has(r.matches[0].path)
+                    ? {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": (r.backends[0].basePath == "/" ? "" : r.backends[0].basePath) + r.matches[0].path.value}}}
+                    : {"type": "URLRewrite", "urlRewrite": {"path": {"type": "ReplacePrefixMatch",
+                        "replacePrefixMatch": r.backends[0].basePath}}}] +
+                  r.mirrors.map(mi, {"type": "RequestMirror", "requestMirror": {
+                    "backendRef": {"name": mi.backend.serviceName, "port": mi.backend.port}, "percent": mi.percent}}),
+                "backendRefs": r.backends.filter(b, b.weight > 0)
+                  .map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})
+              })}
+    - id: envoy-config
+      includeWhen: ${visibility.exists(v, v in ["namespace", "internal"])}
+      template:
+        apiVersion: cilium.io/v2
+        kind: CiliumEnvoyConfig
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "mesh")}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+          annotations:
+            # Cilium asks hand-written east-west configs to set this, so pooled
+            # upstream connections don't collide on the 5-tuple.
+            cec.cilium.io/use-original-source-address: "false"
+        spec:
+          # Calls to any backend's Service go to Envoy, which reaches the
+          # backends' pods directly through the endpoints Cilium syncs.
+          # Each Service once: two backends can be endpoints of one Service.
+          # Only the ports the backends use are redirected, as no list means
+          # every port of the Service.
+          services: |
+            ${backends.map(b, b.namespace + "/" + b.serviceName).distinct()
+              .map(k, {"name": k.split("/")[1], "namespace": k.split("/")[0],
+                "ports": backends.filter(b, b.namespace + "/" + b.serviceName == k).map(b, b.port).distinct()})}
+          backendServices: |
+            ${backends.map(b, b.namespace + "/" + b.serviceName).distinct()
+              .map(k, {"name": k.split("/")[1], "namespace": k.split("/")[0]})}
+          # A listener, its routes (one per rule match, in order, the default
+          # last), and one EDS cluster per Service, named <namespace>/<service>
+          # as Cilium syncs its endpoints; Envoy refuses two of one name.
+          # The listener passes WebSocket upgrades on, as the type routes them.
+          resources: |
+            ${[{
+                "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+                "name": oc_generate_name(metadata.endpointName, "listener"),
+                "filter_chains": [{"filters": [{
+                  "name": "envoy.filters.network.http_connection_manager",
+                  "typed_config": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+                    "stat_prefix": metadata.endpointName,
+                    "rds": {"route_config_name": oc_generate_name(metadata.endpointName, "routes")},
+                    "upgrade_configs": [{"upgrade_type": "websocket"}],
+                    "http_filters": [{
+                      "name": "envoy.filters.http.router",
+                      "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]
+              }, {
+                "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+                "name": oc_generate_name(metadata.endpointName, "routes"),
+                "virtual_hosts": [{
+                  "name": metadata.endpointName,
+                  "domains": ["*"],
+                  "routes": rules.map(r, (size(r.matches) > 0 ? dyn(r.matches) : dyn([{"conditions": []}])).map(m, {
+                      "name": r.name,
+                      "match": {
+                        "prefix": has(m.path) ? oc_omit() : "/",
+                        "safe_regex": has(m.path) ? {"regex": (r.backends[0].basePath == "/" ? m.path.regex : r.backends[0].basePath.replace("\\", "\\\\").replace(".", "\\.").replace("+", "\\+").replace("*", "\\*").replace("?", "\\?").replace("(", "\\(").replace(")", "\\)").replace("|", "\\|").replace("[", "\\[").replace("]", "\\]").replace("{", "\\{").replace("}", "\\}").replace("^", "\\^").replace("$", "\\$") + (m.path.regex == "/.*" ? "(/.*)?" : m.path.regex))} : oc_omit(),
+                        "headers": size(m.conditions) > 0
+                          ? m.conditions.map(h, {"name": h.name == "host" ? ":authority" : h.name, "string_match":
+                              h.type == "Exact" ? {"exact": h.value} : {"safe_regex": {"regex": h.value}}})
+                          : oc_omit()
+                      },
+                      "route": {
+                        "weighted_clusters": {"clusters": r.backends.filter(b, b.weight > 0)
+                          .map(b, {"name": b.namespace + "/" + b.serviceName, "weight": b.weight})},
+                        "request_mirror_policies": size(r.mirrors) > 0
+                          ? r.mirrors.map(mi, {
+                              "cluster": mi.backend.namespace + "/" + mi.backend.serviceName,
+                              "runtime_fraction": {"default_value": {"numerator": mi.percent, "denominator": "HUNDRED"}}})
+                          : oc_omit()
+                      }
+                    })).flatten()
+                }]
+              }] + backends.map(b, b.namespace + "/" + b.serviceName).distinct().map(name, {
+                "@type": "type.googleapis.com/envoy.config.cluster.v3.Cluster",
+                "name": name,
+                "type": "EDS",
+                "connect_timeout": "5s"
+              })}

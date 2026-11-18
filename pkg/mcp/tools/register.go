@@ -265,6 +265,13 @@ func (t *Toolsets) endpointToolRegistrations() []RegisterFunc {
 		t.RegisterUpdateEndpoint,
 		t.RegisterDeleteEndpoint,
 
+		// Endpoint rollouts.
+		t.RegisterGetEndpointRollout,
+		t.RegisterStartEndpointRollout,
+		t.RegisterStepEndpointRollout,
+		t.RegisterAbortEndpointRollout,
+		t.RegisterFinishEndpointRollout,
+
 		// Endpoint types (read-only, scope-collapsed: pass scope="cluster" for ClusterEndpointType).
 		t.RegisterListEndpointTypes,
 		t.RegisterGetEndpointType,

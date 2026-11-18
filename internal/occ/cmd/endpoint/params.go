@@ -3,6 +3,8 @@
 
 package endpoint
 
+import "time"
+
 // ListParams defines parameters for listing endpoints
 type ListParams struct {
 	Namespace string
@@ -26,4 +28,68 @@ type PromoteParams struct {
 	Namespace    string
 	EndpointName string
 	Environment  string
+}
+
+// RolloutParams defines the parameters every rollout command takes
+type RolloutParams struct {
+	Namespace    string
+	EndpointName string
+	DryRun       bool
+	Output       string
+}
+
+// RolloutStartParams defines parameters for starting a rollout
+type RolloutStartParams struct {
+	RolloutParams
+	File string
+	Plan RolloutPlanFlags
+}
+
+// RolloutStepParams defines parameters for stepping or aborting a rollout in an environment
+type RolloutStepParams struct {
+	RolloutParams
+	Environment  string
+	To           *int
+	ExpectedStep *int
+	Back         bool
+	Last         bool
+}
+
+// RolloutFinishParams defines parameters for finishing a rollout
+type RolloutFinishParams struct {
+	RolloutParams
+	Keep string
+}
+
+// RolloutGetParams defines parameters for showing a rollout
+type RolloutGetParams struct {
+	RolloutParams
+	Environment string
+	Watch       bool
+	Interval    time.Duration
+}
+
+// RolloutPlanFlags builds a rollout plan from flags instead of a file
+type RolloutPlanFlags struct {
+	Strategy   string
+	Stable     string
+	Candidates []string
+	Steps      []int32
+	Header     string
+	Cookie     string
+}
+
+// RolloutWaitParams defines parameters for waiting on an environment
+type RolloutWaitParams struct {
+	RolloutParams
+	Environment string
+	Timeout     time.Duration
+	Interval    time.Duration
+}
+
+// RolloutSetParams defines parameters for hand-set weights in an environment
+type RolloutSetParams struct {
+	RolloutParams
+	Environment string
+	Weights     map[string]int32
 }

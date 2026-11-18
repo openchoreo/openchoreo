@@ -743,6 +743,21 @@ type EndpointToolsetHandler interface {
 	) (any, error)
 	DeleteEndpoint(ctx context.Context, namespaceName, endpointName string) (any, error)
 
+	// Endpoint rollouts
+	GetEndpointRollout(ctx context.Context, namespaceName, endpointName string) (any, error)
+	StartEndpointRollout(
+		ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutStartRequest,
+	) (any, error)
+	StepEndpointRollout(
+		ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutStepRequest,
+	) (any, error)
+	AbortEndpointRollout(
+		ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutAbortRequest,
+	) (any, error)
+	FinishEndpointRollout(
+		ctx context.Context, namespaceName, endpointName string, req *gen.EndpointRolloutFinishRequest,
+	) (any, error)
+
 	// Endpoint types (read-only, namespace-scoped)
 	ListEndpointTypes(ctx context.Context, namespaceName string, opts ListOpts) (any, error)
 	GetEndpointType(ctx context.Context, namespaceName, etName string) (any, error)

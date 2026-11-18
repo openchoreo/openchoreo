@@ -1,0 +1,80 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+# The trips service as it runs today, in Python.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: trips-python
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: trips-python-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: trips-python
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: trips-python
+      - key: MODE
+        value: "trips"
+      - key: ENGINE
+        value: "python"
+      - key: LATENCY_MS
+        value: "120"
+---
+# The Go rewrite: the same API, faster.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: trips-go
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: trips-go-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: trips-go
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: trips-go
+      - key: MODE
+        value: "trips"
+      - key: ENGINE
+        value: "go"
+      - key: LATENCY_MS
+        value: "15"

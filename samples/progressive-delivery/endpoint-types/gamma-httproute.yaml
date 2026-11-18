@@ -1,0 +1,75 @@
+# A Gateway API mesh (GAMMA) EndpointType for in-cluster, east-west callers.
+# It renders one HTTPRoute whose parents are the backend components' own
+# Services, so callers keep calling the address they already use, and any mesh
+# that implements GAMMA applies the Endpoint's matches and weighted split from
+# ${rules}. It declares only Match: request mirroring and regular expression
+# headers are optional in GAMMA, so an Endpoint that needs them, including an
+# A/B cookie group (a regular expression on the Cookie header), is refused
+# instead of rendering a route the mesh may ignore. Callers call a backend's
+# Service directly, so a path match is joined to its base path.
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterEndpointType
+metadata:
+  name: gamma-httproute
+spec:
+  capabilities: [Match]
+  validations:
+    - rule: ${visibility == ["namespace"]}
+      message: gamma-httproute serves in-cluster callers only; set spec.visibility to [namespace]
+    - rule: ${backends.all(b, b.protocol in ["HTTP", "GraphQL", "Websocket"])}
+      message: gamma-httproute only routes HTTP, GraphQL and Websocket endpoints
+    # Every backend serves under one base path: a rule rewrites to, and a mesh
+    # match is joined to, its first backend's.
+    - rule: ${backends.all(b, b.basePath == backends[0].basePath)}
+      message: gamma-httproute needs every backend to serve under the same base path
+    # Gateway API ranks an exact path, then the longer path, then more
+    # headers, ahead of rule order; a match without a path counts as "/". Refuse
+    # a later match that would outrank an earlier one it overlaps, so the first
+    # matching backend still wins. Paths overlap by whole segments: /api and
+    # /api/v2 do, /api and /apiv2 don't.
+    - rule: >-
+        ${rules.all(i, a, size(a.matches) == 0 || rules.all(j, b, j <= i || size(b.matches) == 0 ||
+          (has(a.matches[0].path) && has(b.matches[0].path) &&
+            !b.matches[0].path.value.startsWith(a.matches[0].path.value.endsWith("/") ?
+              a.matches[0].path.value : a.matches[0].path.value + "/") &&
+            !a.matches[0].path.value.startsWith(b.matches[0].path.value.endsWith("/") ?
+              b.matches[0].path.value : b.matches[0].path.value + "/") &&
+            a.matches[0].path.value != b.matches[0].path.value) ||
+          !((has(b.matches[0].path) && b.matches[0].path.type == "Exact") &&
+              !(has(a.matches[0].path) && a.matches[0].path.type == "Exact") ||
+            (has(b.matches[0].path) && b.matches[0].path.type == "Exact") ==
+              (has(a.matches[0].path) && a.matches[0].path.type == "Exact") &&
+            ((has(b.matches[0].path) ? size(b.matches[0].path.value) : 1) >
+                (has(a.matches[0].path) ? size(a.matches[0].path.value) : 1) ||
+              (has(b.matches[0].path) ? size(b.matches[0].path.value) : 1) ==
+                (has(a.matches[0].path) ? size(a.matches[0].path.value) : 1) &&
+              size(b.matches[0].conditions) > size(a.matches[0].conditions)))))}
+      message: >-
+        gamma-httproute can't keep the first-match order: a backend's match is more specific
+        than an earlier one's it overlaps, and Gateway API would pick it first; list
+        the more specific match first
+  resources:
+    - id: mesh-route
+      template:
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: HTTPRoute
+        metadata:
+          name: ${oc_generate_name(metadata.endpointName, "mesh")}
+          namespace: ${metadata.namespace}
+          labels: ${metadata.labels}
+        spec:
+          parentRefs: |
+            ${backends.map(b, {"group": "", "kind": "Service", "name": b.serviceName, "port": b.port}).distinct()}
+          rules: |
+            ${rules.map(r, {
+                "matches": size(r.matches) > 0
+                  ? r.matches.map(m, {
+                      "path": has(m.path) ? {"type": m.path.type, "value": (r.backends[0].basePath == "/" ? "" : r.backends[0].basePath) + m.path.value} : oc_omit(),
+                      "headers": size(m.conditions) > 0
+                        ? m.conditions.map(h, {"type": h.type, "name": h.name, "value": h.value})
+                        : oc_omit()
+                    })
+                  : oc_omit(),
+                "backendRefs": r.backends.filter(b, b.weight > 0)
+                  .map(b, {"name": b.serviceName, "port": b.port, "weight": b.weight})
+              })}

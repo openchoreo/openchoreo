@@ -18,7 +18,7 @@ import (
 func TestGetOperations(t *testing.T) {
 	ops := GetOperations()
 
-	const want = 135
+	const want = 139
 	if len(ops) != want {
 		t.Fatalf("len(GetOperations()) = %d, want %d", len(ops), want)
 	}
@@ -55,8 +55,8 @@ func TestGetOperations(t *testing.T) {
 	}
 
 	// access: GetSecret, ListSecrets and the two live log reads.
-	if mgmt != 119 || authz != 12 || access != 4 {
-		t.Errorf("category split = %d management / %d authorization / %d access, want 119/12/4",
+	if mgmt != 123 || authz != 12 || access != 4 {
+		t.Errorf("category split = %d management / %d authorization / %d access, want 123/12/4",
 			mgmt, authz, access)
 	}
 	if notInSpec != 2 {
@@ -78,7 +78,7 @@ func TestMCPBindings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	const wantTotalKeys = 99
+	const wantTotalKeys = 103
 	if len(bindings) != wantTotalKeys {
 		t.Fatalf("len(MCPBindings()) = %d, want %d (got tools: %v)", len(bindings), wantTotalKeys, toolNames(bindings))
 	}

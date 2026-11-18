@@ -24,6 +24,7 @@ func NewEndpointCmd(f client.NewClientFunc) *cobra.Command {
 		newGetCmd(f),
 		newDeleteCmd(f),
 		newPromoteCmd(f),
+		newRolloutCmd(f),
 	)
 	return cmd
 }

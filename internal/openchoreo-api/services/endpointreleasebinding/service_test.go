@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openchoreo/openchoreo/internal/labels"
@@ -100,6 +101,27 @@ func TestUpdateEndpointReleaseBinding(t *testing.T) {
 		assert.Equal(t, "test-r-abc123", result.Spec.EndpointRelease)
 		assert.Equal(t, testProject, result.Labels[labels.LabelKeyProjectName])
 		assert.Equal(t, testEndpointName, result.Labels[labels.LabelKeyEndpointCRName])
+	})
+
+	t.Run("refuses to save over a change made since the caller read it", func(t *testing.T) {
+		existing := testutil.NewEndpointReleaseBinding(testNamespace, testProject, testEndpointName, testEnvironment, testBindingName)
+		svc := newService(t, existing)
+
+		read, err := svc.GetEndpointReleaseBinding(ctx, testNamespace, testBindingName)
+		require.NoError(t, err)
+		moved := read.DeepCopy()
+		moved.Spec.EndpointRelease = "test-r-new"
+		_, err = svc.UpdateEndpointReleaseBinding(ctx, testNamespace, moved)
+		require.NoError(t, err)
+
+		read.Spec.EndpointRelease = "test-r-old"
+		_, err = svc.UpdateEndpointReleaseBinding(ctx, testNamespace, read)
+		require.True(t, apierrors.IsConflict(err), "got %v", err)
+
+		read.ResourceVersion = ""
+		result, err := svc.UpdateEndpointReleaseBinding(ctx, testNamespace, read)
+		require.NoError(t, err, "without a resourceVersion the save goes through")
+		assert.Equal(t, "test-r-old", result.Spec.EndpointRelease)
 	})
 
 	t.Run("nil input", func(t *testing.T) {

@@ -275,6 +275,30 @@ func TestUpdateEndpointReleaseBindingHandler(t *testing.T) {
 		assert.Equal(t, "rb-1", typed.Metadata.Name)
 	})
 
+	t.Run("keeps backend overrides", func(t *testing.T) {
+		svc := newEndpointReleaseBindingService(t, []client.Object{testEndpointReleaseBindingObj("rb-1")}, &allowAllPDP{})
+		h := newHandlerWithEndpointReleaseBindingService(svc)
+
+		body := newERBCreateBody("rb-1")
+		body.Spec.BackendOverrides = &[]gen.EndpointBackendOverride{
+			{Name: "stable", Weight: ptr.To[int32](75)},
+			{Name: "shadow", Mirror: &gen.EndpointMirror{Percent: 10}},
+		}
+		resp, err := h.UpdateEndpointReleaseBinding(ctx, gen.UpdateEndpointReleaseBindingRequestObject{
+			NamespaceName:              testERBNs,
+			EndpointReleaseBindingName: "rb-1",
+			Body:                       &body,
+		})
+		require.NoError(t, err)
+		typed, ok := resp.(gen.UpdateEndpointReleaseBinding200JSONResponse)
+		require.True(t, ok, "expected 200 response, got %T", resp)
+		require.NotNil(t, typed.Spec.BackendOverrides)
+		overrides := *typed.Spec.BackendOverrides
+		require.Len(t, overrides, 2)
+		assert.Equal(t, int32(75), *overrides[0].Weight)
+		assert.Equal(t, int32(10), overrides[1].Mirror.Percent)
+	})
+
 	t.Run("nil body returns 400", func(t *testing.T) {
 		svc := newEndpointReleaseBindingService(t, nil, &allowAllPDP{})
 		h := newHandlerWithEndpointReleaseBindingService(svc)

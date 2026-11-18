@@ -1,0 +1,80 @@
+# Copyright 2026 The OpenChoreo Authors
+# SPDX-License-Identifier: Apache-2.0
+---
+# Blue charges VAT at the shop's own rate, as before 1 July 2021.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: checkout-blue
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: checkout-blue-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: checkout-blue
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: checkout-blue
+      - key: MODE
+        value: "checkout"
+      - key: TAX_MODE
+        value: "seller"
+      - key: COLOR
+        value: "blue"
+---
+# Green charges the buyer's country rate, as the One-Stop Shop rules require.
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: checkout-green
+  namespace: default
+spec:
+  owner:
+    projectName: default
+  autoDeploy: true
+  componentType:
+    kind: ClusterComponentType
+    name: deployment/service
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: checkout-green-workload
+  namespace: default
+spec:
+  owner:
+    projectName: default
+    componentName: checkout-green
+  endpoints:
+    http:
+      protocol: HTTP
+      port: 8080
+  container:
+    image: openchoreo-samples/pd-app:local
+    env:
+      - key: APP_NAME
+        value: checkout-green
+      - key: MODE
+        value: "checkout"
+      - key: TAX_MODE
+        value: "buyer"
+      - key: COLOR
+        value: "green"
