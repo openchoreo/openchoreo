@@ -156,16 +156,25 @@ func conflictMessage(project, environment string) string {
 // withReadyMessage adds the ProjectReleaseBinding's Ready message to msg, so
 // the binding says why its ProjectReleaseBinding has no namespace.
 func withReadyMessage(prb *openchoreov1alpha1.ProjectReleaseBinding, msg string) string {
-	if ready := meta.FindStatusCondition(prb.Status.Conditions, string(ConditionReady)); ready != nil && ready.Message != "" {
-		msg += ": " + ready.Message
+	if ready := readyMessage(prb); ready != "" {
+		msg += ": " + ready
 	}
 	return msg
 }
 
+// readyMessage returns the message of the ProjectReleaseBinding's Ready
+// condition, empty without one.
+func readyMessage(prb *openchoreov1alpha1.ProjectReleaseBinding) string {
+	if ready := meta.FindStatusCondition(prb.Status.Conditions, string(ConditionReady)); ready != nil {
+		return ready.Message
+	}
+	return ""
+}
+
 // ObserveChangedPredicate passes creates, deletes, and updates that change
 // what the other bindings read from a ProjectReleaseBinding: the mode, the
-// namespace in status, and the start of its deletion, after which Find no
-// longer counts it.
+// namespace in status, the start of its deletion, after which Find no longer
+// counts it, and, while it has no namespace, the Ready message they quote.
 func ObserveChangedPredicate() predicate.Predicate {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
@@ -176,7 +185,8 @@ func ObserveChangedPredicate() predicate.Predicate {
 			}
 			return oldPRB.Spec.Mode != newPRB.Spec.Mode ||
 				oldPRB.Status.Namespace != newPRB.Status.Namespace ||
-				oldPRB.DeletionTimestamp.IsZero() != newPRB.DeletionTimestamp.IsZero()
+				oldPRB.DeletionTimestamp.IsZero() != newPRB.DeletionTimestamp.IsZero() ||
+				(newPRB.Status.Namespace == "" && readyMessage(oldPRB) != readyMessage(newPRB))
 		},
 	}
 }

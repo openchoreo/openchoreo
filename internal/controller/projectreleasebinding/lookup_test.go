@@ -166,6 +166,13 @@ func TestObserveChangedPredicate(t *testing.T) {
 		return lookupPRB("payments-prod", "payments", "prod", mode, namespace)
 	}
 
+	manage := openchoreov1alpha1.BindingModeManage
+	withReady := func(b *openchoreov1alpha1.ProjectReleaseBinding, msg string) *openchoreov1alpha1.ProjectReleaseBinding {
+		b.Status.Conditions = []metav1.Condition{{
+			Type: string(ConditionReady), Status: metav1.ConditionFalse, Reason: "Waiting", Message: msg,
+		}}
+		return b
+	}
 	deleting := func(b *openchoreov1alpha1.ProjectReleaseBinding) *openchoreov1alpha1.ProjectReleaseBinding {
 		now := metav1.Now()
 		b.DeletionTimestamp = &now
@@ -184,6 +191,12 @@ func TestObserveChangedPredicate(t *testing.T) {
 		{"namespace_cleared", prb(observe, "payments"), prb(observe, ""), true},
 		{"mode_changed", prb(openchoreov1alpha1.BindingModeManage, "payments"), prb(observe, "payments"), true},
 		{"deletion_started", prb(observe, "payments"), deleting(prb(observe, "payments")), true},
+		{"ready_message_changed_without_namespace",
+			withReady(prb(manage, ""), "spec.projectRelease is unset"),
+			withReady(prb(manage, ""), `ProjectRelease "payments-v2" not found`), true},
+		{"ready_message_changed_with_namespace",
+			withReady(prb(manage, "dp-payments"), "Rendering"),
+			withReady(prb(manage, "dp-payments"), "ProjectReleaseBinding is ready"), false},
 		{"unchanged", prb(observe, "payments"), prb(observe, "payments"), false},
 	}
 	for _, tc := range cases {
