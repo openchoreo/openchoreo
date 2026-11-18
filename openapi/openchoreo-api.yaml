@@ -12466,12 +12466,12 @@ components:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:
           type: array
-          description: Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+          description: Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service; while ComponentTypes still render each component's Service, the project scope stays reachable without it.
           minItems: 1
           uniqueItems: true
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
@@ -12679,7 +12679,7 @@ components:
           description: Snapshot of the visibilities requested by the Endpoint.
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Snapshot of the backend references and weights from the Endpoint.
@@ -12805,7 +12805,8 @@ components:
       type: object
       description: |
         Template for one URL and the security clients must satisfy to call it. Resolved only when the
-        Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+        Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+        itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
       required:
         - scheme
         - host

@@ -49,6 +49,7 @@ func fixtureBackends() []Backend {
 			Name: "stable", Kind: "Component", ComponentName: "greeter", Endpoint: "http", Protocol: "HTTP",
 			ServiceName: "greeter-dev-1a2b", Namespace: "dp-org-shop-dev-a1b2c3d", Port: 8080, Weight: 90,
 			ServiceURL: "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080", BasePath: "/",
+			TargetPort: 9090, PodSelectors: map[string]string{"openchoreo.dev/component-uid": "greeter-uid"},
 		},
 		{
 			Name: "canary", Kind: "Component", ComponentName: "greeter-v2", Endpoint: "http", Protocol: "HTTP",
@@ -159,9 +160,10 @@ func TestRender_ExposesBackendFields(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"name": "stable", "kind": "Component", "componentName": "greeter", "endpoint": "http",
 		"protocol": "HTTP", "serviceName": "greeter-dev-1a2b", "namespace": "dp-org-shop-dev-a1b2c3d",
-		"port": float64(8080), "weight": float64(90),
-		"serviceURL": "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
-		"basePath":   "/",
+		"port": float64(8080), "targetPort": float64(9090), "weight": float64(90),
+		"podSelectors": map[string]any{"openchoreo.dev/component-uid": "greeter-uid"},
+		"serviceURL":   "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
+		"basePath":     "/",
 	}, out.Entries[0].Object["data"].(map[string]any)["backend"])
 }
 

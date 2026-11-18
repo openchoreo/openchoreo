@@ -204,6 +204,7 @@ const (
 	EndpointReleaseSpecVisibilityExternal  EndpointReleaseSpecVisibility = "external"
 	EndpointReleaseSpecVisibilityInternal  EndpointReleaseSpecVisibility = "internal"
 	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
+	EndpointReleaseSpecVisibilityProject   EndpointReleaseSpecVisibility = "project"
 )
 
 // Defines values for EndpointSecurityApiKeyIn.
@@ -225,6 +226,7 @@ const (
 	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
 	EndpointSpecVisibilityInternal  EndpointSpecVisibility = "internal"
 	EndpointSpecVisibilityNamespace EndpointSpecVisibility = "namespace"
+	EndpointSpecVisibilityProject   EndpointSpecVisibility = "project"
 )
 
 // Defines values for EndpointTypeRefKind.
@@ -2385,7 +2387,7 @@ type EndpointSpec struct {
 	// Type Reference to an EndpointType or ClusterEndpointType template.
 	Type EndpointTypeRef `json:"type"`
 
-	// Visibility Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+	// Visibility Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service; while ComponentTypes still render each component's Service, the project scope stays reachable without it.
 	Visibility []EndpointSpecVisibility `json:"visibility"`
 }
 
@@ -2500,19 +2502,23 @@ type EndpointTypeSpecResourcesTargetPlane string
 // context as resources; nothing is read back from the data plane.
 type EndpointTypeURLs struct {
 	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
 	External *EndpointURLTemplate `json:"external,omitempty"`
 
 	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
 	Internal *EndpointURLTemplate `json:"internal,omitempty"`
 
 	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
 	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
 
 	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+	// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 }
 
@@ -2556,7 +2562,8 @@ type EndpointURLStatus struct {
 type EndpointURLStatusType string
 
 // EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
-// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+// Endpoint requests the visibility (project always applies, listed or not; a type that serves project
+// itself gates its project URL with includeWhen: ${"project" in visibility}) and includeWhen passes.
 type EndpointURLTemplate struct {
 	// Host Hostname or IP address clients connect to.
 	Host string `json:"host"`

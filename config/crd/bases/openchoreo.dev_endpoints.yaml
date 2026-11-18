@@ -261,9 +261,14 @@ spec:
                   Visibility lists the scopes this Endpoint exposes its backends to. It is
                   declared rather than inferred from rendered routes, so an EndpointType can
                   render one route per requested visibility and the set of route slots this
-                  Endpoint occupies is known before anything is rendered. The project scope
-                  is implicit for every workload endpoint and is not a route an Endpoint
-                  renders, so it is not accepted here.
+                  Endpoint occupies is known before anything is rendered.
+
+                  Project visibility asks the EndpointType to serve callers in the
+                  Endpoint's project, typically with a Kubernetes Service in front of the
+                  backends. While ComponentTypes still render each component's own Service,
+                  the project scope also stays reachable without it: the component's
+                  network policy admits its project, and the type's urls.project is
+                  resolved whether or not project is listed.
                 items:
                   description: |-
                     EndpointVisibility defines the visibility scope for an endpoint.
@@ -277,10 +282,6 @@ spec:
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: set
-                x-kubernetes-validations:
-                - message: project visibility is implicit for every workload endpoint
-                    and cannot be requested on an Endpoint
-                  rule: self.all(v, v != 'project')
             required:
             - backendRefs
             - owner

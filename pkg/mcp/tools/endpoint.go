@@ -30,7 +30,7 @@ func endpointVisibilityProperty(description string) map[string]any {
 		"description": description,
 		"items": map[string]any{
 			"type": "string",
-			"enum": []string{"namespace", "internal", "external"},
+			"enum": []string{"project", "namespace", "internal", "external"},
 		},
 	}
 }
@@ -46,7 +46,7 @@ func endpointBackendRefsProperty(description string) map[string]any {
 				"component": stringProperty(
 					"Name of the Component that serves this backend, in the Endpoint's project"),
 				"endpoint": stringProperty(
-					"Name of the workload endpoint on that component. It must have internal or external visibility."),
+					"Name of the workload endpoint on that component."),
 				"release_line": stringProperty(
 					"Optional: the component's release line to route to. Omit for its main line."),
 				"weight": map[string]any{
@@ -65,10 +65,11 @@ func toEndpointSpecVisibility(raw []string) ([]gen.EndpointSpecVisibility, error
 	out := make([]gen.EndpointSpecVisibility, 0, len(raw))
 	for _, v := range raw {
 		switch gen.EndpointSpecVisibility(v) {
-		case gen.EndpointSpecVisibilityNamespace, gen.EndpointSpecVisibilityInternal, gen.EndpointSpecVisibilityExternal:
+		case gen.EndpointSpecVisibilityProject, gen.EndpointSpecVisibilityNamespace,
+			gen.EndpointSpecVisibilityInternal, gen.EndpointSpecVisibilityExternal:
 			out = append(out, gen.EndpointSpecVisibility(v))
 		default:
-			return nil, fmt.Errorf("visibility %q must be one of: namespace, internal, external", v)
+			return nil, fmt.Errorf("visibility %q must be one of: project, namespace, internal, external", v)
 		}
 	}
 	return out, nil
@@ -146,8 +147,8 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 		Name: name,
 		Description: "Create an endpoint in a project that routes traffic to component workload endpoints " +
 			"through an EndpointType (namespace-scoped) or ClusterEndpointType (cluster-scoped) template. " +
-			"Each backend names a component and one of its workload endpoints, which must have internal or " +
-			"external visibility. Traffic is split by relative weight. Parameters must conform to the " +
+			"Each backend names a component and one of its workload endpoints. Traffic is split by " +
+			"relative weight. Parameters must conform to the " +
 			"template's parameters schema; use get_endpoint_type_schema with the matching scope to inspect it. " +
 			"Bind a release to an environment with create_endpoint_release_binding to render its routes.",
 		InputSchema: createSchema(map[string]any{
@@ -160,7 +161,7 @@ func (t *Toolsets) RegisterCreateEndpoint(s *mcp.Server, perms map[string]ToolPe
 			"type_kind": stringProperty(
 				"Optional: \"EndpointType\" (default, namespace-scoped) or \"ClusterEndpointType\" (cluster-scoped)."),
 			"visibility": endpointVisibilityProperty(
-				"Scopes to expose the backends to: one or more of namespace, internal, external."),
+				"Scopes to expose the backends to: one or more of project, namespace, internal, external."),
 			"backend_refs": endpointBackendRefsProperty("Backends to route traffic to, with relative weights."),
 			"component_name": stringProperty(
 				"Optional: the component that owns the endpoint, so deleting the component deletes it. Every " +

@@ -50,9 +50,12 @@ type EndpointTypeSpec struct {
 // EndpointTypeURLs holds one optional URL template per Endpoint visibility.
 // The keys match the values of Endpoint.spec.visibility.
 type EndpointTypeURLs struct {
-	// Project is the URL for callers within the Endpoint's project. Project
-	// visibility is implicit for every Endpoint, so it is resolved whenever it
-	// is declared; includeWhen is its only gate.
+	// Project is the URL for callers within the Endpoint's project. It is
+	// resolved whenever it is declared, whether or not the Endpoint lists
+	// project visibility, because the component's own Service serves that
+	// scope while ComponentTypes still render one; includeWhen is its only
+	// gate. A type that renders its own Service for project visibility gates
+	// this URL on it: includeWhen: ${"project" in visibility}.
 	// +optional
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 
