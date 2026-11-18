@@ -1788,6 +1788,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
 		).
+		// The environment's default notification channel feeds the render context
+		// (environment.defaultNotificationChannel), so re-render when it may have changed.
+		Watches(
+			&openchoreov1alpha1.ObservabilityAlertsNotificationChannel{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForNotificationChannel),
+			builder.WithPredicates(notificationChannelDefaultChangedPredicate()),
+		).
 		Named("releasebinding").
 		Complete(r)
 }
