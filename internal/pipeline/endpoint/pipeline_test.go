@@ -109,6 +109,24 @@ func TestRender_SampleRejectsAnExternalBackendWithoutAService(t *testing.T) {
 	assert.Empty(t, out.Entries)
 }
 
+func TestRender_SampleLeavesAStagedBackendWithoutAServiceOutOfTheRoute(t *testing.T) {
+	// A canary staged at weight 0 receives no traffic, so its missing Service
+	// must not block the route for the backends that do.
+	input := sampleInput(t)
+	input.Backends[0].Weight = 100
+	input.Backends[1].Weight = 0
+	input.Backends[1].ServiceName = ""
+	input.Backends[1].ServiceURL = ""
+
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	require.Len(t, out.Entries, 1)
+	rule := out.Entries[0].Object["spec"].(map[string]any)["rules"].([]any)[0].(map[string]any)
+	assert.Equal(t, []any{
+		map[string]any{"name": "greeter-dev-1a2b", "port": float64(8080), "weight": float64(100)},
+	}, rule["backendRefs"])
+}
+
 func TestRender_SampleRendersWeightedHTTPRoute(t *testing.T) {
 	out, err := NewPipeline().Render(context.Background(), sampleInput(t))
 	require.NoError(t, err)

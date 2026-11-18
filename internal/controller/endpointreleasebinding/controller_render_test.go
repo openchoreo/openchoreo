@@ -324,15 +324,19 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" is not in the release deployed`),
 	)
 
+	// Each row sets UDP in only one of the two protocol sources, so it fails if
+	// the resolver reads the protocol from the other one.
 	DescribeTable("reports a backend whose endpoint no route can carry",
-		func(rb func() *openchoreov1alpha1.ReleaseBinding) {
+		func(rb func() *openchoreov1alpha1.ReleaseBinding, releaseUDP bool) {
 			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
 			b := newBinding("udp", testRelease)
 			binding := rb()
 			r, cli := build(release, b, binding)
-			setReleasedEndpoint(cli, binding, func(ep *openchoreov1alpha1.WorkloadEndpoint) {
-				ep.Protocol = openchoreov1alpha1.EndpointProtocolUDP
-			})
+			if releaseUDP {
+				setReleasedEndpoint(cli, binding, func(ep *openchoreov1alpha1.WorkloadEndpoint) {
+					ep.Protocol = openchoreov1alpha1.EndpointProtocolUDP
+				})
+			}
 
 			updated := reconcileBinding(r, cli, b)
 			Expect(updated.Status.Backends).To(HaveLen(1))
@@ -341,12 +345,12 @@ var _ = Describe("Backend resolution and rendering", func() {
 			Expect(st.Reason).To(Equal(BackendReasonUnsupportedProtocol))
 			Expect(st.Message).To(ContainSubstring("uses protocol UDP"))
 		},
-		Entry("with the component's Service, as its status reports it", func() *openchoreov1alpha1.ReleaseBinding {
+		Entry("with the component's Service, from its status entry while the release says HTTP", func() *openchoreov1alpha1.ReleaseBinding {
 			rb := deployedComponent("greeter", dpNS)
 			rb.Status.Endpoints[0].Type = openchoreov1alpha1.EndpointProtocolUDP
 			return rb
-		}),
-		Entry("without the component's Service, as the release declares it", renderedWithoutService),
+		}, false),
+		Entry("without the component's Service, from the release", renderedWithoutService, true),
 	)
 
 	It("pairs the component Service's protocol and port with its address while a new release rolls out", func() {
