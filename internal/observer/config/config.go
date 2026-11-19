@@ -139,6 +139,13 @@ type AlertingConfig struct {
 	// AlertSuppressionWindow is the duration within which duplicate alerts
 	// for the same alert rule are suppressed. Set to 0 to disable suppression.
 	AlertSuppressionWindow time.Duration `koanf:"alert.suppression.window"`
+	// NotificationMaxAttempts is how many times a notification is sent to a channel before it is
+	// recorded as failed. Only temporary failures are retried.
+	NotificationMaxAttempts int `koanf:"notification.max.attempts"`
+	// NotificationAttemptTimeout bounds one attempt to send a notification to a channel.
+	NotificationAttemptTimeout time.Duration `koanf:"notification.attempt.timeout"`
+	// NotificationRetryBackoff is the delay before the first retry. It doubles for each later retry.
+	NotificationRetryBackoff time.Duration `koanf:"notification.retry.backoff"`
 	// FinOpsAgentURL is the base URL for the FinOps agent service.
 	// Used for triggering AI cost analysis for budget alerts.
 	FinOpsAgentURL string `koanf:"finops.agent.url"`
@@ -267,6 +274,9 @@ func Load() (*Config, error) {
 		"ALERT_STORE_BACKEND":                       "alerting.alert.store.backend",
 		"ALERT_STORE_DSN":                           "alerting.alert.store.dsn",
 		"ALERT_SUPPRESSION_WINDOW":                  "alerting.alert.suppression.window",
+		"ALERT_NOTIFICATION_MAX_ATTEMPTS":           "alerting.notification.max.attempts",
+		"ALERT_NOTIFICATION_ATTEMPT_TIMEOUT":        "alerting.notification.attempt.timeout",
+		"ALERT_NOTIFICATION_RETRY_BACKOFF":          "alerting.notification.retry.backoff",
 		"FINOPS_AGENT_URL":                          "alerting.finops.agent.url",
 		"FINOPS_AGENT_ENABLED":                      "alerting.finops.agent.enabled",
 		"DELIVERY_INSIGHTS_STORE_BACKEND":           "deliveryinsights.store.backend",
@@ -444,14 +454,17 @@ func getDefaults() map[string]interface{} {
 			"max.log.lines.per.file":  600000,
 		},
 		"alerting": map[string]interface{}{
-			"rca.service.url":          "http://sre-agent:8080",
-			"ai.rca.enabled":           false,
-			"observability.namespace":  "openchoreo-observability-plane",
-			"alert.store.backend":      "sqlite",
-			"alert.store.dsn":          "file:/data/alerts.db?_journal=WAL",
-			"alert.suppression.window": "1h",
-			"finops.agent.url":         "http://finops-agent:8080",
-			"finops.agent.enabled":     false,
+			"rca.service.url":              "http://sre-agent:8080",
+			"ai.rca.enabled":               false,
+			"observability.namespace":      "openchoreo-observability-plane",
+			"alert.store.backend":          "sqlite",
+			"alert.store.dsn":              "file:/data/alerts.db?_journal=WAL",
+			"alert.suppression.window":     "1h",
+			"notification.max.attempts":    3,
+			"notification.attempt.timeout": "10s",
+			"notification.retry.backoff":   "1s",
+			"finops.agent.url":             "http://finops-agent:8080",
+			"finops.agent.enabled":         false,
 		},
 		"deliveryinsights": map[string]interface{}{
 			"store.backend":                  "",
@@ -492,6 +505,20 @@ func getDefaults() map[string]interface{} {
 		},
 		"loglevel": "info",
 	}
+}
+
+// validateAlertNotifications checks the retry and timeout settings of alert notifications.
+func (c *Config) validateAlertNotifications() error {
+	if c.Alerting.NotificationMaxAttempts < 1 {
+		return fmt.Errorf("alerting.notification.max.attempts must be at least 1")
+	}
+	if c.Alerting.NotificationAttemptTimeout <= 0 {
+		return fmt.Errorf("alerting.notification.attempt.timeout must be positive")
+	}
+	if c.Alerting.NotificationRetryBackoff < 0 {
+		return fmt.Errorf("alerting.notification.retry.backoff must not be negative")
+	}
+	return nil
 }
 
 // validateDeliveryInsightsStore normalizes the delivery insights store backend and
@@ -661,6 +688,9 @@ func (c *Config) validate() error {
 	}
 
 	if err := c.validateAlertStore(); err != nil {
+		return err
+	}
+	if err := c.validateAlertNotifications(); err != nil {
 		return err
 	}
 	if err := c.validateDeliveryInsightsStore(); err != nil {
