@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"net/url"
 
 	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 )
@@ -20,7 +19,7 @@ var defaultPolicy = destination.NewPolicy(destination.Options{})
 var (
 	// httpClient sends webhook notifications. It connects only to the destinations the policy
 	// allows and does not follow redirects.
-	httpClient = newWebhookClient(defaultPolicy, http.ProxyFromEnvironment)
+	httpClient = newWebhookClient(defaultPolicy)
 
 	// smtpDial connects to SMTP servers, only at the destinations the policy allows.
 	smtpDial func(ctx context.Context, network, address string) (net.Conn, error) = defaultPolicy.DialContext
@@ -30,27 +29,18 @@ var (
 // called once at startup, before any notification is sent.
 func SetDestinationPolicy(opts destination.Options) {
 	policy := destination.NewPolicy(opts)
-	httpClient = newWebhookClient(policy, http.ProxyFromEnvironment)
+	httpClient = newWebhookClient(policy)
 	smtpDial = policy.DialContext
 }
 
 // newWebhookClient returns a client that connects only to the destinations the policy allows and
-// does not follow redirects. proxy picks the HTTP proxy for a request, as http.Transport.Proxy
-// does. Each attempt is bounded by the caller's context, so the client sets no timeout.
-func newWebhookClient(policy *destination.Policy, proxy func(*http.Request) (*url.URL, error)) *http.Client {
+// does not follow redirects. Each attempt is bounded by the caller's context, so it sets no timeout.
+//
+// A webhook sent through an HTTP proxy from the environment is not checked: the client connects
+// only to the proxy, which decides where the request goes and must refuse internal destinations.
+func newWebhookClient(policy *destination.Policy) *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DialContext = policy.DialContext
-	transport.Proxy = func(req *http.Request) (*url.URL, error) {
-		proxyURL, err := proxy(req)
-		if err != nil || proxyURL == nil {
-			return proxyURL, err
-		}
-		// Through a proxy, DialContext sees only the proxy's address, so check the webhook's host here.
-		if err := policy.CheckHost(req.Context(), req.URL.Hostname()); err != nil {
-			return nil, err
-		}
-		return proxyURL, nil
-	}
 	transport.MaxResponseHeaderBytes = maxResponseHeaderBytes
 	return &http.Client{
 		Transport: transport,

@@ -263,29 +263,6 @@ func (p *Policy) DialContext(ctx context.Context, network, address string) (net.
 	return dialer.DialContext(ctx, network, address)
 }
 
-// CheckHost applies the policy to a host that is reached through an HTTP proxy, where DialContext
-// sees only the proxy's address. It checks the host's name and every address the host resolves to
-// here. The proxy can resolve the name differently, so it must restrict where it connects as well.
-func (p *Policy) CheckHost(ctx context.Context, host string) error {
-	host = NormalizeHost(host)
-	prot := p.protected.snapshot(ctx)
-	if err := prot.checkName(host); err != nil {
-		return err
-	}
-	var addrs []netip.Addr
-	if addr, err := netip.ParseAddr(host); err == nil {
-		addrs = []netip.Addr{addr}
-	} else if addrs, err = p.protected.lookup(ctx, host); err != nil {
-		return err
-	}
-	for _, addr := range addrs {
-		if err := p.check(host, normalize(addr), prot); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // check decides whether a connection to addr, made for host, is allowed.
 func (p *Policy) check(host string, addr netip.Addr, prot protection) error {
 	switch {

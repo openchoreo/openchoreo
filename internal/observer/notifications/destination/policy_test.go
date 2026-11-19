@@ -214,7 +214,6 @@ func TestProtectedNamesAreRefusedWhileTheirAddressesAreStale(t *testing.T) {
 
 	_, err := p.DialContext(ctx, "tcp", "Logs-Adapter.:9098")
 	assert.ErrorIs(t, err, ErrNotAllowed, "the protected name is refused before it is resolved")
-	assert.ErrorIs(t, p.CheckHost(ctx, "logs-adapter"), ErrNotAllowed)
 }
 
 func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
@@ -249,36 +248,4 @@ func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
 	require.False(t, prot.incomplete, "a name that does not exist has nothing to protect")
 	assert.ErrorIs(t, p.check("receiver", mustAddr("10.43.0.9"), prot), ErrNotAllowed)
 	assert.NoError(t, p.check("receiver", mustAddr("10.43.0.10"), prot))
-}
-
-func TestCheckHost(t *testing.T) {
-	ctx := context.Background()
-	p := NewPolicy(Options{
-		Private:        Entries{Prefixes: []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}},
-		ProtectedHosts: []string{"logs-adapter"},
-	})
-	answers := map[string][]netip.Addr{
-		"logs-adapter":         {netip.MustParseAddr("10.1.0.9")},
-		"receiver.example.com": {netip.MustParseAddr("8.8.8.8")},
-		"relay.corp.internal":  {netip.MustParseAddr("10.1.0.5")},
-		"internal.example.com": {netip.MustParseAddr("10.2.0.5")},
-		"mixed.example.com":    {netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("127.0.0.1")},
-	}
-	p.protected.lookup = func(_ context.Context, host string) ([]netip.Addr, error) {
-		if addrs, ok := answers[host]; ok {
-			return addrs, nil
-		}
-		return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
-	}
-
-	for _, host := range []string{"receiver.example.com", "relay.corp.internal", "8.8.8.8"} {
-		assert.NoError(t, p.CheckHost(ctx, host), host)
-	}
-	for _, host := range []string{
-		"logs-adapter", "10.1.0.9", "internal.example.com", "mixed.example.com", "169.254.169.254", "127.0.0.1", "::1",
-	} {
-		assert.ErrorIs(t, p.CheckHost(ctx, host), ErrNotAllowed, host)
-	}
-	var dnsErr *net.DNSError
-	assert.ErrorAs(t, p.CheckHost(ctx, "missing.example.com"), &dnsErr, "a host that cannot be looked up is not handed to a proxy")
 }
