@@ -297,19 +297,17 @@ var _ = Describe("Backend resolution and rendering", func() {
 			return rb
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
 		Entry("endpoint without an address while the ReleaseBinding renders a new spec", func() *openchoreov1alpha1.ReleaseBinding {
+			// The endpoints still describe generation 1.
 			rb := renderedWithoutService()
 			rb.Generation = 2
 			return rb
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
-		Entry("endpoint without an address while the ReleaseBinding is not synced", func() *openchoreov1alpha1.ReleaseBinding {
-			rb := renderedWithoutService()
-			rb.Status.Conditions[0].Status = metav1.ConditionFalse
-			return rb
-		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
-		Entry("endpoint without an address on a synced Observe-mode ReleaseBinding", func() *openchoreov1alpha1.ReleaseBinding {
-			// Observe mode syncs without rendering the release, so the missing
-			// address says nothing about the ComponentType's Service, and the
-			// observed pods do not carry the selectors a type would select.
+		Entry("endpoint without an address on an Observe-mode ReleaseBinding", func() *openchoreov1alpha1.ReleaseBinding {
+			// Observe mode renders no release, so the missing address says
+			// nothing about the ComponentType's Service, and the observed pods
+			// do not carry the selectors a type would select. The controller
+			// clears the observed generation in Observe mode; this checks the
+			// mode is refused even if it were left set.
 			rb := renderedWithoutService()
 			rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
 			return rb
@@ -322,6 +320,37 @@ var _ = Describe("Backend resolution and rendering", func() {
 			rb.Spec.ReleaseName = ""
 			return rb
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" is not in the release deployed`),
+	)
+
+	// The ReleaseBinding records its endpoints before it waits on its own
+	// connections and resource dependencies, so a backend resolves once the
+	// component has rendered, whatever ReleaseSynced says. Waiting on
+	// ReleaseSynced would hold an Endpoint on what its backend depends on, and
+	// two components depending on each other through Endpoints would never
+	// resolve.
+	DescribeTable("resolves a backend without the component's Service whatever the ReleaseBinding's sync state",
+		func(conditions ...metav1.Condition) {
+			release := newRelease(testRelease, componentBackend("stable", "greeter", 1))
+			b := newBinding("sync-state", testRelease)
+			rb := renderedWithoutService()
+			rb.Status.Conditions = conditions
+			r, cli := build(release, b, rb)
+
+			updated := reconcileBinding(r, cli, b)
+
+			backends := condition(updated, ConditionBackendsResolved)
+			Expect(backends.Status).To(Equal(metav1.ConditionTrue), backends.Message)
+			Expect(updated.Status.Backends).To(ConsistOf(And(HaveField("Resolved", true), HaveField("ServiceURL", BeNil()))))
+		},
+		Entry("waiting on its connections, so never synced at this generation",
+			metav1.Condition{Type: "ConnectionsResolved", Status: metav1.ConditionFalse, Reason: "ConnectionsPending",
+				ObservedGeneration: 1, LastTransitionTime: metav1.Now()}),
+		Entry("synced only at an earlier generation",
+			metav1.Condition{Type: "ReleaseSynced", Status: metav1.ConditionTrue, Reason: "ReleaseSynced",
+				LastTransitionTime: metav1.Now()}),
+		Entry("failing to apply its release at this generation",
+			metav1.Condition{Type: "ReleaseSynced", Status: metav1.ConditionFalse, Reason: "ReleaseUpdateFailed",
+				ObservedGeneration: 1, LastTransitionTime: metav1.Now()}),
 	)
 
 	// Each row sets UDP in only one of the two protocol sources, so it fails if

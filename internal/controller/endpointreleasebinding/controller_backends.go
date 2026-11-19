@@ -10,14 +10,11 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 	endpointpipeline "github.com/openchoreo/openchoreo/internal/pipeline/endpoint"
 )
 
@@ -155,10 +152,12 @@ func (r *Reconciler) resolveBackend(
 // the ReleaseBinding's status reports its in-cluster address for the endpoint,
 // and the backend carries its name, URL, port and protocol from that status
 // entry, so routes target the Service as it was rendered. When the
-// ReleaseBinding has rendered its current spec without reporting one, the
-// ComponentType renders no Service for the endpoint, and the backend resolves
-// without it. Until the ReleaseBinding has rendered, the address may still
-// come, so the backend waits.
+// ReleaseBinding has computed its endpoints for its current spec without
+// reporting one, the ComponentType renders no Service for the endpoint, and
+// the backend resolves without it. Until then the address may still come, so
+// the backend waits. This does not wait on the ReleaseBinding's own
+// connections or resource dependencies: like a component dependency reading
+// the same status, an Endpoint resolves once the backend has rendered.
 //
 // TODO: once ComponentTypes no longer render Services, drop the ReleaseBinding
 // address and resolve from the release and the pod selectors alone.
@@ -234,7 +233,7 @@ func (r *Reconciler) resolveComponentBackend(
 			break
 		}
 	}
-	if serviceURL == nil && !hasRenderedCurrentSpec(rb) {
+	if serviceURL == nil && !hasObservedCurrentEndpoints(rb) {
 		return unresolved(BackendReasonEndpointNotAvailable,
 			"endpoint %q of %s has no in-cluster address in environment %q yet", endpoint, subject, env)
 	}
@@ -333,21 +332,25 @@ func (r *Reconciler) resolveComponentBackend(
 	}, nil
 }
 
-// hasRenderedCurrentSpec reports whether the ReleaseBinding has rendered and
-// synced the release its current spec deploys. Its status.endpoints is
-// computed from those rendered manifests in the same reconcile, so an endpoint
+// hasObservedCurrentEndpoints reports whether the ReleaseBinding has computed
+// status.endpoints from the release its current spec deploys. An endpoint
 // without a service address then has no Service from the ComponentType, rather
 // than one not reported yet.
 //
-// An Observe-mode binding never counts: it syncs without rendering the
-// release, and its pods are the observed workload's, which do not carry the
-// pod selectors a type would render a Service with.
-func hasRenderedCurrentSpec(rb *openchoreov1alpha1.ReleaseBinding) bool {
+// The ReleaseBinding records this as soon as the release is rendered, before
+// it waits on its own connections and resource dependencies, so a backend
+// never waits on what the backend component depends on. Waiting on
+// ReleaseSynced instead would, and two components depending on each other
+// through such Endpoints would never resolve.
+//
+// An Observe-mode binding never counts: it renders no release, and its pods
+// are the observed workload's, which do not carry the pod selectors a type
+// would render a Service with.
+func hasObservedCurrentEndpoints(rb *openchoreov1alpha1.ReleaseBinding) bool {
 	if rb.Spec.IsObserve() {
 		return false
 	}
-	cond := meta.FindStatusCondition(rb.Status.Conditions, string(releasebinding.ConditionReleaseSynced))
-	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == rb.Generation
+	return rb.Status.EndpointsObservedGeneration != 0 && rb.Status.EndpointsObservedGeneration == rb.Generation
 }
 
 // getReleaseLine returns the component's release line, or nil when it has

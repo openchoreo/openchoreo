@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
-	"github.com/openchoreo/openchoreo/internal/controller/releasebinding"
 )
 
 const (
@@ -175,20 +174,14 @@ func deployedComponent(component, serviceNamespace string) *openchoreov1alpha1.R
 }
 
 // renderedWithoutService returns a ReleaseBinding of the "greeter" component
-// that has rendered and synced its current spec without reporting a Service
-// for its "http" endpoint, as for a ComponentType that leaves Services to
-// Endpoints.
+// that has computed its endpoints for its current spec without reporting a
+// Service for its "http" endpoint, as for a ComponentType that leaves Services
+// to Endpoints. It carries no conditions: whether it is synced does not matter.
 func renderedWithoutService() *openchoreov1alpha1.ReleaseBinding {
 	rb := deployedComponent("greeter", "")
 	rb.Generation = 1
 	rb.Status.Endpoints = nil
-	rb.Status.Conditions = []metav1.Condition{{
-		Type:               string(releasebinding.ConditionReleaseSynced),
-		Status:             metav1.ConditionTrue,
-		Reason:             string(releasebinding.ReasonReleaseSynced),
-		ObservedGeneration: 1,
-		LastTransitionTime: metav1.Now(),
-	}}
+	rb.Status.EndpointsObservedGeneration = 1
 	return rb
 }
 

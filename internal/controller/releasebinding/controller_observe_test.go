@@ -73,6 +73,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 			Name:       "http",
 			ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.payments.svc", Port: 8080},
 		}}
+		rb.Status.EndpointsObservedGeneration = rb.Generation
 		rb.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: "rollout-1"}
 		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
 			Type:   string(ConditionConnectionsResolved),
@@ -386,6 +387,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 
 		updated := fetchRB(rb.Name)
 		Expect(updated.Status.Endpoints).To(BeEmpty())
+		Expect(updated.Status.EndpointsObservedGeneration).To(BeZero())
 		Expect(updated.Status.Delivery).To(BeNil())
 		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).To(BeNil())
 		rr, err := releaseOf(rb)
