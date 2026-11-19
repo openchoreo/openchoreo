@@ -128,10 +128,12 @@ func TestCreateComponent_AuthzCheck(t *testing.T) {
 
 func TestUpdateComponent_AuthzCheck(t *testing.T) {
 	comp := testComp()
+	fetched := testComp()
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
 		mockSvc := newMockService(t)
+		mockSvc.On("GetComponent", mock.Anything, "ns-1", "my-comp").Return(fetched, nil)
 		mockSvc.On("UpdateComponent", mock.Anything, "ns-1", comp).Return(comp, nil)
 		svc := &componentServiceWithAuthz{
 			internal: mockSvc,
@@ -148,12 +150,46 @@ func TestUpdateComponent_AuthzCheck(t *testing.T) {
 	t.Run("denied", func(t *testing.T) {
 		pdp := testutil.DenyPDP()
 		mockSvc := newMockService(t)
+		mockSvc.On("GetComponent", mock.Anything, "ns-1", "my-comp").Return(fetched, nil)
 		svc := &componentServiceWithAuthz{
 			internal: mockSvc,
 			authz:    testutil.NewTestAuthzChecker(pdp),
 		}
 		_, err := svc.UpdateComponent(testutil.AuthzContext(), "ns-1", comp)
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("authorizes against the stored component, not the request body", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		body := testComp()
+		body.Spec.Owner.ProjectName = "other-proj"
+		body.Spec.ComponentType = openchoreov1alpha1.ComponentTypeRef{Name: "deployment/other-type"}
+		mockSvc := newMockService(t)
+		mockSvc.On("GetComponent", mock.Anything, "ns-1", "my-comp").Return(fetched, nil)
+		mockSvc.On("UpdateComponent", mock.Anything, "ns-1", body).Return(nil, &services.ValidationError{Msg: "spec.owner.projectName is immutable"})
+		svc := &componentServiceWithAuthz{
+			internal: mockSvc,
+			authz:    testutil.NewTestAuthzChecker(pdp),
+		}
+		_, err := svc.UpdateComponent(testutil.AuthzContext(), "ns-1", body)
+		require.Error(t, err)
+		require.Len(t, pdp.Captured, 1)
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "component:update", "component", "my-comp", compHierarchy)
+		require.Equal(t, "ns-1/web-app", pdp.Captured[0].Context.Resource.ComponentType)
+	})
+
+	t.Run("fetch error", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		fetchErr := errors.New("not found")
+		mockSvc := newMockService(t)
+		mockSvc.On("GetComponent", mock.Anything, "ns-1", "my-comp").Return(nil, fetchErr)
+		svc := &componentServiceWithAuthz{
+			internal: mockSvc,
+			authz:    testutil.NewTestAuthzChecker(pdp),
+		}
+		_, err := svc.UpdateComponent(testutil.AuthzContext(), "ns-1", comp)
+		require.ErrorIs(t, err, fetchErr)
+		require.Empty(t, pdp.Captured, "authz should not be called when fetch fails")
 	})
 }
 

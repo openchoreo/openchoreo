@@ -73,18 +73,23 @@ func (s *componentServiceWithAuthz) CreateComponent(ctx context.Context, namespa
 }
 
 func (s *componentServiceWithAuthz) UpdateComponent(ctx context.Context, namespaceName string, component *openchoreov1alpha1.Component) (*openchoreov1alpha1.Component, error) {
+	// Fetch the existing component to get the project for authz hierarchy
+	existing, err := s.internal.GetComponent(ctx, namespaceName, component.Name)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionUpdateComponent,
 		ResourceType: resourceTypeComponent,
 		ResourceID:   component.Name,
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
-			Project:   component.Spec.Owner.ProjectName,
+			Project:   existing.Spec.Owner.ProjectName,
 			Component: component.Name,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				ComponentType: formatComponentTypeAttr(namespaceName, component.Spec.ComponentType),
+				ComponentType: formatComponentTypeAttr(namespaceName, existing.Spec.ComponentType),
 			},
 		},
 	}); err != nil {

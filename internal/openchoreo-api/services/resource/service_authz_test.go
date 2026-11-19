@@ -77,10 +77,12 @@ func TestCreateResource_AuthzCheck(t *testing.T) {
 
 func TestUpdateResource_AuthzCheck(t *testing.T) {
 	resource := newResourceFixture("my-r")
+	stored := newResourceFixture("my-r")
 
 	t.Run("allowed", func(t *testing.T) {
 		pdp := testutil.AllowPDP()
 		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetResource", mock.Anything, authzNamespace, "my-r").Return(stored, nil)
 		mockSvc.On("UpdateResource", mock.Anything, authzNamespace, resource).Return(resource, nil)
 		svc := newAuthzSvc(pdp, mockSvc)
 		result, err := svc.UpdateResource(testutil.AuthzContext(), authzNamespace, resource)
@@ -94,9 +96,39 @@ func TestUpdateResource_AuthzCheck(t *testing.T) {
 	t.Run("denied", func(t *testing.T) {
 		pdp := testutil.DenyPDP()
 		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetResource", mock.Anything, authzNamespace, "my-r").Return(stored, nil)
 		svc := newAuthzSvc(pdp, mockSvc)
 		_, err := svc.UpdateResource(testutil.AuthzContext(), authzNamespace, resource)
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("authorizes against the stored resource, not the request body", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		body := newResourceFixture("my-r")
+		body.Spec.Owner.ProjectName = "other-proj"
+		body.Spec.Type = openchoreov1alpha1.ResourceTypeRef{
+			Kind: openchoreov1alpha1.ResourceTypeRefKindClusterResourceType,
+			Name: "redis",
+		}
+		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetResource", mock.Anything, authzNamespace, "my-r").Return(stored, nil)
+		mockSvc.On("UpdateResource", mock.Anything, authzNamespace, body).Return(nil, &services.ValidationError{Msg: "spec.owner.projectName is immutable"})
+		svc := newAuthzSvc(pdp, mockSvc)
+		_, err := svc.UpdateResource(testutil.AuthzContext(), authzNamespace, body)
+		require.Error(t, err)
+		require.Len(t, pdp.Captured, 1)
+		testutil.RequireEvalRequest(t, pdp.Captured[0], "resource:update", "resource", "my-r", projectHierarchy("my-r"))
+		require.Equal(t, "ns-a/postgres", pdp.Captured[0].Context.Resource.ResourceType)
+	})
+
+	t.Run("not found bypasses authz", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		mockSvc := mocks.NewMockService(t)
+		mockSvc.On("GetResource", mock.Anything, authzNamespace, "missing").Return(nil, ErrResourceNotFound)
+		svc := newAuthzSvc(pdp, mockSvc)
+		_, err := svc.UpdateResource(testutil.AuthzContext(), authzNamespace, newResourceFixture("missing"))
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		require.Len(t, pdp.Captured, 0)
 	})
 }
 
