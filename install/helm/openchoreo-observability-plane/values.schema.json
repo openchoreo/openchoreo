@@ -1441,7 +1441,7 @@
         },
         "alertNotification": {
           "additionalProperties": false,
-          "description": "Retry and timeout settings for sending alert notifications. Each channel is sent to on its own, so a slow channel does not hold up the others.",
+          "description": "Retry, timeout and destination settings for sending alert notifications. Each channel is sent to on its own, so a slow channel does not hold up the others.",
           "properties": {
             "attemptTimeout": {
               "default": "10s",
@@ -1455,6 +1455,15 @@
               "minimum": 1,
               "title": "maxAttempts",
               "type": "integer"
+            },
+            "privateDestinations": {
+              "default": [],
+              "description": "Private addresses that alert notifications may be sent to, as host names, IP addresses or CIDRs, such as smtp-relay.corp.internal or 10.0.12.5 for an in-cluster webhook receiver or an internal SMTP relay. Private addresses are 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10 and fc00::/7. By default notifications reach only public addresses, so that a notification channel cannot reach services inside the cluster or the private network. A host name must match the host in the channel's webhook URL or SMTP host exactly. Every channel can reach what is listed, so prefer host names and single addresses to wide ranges, which can include services that accept requests without authentication. Loopback, link-local (including cloud metadata) and other special-purpose addresses, and the adapters, agents and services the Observer itself uses, are never reached, and redirects are never followed. An HTTP proxy the Observer uses at a private address must be listed too. Maps to ALERT_NOTIFICATION_PRIVATE_DESTINATIONS in the Observer container.",
+              "items": {
+                "type": "string"
+              },
+              "title": "privateDestinations",
+              "type": "array"
             },
             "retryBackoff": {
               "default": "1s",

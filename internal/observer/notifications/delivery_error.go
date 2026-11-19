@@ -10,6 +10,8 @@ import (
 	"io"
 	"net"
 	"net/textproto"
+
+	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 )
 
 // Reason classifies why a notification was not delivered. The set is fixed so that it can be
@@ -85,6 +87,10 @@ func ReasonOf(err error) Reason {
 	if errors.As(err, &de) {
 		return de.Reason
 	}
+	// Checked before network errors, which it is wrapped in, since a retry cannot succeed.
+	if errors.Is(err, destination.ErrNotAllowed) {
+		return ReasonChannelConfig
+	}
 	if errors.Is(err, context.Canceled) {
 		return ReasonInterrupted
 	}
@@ -119,8 +125,11 @@ func ReasonOf(err error) Reason {
 // DetailOf returns the detail of a delivery error that is safe to log, or an empty string.
 func DetailOf(err error) string {
 	var de *DeliveryError
-	if errors.As(err, &de) {
+	if errors.As(err, &de) && de.Detail != "" {
 		return de.Detail
+	}
+	if errors.Is(err, destination.ErrNotAllowed) {
+		return "destination address not allowed"
 	}
 	var tpErr *textproto.Error
 	if errors.As(err, &tpErr) {

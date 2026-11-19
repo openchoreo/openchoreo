@@ -4,6 +4,7 @@
 package config
 
 import (
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -48,6 +49,45 @@ func TestLoad_AlertNotificationEnvOverride(t *testing.T) {
 	assert.Equal(t, 5, cfg.Alerting.NotificationMaxAttempts)
 	assert.Equal(t, 4*time.Second, cfg.Alerting.NotificationAttemptTimeout)
 	assert.Equal(t, 500*time.Millisecond, cfg.Alerting.NotificationRetryBackoff)
+}
+
+func TestLoad_AlertNotificationDestinations(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.True(t, cfg.Alerting.NotificationPrivateDestinations.IsEmpty())
+		assert.Equal(t, []string{
+			"logs-adapter", "metrics-adapter", "tracing-adapter", "finops-adapter", "sre-agent", "finops-agent",
+			"observer", "observer-internal",
+		}, cfg.NotificationProtectedHostList())
+	})
+
+	t.Run("listed private destinations", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", " 10.43.0.0/16, 10.0.12.5 ,,Relay.Corp.Internal")
+		t.Setenv("ALERT_NOTIFICATION_PROTECTED_HOSTS", "observer-internal")
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.Equal(t, []netip.Prefix{
+			netip.MustParsePrefix("10.43.0.0/16"),
+			netip.MustParsePrefix("10.0.12.5/32"),
+		}, cfg.Alerting.NotificationPrivateDestinations.Prefixes)
+		assert.Equal(t, []string{"relay.corp.internal"}, cfg.Alerting.NotificationPrivateDestinations.Hosts)
+		assert.Equal(t, []string{"observer-internal"}, cfg.Alerting.NotificationProtectedHosts)
+	})
+
+	t.Run("invalid entry", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", "10.43.0.0/16,169.254.169.254")
+		_, err := Load()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `"169.254.169.254"`)
+	})
+
+	t.Run("a listed host the observer itself uses", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", "logs-adapter")
+		_, err := Load()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `"logs-adapter"`)
+	})
 }
 
 func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
