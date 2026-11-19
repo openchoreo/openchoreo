@@ -16,53 +16,34 @@ import (
 )
 
 // SendAlertNotification sends an alert notification via the configured notification channel.
-// It handles template rendering for payloads internally.
+// It handles template rendering for payloads internally. The returned error's reason can be read
+// with ReasonOf. Callers log the outcome; the error text can include the webhook URL, which can
+// itself be a credential, so it is not logged here.
 func SendAlertNotification(ctx context.Context, config *NotificationChannelConfig, alertDetails *types.AlertDetails, logger *slog.Logger) error {
 	switch config.Type {
 	case "webhook":
-		// Prepare webhook payload
 		payload, err := prepareWebhookPayload(ctx, config.Webhook.PayloadTemplate, alertDetails, logger)
 		if err != nil {
-			return fmt.Errorf("failed to prepare webhook payload: %w", err)
+			return newDeliveryError(ReasonTemplate, "webhook payload template", fmt.Errorf("failed to prepare webhook payload: %w", err))
 		}
-
-		// Send the webhook with prepared payload
 		if err := SendWebhookWithConfig(ctx, &config.Webhook, payload); err != nil {
-			logger.Error("Failed to send alert notification webhook",
-				"error", err,
-				"webhookURL", RedactWebhookURL(config.Webhook.URL),
-				"payload", payload)
 			return fmt.Errorf("failed to send alert notification webhook: %w", err)
 		}
-
-		logger.Debug("Alert notification sent successfully via webhook",
-			"alertName", alertDetails.AlertName,
-			"webhookURL", RedactWebhookURL(config.Webhook.URL),
-			"usedTemplate", config.Webhook.PayloadTemplate != "")
 		return nil
 
 	case "email":
-		// Prepare email content
 		subject, body, err := prepareEmailContent(ctx, config.Email, alertDetails, logger)
 		if err != nil {
-			return fmt.Errorf("failed to prepare email content: %w", err)
+			return newDeliveryError(ReasonTemplate, "email template", fmt.Errorf("failed to prepare email content: %w", err))
 		}
-
-		// Send the notification using the fetched config
 		if err := SendEmailWithConfig(ctx, config, subject, body); err != nil {
-			logger.Error("Failed to send alert notification email",
-				"error", err,
-				"recipients", config.Email.To)
 			return fmt.Errorf("failed to send alert notification email: %w", err)
 		}
-
-		logger.Debug("Alert notification sent successfully",
-			"alertName", alertDetails.AlertName,
-			"recipients count", len(config.Email.To))
 		return nil
 
 	default:
-		return fmt.Errorf("unsupported notification channel type: %s", config.Type)
+		return newDeliveryError(ReasonChannelConfig, "unsupported channel type",
+			fmt.Errorf("unsupported notification channel type: %s", config.Type))
 	}
 }
 

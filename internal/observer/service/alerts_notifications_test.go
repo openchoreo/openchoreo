@@ -20,67 +20,40 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openchoreo/openchoreo/internal/labels"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
 	legacytypes "github.com/openchoreo/openchoreo/internal/observer/types"
 )
 
 func TestAlertServiceSendAlertNotification_NoChannels(t *testing.T) {
 	svc := &AlertService{logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{AlertName: "test-rule"})
-	if err != nil {
-		t.Fatalf("expected nil error when no channels configured, got %v", err)
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{AlertName: "test-rule"}, nil)
+	if len(results) != 0 {
+		t.Fatalf("expected no results when no channels configured, got %v", results)
 	}
 }
 
 func TestAlertServiceSendAlertNotification_PartialFailure(t *testing.T) {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("failed adding corev1 scheme: %v", err)
-	}
+	var good webhookRecorder
+	goodCM, goodSecret := webhookChannelObjects("default", "webhook-good", good.start(t), "Bearer TOKEN")
+	svc := newNotificationTestService(t, goodCM, goodSecret)
 
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "email-good",
-			Namespace: "default",
-			Labels: map[string]string{
-				labels.LabelKeyNotificationChannelName: "email-good",
-			},
-		},
-		Data: map[string]string{
-			"type":      "email",
-			"smtp.host": "smtp.example.com",
-			"to":        "[alerts@example.com]",
-		},
-	}
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "email-good",
-			Namespace: "default",
-			Labels: map[string]string{
-				labels.LabelKeyNotificationChannelName: "email-good",
-			},
-		},
-		Data: map[string][]byte{},
-	}
-
-	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cm, secret).Build()
-
-	svc := &AlertService{
-		k8sClient: k8sClient,
-		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
 		AlertName:            "test-rule",
 		Namespace:            "default",
-		NotificationChannels: []string{"email-good", "missing-channel"},
-	})
-	if err == nil {
-		t.Fatal("expected aggregated error for missing channel")
+		NotificationChannels: []string{"webhook-good", "missing-channel"},
+	}, nil)
+	if len(results) != 2 {
+		t.Fatalf("expected a result per channel, got %v", results)
 	}
-
-	if !strings.Contains(err.Error(), "missing-channel") {
-		t.Fatalf("expected error to mention missing-channel, got %v", err)
+	if !results[0].Sent || results[0].Channel != "webhook-good" || results[0].ChannelType != "webhook" {
+		t.Errorf("expected webhook-good to be sent, got %+v", results[0])
+	}
+	if results[1].Sent || results[1].Channel != "missing-channel" || results[1].Reason != notifications.ReasonChannelConfig {
+		t.Errorf("expected missing-channel to fail with reason channel_config, got %+v", results[1])
+	}
+	if got := good.received(); len(got) != 1 {
+		t.Errorf("working channel received %v, want one request", got)
 	}
 }
 
@@ -145,13 +118,13 @@ func TestAlertServiceSendAlertNotification_ResolvesChannelInAlertNamespace(t *te
 	ownCM, ownSecret := webhookChannelObjects("tenant", "oncall", own.start(t), "Bearer OWN-TOKEN")
 	svc := newNotificationTestService(t, otherCM, otherSecret, ownCM, ownSecret)
 
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
-	if err != nil {
-		t.Fatalf("sendAlertNotification() error = %v", err)
+	}, nil)
+	if len(results) != 1 || !results[0].Sent {
+		t.Fatalf("sendAlertNotification() results = %+v, want one sent result", results)
 	}
 
 	if got := own.received(); len(got) != 1 || got[0] != "Bearer OWN-TOKEN" {
@@ -167,13 +140,13 @@ func TestAlertServiceSendAlertNotification_ChannelOnlyInOtherNamespace(t *testin
 	otherCM, otherSecret := webhookChannelObjects("other", "oncall", other.start(t), "Bearer OTHER-TOKEN")
 	svc := newNotificationTestService(t, otherCM, otherSecret)
 
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
-	if err == nil {
-		t.Fatal("expected an error for a channel that is not in the alert's namespace")
+	}, nil)
+	if len(results) != 1 || results[0].Sent {
+		t.Fatal("expected a failed result for a channel that is not in the alert's namespace")
 	}
 	if got := other.received(); len(got) != 0 {
 		t.Errorf("channel in another namespace received %v, want no requests", got)
@@ -188,13 +161,13 @@ func TestAlertServiceSendAlertNotification_DoesNotMixNamespaces(t *testing.T) {
 	_, otherSecret := webhookChannelObjects("other", "oncall", "http://other.invalid", "Bearer OTHER-TOKEN")
 	svc := newNotificationTestService(t, firstCM, otherSecret)
 
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
 		AlertName:            "test-rule",
 		Namespace:            "a-first",
 		NotificationChannels: []string{"oncall"},
-	})
-	if err == nil {
-		t.Fatal("expected an error for a channel whose Secret is missing")
+	}, nil)
+	if len(results) != 1 || results[0].Sent {
+		t.Fatal("expected a failed result for a channel whose Secret is missing")
 	}
 	if got := first.received(); len(got) != 0 {
 		t.Errorf("channel without a Secret received %v, want no requests", got)
@@ -209,13 +182,13 @@ func TestAlertServiceSendAlertNotification_WebhookURLFromSecret(t *testing.T) {
 	delete(configMap.Data, "webhook.url")
 	svc := newNotificationTestService(t, configMap, secret)
 
-	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+	results := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
 		AlertName:            "test-rule",
 		Namespace:            "tenant",
 		NotificationChannels: []string{"oncall"},
-	})
-	if err != nil {
-		t.Fatalf("sendAlertNotification() error = %v", err)
+	}, nil)
+	if len(results) != 1 || !results[0].Sent {
+		t.Fatalf("sendAlertNotification() results = %+v, want one sent result", results)
 	}
 	if got := recorder.received(); len(got) != 1 || got[0] != "Bearer TOKEN" {
 		t.Errorf("webhook received %v, want one request with the channel's Authorization header", got)
