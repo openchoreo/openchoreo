@@ -4002,7 +4002,7 @@ type ResolvedEndpointBackend struct {
 	// Name Name of the backendRef this entry resolves.
 	Name string `json:"name"`
 
-	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
 	Reason *string `json:"reason,omitempty"`
 
 	// Resolved Whether the backend was found and can receive traffic in this environment.

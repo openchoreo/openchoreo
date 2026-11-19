@@ -12960,7 +12960,7 @@ components:
           $ref: '#/components/schemas/EndpointURL'
         reason:
           type: string
-          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
           example: NotDeployed
         message:
           type: string

@@ -302,16 +302,20 @@ var _ = Describe("Backend resolution and rendering", func() {
 			rb.Generation = 2
 			return rb
 		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
+		// Observe mode renders no release, and the observed pods do not carry the
+		// selectors a type would select, so the backend is reported as blocked
+		// by the mode rather than as waiting for an address.
 		Entry("endpoint without an address on an Observe-mode ReleaseBinding", func() *openchoreov1alpha1.ReleaseBinding {
-			// Observe mode renders no release, so the missing address says
-			// nothing about the ComponentType's Service, and the observed pods
-			// do not carry the selectors a type would select. The controller
-			// clears the observed generation in Observe mode; this checks the
-			// mode is refused even if it were left set.
+			rb := renderedWithoutService()
+			rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
+			rb.Status.EndpointsObservedGeneration = 0 // the controller clears it in Observe mode
+			return rb
+		}, BackendReasonObservedComponent, `and its ReleaseBinding is in Observe mode`),
+		Entry("endpoint without an address on an Observe-mode ReleaseBinding that kept a stale observation", func() *openchoreov1alpha1.ReleaseBinding {
 			rb := renderedWithoutService()
 			rb.Spec.Mode = openchoreov1alpha1.BindingModeObserve
 			return rb
-		}, BackendReasonEndpointNotAvailable, `endpoint "http" of component "greeter" has no in-cluster address`),
+		}, BackendReasonObservedComponent, `and its ReleaseBinding is in Observe mode`),
 		Entry("Service in another namespace", func() *openchoreov1alpha1.ReleaseBinding {
 			return deployedComponent("greeter", "some-other-namespace")
 		}, BackendReasonNamespaceMismatch, `is served from namespace "some-other-namespace"`),

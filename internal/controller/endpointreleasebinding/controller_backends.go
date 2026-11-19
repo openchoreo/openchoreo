@@ -233,6 +233,12 @@ func (r *Reconciler) resolveComponentBackend(
 			break
 		}
 	}
+	if serviceURL == nil && rb.Spec.IsObserve() {
+		// Not a wait: nothing changes until the binding leaves Observe mode.
+		return unresolved(BackendReasonObservedComponent,
+			"endpoint %q of %s has no in-cluster address in environment %q, and its ReleaseBinding is in "+
+				"Observe mode, so no Service can be rendered in front of its pods", endpoint, subject, env)
+	}
 	if serviceURL == nil && !hasObservedCurrentEndpoints(rb) {
 		return unresolved(BackendReasonEndpointNotAvailable,
 			"endpoint %q of %s has no in-cluster address in environment %q yet", endpoint, subject, env)
