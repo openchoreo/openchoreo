@@ -241,7 +241,10 @@ func (p *Policy) DialContext(ctx context.Context, network, address string) (net.
 		return nil, err
 	}
 	host = NormalizeHost(host)
-	prot := p.protected.snapshot(ctx)
+	prot, err := p.protected.snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := prot.checkName(host); err != nil {
 		return nil, err
 	}
@@ -337,6 +340,8 @@ type protectedAddrs struct {
 	unresolved map[string]bool
 	current    protection
 	refreshed  time.Time
+	// refreshing is closed when the running lookup of the hosts finishes; nil when none runs.
+	refreshing chan struct{}
 }
 
 func newProtectedAddrs(hosts []string) *protectedAddrs {
@@ -367,21 +372,54 @@ func newProtectedAddrs(hosts []string) *protectedAddrs {
 	return s
 }
 
-// snapshot returns what is protected, looking the hosts up again when the last lookup is older
-// than protectedRefreshInterval, or than protectedRetryInterval while a host is unresolved. A host
-// whose lookup fails keeps the addresses it had; one that never resolved makes the snapshot
-// incomplete, unless its name does not exist.
-func (s *protectedAddrs) snapshot(ctx context.Context) protection {
+// snapshot returns what is protected. When the last lookup of the hosts is older than
+// protectedRefreshInterval, or than protectedRetryInterval while a host is unresolved, it starts a
+// lookup that every caller shares, and waits for it or for ctx to end, whichever comes first.
+func (s *protectedAddrs) snapshot(ctx context.Context) (protection, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	if !s.dueLocked() {
+		current := s.current
+		s.mu.Unlock()
+		return current, nil
+	}
+	done := s.refreshing
+	if done == nil {
+		done = make(chan struct{})
+		s.refreshing = done
+		go s.refresh(done)
+	}
+	s.mu.Unlock()
+
+	select {
+	case <-done:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		return s.current, nil
+	case <-ctx.Done():
+		return protection{}, fmt.Errorf("waiting for the addresses of the services the observer uses: %w", ctx.Err())
+	}
+}
+
+// dueLocked reports whether the hosts should be looked up again. s.mu must be held.
+func (s *protectedAddrs) dueLocked() bool {
+	if len(s.hosts) == 0 {
+		return false
+	}
 	interval := protectedRefreshInterval
 	if s.current.incomplete {
 		interval = protectedRetryInterval
 	}
-	if len(s.hosts) == 0 || time.Since(s.refreshed) < interval {
-		return s.current
-	}
-	lookupCtx, cancel := context.WithTimeout(ctx, protectedLookupTimeout)
+	return time.Since(s.refreshed) >= interval
+}
+
+// refresh looks the hosts up and closes done. Its lookups get a context of their own rather than
+// one derived from the caller that started them: that caller's deadline must not end them for the
+// others, and its values, such as the httptrace hooks of a webhook request, must not observe them.
+// A host whose lookup fails keeps the addresses it had; one that never resolved makes the
+// protection incomplete, unless its name does not exist.
+func (s *protectedAddrs) refresh(done chan struct{}) {
+	defer close(done)
+	ctx, cancel := context.WithTimeout(context.Background(), protectedLookupTimeout)
 	defer cancel()
 	type result struct {
 		addrs []netip.Addr
@@ -393,11 +431,14 @@ func (s *protectedAddrs) snapshot(ctx context.Context) protection {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			addrs, err := s.lookup(lookupCtx, host)
+			addrs, err := s.lookup(ctx, host)
 			results[i] = result{addrs: addrs, err: err}
 		}()
 	}
 	wg.Wait()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for i, host := range s.hosts {
 		switch r := results[i]; {
 		case r.err == nil && len(r.addrs) > 0:
@@ -413,7 +454,7 @@ func (s *protectedAddrs) snapshot(ctx context.Context) protection {
 	}
 	s.refreshed = time.Now()
 	s.current = s.build()
-	return s.current
+	s.refreshing = nil
 }
 
 func (s *protectedAddrs) build() protection {

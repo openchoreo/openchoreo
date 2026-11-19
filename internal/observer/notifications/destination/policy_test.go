@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -146,7 +147,7 @@ func TestProtectedAddrsSnapshot(t *testing.T) {
 		return nil, errors.New("no such host")
 	}
 
-	got := s.snapshot(context.Background())
+	got := mustSnapshot(t, s, context.Background())
 	assert.True(t, got.addrs[mustAddr("10.43.0.9")], "a protected host's address")
 	assert.True(t, got.addrs[mustAddr("10.43.0.20")], "a protected IP address")
 	assert.True(t, got.hosts["logs-adapter"], "a protected host's name")
@@ -155,15 +156,15 @@ func TestProtectedAddrsSnapshot(t *testing.T) {
 	// A failed lookup keeps the addresses the host had.
 	delete(answers, "logs-adapter")
 	s.refreshed = time.Time{}
-	got = s.snapshot(context.Background())
+	got = mustSnapshot(t, s, context.Background())
 	assert.True(t, got.addrs[mustAddr("10.43.0.9")])
 	assert.False(t, got.incomplete, "a host that resolved before keeps its addresses")
 
 	// A new answer replaces them once the refresh interval has passed.
 	answers["logs-adapter"] = []netip.Addr{netip.MustParseAddr("10.43.0.10")}
-	assert.True(t, s.snapshot(context.Background()).addrs[mustAddr("10.43.0.9")], "not looked up again before the interval")
+	assert.True(t, mustSnapshot(t, s, context.Background()).addrs[mustAddr("10.43.0.9")], "not looked up again before the interval")
 	s.refreshed = time.Time{}
-	got = s.snapshot(context.Background())
+	got = mustSnapshot(t, s, context.Background())
 	assert.True(t, got.addrs[mustAddr("10.43.0.10")])
 	assert.False(t, got.addrs[mustAddr("10.43.0.9")])
 }
@@ -206,11 +207,11 @@ func TestProtectedNamesAreRefusedWhileTheirAddressesAreStale(t *testing.T) {
 	})
 	answer := netip.MustParseAddr("10.43.0.9")
 	p.protected.lookup = func(context.Context, string) ([]netip.Addr, error) { return []netip.Addr{answer}, nil }
-	require.True(t, p.protected.snapshot(ctx).addrs[mustAddr("10.43.0.9")])
+	require.True(t, mustSnapshot(t, p.protected, ctx).addrs[mustAddr("10.43.0.9")])
 
 	// The service moves to an address that the cached snapshot does not have yet.
 	answer = netip.MustParseAddr("10.43.0.10")
-	require.NoError(t, p.check("anything", mustAddr("10.43.0.10"), p.protected.snapshot(ctx)), "the new address is not cached")
+	require.NoError(t, p.check("anything", mustAddr("10.43.0.10"), mustSnapshot(t, p.protected, ctx)), "the new address is not cached")
 
 	_, err := p.DialContext(ctx, "tcp", "Logs-Adapter.:9098")
 	assert.ErrorIs(t, err, ErrNotAllowed, "the protected name is refused before it is resolved")
@@ -233,7 +234,7 @@ func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
 		return []netip.Addr{netip.MustParseAddr("10.43.0.9")}, nil
 	}
 
-	prot := p.protected.snapshot(ctx)
+	prot := mustSnapshot(t, p.protected, ctx)
 	require.True(t, prot.incomplete, "a failed first lookup leaves the protection incomplete")
 	err := p.check("receiver", mustAddr("10.43.0.9"), prot)
 	assert.ErrorIs(t, err, ErrProtectionUnavailable)
@@ -244,8 +245,89 @@ func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
 	// The lookup is retried after protectedRetryInterval, not protectedRefreshInterval.
 	lookupErr = nil
 	p.protected.refreshed = time.Now().Add(-protectedRetryInterval)
-	prot = p.protected.snapshot(ctx)
+	prot = mustSnapshot(t, p.protected, ctx)
 	require.False(t, prot.incomplete, "a name that does not exist has nothing to protect")
 	assert.ErrorIs(t, p.check("receiver", mustAddr("10.43.0.9"), prot), ErrNotAllowed)
 	assert.NoError(t, p.check("receiver", mustAddr("10.43.0.10"), prot))
+}
+
+// mustSnapshot returns s's protection, failing the test on an error.
+func mustSnapshot(t *testing.T, s *protectedAddrs, ctx context.Context) protection {
+	t.Helper()
+	prot, err := s.snapshot(ctx)
+	require.NoError(t, err)
+	return prot
+}
+
+func TestProtectedAddrsRefreshIsSharedAndOutlivesItsCaller(t *testing.T) {
+	release := make(chan struct{})
+	var lookups atomic.Int32
+	s := newProtectedAddrs([]string{"logs-adapter"})
+	s.lookup = func(ctx context.Context, _ string) ([]netip.Addr, error) {
+		lookups.Add(1)
+		select {
+		case <-release:
+			return []netip.Addr{netip.MustParseAddr("10.43.0.9")}, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	// The caller that starts the lookup stops waiting at its own deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := s.snapshot(ctx)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(start), protectedLookupTimeout, "the caller does not wait for the lookup")
+
+	// Other callers wait for the same lookup instead of starting their own.
+	results := make(chan protection, 3)
+	for range 3 {
+		go func() {
+			prot, err := s.snapshot(context.Background())
+			assert.NoError(t, err)
+			results <- prot
+		}()
+	}
+	close(release)
+	for range 3 {
+		prot := <-results
+		assert.True(t, prot.addrs[mustAddr("10.43.0.9")], "the first caller's deadline does not end the shared lookup")
+		assert.False(t, prot.incomplete)
+	}
+	assert.Equal(t, int32(1), lookups.Load(), "one lookup serves every caller")
+}
+
+func TestDialContextGivesUpWhenItsDeadlineEndsDuringARefresh(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+	p := NewPolicy(Options{ProtectedHosts: []string{"logs-adapter"}})
+	p.protected.lookup = func(ctx context.Context, _ string) ([]netip.Addr, error) {
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+		return nil, ctx.Err()
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, err := p.DialContext(ctx, "tcp", "receiver.example.com:443")
+	assert.ErrorIs(t, err, context.DeadlineExceeded, "a deadline is a temporary failure")
+	assert.NotErrorIs(t, err, ErrNotAllowed)
+}
+
+type callerKey struct{}
+
+func TestProtectedAddrsRefreshDoesNotSeeTheCallersValues(t *testing.T) {
+	s := newProtectedAddrs([]string{"logs-adapter"})
+	var sawCallerValue atomic.Bool
+	s.lookup = func(ctx context.Context, _ string) ([]netip.Addr, error) {
+		if ctx.Value(callerKey{}) != nil {
+			sawCallerValue.Store(true)
+		}
+		return []netip.Addr{netip.MustParseAddr("10.43.0.9")}, nil
+	}
+	mustSnapshot(t, s, context.WithValue(context.Background(), callerKey{}, "webhook request trace"))
+	assert.False(t, sawCallerValue.Load(), "the shared lookup must not carry the values of the caller that started it")
 }
