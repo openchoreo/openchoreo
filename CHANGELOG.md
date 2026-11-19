@@ -2,6 +2,25 @@
 
 All notable changes to OpenChoreo are documented in this file.
 
+## v1.1.10
+
+Changes since [v1.1.9](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.9).
+
+### Security
+
+- **(OpenBao)** The bundled OpenBao setup in the k3d, quick-start, and prerequisites scripts no longer creates the unused `openchoreo-secret-reader-role` and its policy, which let the `default` service account of any `dp*` namespace read every secret under `secret/`. Existing installs keep the role and policy until they are removed with `bao delete auth/kubernetes/role/openchoreo-secret-reader-role` and `bao policy delete openchoreo-secret-reader-policy`. ([#5323](https://github.com/openchoreo/openchoreo/pull/5323))
+
+### Enhancements
+
+- **(Helm)** The workflow plane's Argo Workflows sub-chart moves from 0.45.2 to 1.0.24, upgrading Argo Workflows from v3.6.2 to v4.0.8. `argo-workflows.crds.full` stays `false`, so the CRDs remain part of the release and `helm upgrade` does not delete them along with existing workflows and templates. The chart's default v4.0.8 images still trust the compromised eMudhra certificate authorities, so set `argo-workflows.images.tag=v4.0.15` when installing or upgrading the workflow plane. ([#5331](https://github.com/openchoreo/openchoreo/pull/5331))
+- **(API)** The layout of keys written to the external secret store is configurable through `features.secretManagement.remoteKeyPrefix` (default `secret`) and `features.secretManagement.remoteKeySeparator` (default `/`; also `-`, `_`, `.`, `+`, `=`, `@`). The defaults keep the existing `<prefix>/<namespace>/<type>/<name>` layout, and `-` suits stores such as Azure Key Vault that reject `/` in secret names. With `-` or `.`, two different secrets can map to the same key. Both are install-time settings, since changing them does not move existing entries. ([#4565](https://github.com/openchoreo/openchoreo/pull/4565), [#5058](https://github.com/openchoreo/openchoreo/pull/5058))
+
+### Bug Fixes
+
+- **(API)** Secrets are now pushed to the external store as a single entry instead of one entry per key, so removing a key no longer triggers a per-key delete that AWS Secrets Manager and Azure Key Vault apply to the whole secret. A secret created with per-key entries switches to the single entry the next time it is updated, without its store entry being deleted. ([#5058](https://github.com/openchoreo/openchoreo/pull/5058))
+- **(Observer)** Alert notifications now resolve a channel's ConfigMap and Secret in the alert's own namespace, so an alert can no longer go to a same-named channel in another namespace or pair one channel's ConfigMap with another channel's Secret. Alerts without a namespace no longer resolve a channel. ([#5280](https://github.com/openchoreo/openchoreo/pull/5280))
+- **(Controller)** Components without endpoints, such as workers, now get a CiliumNetworkPolicy that denies all ingress, matching the Kubernetes provider. The policy previously had an empty ingress list, which Cilium rejects as invalid, leaving those components with no ingress enforcement. ([#5191](https://github.com/openchoreo/openchoreo/pull/5191))
+
 ## v1.1.9
 
 Changes since [v1.1.8](https://github.com/openchoreo/openchoreo/releases/tag/v1.1.8).
