@@ -4,16 +4,21 @@
 package export
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	yamlv3 "gopkg.in/yaml.v3"
 	"sigs.k8s.io/yaml"
 )
 
@@ -95,7 +100,7 @@ type manifestIdentity struct {
 
 // Serialize prepares one YAML manifest per resource without writing files or
 // modifying the input objects. Paths are sorted and duplicates are rejected.
-// Filtering, redaction, and canonicalization remain separate pipeline stages.
+// Filtering and canonicalization are separate pipeline stages.
 func Serialize(ctx context.Context, resources []Resource) ([]SerializedFile, error) {
 	files := make([]SerializedFile, 0, len(resources))
 	seen := make(map[string]struct{}, len(resources))
@@ -247,72 +252,458 @@ func validatePathPart(value, field string) error {
 	return nil
 }
 
-// writeFiles checks every destination before creating any manifest. Root keeps
-// file operations inside the chosen output directory, including through symlinks.
-// Exclusive file creation also prevents overwrites if a file appears after the
-// destination check. An I/O failure may leave files already written by this run.
-func writeFiles(ctx context.Context, outputDir string, files []SerializedFile) error {
-	if err := ctx.Err(); err != nil {
+type writeOptions struct {
+}
+
+type fileSnapshot struct {
+	data []byte
+	mode fs.FileMode
+}
+
+type fileChange struct {
+	path      string
+	before    *fileSnapshot
+	after     []byte
+	remove    bool
+	backedUp  bool
+	installed bool
+}
+
+type directorySnapshot struct {
+	path string
+	mode fs.FileMode
+}
+
+// Backups are temporary transaction data, not an ownership inventory. Original
+// files are linked or moved into scratch so rollback retains their metadata.
+type fileTransaction struct {
+	root        *os.Root
+	scratch     string
+	changes     []fileChange
+	createdDirs []string
+	removedDirs []directorySnapshot
+	keepBackups bool
+}
+
+// writeFiles computes the complete change set before touching manifests. Only
+// supported objects at their exact layout paths are managed. Returned operation
+// errors roll back file changes; abrupt process termination is not recoverable.
+func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, options writeOptions) (resultErr error) {
+	if err := validateExportFiles(ctx, files); err != nil {
 		return err
 	}
+	created, err := createOutputDir(outputDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if resultErr != nil {
+			for i := len(created) - 1; i >= 0; i-- {
+				// Never recursively remove a destination: failed rollback or a
+				// concurrent writer may have left content that must be preserved.
+				if err := os.Remove(created[i]); err != nil {
+					resultErr = errors.Join(resultErr, fmt.Errorf("remove new directory %q: %w", created[i], err))
+				}
+			}
+		}
+	}()
+	root, err := os.OpenRoot(outputDir)
+	if err != nil {
+		return fmt.Errorf("open output directory: %w", err)
+	}
+	defer root.Close()
+	changes, err := planFileChanges(ctx, root, files)
+	if err != nil {
+		return err
+	}
+	transaction := &fileTransaction{root: root, changes: changes}
+	defer func() {
+		if transaction.scratch != "" && !transaction.keepBackups {
+			_ = root.RemoveAll(transaction.scratch)
+		}
+	}()
+	if err := transaction.stage(ctx); err != nil {
+		return fmt.Errorf("stage export: %w", err)
+	}
+	if err := transaction.apply(ctx); err != nil {
+		return transaction.abort(err, outputDir)
+	}
+	if err := ctx.Err(); err != nil {
+		return transaction.abort(err, outputDir)
+	}
+	return nil
+}
+
+func validateExportFiles(ctx context.Context, files []SerializedFile) error {
+	seen := make(map[string]bool, len(files))
 	for _, file := range files {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		for _, part := range strings.Split(file.Path, "/") {
 			if err := validatePathPart(part, "export path"); err != nil {
 				return fmt.Errorf("invalid export path %q: %w", file.Path, err)
 			}
 		}
-	}
-	if err := os.MkdirAll(outputDir, 0o700); err != nil {
-		return fmt.Errorf("create output directory %q: %w", outputDir, err)
-	}
-	root, err := os.OpenRoot(outputDir)
-	if err != nil {
-		return fmt.Errorf("open output directory %q: %w", outputDir, err)
-	}
-	defer root.Close()
-	if err := checkDestinations(ctx, root, files); err != nil {
-		return err
-	}
-	for _, file := range files {
-		if err := ctx.Err(); err != nil {
-			return err
+		if seen[file.Path] {
+			return fmt.Errorf("duplicate export path %q", file.Path)
 		}
-		if err := root.MkdirAll(filepath.Dir(filepath.FromSlash(file.Path)), 0o700); err != nil {
-			return fmt.Errorf("create parent directory for %q: %w", file.Path, err)
-		}
-		if err := writeManifest(root, file); err != nil {
-			return err
-		}
+		seen[file.Path] = true
 	}
 	return ctx.Err()
 }
 
-func checkDestinations(ctx context.Context, root *os.Root, files []SerializedFile) error {
-	for _, file := range files {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		_, err := root.Lstat(filepath.FromSlash(file.Path))
+func createOutputDir(directory string) ([]string, error) {
+	var missing, created []string
+	for current := filepath.Clean(directory); ; current = filepath.Dir(current) {
+		info, err := os.Stat(current)
 		if err == nil {
-			return fmt.Errorf("export destination %q already exists; existing files are not overwritten", file.Path)
+			if !info.IsDir() {
+				return nil, fmt.Errorf("output ancestor %q is not a directory", current)
+			}
+			break
 		}
 		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("check export destination %q: %w", file.Path, err)
+			return nil, err
+		}
+		missing = append(missing, current)
+	}
+	for i := len(missing) - 1; i >= 0; i-- {
+		if err := os.Mkdir(missing[i], 0o700); err != nil {
+			for j := len(created) - 1; j >= 0; j-- {
+				err = errors.Join(err, os.Remove(created[j]))
+			}
+			return nil, fmt.Errorf("create output directory: %w", err)
+		}
+		created = append(created, missing[i])
+	}
+	return created, nil
+}
+
+func planFileChanges(ctx context.Context, root *os.Root, files []SerializedFile) ([]fileChange, error) {
+	managed, err := findManagedFiles(ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	changes := make([]fileChange, 0, len(files)+len(managed))
+	for _, file := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if err := checkDestination(root, file.Path, managed); err != nil {
+			return nil, err
+		}
+		previous := managed[file.Path]
+		delete(managed, file.Path)
+		if previous != nil && bytes.Equal(previous.data, file.Data) {
+			continue
+		}
+		changes = append(changes, fileChange{path: file.Path, before: previous, after: file.Data})
+	}
+	for name, previous := range managed {
+		changes = append(changes, fileChange{path: name, before: previous, remove: true})
+	}
+	sort.Slice(changes, func(i, j int) bool { return changes[i].path < changes[j].path })
+	return changes, nil
+}
+
+func findManagedFiles(ctx context.Context, root *os.Root) (map[string]*fileSnapshot, error) {
+	managed := make(map[string]*fileSnapshot)
+	for _, prefix := range []string{"platform-shared", "namespaces"} {
+		err := fs.WalkDir(root.FS(), prefix, func(name string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				if name == prefix && errors.Is(walkErr, os.ErrNotExist) {
+					return nil
+				}
+				return walkErr
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || path.Ext(name) != ".yaml" {
+				return nil
+			}
+			return collectManagedFile(root, name, entry, managed)
+		})
+		if err != nil {
+			return nil, fmt.Errorf("inspect existing export: %w", err)
+		}
+	}
+	return managed, nil
+}
+
+func collectManagedFile(root *os.Root, name string, entry fs.DirEntry, managed map[string]*fileSnapshot) error {
+	info, err := entry.Info()
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+	data, err := root.ReadFile(filepath.FromSlash(name))
+	if err != nil {
+		return err
+	}
+	if isManagedManifest(name, data) {
+		managed[name] = &fileSnapshot{data: data, mode: info.Mode().Perm()}
+	}
+	return nil
+}
+
+func isManagedManifest(name string, data []byte) bool {
+	// Multi-document and malformed YAML cannot establish layout ownership.
+	decoder := yamlv3.NewDecoder(bytes.NewReader(data))
+	var node yamlv3.Node
+	if err := decoder.Decode(&node); err != nil {
+		return false
+	}
+	if err := decoder.Decode(&node); !errors.Is(err, io.EOF) {
+		return false
+	}
+	data, err := yaml.YAMLToJSONStrict(data)
+	if err != nil {
+		return false
+	}
+	var identity manifestIdentity
+	if err := json.Unmarshal(data, &identity); err != nil {
+		return false
+	}
+	version := "openchoreo.dev/v1alpha1"
+	if identity.Kind == "Namespace" {
+		version = "v1"
+	}
+	if identity.APIVersion != version {
+		return false
+	}
+	resource := Resource{Kind: identity.Kind, Name: identity.Metadata.Name, Namespace: identity.Metadata.Namespace}
+	expected, err := resourcePath(resource, identity.Spec.Owner)
+	return err == nil && expected == name
+}
+
+func checkDestination(root *os.Root, name string, managed map[string]*fileSnapshot) error {
+	parts := strings.Split(name, "/")
+	for i := range parts {
+		part := filepath.Join(parts[:i+1]...)
+		info, err := root.Lstat(part)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("check destination %q: %w", name, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || (i < len(parts)-1 && !info.IsDir()) {
+			return fmt.Errorf("export destination %q already exists with a symlink or non-directory ancestor", name)
+		}
+		if i == len(parts)-1 && (!info.Mode().IsRegular() || managed[name] == nil) {
+			return fmt.Errorf("export destination %q already exists and is not a managed manifest", name)
 		}
 	}
 	return nil
 }
 
-func writeManifest(root *os.Root, file SerializedFile) error {
-	name := filepath.FromSlash(file.Path)
-	f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return fmt.Errorf("create manifest %q: %w", file.Path, err)
+func (t *fileTransaction) stage(ctx context.Context) error {
+	if len(t.changes) == 0 {
+		return nil
 	}
-	_, writeErr := f.Write(file.Data)
-	if err := errors.Join(writeErr, f.Close()); err != nil {
-		_ = root.Remove(name)
-		return fmt.Errorf("write manifest %q: %w", file.Path, err)
+	t.scratch = ".occ-export-" + rand.Text()
+	if err := t.root.Mkdir(t.scratch, 0o700); err != nil {
+		// Do not clean up a directory that this transaction did not create.
+		t.scratch = ""
+		return err
+	}
+	for i, change := range t.changes {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if change.remove {
+			continue
+		}
+		mode := fs.FileMode(0o600)
+		if change.before != nil {
+			mode = change.before.mode
+		}
+		if err := t.stageFile(i, change.after, mode); err != nil {
+			return fmt.Errorf("prepare %q: %w", change.path, err)
+		}
 	}
 	return nil
+}
+
+func (t *fileTransaction) stageFile(index int, data []byte, mode fs.FileMode) error {
+	file, err := t.root.OpenFile(t.stagedName("new", index), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	_, writeErr := file.Write(data)
+	return errors.Join(writeErr, file.Chmod(mode), file.Sync(), file.Close())
+}
+
+func (t *fileTransaction) stagedName(prefix string, index int) string {
+	return filepath.Join(t.scratch, fmt.Sprintf("%s-%d", prefix, index))
+}
+
+func (t *fileTransaction) apply(ctx context.Context) error {
+	for i := range t.changes {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := t.applyChange(i); err != nil {
+			return fmt.Errorf("synchronize %q: %w", t.changes[i].path, err)
+		}
+	}
+	return t.removeEmptyDirs(ctx)
+}
+
+func (t *fileTransaction) applyChange(index int) error {
+	change := &t.changes[index]
+	if err := t.checkUnchanged(change); err != nil {
+		return err
+	}
+	if change.before != nil {
+		var err error
+		if change.remove {
+			err = t.root.Rename(filepath.FromSlash(change.path), t.stagedName("old", index))
+		} else {
+			// Retain the original inode until the replacement is atomically
+			// renamed over it. Both paths are confined to the output root.
+			err = t.root.Link(filepath.FromSlash(change.path), t.stagedName("old", index))
+		}
+		if err != nil {
+			return err
+		}
+		change.backedUp = true
+	}
+	if change.remove {
+		return nil
+	}
+	if err := t.makeParents(change.path); err != nil {
+		return err
+	}
+	if err := t.root.Rename(t.stagedName("new", index), filepath.FromSlash(change.path)); err != nil {
+		return err
+	}
+	change.installed = true
+	return nil
+}
+
+func (t *fileTransaction) checkUnchanged(change *fileChange) error {
+	info, err := t.root.Lstat(filepath.FromSlash(change.path))
+	if change.before == nil && errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if change.before == nil || !info.Mode().IsRegular() {
+		return fmt.Errorf("destination changed while export was being prepared")
+	}
+	data, err := t.root.ReadFile(filepath.FromSlash(change.path))
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(data, change.before.data) || info.Mode().Perm() != change.before.mode {
+		return fmt.Errorf("destination changed while export was being prepared")
+	}
+	return nil
+}
+
+func (t *fileTransaction) makeParents(name string) error {
+	parts := strings.Split(name, "/")
+	for i := 1; i < len(parts); i++ {
+		directory := filepath.Join(parts[:i]...)
+		info, err := t.root.Lstat(directory)
+		if err == nil {
+			if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+				return fmt.Errorf("parent %q is not a regular directory", directory)
+			}
+			continue
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := t.root.Mkdir(directory, 0o700); err != nil {
+			return err
+		}
+		t.createdDirs = append(t.createdDirs, directory)
+	}
+	return nil
+}
+
+func (t *fileTransaction) removeEmptyDirs(ctx context.Context) error {
+	candidates := make(map[string]bool)
+	for _, change := range t.changes {
+		if change.remove {
+			for directory := path.Dir(change.path); directory != "."; directory = path.Dir(directory) {
+				candidates[directory] = true
+			}
+		}
+	}
+	directories := make([]string, 0, len(candidates))
+	for directory := range candidates {
+		directories = append(directories, directory)
+	}
+	sort.Slice(directories, func(i, j int) bool { return directories[i] > directories[j] })
+	for _, directory := range directories {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := t.removeEmptyDir(directory); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *fileTransaction) removeEmptyDir(directory string) error {
+	file, err := t.root.Open(filepath.FromSlash(directory))
+	if err != nil {
+		return err
+	}
+	info, statErr := file.Stat()
+	_, readErr := file.ReadDir(1)
+	if err := errors.Join(statErr, file.Close()); err != nil {
+		return err
+	}
+	if readErr == nil {
+		return nil // Not empty: preserve unrelated content and other manifests.
+	}
+	if !errors.Is(readErr, io.EOF) {
+		return readErr
+	}
+	if err := t.root.Remove(filepath.FromSlash(directory)); err != nil {
+		return err
+	}
+	t.removedDirs = append(t.removedDirs, directorySnapshot{path: directory, mode: info.Mode().Perm()})
+	return nil
+}
+
+func (t *fileTransaction) abort(cause error, outputDir string) error {
+	if err := t.rollback(); err != nil {
+		t.keepBackups = true
+		return errors.Join(cause, fmt.Errorf("export rollback failed; recover backups from %q: %w",
+			filepath.Join(outputDir, t.scratch), err))
+	}
+	return fmt.Errorf("export failed; previous files restored: %w", cause)
+}
+
+func (t *fileTransaction) rollback() error {
+	var rollbackErr error
+	for i := len(t.removedDirs) - 1; i >= 0; i-- {
+		directory := t.removedDirs[i]
+		rollbackErr = errors.Join(rollbackErr, t.root.Mkdir(filepath.FromSlash(directory.path), directory.mode))
+		rollbackErr = errors.Join(rollbackErr, t.root.Chmod(filepath.FromSlash(directory.path), directory.mode))
+	}
+	for i := len(t.changes) - 1; i >= 0; i-- {
+		change := t.changes[i]
+		if change.installed && !change.backedUp {
+			rollbackErr = errors.Join(rollbackErr, t.root.Remove(filepath.FromSlash(change.path)))
+		}
+		if change.backedUp {
+			rollbackErr = errors.Join(rollbackErr, t.root.Rename(t.stagedName("old", i), filepath.FromSlash(change.path)))
+		}
+	}
+	for i := len(t.createdDirs) - 1; i >= 0; i-- {
+		rollbackErr = errors.Join(rollbackErr, t.root.Remove(t.createdDirs[i]))
+	}
+	return rollbackErr
 }

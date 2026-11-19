@@ -4,17 +4,23 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -243,7 +249,7 @@ func TestWriteFiles_RejectsUnsafePathsBeforeCreatingOutput(t *testing.T) {
 	for _, filePath := range []string{"../outside.yaml", "/absolute.yaml", `folder\outside.yaml`, "", "./sample.yaml", "folder/../sample.yaml"} {
 		t.Run(filePath, func(t *testing.T) {
 			directory := filepath.Join(t.TempDir(), "export")
-			err := writeFiles(context.Background(), directory, []SerializedFile{{Path: filePath}})
+			err := writeFiles(context.Background(), directory, []SerializedFile{{Path: filePath}}, writeOptions{})
 			require.ErrorContains(t, err, "invalid export path")
 			assert.NoDirExists(t, directory)
 		})
@@ -259,7 +265,7 @@ func TestWriteFiles_RejectsSymlinkEscapeBeforeWriting(t *testing.T) {
 		{Path: "first.yaml", Data: []byte("first\n")},
 		{Path: "platform-shared/escaped.yaml", Data: []byte("outside\n")},
 	}
-	require.Error(t, writeFiles(context.Background(), directory, files))
+	require.Error(t, writeFiles(context.Background(), directory, files, writeOptions{}))
 	assert.NoFileExists(t, filepath.Join(directory, "first.yaml"))
 	assert.NoFileExists(t, filepath.Join(outside, "escaped.yaml"))
 }
@@ -273,20 +279,18 @@ func TestWriteFiles_RejectsExistingDirectoryOrSymlink(t *testing.T) {
 		} else if err := os.Symlink("missing.yaml", conflict); err != nil {
 			t.Skipf("symlinks unavailable: %v", err)
 		}
-		err := writeFiles(context.Background(), directory, []SerializedFile{{Path: "manifest.yaml"}})
+		err := writeFiles(context.Background(), directory, []SerializedFile{{Path: "manifest.yaml"}}, writeOptions{})
 		require.ErrorContains(t, err, "already exists")
 	}
 }
 
-func TestWriteManifest_ExclusiveCreationPreservesExistingFile(t *testing.T) {
+func TestWriteFiles_PreservesUnmanagedDestination(t *testing.T) {
 	directory := t.TempDir()
 	name := filepath.Join(directory, "manifest.yaml")
 	require.NoError(t, os.WriteFile(name, []byte("existing\n"), 0o600))
-	root, err := os.OpenRoot(directory)
-	require.NoError(t, err)
-	defer root.Close()
-	err = writeManifest(root, SerializedFile{Path: "manifest.yaml", Data: []byte("replacement\n")})
-	require.ErrorIs(t, err, os.ErrExist)
+	err := writeFiles(context.Background(), directory,
+		[]SerializedFile{{Path: "manifest.yaml", Data: []byte("replacement\n")}}, writeOptions{})
+	require.ErrorContains(t, err, "not a managed manifest")
 	data, err := os.ReadFile(name)
 	require.NoError(t, err)
 	assert.Equal(t, "existing\n", string(data))
@@ -296,7 +300,216 @@ func TestWriteFiles_CancellationDoesNotCreateOutput(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	directory := filepath.Join(t.TempDir(), "export")
-	err := writeFiles(ctx, directory, []SerializedFile{{Path: "manifest.yaml"}})
+	err := writeFiles(ctx, directory, []SerializedFile{{Path: "manifest.yaml"}}, writeOptions{})
 	require.ErrorIs(t, err, context.Canceled)
 	assert.NoDirExists(t, directory)
+}
+
+func serializedResources(t *testing.T, resources ...Resource) []SerializedFile {
+	t.Helper()
+	files, err := Serialize(context.Background(), resources)
+	require.NoError(t, err)
+	return files
+}
+
+func seedFiles(t *testing.T, directory string, files []SerializedFile) {
+	t.Helper()
+	for _, file := range files {
+		name := filepath.Join(directory, filepath.FromSlash(file.Path))
+		require.NoError(t, os.MkdirAll(filepath.Dir(name), 0o700))
+		require.NoError(t, os.WriteFile(name, file.Data, 0o600))
+	}
+}
+
+type treeEntry struct {
+	Mode fs.FileMode
+	Data string
+}
+
+func snapshotTree(t *testing.T, directory string) map[string]treeEntry {
+	t.Helper()
+	entries := make(map[string]treeEntry)
+	err := fs.WalkDir(os.DirFS(directory), ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		item := treeEntry{Mode: info.Mode()}
+		if !entry.IsDir() {
+			data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(name)))
+			if err != nil {
+				return err
+			}
+			item.Data = string(data)
+		}
+		entries[name] = item
+		return nil
+	})
+	require.NoError(t, err)
+	return entries
+}
+
+func TestWriteFiles_SynchronizesOnlyLayoutManagedManifests(t *testing.T) {
+	directory := t.TempDir()
+	component := manifestResource(testComponentKind)
+	project := manifestResource("Project")
+	old := serializedResources(t, component, project, manifestResource(testWorkloadKind))
+	seedFiles(t, directory, old)
+	unrelated := []SerializedFile{
+		{Path: ".github/workflows/ci.yaml", Data: []byte("name: CI\n")},
+		{Path: "namespaces/acme/kustomization.yaml", Data: []byte("kind: Kustomization\n")},
+		{Path: "namespaces/acme/manual/component.yaml", Data: old[0].Data},
+		{Path: "namespaces/acme/platform/notes.yaml", Data: []byte("not: [valid yaml\n")},
+	}
+	seedFiles(t, directory, unrelated)
+	projectPath := filepath.Join(directory, filepath.FromSlash("namespaces/acme/projects/sample/project.yaml"))
+	stamp := time.Unix(1700000000, 0)
+	require.NoError(t, os.Chtimes(projectPath, stamp, stamp))
+	before, err := os.Stat(projectPath)
+	require.NoError(t, err)
+	component.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 3}
+	current := serializedResources(t, component, project, manifestResource("Environment"))
+	require.NoError(t, writeFiles(context.Background(), directory, current, writeOptions{}))
+	for _, file := range append(current, unrelated...) {
+		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(file.Path)))
+		require.NoError(t, err)
+		assert.Equal(t, file.Data, data, file.Path)
+	}
+	assert.NoDirExists(t, filepath.Join(directory, filepath.FromSlash("namespaces/acme/projects/store/components/backend")))
+	after, err := os.Stat(projectPath)
+	require.NoError(t, err)
+	assert.True(t, os.SameFile(before, after), "identical files must not be replaced")
+	assert.Equal(t, before.ModTime(), after.ModTime())
+	assert.Equal(t, before.Mode(), after.Mode())
+	for name := range snapshotTree(t, directory) {
+		assert.NotContains(t, name, ".occ-export-", "transaction data must be cleaned up")
+	}
+}
+
+func TestManagedManifest_RequiresExactLayoutIdentityAndSingleDocument(t *testing.T) {
+	file := serializedResources(t, manifestResource(testComponentKind))[0]
+	for _, tc := range []struct {
+		name string
+		path string
+		data []byte
+	}{
+		{"wrong path", "component.yaml", file.Data},
+		{"wrong namespace", strings.Replace(file.Path, "/acme/", "/other/", 1), file.Data},
+		{"wrong project", strings.Replace(file.Path, "/store/", "/other/", 1), file.Data},
+		{"wrong version", file.Path, bytes.ReplaceAll(file.Data, []byte(testExportVersion), []byte("example.org/v1"))},
+		{"multiple documents", file.Path, append(append([]byte{}, file.Data...), []byte("---\nkind: ConfigMap\n")...)},
+		{"duplicate keys", file.Path, append(append([]byte{}, file.Data...), []byte("kind: Component\n")...)},
+		{"invalid YAML", file.Path, []byte("kind: [\n")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.False(t, isManagedManifest(tc.path, tc.data))
+		})
+	}
+	for kind := range resourceLayouts {
+		file := serializedResources(t, manifestResource(kind))[0]
+		assert.True(t, isManagedManifest(file.Path, file.Data), kind)
+	}
+}
+
+func TestFileTransaction_RollsBackCreatesUpdatesDeletesAndDirectories(t *testing.T) {
+	directory := t.TempDir()
+	component := manifestResource(testComponentKind)
+	seedFiles(t, directory, serializedResources(t, component, manifestResource(testWorkloadKind)))
+	seedFiles(t, directory, []SerializedFile{{Path: "README.md", Data: []byte("unrelated\n")}})
+	before := snapshotTree(t, directory)
+	component.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 5}
+	files := serializedResources(t, component, manifestResource("Environment"))
+	root, err := os.OpenRoot(directory)
+	require.NoError(t, err)
+	defer root.Close()
+	changes, err := planFileChanges(context.Background(), root, files)
+	require.NoError(t, err)
+	tx := &fileTransaction{root: root, changes: changes}
+	require.NoError(t, tx.stage(context.Background()))
+	defer func() { _ = root.RemoveAll(tx.scratch) }()
+	require.NoError(t, tx.apply(context.Background()))
+	assert.FileExists(t, filepath.Join(directory, filepath.FromSlash("namespaces/acme/platform/infra/environments/sample.yaml")))
+	assert.NoDirExists(t, filepath.Join(directory, filepath.FromSlash("namespaces/acme/projects/store/components/backend")))
+	wantErr := errors.New("export failed")
+	err = tx.abort(wantErr, directory)
+	require.ErrorIs(t, err, wantErr)
+	require.ErrorContains(t, err, "previous files restored")
+	require.NoError(t, root.RemoveAll(tx.scratch))
+	assert.Equal(t, before, snapshotTree(t, directory))
+}
+
+func TestFileTransaction_RollsBackMidApplyFailure(t *testing.T) {
+	directory := t.TempDir()
+	resources := []Resource{manifestResource("Project"), manifestResource(testComponentKind)}
+	seedFiles(t, directory, serializedResources(t, resources...))
+	before := snapshotTree(t, directory)
+	for _, resource := range resources {
+		resource.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"updated": true}
+	}
+	root, err := os.OpenRoot(directory)
+	require.NoError(t, err)
+	defer root.Close()
+	changes, err := planFileChanges(context.Background(), root, serializedResources(t, resources...))
+	require.NoError(t, err)
+	require.Len(t, changes, 2)
+	tx := &fileTransaction{root: root, changes: changes}
+	require.NoError(t, tx.stage(context.Background()))
+	require.NoError(t, root.Remove(tx.stagedName("new", 1)))
+	err = tx.apply(context.Background())
+	require.Error(t, err)
+	assert.True(t, tx.changes[0].installed)
+	require.ErrorContains(t, tx.abort(err, directory), "previous files restored")
+	require.NoError(t, root.RemoveAll(tx.scratch))
+	assert.Equal(t, before, snapshotTree(t, directory))
+}
+
+func TestWriteFiles_EmptyExportDeletesManagedManifests(t *testing.T) {
+	directory := t.TempDir()
+	seedFiles(t, directory, serializedResources(t, manifestResource("Project")))
+	seedFiles(t, directory, []SerializedFile{{Path: "README.md", Data: []byte("keep\n")}})
+	err := writeFiles(context.Background(), directory, nil, writeOptions{})
+	require.NoError(t, err)
+	assert.NoDirExists(t, filepath.Join(directory, "namespaces"))
+	data, err := os.ReadFile(filepath.Join(directory, "README.md"))
+	require.NoError(t, err)
+	assert.Equal(t, "keep\n", string(data))
+}
+
+func TestRun_ReexportAllowsDifferentServerWithoutChangingConfig(t *testing.T) {
+	f := newFetchFixture(t, false)
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	configPath := filepath.Join(home, ".openchoreo", "config")
+	before, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	directory := t.TempDir()
+	_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	after, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "export must not write directory bindings into CLI config")
+	first := snapshotTree(t, directory)
+	_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, first, snapshotTree(t, directory))
+	cfg, err := config.LoadStoredConfig()
+	require.NoError(t, err)
+	clear(f.calls)
+	cfg.ControlPlanes[0].URL = "https://other.example.test"
+	require.NoError(t, config.SaveStoredConfig(cfg))
+	f.host = "other.example.test"
+	f.client, err = client.NewClient()
+	require.NoError(t, err)
+	before, err = os.ReadFile(configPath)
+	require.NoError(t, err)
+	_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.NotEmpty(t, f.calls)
+	assert.Equal(t, first, snapshotTree(t, directory))
+	after, err = os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "re-export must not write directory bindings into CLI config")
 }

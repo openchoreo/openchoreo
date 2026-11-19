@@ -81,6 +81,7 @@ var requiredNamespacedCollections = []collectionFixture{
 type fetchFixture struct {
 	t           *testing.T
 	client      *client.Client
+	host        string
 	collections map[string]collectionFixture
 	calls       map[string][]string
 	paginated   bool
@@ -92,6 +93,7 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 	t.Helper()
 	f := &fetchFixture{
 		t:           t,
+		host:        "api.example.test",
 		collections: make(map[string]collectionFixture),
 		calls:       make(map[string][]string),
 		paginated:   paginated,
@@ -129,7 +131,7 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	f.t.Helper()
 	assert.Equal(f.t, http.MethodGet, req.Method)
-	assert.Equal(f.t, "api.example.test", req.URL.Host)
+	assert.Equal(f.t, f.host, req.URL.Host)
 	assert.Equal(f.t, "Bearer "+testutil.NonExpiredJWT, req.Header.Get("Authorization"))
 	query := req.URL.Query()
 	for key := range query {
