@@ -5,10 +5,12 @@ package notifications
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -124,4 +126,33 @@ func TestSendEmailRefusesDisallowedDestinations(t *testing.T) {
 	// Give a connection that got through time to be accepted before checking that none did.
 	time.Sleep(50 * time.Millisecond)
 	assert.Zero(t, accepted.Load(), "no connection may reach a refused SMTP server")
+}
+
+func TestSendWebhookThroughProxyChecksTheTarget(t *testing.T) {
+	proxy, proxyHits := countingServer(t, nil)
+	proxyURL, err := url.Parse(proxy.URL)
+	require.NoError(t, err)
+	origClient := httpClient
+	t.Cleanup(func() { httpClient = origClient })
+	// Loopback is allowed so that the client can reach the proxy, which listens on loopback.
+	httpClient = newWebhookClient(destination.NewPolicy(destination.Options{AllowLoopback: true}),
+		func(*http.Request) (*url.URL, error) { return proxyURL, nil })
+
+	for _, target := range []string{"http://169.254.169.254/latest/meta-data/", "http://10.43.0.9:9098/api/v1alpha1/alerts/webhook"} {
+		err := SendWebhookWithConfig(context.Background(), &WebhookConfig{URL: target}, map[string]interface{}{"a": 1})
+		require.Error(t, err, target)
+		assert.ErrorIs(t, err, destination.ErrNotAllowed, target)
+		assert.Equal(t, ReasonChannelConfig, ReasonOf(err), target)
+	}
+	assert.Zero(t, proxyHits.Load(), "a refused target is not handed to the proxy")
+
+	err = SendWebhookWithConfig(context.Background(), &WebhookConfig{URL: "http://8.8.8.8/hook"}, map[string]interface{}{"a": 1})
+	require.NoError(t, err)
+	assert.Equal(t, int32(1), proxyHits.Load(), "an allowed target goes through the proxy")
+}
+
+func TestUnknownProtectedAddressesAreRetried(t *testing.T) {
+	err := fmt.Errorf("dial: %w", destination.ErrProtectionUnavailable)
+	assert.Equal(t, ReasonConnection, ReasonOf(err))
+	assert.True(t, ReasonOf(err).Retryable())
 }

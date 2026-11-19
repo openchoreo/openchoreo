@@ -21,9 +21,14 @@ import (
 	"time"
 )
 
-// ErrNotAllowed is returned when a notification would connect to an address that the policy does
-// not allow.
-var ErrNotAllowed = errors.New("notification destination is not allowed")
+var (
+	// ErrNotAllowed is returned when a notification would connect to an address that the policy
+	// does not allow.
+	ErrNotAllowed = errors.New("notification destination is not allowed")
+	// ErrProtectionUnavailable is returned for a private destination while the addresses of a
+	// service the observer uses could not be looked up. A later attempt can succeed.
+	ErrProtectionUnavailable = errors.New("the addresses of a service the observer uses could not be looked up")
+)
 
 // Options configure a Policy.
 type Options struct {
@@ -236,7 +241,10 @@ func (p *Policy) DialContext(ctx context.Context, network, address string) (net.
 		return nil, err
 	}
 	host = NormalizeHost(host)
-	protected := p.protected.snapshot(ctx)
+	prot := p.protected.snapshot(ctx)
+	if err := prot.checkName(host); err != nil {
+		return nil, err
+	}
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -249,55 +257,117 @@ func (p *Policy) DialContext(ctx context.Context, network, address string) (net.
 			if err != nil {
 				return fmt.Errorf("%w: %q is not an IP address", ErrNotAllowed, ip)
 			}
-			return p.check(host, normalize(addr), protected)
+			return p.check(host, normalize(addr), prot)
 		},
 	}
 	return dialer.DialContext(ctx, network, address)
 }
 
+// CheckHost applies the policy to a host that is reached through an HTTP proxy, where DialContext
+// sees only the proxy's address. It checks the host's name and every address the host resolves to
+// here. The proxy can resolve the name differently, so it must restrict where it connects as well.
+func (p *Policy) CheckHost(ctx context.Context, host string) error {
+	host = NormalizeHost(host)
+	prot := p.protected.snapshot(ctx)
+	if err := prot.checkName(host); err != nil {
+		return err
+	}
+	var addrs []netip.Addr
+	if addr, err := netip.ParseAddr(host); err == nil {
+		addrs = []netip.Addr{addr}
+	} else if addrs, err = p.protected.lookup(ctx, host); err != nil {
+		return err
+	}
+	for _, addr := range addrs {
+		if err := p.check(host, normalize(addr), prot); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // check decides whether a connection to addr, made for host, is allowed.
-func (p *Policy) check(host string, addr netip.Addr, protected map[netip.Addr]bool) error {
+func (p *Policy) check(host string, addr netip.Addr, prot protection) error {
 	switch {
-	case protected[addr]:
+	case prot.addrs[addr]:
 		return fmt.Errorf("%w: %s belongs to a service the observer itself uses", ErrNotAllowed, addr)
 	case p.allowLoopback && addr.IsLoopback():
 		return nil
 	case isSpecialPurpose(addr):
 		return fmt.Errorf("%w: %s is a loopback, link-local or other special-purpose address", ErrNotAllowed, addr)
-	case !isPrivate(addr), p.privateHosts[host]:
+	case !isPrivate(addr):
 		return nil
+	case !p.listed(host, addr):
+		return fmt.Errorf("%w: %s is a private address that is not among the listed private destinations", ErrNotAllowed, addr)
+	case prot.incomplete:
+		// The address could belong to a protected service whose addresses are not known yet.
+		return fmt.Errorf("%w, so the private address %s is refused for now", ErrProtectionUnavailable, addr)
+	}
+	return nil
+}
+
+// listed reports whether a private address, reached for host, is among the private destinations.
+func (p *Policy) listed(host string, addr netip.Addr) bool {
+	if p.privateHosts[host] {
+		return true
 	}
 	for _, prefix := range p.private.Prefixes {
 		if prefix.Contains(addr) {
-			return nil
+			return true
 		}
 	}
-	return fmt.Errorf("%w: %s is a private address that is not among the listed private destinations", ErrNotAllowed, addr)
+	return false
 }
 
 const (
 	// protectedRefreshInterval is how often the addresses of the protected hosts are looked up again.
 	protectedRefreshInterval = 30 * time.Second
+	// protectedRetryInterval is how soon the lookups are retried while a protected host has no
+	// known addresses because its lookup failed.
+	protectedRetryInterval = time.Second
 	// protectedLookupTimeout bounds one round of lookups of the protected hosts.
 	protectedLookupTimeout = 2 * time.Second
 )
 
-// protectedAddrs are the addresses of the services the observer uses and of the observer itself.
+// protection is what notifications never reach, as known at one point in time.
+type protection struct {
+	hosts map[string]bool
+	addrs map[netip.Addr]bool
+	// incomplete is set while a protected host has no known addresses because its lookup failed
+	// for a reason other than the name not existing.
+	incomplete bool
+}
+
+// checkName refuses a host that names a service the observer itself uses, whatever its name
+// resolves to at the moment.
+func (prot protection) checkName(host string) error {
+	if prot.hosts[host] {
+		return fmt.Errorf("%w: %s is a service the observer itself uses", ErrNotAllowed, host)
+	}
+	return nil
+}
+
+// protectedAddrs keeps the names and addresses of the services the observer uses and of the
+// observer itself.
 type protectedAddrs struct {
 	hosts  []string
+	names  map[string]bool
 	static map[netip.Addr]bool
+	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 
-	mu        sync.Mutex
-	resolved  map[string][]netip.Addr
-	current   map[netip.Addr]bool
-	refreshed time.Time
-	lookup    func(ctx context.Context, host string) ([]netip.Addr, error)
+	mu         sync.Mutex
+	resolved   map[string][]netip.Addr
+	unresolved map[string]bool
+	current    protection
+	refreshed  time.Time
 }
 
 func newProtectedAddrs(hosts []string) *protectedAddrs {
 	s := &protectedAddrs{
-		static:   ownAddrs(),
-		resolved: map[string][]netip.Addr{},
+		names:      map[string]bool{},
+		static:     ownAddrs(),
+		resolved:   map[string][]netip.Addr{},
+		unresolved: map[string]bool{},
 		lookup: func(ctx context.Context, host string) ([]netip.Addr, error) {
 			return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 		},
@@ -311,55 +381,80 @@ func newProtectedAddrs(hosts []string) *protectedAddrs {
 			s.static[normalize(addr)] = true
 			continue
 		}
-		s.hosts = append(s.hosts, host)
+		if !s.names[host] {
+			s.names[host] = true
+			s.hosts = append(s.hosts, host)
+		}
 	}
-	s.current = s.merge()
+	s.current = s.build()
 	return s
 }
 
-// snapshot returns the protected addresses, looking the hosts up again when the last lookup is
-// older than protectedRefreshInterval. A host whose lookup fails keeps the addresses it had.
-func (s *protectedAddrs) snapshot(ctx context.Context) map[netip.Addr]bool {
+// snapshot returns what is protected, looking the hosts up again when the last lookup is older
+// than protectedRefreshInterval, or than protectedRetryInterval while a host is unresolved. A host
+// whose lookup fails keeps the addresses it had; one that never resolved makes the snapshot
+// incomplete, unless its name does not exist.
+func (s *protectedAddrs) snapshot(ctx context.Context) protection {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if len(s.hosts) == 0 || time.Since(s.refreshed) < protectedRefreshInterval {
+	interval := protectedRefreshInterval
+	if s.current.incomplete {
+		interval = protectedRetryInterval
+	}
+	if len(s.hosts) == 0 || time.Since(s.refreshed) < interval {
 		return s.current
 	}
 	lookupCtx, cancel := context.WithTimeout(ctx, protectedLookupTimeout)
 	defer cancel()
-	results := make([][]netip.Addr, len(s.hosts))
+	type result struct {
+		addrs []netip.Addr
+		err   error
+	}
+	results := make([]result, len(s.hosts))
 	var wg sync.WaitGroup
 	for i, host := range s.hosts {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if addrs, err := s.lookup(lookupCtx, host); err == nil {
-				results[i] = addrs
-			}
+			addrs, err := s.lookup(lookupCtx, host)
+			results[i] = result{addrs: addrs, err: err}
 		}()
 	}
 	wg.Wait()
 	for i, host := range s.hosts {
-		if len(results[i]) > 0 {
-			s.resolved[host] = results[i]
+		switch r := results[i]; {
+		case r.err == nil && len(r.addrs) > 0:
+			s.resolved[host] = r.addrs
+			delete(s.unresolved, host)
+		case r.err == nil || isNotFound(r.err):
+			// A service that does not exist, such as an optional agent that is not deployed, has
+			// no addresses to protect.
+			delete(s.unresolved, host)
+		case len(s.resolved[host]) == 0:
+			s.unresolved[host] = true
 		}
 	}
 	s.refreshed = time.Now()
-	s.current = s.merge()
+	s.current = s.build()
 	return s.current
 }
 
-func (s *protectedAddrs) merge() map[netip.Addr]bool {
-	merged := make(map[netip.Addr]bool, len(s.static))
+func (s *protectedAddrs) build() protection {
+	addrs := make(map[netip.Addr]bool, len(s.static))
 	for addr := range s.static {
-		merged[addr] = true
+		addrs[addr] = true
 	}
-	for _, addrs := range s.resolved {
-		for _, addr := range addrs {
-			merged[normalize(addr)] = true
+	for _, resolved := range s.resolved {
+		for _, addr := range resolved {
+			addrs[normalize(addr)] = true
 		}
 	}
-	return merged
+	return protection{hosts: s.names, addrs: addrs, incomplete: len(s.unresolved) > 0}
+}
+
+func isNotFound(err error) bool {
+	var dnsErr *net.DNSError
+	return errors.As(err, &dnsErr) && dnsErr.IsNotFound
 }
 
 // ownAddrs returns the addresses of this host's network interfaces, so that notifications cannot

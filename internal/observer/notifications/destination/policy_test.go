@@ -48,7 +48,7 @@ func TestClassification(t *testing.T) {
 }
 
 func TestPolicyCheck(t *testing.T) {
-	none := map[netip.Addr]bool{}
+	none := protection{}
 
 	t.Run("default allows only public addresses", func(t *testing.T) {
 		p := NewPolicy(Options{})
@@ -86,7 +86,7 @@ func TestPolicyCheck(t *testing.T) {
 	})
 
 	t.Run("protected addresses are refused whatever else allows them", func(t *testing.T) {
-		protected := map[netip.Addr]bool{mustAddr("10.43.0.9"): true, mustAddr("8.8.4.4"): true}
+		protected := protection{addrs: map[netip.Addr]bool{mustAddr("10.43.0.9"): true, mustAddr("8.8.4.4"): true}}
 		p := NewPolicy(Options{Private: Entries{
 			Prefixes: []netip.Prefix{netip.MustParsePrefix("10.43.0.0/16")},
 			Hosts:    []string{"relay.corp.internal"},
@@ -147,21 +147,25 @@ func TestProtectedAddrsSnapshot(t *testing.T) {
 	}
 
 	got := s.snapshot(context.Background())
-	assert.True(t, got[mustAddr("10.43.0.9")], "a protected host's address")
-	assert.True(t, got[mustAddr("10.43.0.20")], "a protected IP address")
+	assert.True(t, got.addrs[mustAddr("10.43.0.9")], "a protected host's address")
+	assert.True(t, got.addrs[mustAddr("10.43.0.20")], "a protected IP address")
+	assert.True(t, got.hosts["logs-adapter"], "a protected host's name")
+	assert.False(t, got.incomplete)
 
 	// A failed lookup keeps the addresses the host had.
 	delete(answers, "logs-adapter")
 	s.refreshed = time.Time{}
-	assert.True(t, s.snapshot(context.Background())[mustAddr("10.43.0.9")])
+	got = s.snapshot(context.Background())
+	assert.True(t, got.addrs[mustAddr("10.43.0.9")])
+	assert.False(t, got.incomplete, "a host that resolved before keeps its addresses")
 
 	// A new answer replaces them once the refresh interval has passed.
 	answers["logs-adapter"] = []netip.Addr{netip.MustParseAddr("10.43.0.10")}
-	assert.True(t, s.snapshot(context.Background())[mustAddr("10.43.0.9")], "not looked up again before the interval")
+	assert.True(t, s.snapshot(context.Background()).addrs[mustAddr("10.43.0.9")], "not looked up again before the interval")
 	s.refreshed = time.Time{}
 	got = s.snapshot(context.Background())
-	assert.True(t, got[mustAddr("10.43.0.10")])
-	assert.False(t, got[mustAddr("10.43.0.9")])
+	assert.True(t, got.addrs[mustAddr("10.43.0.10")])
+	assert.False(t, got.addrs[mustAddr("10.43.0.9")])
 }
 
 func TestDialContext(t *testing.T) {
@@ -192,4 +196,89 @@ func TestDialContext(t *testing.T) {
 	p := NewPolicy(Options{AllowLoopback: true, ProtectedHosts: []string{"localhost"}})
 	_, err = p.DialContext(ctx, "tcp", net.JoinHostPort("127.0.0.1", port))
 	assert.ErrorIs(t, err, ErrNotAllowed)
+}
+
+func TestProtectedNamesAreRefusedWhileTheirAddressesAreStale(t *testing.T) {
+	ctx := context.Background()
+	p := NewPolicy(Options{
+		Private:        Entries{Prefixes: []netip.Prefix{netip.MustParsePrefix("10.43.0.0/16")}},
+		ProtectedHosts: []string{"logs-adapter"},
+	})
+	answer := netip.MustParseAddr("10.43.0.9")
+	p.protected.lookup = func(context.Context, string) ([]netip.Addr, error) { return []netip.Addr{answer}, nil }
+	require.True(t, p.protected.snapshot(ctx).addrs[mustAddr("10.43.0.9")])
+
+	// The service moves to an address that the cached snapshot does not have yet.
+	answer = netip.MustParseAddr("10.43.0.10")
+	require.NoError(t, p.check("anything", mustAddr("10.43.0.10"), p.protected.snapshot(ctx)), "the new address is not cached")
+
+	_, err := p.DialContext(ctx, "tcp", "Logs-Adapter.:9098")
+	assert.ErrorIs(t, err, ErrNotAllowed, "the protected name is refused before it is resolved")
+	assert.ErrorIs(t, p.CheckHost(ctx, "logs-adapter"), ErrNotAllowed)
+}
+
+func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
+	ctx := context.Background()
+	p := NewPolicy(Options{
+		Private:        Entries{Prefixes: []netip.Prefix{netip.MustParsePrefix("10.43.0.0/16")}},
+		ProtectedHosts: []string{"logs-adapter", "sre-agent"},
+	})
+	var lookupErr error = &net.DNSError{Err: "i/o timeout", Name: "logs-adapter", IsTimeout: true}
+	p.protected.lookup = func(_ context.Context, host string) ([]netip.Addr, error) {
+		if host == "sre-agent" {
+			return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+		}
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		return []netip.Addr{netip.MustParseAddr("10.43.0.9")}, nil
+	}
+
+	prot := p.protected.snapshot(ctx)
+	require.True(t, prot.incomplete, "a failed first lookup leaves the protection incomplete")
+	err := p.check("receiver", mustAddr("10.43.0.9"), prot)
+	assert.ErrorIs(t, err, ErrProtectionUnavailable)
+	assert.NotErrorIs(t, err, ErrNotAllowed, "the refusal is temporary")
+	assert.NoError(t, p.check("receiver", mustAddr("8.8.8.8"), prot), "public addresses stay allowed")
+	assert.ErrorIs(t, p.check("receiver", mustAddr("10.99.0.1"), prot), ErrNotAllowed, "unlisted private addresses are refused as before")
+
+	// The lookup is retried after protectedRetryInterval, not protectedRefreshInterval.
+	lookupErr = nil
+	p.protected.refreshed = time.Now().Add(-protectedRetryInterval)
+	prot = p.protected.snapshot(ctx)
+	require.False(t, prot.incomplete, "a name that does not exist has nothing to protect")
+	assert.ErrorIs(t, p.check("receiver", mustAddr("10.43.0.9"), prot), ErrNotAllowed)
+	assert.NoError(t, p.check("receiver", mustAddr("10.43.0.10"), prot))
+}
+
+func TestCheckHost(t *testing.T) {
+	ctx := context.Background()
+	p := NewPolicy(Options{
+		Private:        Entries{Prefixes: []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}},
+		ProtectedHosts: []string{"logs-adapter"},
+	})
+	answers := map[string][]netip.Addr{
+		"logs-adapter":         {netip.MustParseAddr("10.1.0.9")},
+		"receiver.example.com": {netip.MustParseAddr("8.8.8.8")},
+		"relay.corp.internal":  {netip.MustParseAddr("10.1.0.5")},
+		"internal.example.com": {netip.MustParseAddr("10.2.0.5")},
+		"mixed.example.com":    {netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("127.0.0.1")},
+	}
+	p.protected.lookup = func(_ context.Context, host string) ([]netip.Addr, error) {
+		if addrs, ok := answers[host]; ok {
+			return addrs, nil
+		}
+		return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+	}
+
+	for _, host := range []string{"receiver.example.com", "relay.corp.internal", "8.8.8.8"} {
+		assert.NoError(t, p.CheckHost(ctx, host), host)
+	}
+	for _, host := range []string{
+		"logs-adapter", "10.1.0.9", "internal.example.com", "mixed.example.com", "169.254.169.254", "127.0.0.1", "::1",
+	} {
+		assert.ErrorIs(t, p.CheckHost(ctx, host), ErrNotAllowed, host)
+	}
+	var dnsErr *net.DNSError
+	assert.ErrorAs(t, p.CheckHost(ctx, "missing.example.com"), &dnsErr, "a host that cannot be looked up is not handed to a proxy")
 }

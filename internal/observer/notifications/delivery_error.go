@@ -91,6 +91,10 @@ func ReasonOf(err error) Reason {
 	if errors.Is(err, destination.ErrNotAllowed) {
 		return ReasonChannelConfig
 	}
+	// The addresses of the observer's own services become known once a lookup succeeds.
+	if errors.Is(err, destination.ErrProtectionUnavailable) {
+		return ReasonConnection
+	}
 	if errors.Is(err, context.Canceled) {
 		return ReasonInterrupted
 	}
@@ -130,6 +134,9 @@ func DetailOf(err error) string {
 	}
 	if errors.Is(err, destination.ErrNotAllowed) {
 		return "destination address not allowed"
+	}
+	if errors.Is(err, destination.ErrProtectionUnavailable) {
+		return "observer service addresses unknown"
 	}
 	var tpErr *textproto.Error
 	if errors.As(err, &tpErr) {
