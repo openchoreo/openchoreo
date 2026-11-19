@@ -289,13 +289,13 @@ type fileTransaction struct {
 // writeFiles computes the complete change set before touching manifests. Only
 // supported objects at their exact layout paths are managed. Returned operation
 // errors roll back file changes; abrupt process termination is not recoverable.
-func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, options writeOptions) (resultErr error) {
+func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, options writeOptions) (counts FileCounts, resultErr error) {
 	if err := validateExportFiles(ctx, files); err != nil {
-		return err
+		return FileCounts{}, err
 	}
 	created, err := createOutputDir(outputDir)
 	if err != nil {
-		return err
+		return FileCounts{}, err
 	}
 	defer func() {
 		if resultErr != nil {
@@ -310,12 +310,12 @@ func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, o
 	}()
 	root, err := os.OpenRoot(outputDir)
 	if err != nil {
-		return fmt.Errorf("open output directory: %w", err)
+		return FileCounts{}, fmt.Errorf("open output directory: %w", err)
 	}
 	defer root.Close()
 	changes, err := planFileChanges(ctx, root, files, options.preservedPaths)
 	if err != nil {
-		return err
+		return FileCounts{}, err
 	}
 	transaction := &fileTransaction{root: root, changes: changes}
 	defer func() {
@@ -324,15 +324,34 @@ func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, o
 		}
 	}()
 	if err := transaction.stage(ctx); err != nil {
-		return fmt.Errorf("stage export: %w", err)
+		return FileCounts{}, fmt.Errorf("stage export: %w", err)
 	}
 	if err := transaction.apply(ctx); err != nil {
-		return transaction.abort(err, outputDir)
+		return FileCounts{}, transaction.abort(err, outputDir)
 	}
 	if err := ctx.Err(); err != nil {
-		return transaction.abort(err, outputDir)
+		return FileCounts{}, transaction.abort(err, outputDir)
 	}
-	return nil
+	return summarizeFileChanges(len(files), changes), nil
+}
+
+// Changes come from byte comparisons against the existing managed manifests.
+// Counts are returned only after successfully applying all changes.
+func summarizeFileChanges(resources int, changes []fileChange) FileCounts {
+	counts := FileCounts{Unchanged: resources}
+	for _, change := range changes {
+		switch {
+		case change.remove:
+			counts.Deleted++
+		case change.before == nil:
+			counts.Created++
+			counts.Unchanged--
+		default:
+			counts.Updated++
+			counts.Unchanged--
+		}
+	}
+	return counts
 }
 
 func validateExportFiles(ctx context.Context, files []SerializedFile) error {

@@ -74,7 +74,11 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 		}
 		resources = append(resources, releases...)
 	}
-	return &FetchResult{Resources: resources, PreservedPaths: preservedPaths}, nil
+	result := &FetchResult{Resources: resources, PreservedPaths: preservedPaths}
+	if !allReleases {
+		result.ReleaseCutoff = &cutoff
+	}
+	return result, nil
 }
 
 // Clamp the day to the target month's last day (May 31 -> February 28/29).

@@ -544,10 +544,13 @@ func TestFetch_RecentAndReferencedReleasesAcrossPages(t *testing.T) {
 				}
 				want := []string{"old-referenced", "recent", "at-cutoff", "unknown-age"}
 				if all {
+					assert.Nil(t, result.ReleaseCutoff)
 					want = append(want, "old-unreferenced", "before-cutoff")
 					assert.Equal(t, []string{"old-referenced"}, otherNamespace)
 					assert.Empty(t, result.PreservedPaths)
 				} else {
+					require.NotNil(t, result.ReleaseCutoff)
+					assert.Equal(t, cutoff, *result.ReleaseCutoff)
 					assert.Empty(t, otherNamespace)
 					assert.Len(t, result.PreservedPaths, 3)
 					for _, name := range []string{"old-unreferenced", "before-cutoff"} {

@@ -5,6 +5,8 @@ package export
 
 import (
 	"fmt"
+	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,27 +19,21 @@ func NewExportCmd(f client.NewClientFunc) *cobra.Command {
 	var params Params
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "Export OpenChoreo configuration as a GitOps directory tree",
-		Long: `Fetch supported cluster-scoped configuration and resources from every
-accessible OpenChoreo control-plane namespace and write one YAML manifest per
-resource beneath the output directory. Missing directories are created.
-Supported manifests whose identity matches the export layout are managed:
-identical files are skipped, changed files are replaced, and stale files are
-deleted. Other files are preserved. Local edits to managed files are replaced.
-File-operation failures trigger rollback to the previous contents.
+		Short: "Export OpenChoreo configuration as YAML manifests",
+		Long: `Export supported OpenChoreo configuration across the cluster into a GitOps
+directory tree, with one YAML manifest per resource. Requires unrestricted
+read access to all supported resource kinds.
 
-By default, releases created within the last three calendar months (UTC),
-releases referenced by exported bindings, and releases without a creation
-timestamp are included. Use --all-releases to include the complete history.
-All release pages are still fetched. Existing manifests outside the window are
-preserved while their releases exist in the cluster; deleted releases are pruned.
+Re-export skips identical files, replaces changed files (including local edits),
+and removes files for resources deleted from the cluster. Unrelated files are
+preserved. Status and server metadata are removed from exported manifests.
 
-Objects marked for deletion are skipped. Manifests omit top-level status,
-server metadata, the last-applied-configuration annotation, and the OpenChoreo
-restart annotation. Specs and other labels and annotations are preserved.
-Full-cluster export requires unrestricted read access to every supported
-resource kind. Permission checks run before fetching and before writing;
-insufficient or unverifiable access stops export without changing files.`,
+Releases include the last three calendar months (UTC), binding-referenced
+releases, and releases without creation timestamps. Use --all-releases for the
+complete history. Existing older release files are preserved while their
+releases remain in the cluster.
+
+Shows export progress and a summary of file changes and release history.`,
 		Example: `  occ export -o ./gitops-export
   occ export --output /path/to/gitops-repository
   occ export -o .
@@ -54,16 +50,33 @@ insufficient or unverifiable access stops export without changing files.`,
 			if err != nil {
 				return err
 			}
-			files, err := Run(cmd.Context(), c, params)
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), "Exporting resources..."); err != nil {
+				return err
+			}
+			result, err := Run(cmd.Context(), c, params)
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Exported %d resources to %s.\n", len(files), params.OutputDir)
-			return err
+			return writeExportSummary(cmd.OutOrStdout(), result)
 		},
 	}
 	cmd.Flags().StringVarP(&params.OutputDir, "output", "o", "", "Directory for exported YAML manifests (required)")
 	cmd.Flags().BoolVar(&params.AllReleases, "all-releases", false, "Export all releases instead of recent and binding-referenced releases")
 	_ = cmd.MarkFlagRequired("output")
 	return cmd
+}
+
+func writeExportSummary(output io.Writer, result *ExportResult) error {
+	summary := fmt.Sprintf("\nExport completed\n  Output:      %s\n  Resources:   %d selected resource(s)\n\n"+
+		"Files:\n  CREATED   UPDATED   UNCHANGED   DELETED\n  %-10d%-10d%-12d%d\n\nRelease history:\n",
+		result.OutputDir, len(result.Files), result.Counts.Created, result.Counts.Updated, result.Counts.Unchanged, result.Counts.Deleted)
+	if result.ReleaseCutoff == nil {
+		summary += "  Policy:        All releases\n"
+	} else {
+		summary += fmt.Sprintf("  Policy:        Last 3 calendar months, plus binding-referenced releases\n"+
+			"  Cutoff (UTC):  %s (inclusive)\n",
+			result.ReleaseCutoff.UTC().Format(time.RFC3339Nano))
+	}
+	_, err := fmt.Fprint(output, summary)
+	return err
 }

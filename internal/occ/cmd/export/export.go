@@ -21,7 +21,7 @@ var errExportPermissionDenied = errors.New("your role does not have enough permi
 
 // Run prepares the complete export before transactionally synchronizing managed
 // files. Layouts determine ownership; no inventory is written into the output.
-func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFile, error) {
+func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult, error) {
 	if err := params.validate(); err != nil {
 		return nil, err
 	}
@@ -55,10 +55,13 @@ func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFi
 	options := writeOptions{
 		preservedPaths: fetched.PreservedPaths,
 	}
-	if err := writeFiles(ctx, directory, files, options); err != nil {
+	counts, err := writeFiles(ctx, directory, files, options)
+	if err != nil {
 		return nil, err
 	}
-	return files, nil
+	return &ExportResult{
+		OutputDir: directory, Files: files, Counts: counts, ReleaseCutoff: fetched.ReleaseCutoff,
+	}, nil
 }
 
 // A filtered list cannot distinguish an absent object from an inaccessible one.

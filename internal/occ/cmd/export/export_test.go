@@ -27,10 +27,10 @@ import (
 func TestRun_ExportsFilteredObjects(t *testing.T) {
 	f := newFetchFixture(t, false)
 	directory := filepath.Join(t.TempDir(), "nested", "export")
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	require.Len(t, files, 58)
-	for _, file := range files {
+	require.Len(t, result.Files, 58)
+	for _, file := range result.Files {
 		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(file.Path)))
 		require.NoError(t, err)
 		assert.Equal(t, file.Data, data)
@@ -119,9 +119,9 @@ func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 			configPath := filepath.Join(homeDir, ".openchoreo", "config")
 			configBefore, err := os.ReadFile(configPath)
 			require.NoError(t, err)
-			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.EqualError(t, err, "your role does not have enough permission to perform export")
-			assert.Nil(t, files)
+			assert.Nil(t, result)
 			assert.Empty(t, f.calls, "permission-limited exports must stop before listing resources")
 			assert.Equal(t, 1, f.profileCalls)
 			assert.Equal(t, before, snapshotTree(t, directory))
@@ -172,10 +172,10 @@ func TestRun_AuthorizationProfileFailuresCreateNoOutput(t *testing.T) {
 			f := newFetchFixture(t, false)
 			f.profileOverride = tc.response
 			directory := filepath.Join(t.TempDir(), "new", "export")
-			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.ErrorContains(t, err, tc.wantErr)
 			assert.NotContains(t, err.Error(), "component:view")
-			assert.Nil(t, files)
+			assert.Nil(t, result)
 			assert.Empty(t, f.calls)
 			assert.NoDirExists(t, filepath.Dir(directory))
 		})
@@ -208,9 +208,9 @@ func TestRun_RequiresGeneratedClientAccess(t *testing.T) {
 			directory := t.TempDir()
 			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
 			before := snapshotTree(t, directory)
-			files, err := Run(context.Background(), tc.wrap(f.client), Params{OutputDir: directory})
+			result, err := Run(context.Background(), tc.wrap(f.client), Params{OutputDir: directory})
 			require.ErrorContains(t, err, tc.wantErr)
-			assert.Nil(t, files)
+			assert.Nil(t, result)
 			assert.Zero(t, f.profileCalls)
 			assert.Empty(t, f.calls)
 			assert.Equal(t, before, snapshotTree(t, directory))
@@ -235,12 +235,12 @@ func TestRun_RechecksPermissionsBeforeWriting(t *testing.T) {
 			directory := t.TempDir()
 			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
 			before := snapshotTree(t, directory)
-			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.Error(t, err)
 			if !failProfile {
 				require.EqualError(t, err, "your role does not have enough permission to perform export")
 			}
-			assert.Nil(t, files)
+			assert.Nil(t, result)
 			assert.NotEmpty(t, f.calls, "the initial profile allowed resource fetching")
 			assert.Equal(t, 2, f.profileCalls)
 			assert.Equal(t, before, snapshotTree(t, directory), "no replacement or pruning after losing permission")
@@ -250,9 +250,9 @@ func TestRun_RechecksPermissionsBeforeWriting(t *testing.T) {
 
 func TestRun_AllowsCompleteReadOnlyAccess(t *testing.T) {
 	f := newFetchFixture(t, false)
-	files, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
 	require.NoError(t, err)
-	assert.Len(t, files, 58)
+	assert.Len(t, result.Files, 58)
 	assert.Equal(t, 2, f.profileCalls)
 }
 
@@ -285,18 +285,18 @@ func TestRun_PropagatesCancellation(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "export")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	files, err := Run(ctx, f.client, Params{OutputDir: directory})
+	result, err := Run(ctx, f.client, Params{OutputDir: directory})
 	require.ErrorIs(t, err, context.Canceled)
-	assert.Nil(t, files)
+	assert.Nil(t, result)
 	assert.Empty(t, f.calls)
 	assert.NoDirExists(t, directory)
 }
 
 func TestRun_RequiresOutputBeforeFetching(t *testing.T) {
 	f := newFetchFixture(t, false)
-	files, err := Run(context.Background(), f.client, Params{})
+	result, err := Run(context.Background(), f.client, Params{})
 	require.ErrorContains(t, err, "output directory is required")
-	assert.Nil(t, files)
+	assert.Nil(t, result)
 	assert.Empty(t, f.calls)
 }
 
@@ -311,9 +311,9 @@ func TestRun_SerializationErrorDoesNotCreateOutput(t *testing.T) {
 		return nil, nil
 	}
 	directory := filepath.Join(t.TempDir(), "export")
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.ErrorContains(t, err, "spec.owner.projectName")
-	assert.Nil(t, files)
+	assert.Nil(t, result)
 	assert.NoDirExists(t, directory)
 }
 
@@ -325,9 +325,9 @@ func TestRun_ExistingFilePreventsAllManifestWrites(t *testing.T) {
 	require.NoError(t, os.WriteFile(existing, []byte("existing manifest\n"), 0o600))
 	readme := filepath.Join(directory, "README.md")
 	require.NoError(t, os.WriteFile(readme, []byte("existing repository\n"), 0o600))
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.ErrorContains(t, err, "already exists")
-	assert.Nil(t, files)
+	assert.Nil(t, result)
 	data, err := os.ReadFile(existing)
 	require.NoError(t, err)
 	assert.Equal(t, "existing manifest\n", string(data))
@@ -348,9 +348,10 @@ func TestRun_EmptyInventoryCreatesOutputFolder(t *testing.T) {
 	f := newFetchFixture(t, false)
 	f.empty = true
 	directory := filepath.Join(t.TempDir(), "export")
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	assert.Empty(t, files)
+	assert.Empty(t, result.Files)
+	assert.Equal(t, FileCounts{}, result.Counts)
 	assert.DirExists(t, directory)
 }
 
@@ -372,9 +373,9 @@ func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
 		return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{active, deleting}, "pagination": map[string]any{}}), nil
 	}
 	directory := t.TempDir()
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	assert.Len(t, files, 58, "two additional deleting objects must be excluded from the fetched inventory")
+	assert.Len(t, result.Files, 58, "two additional deleting objects must be excluded from the fetched inventory")
 	assert.FileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-0.yaml"))
 	assert.NoFileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-1.yaml"))
 	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml"))
@@ -420,8 +421,11 @@ func TestRun_ReleaseWindowPreservesHistoryUntilDeleted(t *testing.T) {
 			readme := filepath.Join(directory, "README.md")
 			require.NoError(t, os.WriteFile(readme, []byte("keep unrelated files\n"), 0o600))
 
-			_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.NoError(t, err)
+			selected := len(result.Files)
+			assert.Equal(t, FileCounts{Created: selected, Deleted: 2}, result.Counts,
+				"preserved history must not be counted as unchanged or updated")
 			after, err := os.ReadFile(historicalPath)
 			require.NoError(t, err)
 			assert.Equal(t, before, after, "aged-out history must not be rewritten")
@@ -434,16 +438,19 @@ func TestRun_ReleaseWindowPreservesHistoryUntilDeleted(t *testing.T) {
 			assert.NoFileExists(t, filepath.Join(base, "unexported-old.yaml"))
 			assert.FileExists(t, filepath.Join(base, "unknown-age.yaml"))
 
-			_, err = Run(context.Background(), f.client, Params{OutputDir: directory, AllReleases: true})
+			result, err = Run(context.Background(), f.client, Params{OutputDir: directory, AllReleases: true})
 			require.NoError(t, err)
+			assert.Equal(t, FileCounts{Created: 1, Updated: 1, Unchanged: selected}, result.Counts)
+			assert.Nil(t, result.ReleaseCutoff)
 			after, err = os.ReadFile(historicalPath)
 			require.NoError(t, err)
 			assert.NotEqual(t, before, after, "all-releases resumes synchronization of historical files")
 			assert.FileExists(t, filepath.Join(base, "unexported-old.yaml"))
 
 			present = false
-			_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+			result, err = Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.NoError(t, err)
+			assert.Equal(t, FileCounts{Unchanged: selected, Deleted: 2}, result.Counts)
 			assert.NoFileExists(t, historicalPath, "history is pruned once it is absent from the cluster")
 			assert.NoFileExists(t, filepath.Join(base, "unexported-old.yaml"))
 			contents, err := os.ReadFile(readme)
@@ -467,8 +474,8 @@ func TestRun_MissingReferencedReleaseLeavesFilesUnchanged(t *testing.T) {
 	directory := t.TempDir()
 	seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
 	before := snapshotTree(t, directory)
-	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.ErrorContains(t, err, "binding-referenced release is missing")
-	assert.Nil(t, files)
+	assert.Nil(t, result)
 	assert.Equal(t, before, snapshotTree(t, directory))
 }

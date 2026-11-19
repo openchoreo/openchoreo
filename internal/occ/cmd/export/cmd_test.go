@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,9 +63,22 @@ func TestExportCommand_ExportsWithBothFlagsAndCurrentDirectory(t *testing.T) {
 			cmd.SetOut(&output)
 			cmd.SetErr(&bytes.Buffer{})
 			cmd.SetArgs([]string{tc.flag, tc.directory})
+			f.profileOverride = func(_ *http.Request) (*http.Response, error) {
+				assert.Equal(t, "Exporting resources...\n", output.String(), "progress must precede API calls and completion must follow commit")
+				return testutil.JSONResp(http.StatusOK, fullExportProfile()), nil
+			}
 
 			require.NoError(t, cmd.Execute())
-			assert.Equal(t, "Exported 58 resources to "+tc.directory+".\n", output.String())
+			assert.True(t, strings.HasPrefix(output.String(), "Exporting resources...\n\nExport completed\n"))
+			resolved, err := filepath.Abs(tc.directory)
+			require.NoError(t, err)
+			resolved, err = filepath.EvalSymlinks(resolved)
+			require.NoError(t, err)
+			assert.Contains(t, output.String(), "  Output:      "+resolved+"\n")
+			assert.Contains(t, output.String(), "  Resources:   58 selected resource(s)\n")
+			assert.Contains(t, output.String(), "CREATED   UPDATED   UNCHANGED   DELETED")
+			assert.Contains(t, output.String(), "Cutoff (UTC):")
+			assert.NotContains(t, output.String(), "PRESERVED")
 			assert.FileExists(t, filepath.Join(tc.directory, "namespaces", "acme", "namespace.yaml"))
 			assert.FileExists(t, filepath.Join(tc.directory, "namespaces", "acme", "projects", "store", "components", "checkout", "workloads", "workloads-0.yaml"))
 			if tc.directory == "." {
@@ -100,7 +114,7 @@ func TestExportCommand_FetchError(t *testing.T) {
 	cmd.SetOut(&output)
 
 	require.ErrorContains(t, cmd.RunE(cmd, nil), "access denied")
-	assert.Empty(t, output.String(), "a failed fetch must not print a success count")
+	assert.Equal(t, "Exporting resources...\n", output.String(), "a failed fetch must not print a completion summary")
 	assert.NoDirExists(t, directory)
 }
 
@@ -172,11 +186,79 @@ func TestExportCommand_AllReleasesFlag(t *testing.T) {
 			name := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "releases", "historical.yaml")
 			if all {
 				assert.FileExists(t, name)
-				assert.Contains(t, output.String(), "Exported 58 resources")
+				assert.Contains(t, output.String(), "Resources:   58 selected resource(s)")
+				assert.Contains(t, output.String(), "Policy:        All releases")
+				assert.NotContains(t, output.String(), "Cutoff (UTC):")
 			} else {
 				assert.NoFileExists(t, name)
-				assert.Contains(t, output.String(), "Exported 57 resources")
+				assert.Contains(t, output.String(), "Resources:   57 selected resource(s)")
+				assert.Contains(t, output.String(), "Policy:        Last 3 calendar months, plus binding-referenced releases")
 			}
 		})
 	}
+}
+
+func TestWriteExportSummary_FormatsCommittedCountsAndExactCutoff(t *testing.T) {
+	// Use a non-UTC location to verify that the captured instant is shown in UTC.
+	cutoff := time.Date(2026, time.August, 19, 14, 39, 4, 801915000, time.FixedZone("test", 19800))
+	result := &ExportResult{
+		OutputDir: "/repo/gitops", Files: make([]SerializedFile, 123),
+		Counts: FileCounts{Created: 4, Updated: 91, Unchanged: 28, Deleted: 2}, ReleaseCutoff: &cutoff,
+	}
+	var output bytes.Buffer
+	require.NoError(t, writeExportSummary(&output, result))
+	assert.Equal(t, `
+Export completed
+  Output:      /repo/gitops
+  Resources:   123 selected resource(s)
+
+Files:
+  CREATED   UPDATED   UNCHANGED   DELETED
+  4         91        28          2
+
+Release history:
+  Policy:        Last 3 calendar months, plus binding-referenced releases
+  Cutoff (UTC):  2026-08-19T09:09:04.801915Z (inclusive)
+`, output.String())
+}
+
+func TestExportCommand_HelpDescribesExportAndReleasePolicy(t *testing.T) {
+	cmd := NewExportCmd(func() (client.Interface, error) {
+		t.Fatal("help must not create an API client")
+		return nil, nil
+	})
+	var output bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetErr(&output)
+	cmd.SetArgs([]string{"-h"})
+	require.NoError(t, cmd.Execute())
+	for _, text := range []string{
+		"GitOps", "one YAML manifest per resource", "unrestricted",
+		"including local edits", "resources deleted from the cluster", "Unrelated files",
+		"three calendar months", "binding-referenced", "--all-releases", "-o, --output",
+		"summary of file changes and release history",
+	} {
+		assert.Contains(t, output.String(), text)
+	}
+}
+
+type exportErrorWriter struct {
+	err error
+}
+
+func (w exportErrorWriter) Write([]byte) (int, error) {
+	return 0, w.err
+}
+
+func TestExportCommand_ProgressWriteFailureStopsBeforeFetching(t *testing.T) {
+	f := newFetchFixture(t, false)
+	directory := filepath.Join(t.TempDir(), "export")
+	cmd := NewExportCmd(func() (client.Interface, error) { return f.client, nil })
+	require.NoError(t, cmd.Flags().Set("output", directory))
+	wantErr := errors.New("output unavailable")
+	cmd.SetOut(exportErrorWriter{err: wantErr})
+	require.ErrorIs(t, cmd.RunE(cmd, nil), wantErr)
+	assert.Empty(t, f.calls)
+	assert.Zero(t, f.profileCalls)
+	assert.NoDirExists(t, directory)
 }
