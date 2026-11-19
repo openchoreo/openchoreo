@@ -14,6 +14,14 @@ type Resource struct {
 	Object    any
 }
 
+// FetchResult keeps selected API objects separate from paths deliberately left
+// out by the release window. Only existing files at PreservedPaths are retained;
+// no manifest is created or updated for those paths.
+type FetchResult struct {
+	Resources      []Resource
+	PreservedPaths map[string]struct{}
+}
+
 // SerializedFile is one manifest and its path relative to the export directory.
 type SerializedFile struct {
 	Path string

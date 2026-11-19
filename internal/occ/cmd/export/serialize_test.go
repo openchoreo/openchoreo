@@ -169,7 +169,7 @@ func TestSerialize_MultipleWorkloadsAndStableOrder(t *testing.T) {
 
 func TestSerialize_FetchedTypedObjects(t *testing.T) {
 	f := newFetchFixture(t, false)
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.NoError(t, err)
 	files, err := Serialize(context.Background(), resources)
 	require.NoError(t, err)
@@ -425,7 +425,7 @@ func TestFileTransaction_RollsBackCreatesUpdatesDeletesAndDirectories(t *testing
 	root, err := os.OpenRoot(directory)
 	require.NoError(t, err)
 	defer root.Close()
-	changes, err := planFileChanges(context.Background(), root, files)
+	changes, err := planFileChanges(context.Background(), root, files, nil)
 	require.NoError(t, err)
 	tx := &fileTransaction{root: root, changes: changes}
 	require.NoError(t, tx.stage(context.Background()))
@@ -452,7 +452,7 @@ func TestFileTransaction_RollsBackMidApplyFailure(t *testing.T) {
 	root, err := os.OpenRoot(directory)
 	require.NoError(t, err)
 	defer root.Close()
-	changes, err := planFileChanges(context.Background(), root, serializedResources(t, resources...))
+	changes, err := planFileChanges(context.Background(), root, serializedResources(t, resources...), nil)
 	require.NoError(t, err)
 	require.Len(t, changes, 2)
 	tx := &fileTransaction{root: root, changes: changes}

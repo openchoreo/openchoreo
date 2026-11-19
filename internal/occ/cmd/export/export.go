@@ -32,11 +32,11 @@ func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFi
 	if err := checkExportPermissions(ctx, c); err != nil {
 		return nil, err
 	}
-	resources, err := Fetch(ctx, c)
+	fetched, err := Fetch(ctx, c, params.AllReleases)
 	if err != nil {
 		return nil, err
 	}
-	filtered, err := Filter(ctx, resources)
+	filtered, err := Filter(ctx, fetched.Resources)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,9 @@ func Run(ctx context.Context, c client.Interface, params Params) ([]SerializedFi
 	if err := checkExportPermissions(ctx, c); err != nil {
 		return nil, err
 	}
-	options := writeOptions{}
+	options := writeOptions{
+		preservedPaths: fetched.PreservedPaths,
+	}
 	if err := writeFiles(ctx, directory, files, options); err != nil {
 		return nil, err
 	}

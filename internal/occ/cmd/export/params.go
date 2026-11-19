@@ -13,6 +13,9 @@ import (
 // Params specifies the destination of the export directory tree.
 type Params struct {
 	OutputDir string
+	// AllReleases includes the complete release history instead of the default
+	// three-month window plus releases referenced by exported bindings.
+	AllReleases bool
 }
 
 func (p Params) validate() error {

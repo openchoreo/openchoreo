@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -378,4 +379,96 @@ func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-1.yaml"))
 	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml"))
 	assert.NoFileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-1", "component.yaml"))
+}
+
+func TestRun_ReleaseWindowPreservesHistoryUntilDeleted(t *testing.T) {
+	old := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	for _, tc := range releaseTestCases {
+		t.Run(tc.kind, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			present := true
+			f.override = func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path != "/api/v1/namespaces/acme/"+tc.collection {
+					return nil, nil
+				}
+				items := []any{releaseTestObject(tc, "acme", "unknown-age", nil)}
+				if present {
+					items = append(items, releaseTestObject(tc, "acme", "historical", &old),
+						releaseTestObject(tc, "acme", "unexported-old", &old))
+				}
+				deleting := releaseTestObject(tc, "acme", "deleting", &old)
+				deleting["metadata"].(map[string]any)["deletionTimestamp"] = fixtureCreationTimestamp
+				items = append(items, deleting)
+				return testutil.JSONResp(http.StatusOK, map[string]any{"items": items, "pagination": map[string]any{}}), nil
+			}
+			directory := t.TempDir()
+			existing := make([]Resource, 0, 3)
+			for _, name := range []string{"historical", "deleted", "deleting"} {
+				existing = append(existing, Resource{
+					Kind: tc.kind, Namespace: "acme", Name: name, Object: releaseTestObject(tc, "acme", name, &old),
+				})
+			}
+			seedFiles(t, directory, serializedResources(t, existing...))
+			base := filepath.Join(directory, "namespaces", "acme", "projects", "store", filepath.FromSlash(tc.directory))
+			historicalPath := filepath.Join(base, "historical.yaml")
+			before, err := os.ReadFile(historicalPath)
+			require.NoError(t, err)
+			before = append([]byte("# Preserve this existing history exactly.\n"), before...)
+			require.NoError(t, os.WriteFile(historicalPath, before, 0o600))
+			infoBefore, err := os.Stat(historicalPath)
+			require.NoError(t, err)
+			readme := filepath.Join(directory, "README.md")
+			require.NoError(t, os.WriteFile(readme, []byte("keep unrelated files\n"), 0o600))
+
+			_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.NoError(t, err)
+			after, err := os.ReadFile(historicalPath)
+			require.NoError(t, err)
+			assert.Equal(t, before, after, "aged-out history must not be rewritten")
+			infoAfter, err := os.Stat(historicalPath)
+			require.NoError(t, err)
+			assert.True(t, os.SameFile(infoBefore, infoAfter))
+			assert.Equal(t, infoBefore.ModTime(), infoAfter.ModTime())
+			assert.NoFileExists(t, filepath.Join(base, "deleted.yaml"))
+			assert.NoFileExists(t, filepath.Join(base, "deleting.yaml"))
+			assert.NoFileExists(t, filepath.Join(base, "unexported-old.yaml"))
+			assert.FileExists(t, filepath.Join(base, "unknown-age.yaml"))
+
+			_, err = Run(context.Background(), f.client, Params{OutputDir: directory, AllReleases: true})
+			require.NoError(t, err)
+			after, err = os.ReadFile(historicalPath)
+			require.NoError(t, err)
+			assert.NotEqual(t, before, after, "all-releases resumes synchronization of historical files")
+			assert.FileExists(t, filepath.Join(base, "unexported-old.yaml"))
+
+			present = false
+			_, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.NoError(t, err)
+			assert.NoFileExists(t, historicalPath, "history is pruned once it is absent from the cluster")
+			assert.NoFileExists(t, filepath.Join(base, "unexported-old.yaml"))
+			contents, err := os.ReadFile(readme)
+			require.NoError(t, err)
+			assert.Equal(t, "keep unrelated files\n", string(contents))
+		})
+	}
+}
+
+func TestRun_MissingReferencedReleaseLeavesFilesUnchanged(t *testing.T) {
+	f := newFetchFixture(t, false)
+	tc := releaseTestCases[0]
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				"items": []any{bindingTestObject(tc, "missing-release")}, "pagination": map[string]any{},
+			}), nil
+		}
+		return nil, nil
+	}
+	directory := t.TempDir()
+	seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+	before := snapshotTree(t, directory)
+	files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.ErrorContains(t, err, "binding-referenced release is missing")
+	assert.Nil(t, files)
+	assert.Equal(t, before, snapshotTree(t, directory))
 }

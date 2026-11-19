@@ -26,6 +26,12 @@ identical files are skipped, changed files are replaced, and stale files are
 deleted. Other files are preserved. Local edits to managed files are replaced.
 File-operation failures trigger rollback to the previous contents.
 
+By default, releases created within the last three calendar months (UTC),
+releases referenced by exported bindings, and releases without a creation
+timestamp are included. Use --all-releases to include the complete history.
+All release pages are still fetched. Existing manifests outside the window are
+preserved while their releases exist in the cluster; deleted releases are pruned.
+
 Objects marked for deletion are skipped. Manifests omit top-level status,
 server metadata, the last-applied-configuration annotation, and the OpenChoreo
 restart annotation. Specs and other labels and annotations are preserved.
@@ -34,7 +40,8 @@ resource kind. Permission checks run before fetching and before writing;
 insufficient or unverifiable access stops export without changing files.`,
 		Example: `  occ export -o ./gitops-export
   occ export --output /path/to/gitops-repository
-  occ export -o .`,
+  occ export -o .
+  occ export -o ./gitops-export --all-releases`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if err := cobra.NoArgs(cmd, args); err != nil {
 				return err
@@ -56,6 +63,7 @@ insufficient or unverifiable access stops export without changing files.`,
 		},
 	}
 	cmd.Flags().StringVarP(&params.OutputDir, "output", "o", "", "Directory for exported YAML manifests (required)")
+	cmd.Flags().BoolVar(&params.AllReleases, "all-releases", false, "Export all releases instead of recent and binding-referenced releases")
 	_ = cmd.MarkFlagRequired("output")
 	return cmd
 }

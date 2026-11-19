@@ -253,6 +253,7 @@ func validatePathPart(value, field string) error {
 }
 
 type writeOptions struct {
+	preservedPaths map[string]struct{}
 }
 
 type fileSnapshot struct {
@@ -312,7 +313,7 @@ func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, o
 		return fmt.Errorf("open output directory: %w", err)
 	}
 	defer root.Close()
-	changes, err := planFileChanges(ctx, root, files)
+	changes, err := planFileChanges(ctx, root, files, options.preservedPaths)
 	if err != nil {
 		return err
 	}
@@ -380,8 +381,8 @@ func createOutputDir(directory string) ([]string, error) {
 	return created, nil
 }
 
-func planFileChanges(ctx context.Context, root *os.Root, files []SerializedFile) ([]fileChange, error) {
-	managed, err := findManagedFiles(ctx, root)
+func planFileChanges(ctx context.Context, root *os.Root, files []SerializedFile, preservedPaths map[string]struct{}) ([]fileChange, error) {
+	managed, err := findManagedFiles(ctx, root, preservedPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +408,7 @@ func planFileChanges(ctx context.Context, root *os.Root, files []SerializedFile)
 	return changes, nil
 }
 
-func findManagedFiles(ctx context.Context, root *os.Root) (map[string]*fileSnapshot, error) {
+func findManagedFiles(ctx context.Context, root *os.Root, preservedPaths map[string]struct{}) (map[string]*fileSnapshot, error) {
 	managed := make(map[string]*fileSnapshot)
 	for _, prefix := range []string{"platform-shared", "namespaces"} {
 		err := fs.WalkDir(root.FS(), prefix, func(name string, entry fs.DirEntry, walkErr error) error {
@@ -421,6 +422,11 @@ func findManagedFiles(ctx context.Context, root *os.Root) (map[string]*fileSnaps
 				return err
 			}
 			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || path.Ext(name) != ".yaml" {
+				return nil
+			}
+			// Excluded releases still in the cluster are untouched. Avoid loading
+			// their historical YAML bodies into the transaction's memory too.
+			if _, preserve := preservedPaths[name]; preserve {
 				return nil
 			}
 			return collectManagedFile(root, name, entry, managed)

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,9 +26,10 @@ import (
 )
 
 const (
-	testComponentKind = "Component"
-	testNamespaceKind = "Namespace"
-	testWorkloadKind  = "Workload"
+	testComponentKind        = "Component"
+	testComponentReleaseKind = "ComponentRelease"
+	testNamespaceKind        = "Namespace"
+	testWorkloadKind         = "Workload"
 )
 
 // The collection inventory comes from the export requirements, rather than the
@@ -71,7 +73,7 @@ var requiredNamespacedCollections = []collectionFixture{
 	{kind: "ProjectReleaseBinding", path: "projectreleasebindings"},
 	{kind: testComponentKind, path: "components"},
 	{kind: testWorkloadKind, path: "workloads"},
-	{kind: "ComponentRelease", path: "componentreleases"},
+	{kind: testComponentReleaseKind, path: "componentreleases"},
 	{kind: "ReleaseBinding", path: "releasebindings"},
 	{kind: "Resource", path: "resources"},
 	{kind: "ResourceRelease", path: "resourcereleases"},
@@ -203,7 +205,7 @@ func fullExportProfile() gen.UserCapabilitiesResponse {
 func fixtureObject(collection collectionFixture, path string, page int) map[string]any {
 	metadata := map[string]any{
 		"name": collection.path + "-" + strconv.Itoa(page),
-		"uid":  "keep-uid", "creationTimestamp": "2026-01-01T00:00:00Z",
+		"uid":  "keep-uid", "creationTimestamp": fixtureCreationTimestamp,
 		"labels": map[string]string{"keep": "label"},
 		"annotations": map[string]string{
 			"keep": "annotation", lastAppliedAnnotation: "previous apply data", restartedAtAnnotation: "old-restart",
@@ -221,7 +223,7 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	switch collection.kind {
 	case "ProjectRelease", "ProjectReleaseBinding", "Resource":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
-	case testWorkloadKind, "ComponentRelease", "ReleaseBinding":
+	case testWorkloadKind, testComponentReleaseKind, "ReleaseBinding":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "componentName": "checkout"}}
 	case "ResourceRelease", "ResourceReleaseBinding":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "resourceName": "database"}}
@@ -240,7 +242,7 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 
 func TestFetch_AllRequiredResourcesAndPages(t *testing.T) {
 	f := newFetchFixture(t, true)
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.NoError(t, err)
 	require.Len(t, resources, 2*len(requiredClusterCollections)+2+4*len(requiredNamespacedCollections))
 	require.Len(t, f.calls, len(f.collections))
@@ -283,7 +285,7 @@ func TestFetch_AllRequiredResourcesAndPages(t *testing.T) {
 func TestFetch_EmptyInventory(t *testing.T) {
 	f := newFetchFixture(t, false)
 	f.empty = true
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.NoError(t, err)
 	assert.Empty(t, resources)
 	assert.Len(t, f.calls, len(requiredClusterCollections)+1)
@@ -300,11 +302,11 @@ func TestFetch_EmptyPageWithNextCursor(t *testing.T) {
 		}
 		return nil, nil
 	}
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.NoError(t, err)
 	var names []string
 	for _, resource := range resources {
-		if resource.Kind == "ComponentRelease" && resource.Namespace == "acme" {
+		if resource.Kind == testComponentReleaseKind && resource.Namespace == "acme" {
 			names = append(names, resource.Name)
 		}
 	}
@@ -331,7 +333,7 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 				}
 				return nil, nil
 			}
-			resources, err := Fetch(context.Background(), f.client)
+			resources, err := fetchAllTestResources(context.Background(), f.client)
 			require.Error(t, err)
 			assert.Nil(t, resources)
 			assert.Contains(t, err.Error(), tc.kind)
@@ -348,7 +350,7 @@ func TestFetch_TransportError(t *testing.T) {
 	f := newFetchFixture(t, false)
 	wantErr := errors.New("connection reset")
 	f.override = func(_ *http.Request) (*http.Response, error) { return nil, wantErr }
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.ErrorIs(t, err, wantErr)
 	assert.Nil(t, resources)
 	assert.Len(t, f.calls, 1)
@@ -363,7 +365,7 @@ func TestFetch_MalformedResponse(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("{invalid-json")),
 		}, nil
 	}
-	resources, err := Fetch(context.Background(), f.client)
+	resources, err := fetchAllTestResources(context.Background(), f.client)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "ClusterProjectType")
 	assert.Nil(t, resources)
@@ -373,7 +375,7 @@ func TestFetch_CanceledBeforeRequest(t *testing.T) {
 	f := newFetchFixture(t, false)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	resources, err := Fetch(ctx, f.client)
+	resources, err := fetchAllTestResources(ctx, f.client)
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, resources)
 	assert.Empty(t, f.calls)
@@ -388,7 +390,7 @@ func TestFetch_CancellationReachesHTTPClient(t *testing.T) {
 		cancel()
 		return nil, req.Context().Err()
 	}
-	resources, err := Fetch(ctx, f.client)
+	resources, err := fetchAllTestResources(ctx, f.client)
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, resources)
 	assert.Equal(t, []string{""}, f.calls["/api/v1/clusterprojecttypes"])
@@ -405,7 +407,7 @@ func TestFetch_CancellationAfterPage(t *testing.T) {
 			"items": []any{}, "pagination": map[string]string{"nextCursor": "next-page"},
 		}), nil
 	}
-	resources, err := Fetch(ctx, f.client)
+	resources, err := fetchAllTestResources(ctx, f.client)
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, resources)
 	assert.Equal(t, []string{""}, f.calls["/api/v1/clusterprojecttypes"])
@@ -423,7 +425,7 @@ func TestFetch_InvalidIdentity(t *testing.T) {
 				}
 				return nil, nil
 			}
-			resources, err := Fetch(context.Background(), f.client)
+			resources, err := fetchAllTestResources(context.Background(), f.client)
 			require.ErrorContains(t, err, "metadata.name")
 			assert.Nil(t, resources)
 		})
@@ -433,13 +435,171 @@ func TestFetch_InvalidIdentity(t *testing.T) {
 func TestFetch_NilListResponse(t *testing.T) {
 	c := mocks.NewMockInterface(t)
 	c.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(nil, nil)
-	resources, err := Fetch(context.Background(), c)
+	resources, err := fetchAllTestResources(context.Background(), c)
 	require.ErrorContains(t, err, "nil list response")
 	assert.Nil(t, resources)
 }
 
 func TestFetch_NilClient(t *testing.T) {
-	resources, err := Fetch(context.Background(), nil)
+	resources, err := fetchAllTestResources(context.Background(), nil)
 	require.EqualError(t, err, "API client is required")
 	assert.Nil(t, resources)
+}
+
+// Inventory tests opt into all history; cutoff behavior has separate cases.
+func fetchAllTestResources(ctx context.Context, c client.Interface) ([]Resource, error) {
+	result, err := Fetch(ctx, c, true)
+	if err != nil {
+		return nil, err
+	}
+	return result.Resources, nil
+}
+
+var fixtureCreationTimestamp = time.Now().UTC().Format(time.RFC3339)
+
+type releaseTestCase struct {
+	kind, collection, bindingKind, bindings, reference, directory string
+}
+
+var releaseTestCases = []releaseTestCase{
+	{testComponentReleaseKind, "componentreleases", "ReleaseBinding", "releasebindings", "releaseName", "components/checkout/releases"},
+	{"ProjectRelease", "projectreleases", "ProjectReleaseBinding", "projectreleasebindings", "projectRelease", "releases"},
+	{"ResourceRelease", "resourcereleases", "ResourceReleaseBinding", "resourcereleasebindings", "resourceRelease", "resources/database/releases"},
+}
+
+func releaseTestObject(tc releaseTestCase, namespace, name string, created *time.Time) map[string]any {
+	object := fixtureObject(collectionFixture{kind: tc.kind, path: tc.collection}, "/api/v1/namespaces/"+namespace+"/"+tc.collection, 0)
+	metadata := object["metadata"].(map[string]any)
+	metadata["name"] = name
+	delete(metadata, "creationTimestamp")
+	if created != nil {
+		metadata["creationTimestamp"] = created.Format(time.RFC3339Nano)
+	}
+	return object
+}
+
+func bindingTestObject(tc releaseTestCase, name string) map[string]any {
+	object := fixtureObject(collectionFixture{kind: tc.bindingKind, path: tc.bindings}, "/api/v1/namespaces/acme/"+tc.bindings, 0)
+	object["spec"].(map[string]any)[tc.reference] = name
+	return object
+}
+
+func TestFetch_RecentAndReferencedReleasesAcrossPages(t *testing.T) {
+	cutoff := time.Date(2026, time.August, 19, 10, 0, 0, 0, time.UTC)
+	old, recent, before := cutoff.AddDate(-1, 0, 0), cutoff.AddDate(0, 1, 0), cutoff.Add(-time.Nanosecond)
+	for _, tc := range releaseTestCases {
+		for _, all := range []bool{false, true} {
+			t.Run(tc.kind+"/all="+strconv.FormatBool(all), func(t *testing.T) {
+				f := newFetchFixture(t, true)
+				path := "/api/v1/namespaces/acme/" + tc.collection
+				f.override = func(req *http.Request) (*http.Response, error) {
+					if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
+						assert.Empty(t, f.calls[path], "bindings must be read before releases")
+						page := map[string]any{"items": []any{bindingTestObject(tc, "old-referenced")}, "pagination": map[string]any{}}
+						if req.URL.Query().Get("cursor") == "" {
+							page["pagination"] = map[string]string{"nextCursor": "next " + req.URL.Path}
+						}
+						return testutil.JSONResp(http.StatusOK, page), nil
+					}
+					if req.URL.Path == "/api/v1/namespaces/payments/"+tc.collection {
+						// Same release name in another namespace must not inherit acme's binding.
+						return testutil.JSONResp(http.StatusOK, map[string]any{
+							"items": []any{releaseTestObject(tc, "payments", "old-referenced", &old)}, "pagination": map[string]any{},
+						}), nil
+					}
+					if req.URL.Path != path {
+						return nil, nil
+					}
+					for _, binding := range []string{"releasebindings", "projectreleasebindings", "resourcereleasebindings"} {
+						assert.NotEmpty(t, f.calls["/api/v1/namespaces/acme/"+binding])
+					}
+					if req.URL.Query().Get("cursor") == "" {
+						// An entirely excluded page must still advance to the next page.
+						return testutil.JSONResp(http.StatusOK, map[string]any{
+							"items":      []any{releaseTestObject(tc, "acme", "old-unreferenced", &old)},
+							"pagination": map[string]string{"nextCursor": "next " + path},
+						}), nil
+					}
+					deleting := releaseTestObject(tc, "acme", "deleting", &recent)
+					deleting["metadata"].(map[string]any)["deletionTimestamp"] = recent.Format(time.RFC3339)
+					return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{
+						releaseTestObject(tc, "acme", "old-referenced", &old),
+						releaseTestObject(tc, "acme", "recent", &recent),
+						releaseTestObject(tc, "acme", "at-cutoff", &cutoff),
+						releaseTestObject(tc, "acme", "before-cutoff", &before),
+						releaseTestObject(tc, "acme", "unknown-age", nil), deleting,
+					}, "pagination": map[string]any{}}), nil
+				}
+				result, err := fetchResources(context.Background(), f.client, all, cutoff)
+				require.NoError(t, err)
+				var names, otherNamespace []string
+				for _, resource := range result.Resources {
+					if resource.Kind == tc.kind {
+						if resource.Namespace == "acme" {
+							names = append(names, resource.Name)
+						} else {
+							otherNamespace = append(otherNamespace, resource.Name)
+						}
+					}
+				}
+				want := []string{"old-referenced", "recent", "at-cutoff", "unknown-age"}
+				if all {
+					want = append(want, "old-unreferenced", "before-cutoff")
+					assert.Equal(t, []string{"old-referenced"}, otherNamespace)
+					assert.Empty(t, result.PreservedPaths)
+				} else {
+					assert.Empty(t, otherNamespace)
+					assert.Len(t, result.PreservedPaths, 3)
+					for _, name := range []string{"old-unreferenced", "before-cutoff"} {
+						assert.Contains(t, result.PreservedPaths, "namespaces/acme/projects/store/"+tc.directory+"/"+name+".yaml")
+					}
+					assert.Contains(t, result.PreservedPaths, "namespaces/payments/projects/store/"+tc.directory+"/old-referenced.yaml")
+				}
+				assert.ElementsMatch(t, want, names)
+				assert.Equal(t, []string{"", "next " + path}, f.calls[path])
+			})
+		}
+	}
+}
+
+func TestFetch_MissingOrDeletingReferencedRelease(t *testing.T) {
+	for _, tc := range releaseTestCases {
+		for _, deleting := range []bool{false, true} {
+			t.Run(tc.kind+"/deleting="+strconv.FormatBool(deleting), func(t *testing.T) {
+				f := newFetchFixture(t, false)
+				f.override = func(req *http.Request) (*http.Response, error) {
+					if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
+						return testutil.JSONResp(http.StatusOK, map[string]any{
+							"items": []any{bindingTestObject(tc, "required-release")}, "pagination": map[string]any{},
+						}), nil
+					}
+					if deleting && req.URL.Path == "/api/v1/namespaces/acme/"+tc.collection {
+						object := releaseTestObject(tc, "acme", "required-release", nil)
+						object["metadata"].(map[string]any)["deletionTimestamp"] = fixtureCreationTimestamp
+						return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
+					}
+					return nil, nil
+				}
+				result, err := Fetch(context.Background(), f.client, false)
+				require.ErrorContains(t, err, "binding-referenced release is missing or marked for deletion")
+				assert.ErrorContains(t, err, tc.kind)
+				assert.Nil(t, result)
+			})
+		}
+	}
+}
+
+func TestReleaseCutoff_CalendarMonthsAndUTC(t *testing.T) {
+	for _, tc := range []struct{ now, want string }{
+		{"2026-11-19T10:20:30Z", "2026-08-19T10:20:30Z"},
+		{"2026-05-31T10:20:30Z", "2026-02-28T10:20:30Z"},
+		{"2024-05-31T10:20:30Z", "2024-02-29T10:20:30Z"},
+		{"2026-01-01T00:30:00+05:30", "2025-09-30T19:00:00Z"},
+	} {
+		t.Run(tc.now, func(t *testing.T) {
+			now, err := time.Parse(time.RFC3339, tc.now)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, releaseCutoff(now).Format(time.RFC3339))
+		})
+	}
 }

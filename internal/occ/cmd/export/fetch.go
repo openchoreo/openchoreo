@@ -6,6 +6,8 @@ package export
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
@@ -22,11 +24,17 @@ type resourcePage[T any] struct {
 
 type resourceFetcher func(context.Context, string) ([]Resource, error)
 
-// Fetch collects the requested inventory using existing OCC list methods.
+// Fetch collects configuration and selected releases using existing OCC list
+// methods. The default window is three calendar months, plus every release
+// referenced by an exported binding. AllReleases bypasses the date cutoff.
 // Calls and pages are sequential. On failure it returns no partial collection.
 // The API controls namespace discovery, authorization, and field visibility;
 // this operation does not provide an atomic snapshot across resource kinds.
-func Fetch(ctx context.Context, c client.Interface) ([]Resource, error) {
+func Fetch(ctx context.Context, c client.Interface, allReleases bool) (*FetchResult, error) {
+	return fetchResources(ctx, c, allReleases, releaseCutoff(time.Now()))
+}
+
+func fetchResources(ctx context.Context, c client.Interface, allReleases bool, cutoff time.Time) (*FetchResult, error) {
 	if c == nil {
 		return nil, fmt.Errorf("API client is required")
 	}
@@ -42,6 +50,7 @@ func Fetch(ctx context.Context, c client.Interface) ([]Resource, error) {
 	}
 
 	fetchers := namespacedFetchers(c)
+	preservedPaths := make(map[string]struct{})
 	for _, namespace := range namespaces {
 		name := namespace.Metadata.Name
 		if name == "" {
@@ -53,8 +62,137 @@ func Fetch(ctx context.Context, c client.Interface) ([]Resource, error) {
 			return nil, err
 		}
 		resources = append(resources, items...)
+		selection := releaseSelection{
+			all: allReleases, cutoff: cutoff, references: bindingReleaseReferences(items), preservedPaths: preservedPaths,
+		}
+		releases, err := fetchCollections(ctx, name, releaseFetchers(c, &selection))
+		if err != nil {
+			return nil, err
+		}
+		if err := selection.checkReferences(); err != nil {
+			return nil, err
+		}
+		resources = append(resources, releases...)
 	}
-	return resources, nil
+	return &FetchResult{Resources: resources, PreservedPaths: preservedPaths}, nil
+}
+
+// Clamp the day to the target month's last day (May 31 -> February 28/29).
+// One UTC cutoff is captured for the entire export, including every namespace.
+func releaseCutoff(now time.Time) time.Time {
+	now = now.UTC()
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -3, 0)
+	day := min(now.Day(), month.AddDate(0, 1, -1).Day())
+	return time.Date(month.Year(), month.Month(), day, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)
+}
+
+type releaseIdentity struct {
+	kind, namespace, name string
+}
+
+type releaseSelection struct {
+	all            bool
+	cutoff         time.Time
+	references     map[releaseIdentity]bool
+	preservedPaths map[string]struct{}
+}
+
+func bindingReleaseReferences(resources []Resource) map[releaseIdentity]bool {
+	references := make(map[releaseIdentity]bool)
+	for _, resource := range resources {
+		var kind string
+		var name *string
+		switch binding := resource.Object.(type) {
+		case gen.ReleaseBinding:
+			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
+				kind, name = "ComponentRelease", binding.Spec.ReleaseName
+			}
+		case gen.ProjectReleaseBinding:
+			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
+				kind, name = "ProjectRelease", binding.Spec.ProjectRelease
+			}
+		case gen.ResourceReleaseBinding:
+			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
+				kind, name = "ResourceRelease", binding.Spec.ResourceRelease
+			}
+		}
+		if name != nil && *name != "" {
+			references[releaseIdentity{kind: kind, namespace: resource.Namespace, name: *name}] = false
+		}
+	}
+	return references
+}
+
+func (s *releaseSelection) include(kind, namespace string, metadata gen.ObjectMeta, owner resourceOwner) (bool, error) {
+	if metadata.Name == "" {
+		return false, fmt.Errorf("response item has no metadata.name")
+	}
+	// Objects being deleted must neither satisfy references nor protect old files.
+	if metadata.DeletionTimestamp != nil {
+		return false, nil
+	}
+	identity := releaseIdentity{kind: kind, namespace: namespace, name: metadata.Name}
+	_, referenced := s.references[identity]
+	if referenced {
+		s.references[identity] = true
+	}
+	if s.all || referenced || metadata.CreationTimestamp == nil || !metadata.CreationTimestamp.Before(s.cutoff) {
+		return true, nil
+	}
+	name, err := resourcePath(Resource{Kind: kind, Namespace: namespace, Name: metadata.Name}, owner)
+	if err != nil {
+		return false, fmt.Errorf("locate excluded release %q: %w", metadata.Name, err)
+	}
+	s.preservedPaths[name] = struct{}{}
+	return false, nil
+}
+
+func (s *releaseSelection) checkReferences() error {
+	var missing []string
+	for identity, found := range s.references {
+		if !found {
+			missing = append(missing, fmt.Sprintf("%s %q in namespace %q", identity.kind, identity.name, identity.namespace))
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return fmt.Errorf("binding-referenced release is missing or marked for deletion: %s", missing[0])
+	}
+	return nil
+}
+
+// Filter each page before FetchAll accumulates it. A fresh slice prevents old
+// release objects from remaining reachable through the page's backing array.
+func newReleaseFetcher[T any](
+	kind string,
+	list func(context.Context, string, int, string) (*resourcePage[T], error),
+	identity func(T) (gen.ObjectMeta, resourceOwner),
+	selection *releaseSelection,
+) resourceFetcher {
+	return newFetcher(kind, func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[T], error) {
+		page, err := list(ctx, namespace, limit, cursor)
+		if err != nil || page == nil {
+			return page, err
+		}
+		items := make([]T, 0, len(page.Items))
+		for _, item := range page.Items {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			metadata, owner := identity(item)
+			include, err := selection.include(kind, namespace, metadata, owner)
+			if err != nil {
+				return nil, err
+			}
+			if include {
+				items = append(items, item)
+			}
+		}
+		return &resourcePage[T]{Items: items, Pagination: page.Pagination}, nil
+	}, func(item T) string {
+		metadata, _ := identity(item)
+		return metadata.Name
+	})
 }
 
 // fetchCollections runs every collection fetcher in the given scope.
@@ -343,14 +481,6 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 			},
 			func(item gen.Project) string { return item.Metadata.Name },
 		),
-		newFetcher("ProjectRelease",
-			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectRelease], error) {
-				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListProjectReleases(ctx, namespace, &gen.ListProjectReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ProjectRelease])(response), err
-			},
-			func(item gen.ProjectRelease) string { return item.Metadata.Name },
-		),
 		newFetcher("ProjectReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -375,14 +505,6 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 			},
 			func(item gen.Workload) string { return item.Metadata.Name },
 		),
-		newFetcher("ComponentRelease",
-			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ComponentRelease], error) {
-				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListComponentReleases(ctx, namespace, &gen.ListComponentReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ComponentRelease])(response), err
-			},
-			func(item gen.ComponentRelease) string { return item.Metadata.Name },
-		),
 		newFetcher("ReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -399,14 +521,6 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 			},
 			func(item gen.ResourceInstance) string { return item.Metadata.Name },
 		),
-		newFetcher("ResourceRelease",
-			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceRelease], error) {
-				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListResourceReleases(ctx, namespace, &gen.ListResourceReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ResourceRelease])(response), err
-			},
-			func(item gen.ResourceRelease) string { return item.Metadata.Name },
-		),
 		newFetcher("ResourceReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -414,6 +528,54 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 				return (*resourcePage[gen.ResourceReleaseBinding])(response), err
 			},
 			func(item gen.ResourceReleaseBinding) string { return item.Metadata.Name },
+		),
+	}
+}
+
+// releaseFetchers run after namespace configuration and bindings have been read.
+func releaseFetchers(c client.Interface, selection *releaseSelection) []resourceFetcher {
+	return []resourceFetcher{
+		newReleaseFetcher("ProjectRelease",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectRelease], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				response, err := c.ListProjectReleases(ctx, namespace, &gen.ListProjectReleasesParams{Limit: pageLimit, Cursor: pageCursor})
+				return (*resourcePage[gen.ProjectRelease])(response), err
+			},
+			func(item gen.ProjectRelease) (gen.ObjectMeta, resourceOwner) {
+				var owner resourceOwner
+				if item.Spec != nil {
+					owner.ProjectName = item.Spec.Owner.ProjectName
+				}
+				return item.Metadata, owner
+			}, selection,
+		),
+		newReleaseFetcher("ComponentRelease",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ComponentRelease], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				response, err := c.ListComponentReleases(ctx, namespace, &gen.ListComponentReleasesParams{Limit: pageLimit, Cursor: pageCursor})
+				return (*resourcePage[gen.ComponentRelease])(response), err
+			},
+			func(item gen.ComponentRelease) (gen.ObjectMeta, resourceOwner) {
+				var owner resourceOwner
+				if item.Spec != nil {
+					owner.ProjectName, owner.ComponentName = item.Spec.Owner.ProjectName, item.Spec.Owner.ComponentName
+				}
+				return item.Metadata, owner
+			}, selection,
+		),
+		newReleaseFetcher("ResourceRelease",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceRelease], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				response, err := c.ListResourceReleases(ctx, namespace, &gen.ListResourceReleasesParams{Limit: pageLimit, Cursor: pageCursor})
+				return (*resourcePage[gen.ResourceRelease])(response), err
+			},
+			func(item gen.ResourceRelease) (gen.ObjectMeta, resourceOwner) {
+				var owner resourceOwner
+				if item.Spec != nil {
+					owner.ProjectName, owner.ResourceName = item.Spec.Owner.ProjectName, item.Spec.Owner.ResourceName
+				}
+				return item.Metadata, owner
+			}, selection,
 		),
 	}
 }

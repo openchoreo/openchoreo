@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -141,5 +143,40 @@ func TestExportCommand_RequiresOutputBeforeClientCreation(t *testing.T) {
 		cmd.SetErr(&bytes.Buffer{})
 		cmd.SetArgs(args)
 		require.ErrorContains(t, cmd.Execute(), "output directory is required")
+	}
+}
+
+func TestExportCommand_AllReleasesFlag(t *testing.T) {
+	old := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+	for _, all := range []bool{false, true} {
+		t.Run(strconv.FormatBool(all), func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			tc := releaseTestCases[0]
+			f.override = func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path == "/api/v1/namespaces/acme/"+tc.collection {
+					return testutil.JSONResp(http.StatusOK, map[string]any{
+						"items": []any{releaseTestObject(tc, "acme", "historical", &old)}, "pagination": map[string]any{},
+					}), nil
+				}
+				return nil, nil
+			}
+			directory := t.TempDir()
+			cmd := NewExportCmd(func() (client.Interface, error) { return f.client, nil })
+			require.NoError(t, cmd.Flags().Set("output", directory))
+			assert.Equal(t, "false", cmd.Flags().Lookup("all-releases").DefValue)
+			require.NoError(t, cmd.Flags().Set("all-releases", strconv.FormatBool(all)))
+			cmd.SetContext(context.Background())
+			var output bytes.Buffer
+			cmd.SetOut(&output)
+			require.NoError(t, cmd.RunE(cmd, nil))
+			name := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "releases", "historical.yaml")
+			if all {
+				assert.FileExists(t, name)
+				assert.Contains(t, output.String(), "Exported 58 resources")
+			} else {
+				assert.NoFileExists(t, name)
+				assert.Contains(t, output.String(), "Exported 57 resources")
+			}
+		})
 	}
 }
