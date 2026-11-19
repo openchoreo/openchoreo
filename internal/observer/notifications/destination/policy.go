@@ -251,19 +251,26 @@ func (p *Policy) DialContext(ctx context.Context, network, address string) (net.
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		Control: func(_, address string, _ syscall.RawConn) error {
-			ip, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return fmt.Errorf("%w: %w", ErrNotAllowed, err)
-			}
-			addr, err := netip.ParseAddr(ip)
-			if err != nil {
-				return fmt.Errorf("%w: %q is not an IP address", ErrNotAllowed, ip)
-			}
-			return p.check(host, normalize(addr), prot)
-		},
+		Control:   p.control(host),
 	}
 	return dialer.DialContext(ctx, network, address)
+}
+
+// control returns the check the dialer runs on each address resolved for host, just before it
+// connects. The check uses the latest protection rather than the one DialContext waited for, since
+// the protected addresses can be refreshed while host is being looked up.
+func (p *Policy) control(host string) func(network, address string, c syscall.RawConn) error {
+	return func(_, address string, _ syscall.RawConn) error {
+		ip, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrNotAllowed, err)
+		}
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return fmt.Errorf("%w: %q is not an IP address", ErrNotAllowed, ip)
+		}
+		return p.check(host, normalize(addr), p.protected.latest())
+	}
 }
 
 // check decides whether a connection to addr, made for host, is allowed.
@@ -398,6 +405,14 @@ func (s *protectedAddrs) snapshot(ctx context.Context) (protection, error) {
 	case <-ctx.Done():
 		return protection{}, fmt.Errorf("waiting for the addresses of the services the observer uses: %w", ctx.Err())
 	}
+}
+
+// latest returns what is protected as of the last finished lookup, without starting or waiting for
+// one.
+func (s *protectedAddrs) latest() protection {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.current
 }
 
 // dueLocked reports whether the hosts should be looked up again. s.mu must be held.

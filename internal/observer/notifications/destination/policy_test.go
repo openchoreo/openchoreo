@@ -217,6 +217,28 @@ func TestProtectedNamesAreRefusedWhileTheirAddressesAreStale(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotAllowed, "the protected name is refused before it is resolved")
 }
 
+func TestConnectionsAreCheckedAgainstProtectionRefreshedDuringTheirLookup(t *testing.T) {
+	ctx := context.Background()
+	p := NewPolicy(Options{
+		Private:        Entries{Prefixes: []netip.Prefix{netip.MustParsePrefix("10.43.0.0/16")}},
+		ProtectedHosts: []string{"logs-adapter"},
+	})
+	answer := netip.MustParseAddr("10.43.0.9")
+	p.protected.lookup = func(context.Context, string) ([]netip.Addr, error) { return []netip.Addr{answer}, nil }
+	mustSnapshot(t, p.protected, ctx)
+
+	// DialContext builds the check before it looks the receiver up.
+	control := p.control("receiver")
+	require.NoError(t, control("tcp", "10.43.0.10:8080", nil), "not protected yet")
+
+	// The protected service moves to 10.43.0.10 while the receiver is being looked up.
+	answer = netip.MustParseAddr("10.43.0.10")
+	p.protected.refreshed = time.Time{}
+	mustSnapshot(t, p.protected, ctx)
+
+	assert.ErrorIs(t, control("tcp", "10.43.0.10:8080", nil), ErrNotAllowed)
+}
+
 func TestUnresolvedProtectedHostRefusesListedPrivateDestinations(t *testing.T) {
 	ctx := context.Background()
 	p := NewPolicy(Options{
