@@ -498,6 +498,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Handle undeploy state - delete Release resources if they exist
 	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
 		releaseBinding.Status.Endpoints = nil
+		releaseBinding.Status.EndpointsObservedGeneration = 0
 		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
 	}
 
@@ -798,6 +799,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		componentRelease.Spec.Workload.Endpoints,
 		releaseBinding.Status.Endpoints,
 	)
+	// Record which generation the endpoints describe before the guards below
+	// can return, so an Endpoint routing to this component can tell a missing
+	// Service from one not reported yet without waiting on this binding's own
+	// dependencies.
+	releaseBinding.Status.EndpointsObservedGeneration = releaseBinding.Generation
 
 	// Connection stability guard: check after endpoint URL resolution so that
 	// this component's own endpoint URLs are always kept up to date (unblocking

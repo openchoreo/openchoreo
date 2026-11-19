@@ -141,6 +141,34 @@ var _ = Describe("Endpoint Controller", func() {
 		Expect(k8sClient.Delete(ctx, ep)).To(Succeed())
 	})
 
+	It("admits project visibility on its own and releases it", func() {
+		cet := newClusterEndpointType("cet-project", "")
+		ep := newEndpoint("ep-project", "p-project", clusterTypeRef(cet.Name),
+			componentBackend("stable", "greeter", "http", 1))
+		ep.Spec.Visibility = []openchoreov1alpha1.EndpointVisibility{openchoreov1alpha1.EndpointVisibilityProject}
+		create(cet, newWorkload("p-project", "greeter", "http"), ep)
+
+		updated := reconcileAndGet(ep)
+		expectReady(updated, metav1.ConditionTrue, string(ReasonReconciled))
+		Expect(updated.Status.LatestRelease).NotTo(BeNil())
+		release := &openchoreov1alpha1.EndpointRelease{}
+		Expect(k8sClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: updated.Status.LatestRelease.Name},
+			release)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, release) })
+		Expect(release.Spec.Visibility).To(ConsistOf(openchoreov1alpha1.EndpointVisibilityProject))
+	})
+
+	It("admits project visibility beside the other scopes", func() {
+		ep := newEndpoint("ep-project-all", "shop", clusterTypeRef("any"), componentBackend("stable", "greeter", "http", 1))
+		ep.Finalizers = nil
+		ep.Spec.Visibility = []openchoreov1alpha1.EndpointVisibility{
+			openchoreov1alpha1.EndpointVisibilityProject, openchoreov1alpha1.EndpointVisibilityNamespace,
+			openchoreov1alpha1.EndpointVisibilityInternal, openchoreov1alpha1.EndpointVisibilityExternal,
+		}
+		Expect(k8sClient.Create(ctx, ep)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, ep)).To(Succeed())
+	})
+
 	It("sets Ready=False, Reason=EndpointTypeNotFound when the referenced type does not exist", func() {
 		ep := newEndpoint("ep-missing-type", "p-missing-type", clusterTypeRef("does-not-exist"),
 			componentBackend("stable", "greeter", "http", 1))
