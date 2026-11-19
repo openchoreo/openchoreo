@@ -28,7 +28,10 @@ File-operation failures trigger rollback to the previous contents.
 
 Objects marked for deletion are skipped. Manifests omit top-level status,
 server metadata, the last-applied-configuration annotation, and the OpenChoreo
-restart annotation. Specs and other labels and annotations are preserved.`,
+restart annotation. Specs and other labels and annotations are preserved.
+Full-cluster export requires unrestricted read access to every supported
+resource kind. Permission checks run before fetching and before writing;
+insufficient or unverifiable access stops export without changing files.`,
 		Example: `  occ export -o ./gitops-export
   occ export --output /path/to/gitops-repository
   occ export -o .`,

@@ -6,6 +6,8 @@ package export
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -16,7 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
+	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
 func TestRun_ExportsFilteredObjects(t *testing.T) {
@@ -65,6 +69,214 @@ func TestRun_ExportsFilteredObjects(t *testing.T) {
 	require.NoError(t, yaml.Unmarshal(data, &namespace))
 	assert.Equal(t, "v1", namespace.APIVersion)
 	assert.Equal(t, testNamespaceKind, namespace.Kind)
+}
+
+func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(map[string]gen.ActionCapability)
+	}{
+		{"missing component and trait actions", func(caps map[string]gen.ActionCapability) {
+			delete(caps, "component:view")
+			delete(caps, "trait:view")
+		}},
+		{"namespace only", func(caps map[string]gen.ActionCapability) {
+			setCapabilityPath(caps, "component:view", "ns/acme")
+		}},
+		{"project only", func(caps map[string]gen.ActionCapability) {
+			setCapabilityPath(caps, "component:view", "ns/acme/project/store")
+		}},
+		{"conditional global grant", func(caps map[string]gen.ActionCapability) {
+			capability := caps["component:view"]
+			expressions := []string{"resource.environment == 'development'"}
+			(*capability.Allowed)[0].Constraints = &gen.CapabilityConstraints{Expressions: &expressions}
+		}},
+		{"specific denial with global grant", func(caps map[string]gen.ActionCapability) {
+			capability := caps["component:view"]
+			name := "ns/acme/project/restricted"
+			denied := []gen.CapabilityResource{{Path: &name}}
+			capability.Denied = &denied
+			caps["component:view"] = capability
+		}},
+		{"missing grant path", func(caps map[string]gen.ActionCapability) {
+			capability := caps["component:view"]
+			(*capability.Allowed)[0].Path = nil
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			profile := fullExportProfile()
+			tc.change(*profile.Capabilities)
+			f.profileOverride = func(_ *http.Request) (*http.Response, error) {
+				return testutil.JSONResp(http.StatusOK, profile), nil
+			}
+			directory := t.TempDir()
+			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+			before := snapshotTree(t, directory)
+			homeDir, err := os.UserHomeDir()
+			require.NoError(t, err)
+			configPath := filepath.Join(homeDir, ".openchoreo", "config")
+			configBefore, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.EqualError(t, err, "your role does not have enough permission to perform export")
+			assert.Nil(t, files)
+			assert.Empty(t, f.calls, "permission-limited exports must stop before listing resources")
+			assert.Equal(t, 1, f.profileCalls)
+			assert.Equal(t, before, snapshotTree(t, directory))
+			configAfter, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			assert.Equal(t, configBefore, configAfter)
+		})
+	}
+}
+
+func setCapabilityPath(capabilities map[string]gen.ActionCapability, action, path string) {
+	capability := capabilities[action]
+	// Give this action its own slice; fixture grants may share their slice.
+	allowed := []gen.CapabilityResource{{Path: &path}}
+	capability.Allowed = &allowed
+	capabilities[action] = capability
+}
+
+func TestRun_AuthorizationProfileFailuresCreateNoOutput(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		response testutil.RoundTripFunc
+		wantErr  string
+	}{
+		{"forbidden", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusForbidden, map[string]string{"error": "missing component:view"}), nil
+		}, "your role does not have enough permission to perform export"},
+		{"server error", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusInternalServerError, map[string]string{"error": "policy service unavailable"}), nil
+		}, "HTTP 500): policy service unavailable"},
+		{"transport error", func(_ *http.Request) (*http.Response, error) {
+			return nil, errors.New("authorization server unreachable")
+		}, "authorization server unreachable"},
+		{"empty response", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusNoContent, nil), nil
+		}, "HTTP 204"},
+		{"unstructured error", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusBadGateway, map[string]string{"message": "proxy unavailable"}), nil
+		}, "HTTP 502"},
+		{"missing capabilities", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusOK, gen.UserCapabilitiesResponse{}), nil
+		}, "authorization capabilities are missing"},
+		{"empty capabilities", func(_ *http.Request) (*http.Response, error) {
+			return testutil.JSONResp(http.StatusOK, map[string]any{"capabilities": map[string]any{}}), nil
+		}, "your role does not have enough permission to perform export"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			f.profileOverride = tc.response
+			directory := filepath.Join(t.TempDir(), "new", "export")
+			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.ErrorContains(t, err, tc.wantErr)
+			assert.NotContains(t, err.Error(), "component:view")
+			assert.Nil(t, files)
+			assert.Empty(t, f.calls)
+			assert.NoDirExists(t, filepath.Dir(directory))
+		})
+	}
+}
+
+type exportClientWithMissingGeneratedClient struct {
+	client.Interface
+}
+
+func (exportClientWithMissingGeneratedClient) GetClient() *gen.ClientWithResponses {
+	return nil
+}
+
+func TestRun_RequiresGeneratedClientAccess(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		wrap    func(client.Interface) client.Interface
+		wantErr string
+	}{
+		{"missing accessor", func(c client.Interface) client.Interface {
+			return struct{ client.Interface }{c}
+		}, "API client does not expose the generated client"},
+		{"nil generated client", func(c client.Interface) client.Interface {
+			return exportClientWithMissingGeneratedClient{c}
+		}, "generated API client is missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			directory := t.TempDir()
+			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+			before := snapshotTree(t, directory)
+			files, err := Run(context.Background(), tc.wrap(f.client), Params{OutputDir: directory})
+			require.ErrorContains(t, err, tc.wantErr)
+			assert.Nil(t, files)
+			assert.Zero(t, f.profileCalls)
+			assert.Empty(t, f.calls)
+			assert.Equal(t, before, snapshotTree(t, directory))
+		})
+	}
+}
+
+func TestRun_RechecksPermissionsBeforeWriting(t *testing.T) {
+	for _, failProfile := range []bool{false, true} {
+		t.Run(fmt.Sprintf("profile failure %t", failProfile), func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			f.profileOverride = func(_ *http.Request) (*http.Response, error) {
+				profile := fullExportProfile()
+				if f.profileCalls > 1 {
+					if failProfile {
+						return nil, errors.New("authorization profile unavailable")
+					}
+					delete(*profile.Capabilities, "trait:view")
+				}
+				return testutil.JSONResp(http.StatusOK, profile), nil
+			}
+			directory := t.TempDir()
+			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+			before := snapshotTree(t, directory)
+			files, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.Error(t, err)
+			if !failProfile {
+				require.EqualError(t, err, "your role does not have enough permission to perform export")
+			}
+			assert.Nil(t, files)
+			assert.NotEmpty(t, f.calls, "the initial profile allowed resource fetching")
+			assert.Equal(t, 2, f.profileCalls)
+			assert.Equal(t, before, snapshotTree(t, directory), "no replacement or pruning after losing permission")
+		})
+	}
+}
+
+func TestRun_AllowsCompleteReadOnlyAccess(t *testing.T) {
+	f := newFetchFixture(t, false)
+	files, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
+	require.NoError(t, err)
+	assert.Len(t, files, 58)
+	assert.Equal(t, 2, f.profileCalls)
+}
+
+func TestUnrestrictedAccess_CombinesGlobalAndSpecificCapabilities(t *testing.T) {
+	wildcard, scoped := "*", "ns/acme"
+	allowed := []gen.CapabilityResource{{Path: &wildcard}}
+	denied := []gen.CapabilityResource{{Path: &scoped}}
+	for _, tc := range []struct {
+		name         string
+		capabilities map[string]gen.ActionCapability
+		want         bool
+	}{
+		{"wildcard grant", map[string]gen.ActionCapability{"*": {Allowed: &allowed}}, true},
+		{"wildcard grant with specific denial", map[string]gen.ActionCapability{
+			"*": {Allowed: &allowed}, "component:view": {Denied: &denied},
+		}, false},
+		{"specific grant with wildcard denial", map[string]gen.ActionCapability{
+			"*": {Denied: &denied}, "component:view": {Allowed: &allowed},
+		}, false},
+		{"missing grant", map[string]gen.ActionCapability{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, hasUnrestrictedAccess(tc.capabilities, "component:view"))
+		})
+	}
 }
 
 func TestRun_PropagatesCancellation(t *testing.T) {
