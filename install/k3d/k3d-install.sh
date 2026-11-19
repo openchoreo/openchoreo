@@ -39,6 +39,7 @@ OPENCHOREO_VERSION="${OPENCHOREO_VERSION:-}"
 
 WITH_BUILD=false
 WITH_OBSERVABILITY=false
+WITH_PORTAL=true
 
 usage() {
     cat <<EOF
@@ -48,6 +49,10 @@ Options:
   --with-build             Also install the workflow plane (Argo Workflows + registry)
   --with-observability     Also install the observability plane (OpenSearch logs/traces + metrics)
                            and enable audit logs
+  --without-portal         Exclude the bundled Backstage developer portal. The platform is
+                           then driven through the occ CLI, the API, or your own portal.
+                           Needs OpenChoreo 1.4.0 or later.
+  --with-portal            Include the bundled Backstage portal (default)
   --version VER            OpenChoreo version to install, e.g. 1.1.1 or latest-dev
                            (required when not running from a checkout)
   --cluster-name NAME     k3d cluster name (default: openchoreo)
@@ -67,6 +72,8 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --with-build) WITH_BUILD=true; shift ;;
         --with-observability) WITH_OBSERVABILITY=true; shift ;;
+        --with-portal) WITH_PORTAL=true; shift ;;
+        --without-portal) WITH_PORTAL=false; shift ;;
         --version) need_arg "$@"; OPENCHOREO_VERSION="$2"; shift 2 ;;
         --cluster-name) need_arg "$@"; CLUSTER_NAME="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -125,6 +132,14 @@ asset() {
     else
         echo "${LOCAL_ROOT}/$1"
     fi
+}
+
+# Releases before 1.4.0 seed the portal's ThunderID application from
+# values-thunder.yaml and do not ship values-thunder-portal.yaml. True when this
+# install reads its assets from such a release.
+assets_predate_portal_split() {
+    [[ "$SOURCE_MODE" == "remote" && "$_ref" =~ ^v([0-9]+)\.([0-9]+)\. ]] || return 1
+    (( BASH_REMATCH[1] < 1 || (BASH_REMATCH[1] == 1 && BASH_REMATCH[2] < 4) ))
 }
 
 chart_version_args() {
@@ -232,15 +247,20 @@ EOF
 
 install_control_plane() {
     step "Installing ThunderID (identity provider)"
+    local thunder_values=(--values "$(asset install/k3d/common/values-thunder.yaml)")
+    if [[ "$WITH_PORTAL" == "true" ]] && ! assets_predate_portal_split; then
+        thunder_values+=(--values "$(asset install/k3d/common/values-thunder-portal.yaml)")
+    fi
     $HELM upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
         --namespace "$THUNDER_NS" --create-namespace \
         --version "$THUNDER_VERSION" \
-        --values "$(asset install/k3d/common/values-thunder.yaml)"
+        "${thunder_values[@]}"
     $KUBECTL wait -n "$THUNDER_NS" \
         --for=condition=available --timeout=300s deployment -l app.kubernetes.io/name=thunderid
 
-    step "Creating backstage ExternalSecret"
-    $KUBECTL apply -f - <<EOF
+    if [[ "$WITH_PORTAL" == "true" ]]; then
+        step "Creating backstage ExternalSecret"
+        $KUBECTL apply -f - <<EOF
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
@@ -265,8 +285,9 @@ spec:
     - secretKey: github-oauth-client-secret
       remoteRef: { key: backstage-github-oauth-client-secret, property: value }
 EOF
-    $KUBECTL wait -n "$CONTROL_PLANE_NS" \
-        --for=condition=Ready externalsecret/backstage-secrets --timeout=120s
+        $KUBECTL wait -n "$CONTROL_PLANE_NS" \
+            --for=condition=Ready externalsecret/backstage-secrets --timeout=120s
+    fi
 
     step "Installing the control plane"
     local audit_args=()
@@ -277,12 +298,22 @@ EOF
             --set openchoreoApi.config.audit.observabilityPlaneRef.name=default
         )
     fi
+    # The chart already drops the portal's webhook endpoint when the portal is
+    # off; nothing else in a k3d install subscribes, so skip the idle pod too.
+    local portal_args=()
+    if [[ "$WITH_PORTAL" != "true" ]]; then
+        portal_args=(
+            --set backstage.enabled=false
+            --set eventForwarder.enabled=false
+        )
+    fi
     # shellcheck disable=SC2046
     $HELM upgrade --install openchoreo-control-plane "$HELM_REPO/openchoreo-control-plane" \
         $(chart_version_args) \
         --namespace "$CONTROL_PLANE_NS" --create-namespace \
         --values "$(asset install/k3d/single-cluster/values-cp.yaml)" \
-        ${audit_args[@]+"${audit_args[@]}"}
+        ${audit_args[@]+"${audit_args[@]}"} \
+        ${portal_args[@]+"${portal_args[@]}"}
     $KUBECTL wait -n "$CONTROL_PLANE_NS" \
         --for=condition=available --timeout=300s deployment --all
 
@@ -598,14 +629,24 @@ warn_unpinned_modules() {
 
 print_summary() {
     step "OpenChoreo installation complete"
-    info "Console:  http://openchoreo.localhost:8080  (log in with admin@openchoreo.dev / Admin@123)"
+    # The default users are seeded by ThunderID whether or not the portal is
+    # installed: they also back `occ login` and the MCP clients.
+    if [[ "$WITH_PORTAL" == "true" ]]; then
+        info "Console:  http://openchoreo.localhost:8080"
+    else
+        info "Console:  not installed (to add it later: https://openchoreo.dev/docs/platform-engineer-guide/backstage-configuration/#adding-the-portal-later)"
+    fi
     info "API:      http://api.openchoreo.localhost:8080"
+    info "Login:    admin@openchoreo.dev / Admin@123"
     info "Planes:   control, data$([[ "$WITH_BUILD" == "true" ]] && echo ", workflow")$([[ "$WITH_OBSERVABILITY" == "true" ]] && echo ", observability")"
     info "Delete:   k3d cluster delete ${CLUSTER_NAME}"
 }
 
 main() {
     require_tools
+    if [[ "$WITH_PORTAL" == "false" ]] && assets_predate_portal_split; then
+        fail "--without-portal needs OpenChoreo 1.4.0 or later; ${OPENCHOREO_VERSION} registers the portal's OAuth client whether or not the portal is installed."
+    fi
     [[ "$WITH_OBSERVABILITY" == "true" ]] && warn_unpinned_modules
     create_cluster
     install_prerequisites

@@ -17,9 +17,11 @@ spec:
     - Egress
   ingress:
     - from:
+        {{- if .Values.backstage.enabled }}
         - podSelector:
             matchLabels:
               app.kubernetes.io/component: backstage
+        {{- end }}
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: ingress-nginx
