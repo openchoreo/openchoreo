@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"sigs.k8s.io/yaml"
@@ -158,13 +159,23 @@ func (r *Resource) findBindingForEnv(ctx context.Context, namespace, resourceNam
 		return nil, err
 	}
 
+	var matches []*gen.ResourceReleaseBinding
 	for i := range items {
-		b := items[i]
-		if b.Spec != nil && b.Spec.Environment == env {
-			return &b, nil
+		if items[i].Spec != nil && items[i].Spec.Environment == env {
+			matches = append(matches, &items[i])
 		}
 	}
-	return nil, fmt.Errorf("no ResourceReleaseBinding found for resource %q in environment %q", resourceName, env)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no ResourceReleaseBinding found for resource %q in environment %q", resourceName, env)
+	}
+	if len(matches) > 1 {
+		names := make([]string, len(matches))
+		for i, m := range matches {
+			names[i] = m.Metadata.Name
+		}
+		return nil, fmt.Errorf("multiple ResourceReleaseBindings found for resource %q in environment %q: %s", resourceName, env, strings.Join(names, ", "))
+	}
+	return matches[0], nil
 }
 
 func printList(items []gen.ResourceInstance, showProject bool) error {
