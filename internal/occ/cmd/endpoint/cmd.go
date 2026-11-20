@@ -24,6 +24,7 @@ func NewEndpointCmd(f client.NewClientFunc) *cobra.Command {
 		newGetCmd(f),
 		newDeleteCmd(f),
 		newPromoteCmd(f),
+		newTrafficCmd(f),
 	)
 	return cmd
 }
