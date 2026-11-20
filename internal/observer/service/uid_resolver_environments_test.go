@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,4 +70,44 @@ func TestListEnvironmentsReportsAnUnknownNamespace(t *testing.T) {
 	require.Error(t, err)
 	var notFound *NotFoundError
 	assert.True(t, errors.As(err, &notFound), "a missing namespace should be a NotFoundError, got %v", err)
+}
+
+// TestListEnvironmentsRefusesAnIncompleteList pins that paging which cannot
+// finish is an error, not a short or repeated list. A repeated cursor listed the
+// same environments again, so one production environment read as several; a
+// page cap left the rest unread, so a production environment on them went
+// unnoticed. Either way the DORA tools would have chosen wrongly.
+func TestListEnvironmentsRefusesAnIncompleteList(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		cursor func(page int) string
+		want   string
+	}{
+		{"a cursor that does not advance", func(int) string { return "same" }, `returned cursor "same" again`},
+		{"a cursor that comes back later", func(page int) string { return []string{"a", "b", "a"}[page%3] },
+			`returned cursor "a" again`},
+		{"more pages than the cap", func(page int) string { return fmt.Sprintf("page-%d", page+1) },
+			fmt.Sprintf("more than %d pages", environmentListMaxPages)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tokenSrv := newAlwaysOKTokenServer(t)
+			defer tokenSrv.Close()
+			var page int32
+			apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				n := int(atomic.AddInt32(&page, 1)) - 1
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"items":[{"metadata":{"name":"env-%d"},"spec":{"isProduction":true}}],`+
+					`"pagination":{"nextCursor":%q}}`, n, tc.cursor(n))
+			}))
+			defer apiSrv.Close()
+
+			envs, err := newTestResolver(t, apiSrv, tokenSrv, nil).ListEnvironments(context.Background(), "acme")
+			require.Error(t, err)
+			assert.Nil(t, envs)
+			assert.Contains(t, err.Error(), tc.want)
+		})
+	}
 }

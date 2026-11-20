@@ -160,7 +160,9 @@ func (h *MCPHandler) productionDoraMetrics(
 
 // combinedDoraMetrics is the REST answer for an omitted environment, without the
 // classifications that do not apply to it.
-func (h *MCPHandler) combinedDoraMetrics(ctx context.Context, req gen.DoraMetricsQueryRequest) (doraMetricsResult, error) {
+func (h *MCPHandler) combinedDoraMetrics(
+	ctx context.Context, req gen.DoraMetricsQueryRequest,
+) (doraMetricsResult, error) {
 	req.SearchScope.Environment = nil
 	resp, err := h.deliveryInsightsService.QueryDoraMetrics(ctx, req)
 	if err != nil {
@@ -215,7 +217,11 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 	return doraMetricsByEnvironmentResult{Environments: rows, Notes: notes}, nil
 }
 
-// doraHasData reports whether any metric in the summary counted anything.
+// doraHasData reports whether any metric in the summary counted anything. A
+// query may ask for only some metrics, so each is checked. Lead time has no
+// count; its median is set exactly when there was at least one sample, which a
+// nil check on the summary would not tell -- it is present whenever lead time is
+// asked for.
 func doraHasData(resp *gen.DoraMetricsQueryResponse) bool {
 	if resp == nil || resp.Summary == nil {
 		return false
@@ -228,6 +234,9 @@ func doraHasData(resp *gen.DoraMetricsQueryResponse) bool {
 		return true
 	}
 	if s.Mttr != nil && s.Mttr.Recoveries != nil && *s.Mttr.Recoveries > 0 {
+		return true
+	}
+	if s.LeadTime != nil && s.LeadTime.P50Ms != nil {
 		return true
 	}
 	return false

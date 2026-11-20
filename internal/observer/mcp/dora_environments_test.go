@@ -50,44 +50,48 @@ func (s *perEnvDoraService) QueryDoraMetrics(
 	if err := s.errs[env]; err != nil {
 		return nil, err
 	}
+
+	// Each requested metric is present, classified, and counts total. Lead time,
+	// as the service builds it, is present whenever asked for but has a median
+	// only when there was a sample.
 	total := s.deploys[env]
-	elite := gen.DoraClassification("elite")
-	resp := &gen.DoraMetricsQueryResponse{Scope: &req.SearchScope}
-	resp.Summary = &struct {
-		ChangeFailureRate *struct {
-			Classification *gen.DoraClassification `json:"classification,omitempty"`
-			DeltaPct       *float32                `json:"deltaPct"`
-			Failed         *int                    `json:"failed,omitempty"`
-			Rate           *float32                `json:"rate,omitempty"`
-			Total          *int                    `json:"total,omitempty"`
-		} `json:"changeFailureRate,omitempty"`
-		DeploymentFrequency *struct {
-			Classification *gen.DoraClassification `json:"classification,omitempty"`
-			DeltaPct       *float32                `json:"deltaPct"`
-			PerDay         *float32                `json:"perDay,omitempty"`
-			Total          *int                    `json:"total,omitempty"`
-		} `json:"deploymentFrequency,omitempty"`
-		LeadTime *struct {
-			Classification *gen.DoraClassification `json:"classification,omitempty"`
-			Coverage       *float32                `json:"coverage,omitempty"`
-			DeltaPct       *float32                `json:"deltaPct"`
-			P50Ms          *int64                  `json:"p50Ms"`
-			P95Ms          *int64                  `json:"p95Ms"`
-		} `json:"leadTime,omitempty"`
-		Mttr *struct {
-			Classification *gen.DoraClassification `json:"classification,omitempty"`
-			DeltaPct       *float32                `json:"deltaPct"`
-			MeanMs         *int64                  `json:"meanMs"`
-			P50Ms          *int64                  `json:"p50Ms"`
-			Recoveries     *int                    `json:"recoveries,omitempty"`
-		} `json:"mttr,omitempty"`
-	}{}
-	resp.Summary.DeploymentFrequency = &struct {
-		Classification *gen.DoraClassification `json:"classification,omitempty"`
-		DeltaPct       *float32                `json:"deltaPct"`
-		PerDay         *float32                `json:"perDay,omitempty"`
-		Total          *int                    `json:"total,omitempty"`
-	}{Classification: &elite, Total: &total}
+	wants := func(metric string) bool {
+		if req.Metrics == nil {
+			return true
+		}
+		for _, m := range *req.Metrics {
+			if string(m) == metric {
+				return true
+			}
+		}
+		return false
+	}
+	summary := map[string]any{}
+	if wants("deploymentFrequency") {
+		summary["deploymentFrequency"] = map[string]any{"classification": "elite", "total": total}
+	}
+	if wants("changeFailureRate") {
+		summary["changeFailureRate"] = map[string]any{"classification": "elite", "total": total}
+	}
+	if wants("mttr") {
+		summary["mttr"] = map[string]any{"classification": "elite", "recoveries": total}
+	}
+	if wants("leadTime") {
+		leadTime := map[string]any{"classification": "elite"}
+		if total > 0 {
+			leadTime["p50Ms"] = 3600000
+		}
+		summary["leadTime"] = leadTime
+	}
+	raw, err := json.Marshal(map[string]any{"summary": summary})
+	if err != nil {
+		return nil, err
+	}
+	resp := &gen.DoraMetricsQueryResponse{}
+	if err := json.Unmarshal(raw, resp); err != nil {
+		return nil, err
+	}
+	resp.Scope = &req.SearchScope
 	return resp, nil
 }
 
@@ -112,7 +116,9 @@ func doraHandler(t *testing.T, svc *perEnvDoraService, lister EnvironmentLister)
 	return h
 }
 
-func queryDora(t *testing.T, h *MCPHandler, environment string, allEnvironments, byEnvironment bool) (any, map[string]any) {
+func queryDora(
+	t *testing.T, h *MCPHandler, environment string, allEnvironments, byEnvironment bool,
+) (any, map[string]any) {
 	t.Helper()
 	result, err := h.QueryDoraMetrics(context.Background(), testNamespace, "", "", environment, "", false,
 		allEnvironments, byEnvironment, "", testStartTime, testEndTime, nil)
@@ -134,13 +140,28 @@ func notesOf(t *testing.T, decoded map[string]any) string {
 	return strings.Join(parts, "\n")
 }
 
-func classificationOf(decoded map[string]any) any {
+// classificationsOf maps each of the four metrics to its classification, nil
+// where it has none.
+func classificationsOf(decoded map[string]any) map[string]any {
 	summary, _ := decoded["summary"].(map[string]any)
-	df, _ := summary["deploymentFrequency"].(map[string]any)
-	return df["classification"]
+	out := map[string]any{}
+	for _, metric := range []string{"deploymentFrequency", "leadTime", "changeFailureRate", "mttr"} {
+		m, _ := summary[metric].(map[string]any)
+		out[metric] = m["classification"]
+	}
+	return out
 }
 
-// TestAnOmittedEnvironmentReportsProduction is the change at the centre of this:
+var (
+	allClassified = map[string]any{
+		"deploymentFrequency": "elite", "leadTime": "elite", "changeFailureRate": "elite", "mttr": "elite",
+	}
+	noneClassified = map[string]any{
+		"deploymentFrequency": nil, "leadTime": nil, "changeFailureRate": nil, "mttr": nil,
+	}
+)
+
+// TestAnOmittedEnvironmentReportsProduction is the main change here:
 // a caller who names no environment gets production, told so, with the
 // classification intact because it is production's.
 func TestAnOmittedEnvironmentReportsProduction(t *testing.T) {
@@ -149,7 +170,7 @@ func TestAnOmittedEnvironmentReportsProduction(t *testing.T) {
 
 	assert.Equal(t, []string{"production"}, svc.requests)
 	assert.Contains(t, notesOf(t, decoded), `reports the production environment "production"`)
-	assert.Equal(t, "elite", classificationOf(decoded))
+	assert.Equal(t, allClassified, classificationsOf(decoded), "production keeps every classification")
 	scope, _ := decoded["scope"].(map[string]any)
 	assert.Equal(t, "production", scope["environment"], "the scope echoes the environment reported")
 }
@@ -173,7 +194,8 @@ func TestAllEnvironmentsCombinesWithoutAClassification(t *testing.T) {
 
 	assert.Equal(t, []string{""}, svc.requests)
 	assert.Zero(t, lister.calls, "a combined answer needs no environment list")
-	assert.Nil(t, classificationOf(decoded), "DORA classifications describe production, not a mix")
+	assert.Equal(t, noneClassified, classificationsOf(decoded),
+		"DORA classifications describe production, not a mix")
 	assert.Contains(t, notesOf(t, decoded), "counts once per environment")
 }
 
@@ -215,7 +237,7 @@ func TestNoProductionEnvironmentCombinesAndSaysWhy(t *testing.T) {
 	_, decoded := queryDora(t, doraHandler(t, svc, lister), "", false, false)
 
 	assert.Equal(t, []string{""}, svc.requests)
-	assert.Nil(t, classificationOf(decoded))
+	assert.Equal(t, noneClassified, classificationsOf(decoded))
 	assert.Contains(t, notesOf(t, decoded), "No environment in this namespace is marked as production")
 }
 
@@ -239,7 +261,7 @@ func TestAFailedEnvironmentListFallsBackWithoutLeaking(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(raw), "10.0.0.7")
 	assert.Contains(t, notesOf(t, decoded), "could not be listed")
-	assert.Nil(t, classificationOf(decoded))
+	assert.Equal(t, noneClassified, classificationsOf(decoded))
 }
 
 func TestWithoutAListerTheAnswerIsCombined(t *testing.T) {
@@ -247,7 +269,7 @@ func TestWithoutAListerTheAnswerIsCombined(t *testing.T) {
 	_, decoded := queryDora(t, doraHandler(t, svc, nil), "", false, false)
 
 	assert.Equal(t, []string{""}, svc.requests)
-	assert.Nil(t, classificationOf(decoded))
+	assert.Equal(t, noneClassified, classificationsOf(decoded))
 }
 
 // TestPerEnvironmentFailuresStayInTheirRow pins that one environment the caller
@@ -301,4 +323,26 @@ func TestConflictingEnvironmentArgumentsAreRejected(t *testing.T) {
 			assert.True(t, errors.As(err, &invalid), "got %T: %v", err, err)
 		})
 	}
+}
+
+// TestALeadTimeOnlyQueryStillFindsItsData pins that a query for one metric is
+// judged on that metric. Asked for lead time alone, the answer carries no
+// deployment, failure or recovery counts, and reading only those reported an
+// environment with lead time data as having none.
+func TestALeadTimeOnlyQueryStillFindsItsData(t *testing.T) {
+	svc := &perEnvDoraService{deploys: map[string]int{"production": 12}}
+	h := doraHandler(t, svc, &fakeEnvLister{envs: threeEnvironments})
+
+	result, err := h.QueryDoraMetrics(context.Background(), testNamespace, "", "", "", "", false,
+		false, false, "", testStartTime, testEndTime, []string{"leadTime"})
+	require.NoError(t, err)
+	got := result.(doraMetricsResult)
+	assert.NotContains(t, strings.Join(got.Notes, "\n"), "No delivery data")
+
+	result, err = h.QueryDoraMetrics(context.Background(), testNamespace, "", "", "", "", false,
+		false, true, "", testStartTime, testEndTime, []string{"leadTime"})
+	require.NoError(t, err)
+	byEnv := result.(doraMetricsByEnvironmentResult)
+	assert.False(t, byEnv.Environments[0].HasData, "development has no lead time samples")
+	assert.True(t, byEnv.Environments[2].HasData, "production does")
 }

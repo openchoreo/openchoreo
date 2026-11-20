@@ -217,18 +217,21 @@ type Environment struct {
 
 // environmentListPageSize is the API's maximum page size, and
 // environmentListMaxPages bounds the paging so a cursor that never ends cannot
-// spin the request. A namespace with more environments than that is not one this
-// is meant to enumerate.
+// spin the request. Running out of pages is an error rather than a short list: a
+// production environment on a page not read would go unnoticed.
 const (
 	environmentListPageSize = 100
 	environmentListMaxPages = 10
 )
 
 // ListEnvironments lists the environments of a namespace in the order the API
-// returns them.
+// returns them. It returns an error rather than a partial or repeated list: a
+// cursor that does not advance would list the same environments again, and a
+// production environment listed twice reads as two of them.
 func (r *ResourceUIDResolver) ListEnvironments(ctx context.Context, namespaceName string) ([]Environment, error) {
 	var out []Environment
 	cursor := ""
+	seen := map[string]bool{}
 	for page := 0; page < environmentListMaxPages; page++ {
 		query := url.Values{"limit": {fmt.Sprint(environmentListPageSize)}}
 		if cursor != "" {
@@ -261,12 +264,19 @@ func (r *ResourceUIDResolver) ListEnvironments(ctx context.Context, namespaceNam
 		for _, item := range response.Items {
 			out = append(out, Environment{Name: item.Metadata.Name, IsProduction: item.Spec.IsProduction})
 		}
-		if response.Pagination.NextCursor == "" {
+		next := response.Pagination.NextCursor
+		if next == "" {
 			return out, nil
 		}
-		cursor = response.Pagination.NextCursor
+		if next == cursor || seen[next] {
+			return nil, fmt.Errorf("failed to list environments of namespace %q: the API returned cursor %q again",
+				namespaceName, next)
+		}
+		seen[next] = true
+		cursor = next
 	}
-	return out, nil
+	return nil, fmt.Errorf("failed to list environments of namespace %q: more than %d pages",
+		namespaceName, environmentListMaxPages)
 }
 
 // ReleaseLineScope is the release line part of a component search scope, resolved to UIDs.
