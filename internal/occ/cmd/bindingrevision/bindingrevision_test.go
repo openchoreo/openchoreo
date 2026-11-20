@@ -378,8 +378,8 @@ func TestGetRollbackRevision(t *testing.T) {
 func TestParseRevisionName(t *testing.T) {
 	valid := map[string]int64{
 		"frontend-development-r3":    3,  // object name
-		"frontend-v7-r12":            12, // display name
-		"frontend-20260803-1-r4":     4,  // release name with digits and dashes
+		"frontend-r12":               12, // display name, {component}-r{N}
+		"frontend-20260803-1-r4":     4,  // name with digits and dashes
 		"my-r-service-production-r7": 7,  // "-r" inside the binding name
 		"r3":                         3,
 		"3":                          3,
