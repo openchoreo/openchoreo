@@ -288,13 +288,43 @@ spec:
                     type: string
                   url:
                     description: |-
-                      URL is the webhook endpoint URL where alerts will be sent
-                      Required when type is "webhook"
+                      URL is the inline webhook endpoint URL where alerts will be sent. It is stored in plain text,
+                      so use urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+                      Mutually exclusive with urlFrom
                     format: uri
+                    minLength: 1
                     type: string
-                required:
-                - url
+                  urlFrom:
+                    description: |-
+                      URLFrom references a secret containing the webhook endpoint URL
+                      Mutually exclusive with url
+                    properties:
+                      secretKeyRef:
+                        description: |-
+                          SecretKeyRef references a secret value by name and key.
+                          The name refers to a SecretReference in the channel's namespace, and the key to one of
+                          its spec.data[].secretKey entries. The value is synced to the observability plane from
+                          the plane's secret store.
+                          If no SecretReference has that name, a Kubernetes Secret with that name and key in the
+                          channel's namespace is used instead. Referencing Kubernetes Secrets is deprecated.
+                        properties:
+                          key:
+                            minLength: 1
+                            type: string
+                          name:
+                            minLength: 1
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                    type: object
                 type: object
+                x-kubernetes-validations:
+                - message: exactly one of url or urlFrom must be set
+                  rule: has(self.url) != has(self.urlFrom)
+                - message: urlFrom.secretKeyRef is required
+                  rule: '!has(self.urlFrom) || has(self.urlFrom.secretKeyRef)'
             required:
             - environment
             - type

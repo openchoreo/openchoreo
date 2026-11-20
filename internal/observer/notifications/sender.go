@@ -30,14 +30,14 @@ func SendAlertNotification(ctx context.Context, config *NotificationChannelConfi
 		if err := SendWebhookWithConfig(ctx, &config.Webhook, payload); err != nil {
 			logger.Error("Failed to send alert notification webhook",
 				"error", err,
-				"webhookURL", config.Webhook.URL,
+				"webhookURL", RedactWebhookURL(config.Webhook.URL),
 				"payload", payload)
 			return fmt.Errorf("failed to send alert notification webhook: %w", err)
 		}
 
 		logger.Debug("Alert notification sent successfully via webhook",
 			"alertName", alertDetails.AlertName,
-			"webhookURL", config.Webhook.URL,
+			"webhookURL", RedactWebhookURL(config.Webhook.URL),
 			"usedTemplate", config.Webhook.PayloadTemplate != "")
 		return nil
 

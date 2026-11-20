@@ -201,6 +201,27 @@ func TestAlertServiceSendAlertNotification_DoesNotMixNamespaces(t *testing.T) {
 	}
 }
 
+func TestAlertServiceSendAlertNotification_WebhookURLFromSecret(t *testing.T) {
+	recorder := &webhookRecorder{}
+	configMap, secret := webhookChannelObjects("tenant", "oncall", recorder.start(t), "Bearer TOKEN")
+	// A URL that comes from a secret reference is in the Secret, not in the ConfigMap.
+	secret.Data["webhook.url"] = []byte(configMap.Data["webhook.url"] + "\n")
+	delete(configMap.Data, "webhook.url")
+	svc := newNotificationTestService(t, configMap, secret)
+
+	err := svc.sendAlertNotification(context.Background(), &legacytypes.AlertDetails{
+		AlertName:            "test-rule",
+		Namespace:            "tenant",
+		NotificationChannels: []string{"oncall"},
+	})
+	if err != nil {
+		t.Fatalf("sendAlertNotification() error = %v", err)
+	}
+	if got := recorder.received(); len(got) != 1 || got[0] != "Bearer TOKEN" {
+		t.Errorf("webhook received %v, want one request with the channel's Authorization header", got)
+	}
+}
+
 func TestAlertServiceGetNotificationChannelConfig(t *testing.T) {
 	labeledCM, labeledSecret := webhookChannelObjects("tenant", "oncall", "http://example.invalid", "Bearer TOKEN")
 	unlabeledCM, unlabeledSecret := webhookChannelObjects("tenant", "unlabeled", "http://example.invalid", "Bearer TOKEN")

@@ -146,12 +146,21 @@ type WebhookHeaderValue struct {
 }
 
 // WebhookConfig defines the configuration for webhook notification channels
+// +kubebuilder:validation:XValidation:rule="has(self.url) != has(self.urlFrom)",message="exactly one of url or urlFrom must be set"
+// +kubebuilder:validation:XValidation:rule="!has(self.urlFrom) || has(self.urlFrom.secretKeyRef)",message="urlFrom.secretKeyRef is required"
 type WebhookConfig struct {
-	// URL is the webhook endpoint URL where alerts will be sent
-	// Required when type is "webhook"
-	// +kubebuilder:validation:Required
+	// URL is the inline webhook endpoint URL where alerts will be sent. It is stored in plain text,
+	// so use urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+	// Mutually exclusive with urlFrom
+	// +optional
 	// +kubebuilder:validation:Format=uri
-	URL string `json:"url"`
+	// +kubebuilder:validation:MinLength=1
+	URL string `json:"url,omitempty"`
+
+	// URLFrom references a secret containing the webhook endpoint URL
+	// Mutually exclusive with url
+	// +optional
+	URLFrom *SecretValueFrom `json:"urlFrom,omitempty"`
 
 	// Headers are optional HTTP headers to include in the webhook request
 	// Headers can be provided inline or via secret references
