@@ -16,7 +16,8 @@ import (
 // a rollback changes what runs in an environment.
 
 const revisionFieldsDescription = "Each revision records one distinct spec of the binding. Its object name is " +
-	"{binding}-r{N} and it is shown to people as displayName {release}-r{N} (e.g. frontend-v7-r1); N counts " +
+	"{binding}-r{N} and it is shown to people as displayName {component}-r{N}, or {resource}-r{N} for a " +
+	"resource binding (e.g. frontend-r1); N counts " +
 	"from 1 per binding: " +
 	"revision number, cause (Deploy, Promote, Override, Undeploy, Redeploy), the release it bound, health " +
 	"(Progressing, Healthy, Degraded, Failed, Unknown), active (the one the binding applies now) and " +

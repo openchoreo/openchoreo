@@ -344,7 +344,7 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 				g.Expect(revs[0].Cause).To(Equal("Deploy"))
 				g.Expect(revs[0].Active).To(BeTrue())
 				g.Expect(revs[0].Name).To(Equal(rbName+"-r1"), "revision objects are named {binding}-r{N}")
-				g.Expect(revs[0].DisplayName).To(Equal(revs[0].ComponentRelease+"-r1"), "shown as {release}-r{N}")
+				g.Expect(revs[0].DisplayName).To(Equal(componentName+"-r1"), "shown as {component}-r{N}")
 				r1Name = revs[0].Name
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
@@ -362,7 +362,7 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 				g.Expect(revs[0].Cause).To(Equal("Override"))
 				g.Expect(revs[0].Active).To(BeTrue())
 				g.Expect(revs[0].Name).To(Equal(rbName + "-r2"))
-				g.Expect(revs[0].DisplayName).To(Equal(revs[0].ComponentRelease + "-r2"))
+				g.Expect(revs[0].DisplayName).To(Equal(componentName + "-r2"))
 			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
 
 			type rollbackResult struct {
