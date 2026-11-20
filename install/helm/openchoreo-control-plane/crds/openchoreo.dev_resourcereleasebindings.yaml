@@ -77,6 +77,17 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.environment is immutable
                   rule: self == oldSelf
+              interval:
+                description: |-
+                  Interval is how long the RenderedRelease of this binding waits between checks
+                  while its resources are stable. Copied into the RenderedRelease spec. Defaults to
+                  the controller's stable interval (1m unless configured) if not specified. Must be
+                  0 (stop periodic checks) or at least 30s.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                type: string
+                x-kubernetes-validations:
+                - message: interval must be 0 or at least 30s
+                  rule: duration(self) == duration('0s') || duration(self) >= duration('30s')
               owner:
                 description: Owner identifies the resource and project this ResourceReleaseBinding
                   belongs to.
@@ -97,6 +108,17 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.owner is immutable
                   rule: self == oldSelf
+              progressingInterval:
+                description: |-
+                  ProgressingInterval is how long the RenderedRelease of this binding waits between
+                  checks while its resources are transitioning. Copied into the RenderedRelease spec.
+                  Defaults to the controller's progressing interval (10s unless configured) if not
+                  specified. Must be 0 (stop periodic checks) or at least 5s.
+                pattern: ^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$
+                type: string
+                x-kubernetes-validations:
+                - message: progressingInterval must be 0 or at least 5s
+                  rule: duration(self) == duration('0s') || duration(self) >= duration('5s')
               resourceRelease:
                 description: |-
                   ResourceRelease is the name of the ResourceRelease pinned by this binding.

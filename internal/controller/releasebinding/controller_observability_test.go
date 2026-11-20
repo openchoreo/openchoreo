@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -291,4 +292,30 @@ func TestReconcileObservabilityRelease_cleanupOwnerCheckError(t *testing.T) {
 	require.Error(t, err, "an unresolvable owner reference must surface as an error, not a silent skip")
 	assert.Contains(t, err.Error(), "failed to check owner reference")
 	assertReleaseSyncedFalse(t, rb)
+}
+
+// The binding's requeue intervals must be copied into the observability RenderedRelease,
+// the same as into the dataplane one.
+func TestReconcileObservabilityRelease_copiesRequeueIntervals(t *testing.T) {
+	scheme := obsSchemeForTest(t)
+	rb, cr, dp, obsResources := obsFixtures()
+	rb.Spec.Interval = &metav1.Duration{Duration: 5 * time.Minute}
+	rb.Spec.ProgressingInterval = &metav1.Duration{Duration: 15 * time.Second}
+	obsPlane := &openchoreov1alpha1.ObservabilityPlane{
+		ObjectMeta: metav1.ObjectMeta{Name: "obs", Namespace: rb.Namespace},
+	}
+
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(obsPlane).Build()
+	r := &Reconciler{Client: c, Scheme: scheme}
+	dpResult := &controller.DataPlaneResult{DataPlane: dp}
+
+	res, err := r.reconcileObservabilityRelease(context.Background(), rb, cr, dpResult, obsResources)
+	require.NoError(t, err)
+	require.True(t, res.managed)
+
+	got := &openchoreov1alpha1.RenderedRelease{}
+	require.NoError(t, c.Get(context.Background(),
+		types.NamespacedName{Name: makeObservabilityReleaseName(cr, rb), Namespace: rb.Namespace}, got))
+	assert.Equal(t, rb.Spec.Interval, got.Spec.Interval)
+	assert.Equal(t, rb.Spec.ProgressingInterval, got.Spec.ProgressingInterval)
 }

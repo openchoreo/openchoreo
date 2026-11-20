@@ -255,6 +255,10 @@ The controller detects transitioning states to adjust reconciliation frequency:
   treated as healthy once applied
 - **Jitter**: Prevents thundering herd by adding random delay to requeue intervals
 - **Disable Requeue**: Set interval to 0 to disable automatic reconciliation
+- **Per-binding Intervals**: A ReleaseBinding or ResourceReleaseBinding can set `spec.interval` and
+  `spec.progressingInterval`; the binding controller copies them into the RenderedRelease spec. On a binding,
+  `interval` must be 0 or at least 30s and `progressingInterval` 0 or at least 5s, so one binding cannot take
+  the shared workers away from other releases. When unset, the controller flags apply
 
 ## Integration with Binding Controllers
 
