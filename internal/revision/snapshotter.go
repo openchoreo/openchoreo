@@ -65,10 +65,6 @@ const (
 	// active again.
 	EventReasonRevisionReactivated = "RevisionReactivated"
 
-	// EventReasonRevisionHistoryLimitExceeded is emitted on a binding whose
-	// spared revisions alone exceed the history limit.
-	EventReasonRevisionHistoryLimitExceeded = "RevisionHistoryLimitExceeded"
-
 	// DefaultKnownGoodWindow is how long a revision must stay Healthy before it
 	// is marked known-good, when no window is configured.
 	DefaultKnownGoodWindow = 60 * time.Second
@@ -254,7 +250,7 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 	}
 	// Trimmed on every call, not only after a new revision: lowering a limit
 	// on the binding or its Environment creates no revision.
-	errs = append(errs, s.evict(ctx, binding, revs, result.Number, result.Created))
+	errs = append(errs, s.evict(ctx, binding, revs, result.Number))
 	return result, kerrors.NewAggregate(errs)
 }
 
@@ -580,55 +576,35 @@ func (s *Snapshotter[B, R]) updateStatus(ctx context.Context, rev R,
 }
 
 // evict deletes the binding's oldest revisions beyond its history limit (see
-// historyLimit and SelectEvictions). The active revision is always kept. Under a
-// limit above zero the revision active before the active one (the target of an
-// undo) and the newest known-good revision are kept too. When the kept revisions
-// alone exceed the limit and announce is set, a warning event is recorded on the binding;
-// announce is set when a revision was just created, so that an unchanged
-// history is not reported on every reconcile.
-func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, active int64, announce bool) error {
-	limit := s.historyLimit(binding)
-
-	// The revision active before the active one is the target of an undo.
-	undoTarget := int64(0)
-	for _, rev := range revs {
-		if s.Adapter.Number(rev) == active {
-			undoTarget, _ = strconv.ParseInt(rev.GetAnnotations()[AnnotationKeyPreviousRevision], 10, 64)
-		}
-	}
-
+// historyLimit and SelectEvictions), keeping the active revision -- the one
+// numbered active, as Record found it -- and the newest limit others.
+//
+// revs is the binding's revisions as listed for this call, so a revision deleted
+// earlier does not count. Each delete is conditional on the revision's UID and
+// resourceVersion as listed: a revision that changed since, such as one made
+// active again, is left for the next reconcile to judge, and one already gone is
+// not an error.
+func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, active int64) error {
 	byName := make(map[string]R, len(revs))
 	candidates := make([]EvictionCandidate, 0, len(revs))
 	for _, rev := range revs {
 		byName[rev.GetName()] = rev
 		candidates = append(candidates, EvictionCandidate{
-			Name:       rev.GetName(),
-			Number:     s.Adapter.Number(rev),
-			Active:     s.Adapter.Number(rev) == active,
-			KnownGood:  s.Adapter.Status(rev).KnownGood,
-			UndoTarget: undoTarget > 0 && s.Adapter.Number(rev) == undoTarget,
+			Name:      rev.GetName(),
+			Number:    s.Adapter.Number(rev),
+			Active:    s.Adapter.Number(rev) == active,
+			KnownGood: s.Adapter.Status(rev).KnownGood,
 		})
 	}
 
-	evict, overLimit := SelectEvictions(candidates, limit)
 	var errs []error
-	for _, c := range evict {
-		err := s.Client.Delete(ctx, byName[c.Name])
-		if client.IgnoreNotFound(err) != nil {
+	for _, c := range SelectEvictions(candidates, s.historyLimit(binding)) {
+		rev := byName[c.Name]
+		uid, resourceVersion := rev.GetUID(), rev.GetResourceVersion()
+		err := s.Client.Delete(ctx, rev, client.Preconditions{UID: &uid, ResourceVersion: &resourceVersion})
+		if err != nil && !apierrors.IsNotFound(err) && !apierrors.IsConflict(err) {
 			errs = append(errs, fmt.Errorf("delete revision %q: %w", c.Name, err))
 		}
-	}
-	if overLimit && announce && s.Recorder != nil {
-		kept := 0
-		for _, c := range candidates {
-			if !c.Active {
-				kept++
-			}
-		}
-		s.Recorder.Eventf(binding, corev1.EventTypeWarning, EventReasonRevisionHistoryLimitExceeded,
-			"%d old revisions are kept, above the history limit of %d: under a limit above 0 the revision "+
-				"active before the current one and the newest known-good revision are never deleted",
-			kept-len(evict), limit)
 	}
 	return kerrors.NewAggregate(errs)
 }

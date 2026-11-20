@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -394,14 +395,15 @@ func TestRecord_EvictsBeyondHistoryLimit(t *testing.T) {
 		numbers = append(numbers, rev.Spec.Revision)
 	}
 	assert.ElementsMatch(t, []int64{
-		1, // the newest (and only) known-good revision
-		4,
+		3, 4, // the two newest old revisions
 		5, // active
-	}, numbers)
-	assert.Empty(t, recorder.Events, "the limit was met, so no event")
+	}, numbers, "r1 goes although it is the only known-good revision: the limit spares none")
+	assert.Empty(t, recorder.Events)
 }
 
-func TestRecord_ProtectedRevisionsAboveLimitEmitEvent(t *testing.T) {
+// Under a limit above 0, the revision active before the current one (the undo
+// target) and the newest known-good revision count like any other old revision.
+func TestRecord_LimitSparesNoKnownGoodOrUndoTarget(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
@@ -412,20 +414,11 @@ func TestRecord_ProtectedRevisionsAboveLimitEmitEvent(t *testing.T) {
 	require.NoError(t, err)
 	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
 	require.NoError(t, err)
+	recordRevisions(t, s, binding, 2)
 
-	recordRevisions(t, s, binding, 1)
-	assert.Empty(t, recorder.Events, "one old revision is within the limit")
-
-	recordRevisions(t, s, binding, 1)
-	assert.Equal(t, []int64{1, 2, 3}, revisionNumbers(t, c),
-		"r1 (newest known-good) and r2 (the undo target) are both spared, r3 is active")
-	require.Len(t, recorder.Events, 1)
-	assert.Contains(t, <-recorder.Events, EventReasonRevisionHistoryLimitExceeded)
-
-	// Reconciling again without a new revision does not repeat the event.
-	_, err = s.Record(ctx, binding)
-	require.NoError(t, err)
-	assert.Empty(t, recorder.Events)
+	assert.Equal(t, []int64{2, 3}, revisionNumbers(t, c),
+		"r1 (the newest known-good) goes; r2 (the undo target) is the one old revision kept; r3 is active")
+	assert.Empty(t, recorder.Events, "the history is never above the limit, so there is nothing to warn about")
 }
 
 // recordRevisions records n new revisions of binding, each with a spec no
@@ -493,7 +486,7 @@ func TestRecord_ZeroLimitKeepsOnlyTheActiveRevision(t *testing.T) {
 	assert.Equal(t, []int64{5}, revisionNumbers(t, c))
 }
 
-// At a limit of 0 even the newest known-good revision and the undo target go.
+// At a limit of 0 the newest known-good revision and the undo target go too.
 func TestRecord_ZeroLimitDeletesKnownGoodAndUndoTarget(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
@@ -702,4 +695,86 @@ func TestRecord_KeepAnnotationDoesNotProtect(t *testing.T) {
 	// r4 is active and r3, the revision active before r4, is the target of an
 	// undo; r2 is kept to fill the limit of 2. r1 goes despite its annotation.
 	assert.ElementsMatch(t, []int64{2, 3, 4}, numbers)
+}
+
+// The limit counts the revisions that exist. A revision deleted by hand leaves a
+// gap in the numbering that counts for nothing: r1 active again (after a
+// rollback), r2 and r4 left after r3 was deleted, keeps both under a limit of 2
+// and the newer one under a limit of 1. Raising the limit again deletes nothing.
+func TestRecord_LimitCountsOnlyExistingRevisions(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c := newTestClient(t, binding.DeepCopy())
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	recordRevisions(t, s, binding, 3) // r2, r3, r4
+	rollbackTo(t, c, binding, 1)
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	require.True(t, getRBR(t, c, "frontend-development-r1").Status.Active, "r1, the oldest number, is active")
+
+	require.NoError(t, c.Delete(ctx, getRBR(t, c, "frontend-development-r3")))
+	setLimit := func(limit int32) {
+		t.Helper()
+		binding.Spec.RevisionHistoryLimit = ptr.To(limit)
+		binding.Generation++
+		_, err := s.Record(ctx, binding)
+		require.NoError(t, err)
+	}
+
+	setLimit(2)
+	assert.Equal(t, []int64{1, 2, 4}, revisionNumbers(t, c), "two old revisions exist, so a limit of 2 deletes nothing")
+
+	setLimit(1)
+	assert.Equal(t, []int64{1, 4}, revisionNumbers(t, c), "the oldest old revision, r2, goes; r1 is active and kept")
+	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.Active)
+
+	setLimit(5)
+	assert.Equal(t, []int64{1, 4}, revisionNumbers(t, c), "raising the limit deletes nothing")
+
+	setLimit(0)
+	assert.Equal(t, []int64{1}, revisionNumbers(t, c), "a limit of 0 keeps only the active revision")
+}
+
+// Resource release bindings follow the same rule.
+func TestRecord_ResourceBindingLimitCountsOnlyExistingRevisions(t *testing.T) {
+	ctx := context.Background()
+	binding := newResourceBinding("db-development", "development", "db-r1")
+	c := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewResourceReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+	deploy := func(release string) {
+		t.Helper()
+		binding.Spec.ResourceRelease = release
+		binding.Generation++
+		_, err := s.Record(ctx, binding)
+		require.NoError(t, err)
+	}
+	numbers := func() []int64 {
+		t.Helper()
+		var list openchoreov1alpha1.ResourceReleaseBindingRevisionList
+		require.NoError(t, c.List(ctx, &list, client.InNamespace("default")))
+		out := make([]int64, 0, len(list.Items))
+		for _, r := range list.Items {
+			out = append(out, r.Spec.Revision)
+		}
+		slices.Sort(out)
+		return out
+	}
+
+	for i := 1; i <= 4; i++ {
+		deploy("db-r" + strconv.Itoa(i))
+	}
+	deploy("db-r1") // a rollback: r1 is active again
+	rev := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
+	require.NoError(t, c.Get(ctx, client.ObjectKey{Namespace: "default", Name: "db-development-r3"}, rev))
+	require.NoError(t, c.Delete(ctx, rev))
+
+	binding.Spec.RevisionHistoryLimit = ptr.To(int32(1))
+	binding.Generation++
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 4}, numbers(), "r1 is active and kept; of r2 and r4, the newer one is kept")
 }
