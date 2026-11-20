@@ -12,6 +12,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
+	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
 // resourcePage has the same underlying structure as the generated list types.
@@ -62,6 +63,11 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 			return nil, err
 		}
 		resources = append(resources, items...)
+		lines, err := fetchReleaseLines(ctx, c, name, items)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, lines...)
 		selection := releaseSelection{
 			all: allReleases, cutoff: cutoff, references: bindingReleaseReferences(items), preservedPaths: preservedPaths,
 		}
@@ -79,6 +85,42 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 		result.ReleaseCutoff = &cutoff
 	}
 	return result, nil
+}
+
+// The API exposes release lines under each component and includes a synthetic
+// main entry. Only persisted ReleaseLine configuration belongs in the export;
+// it is always fetched in full, independently of the release-history window.
+func fetchReleaseLines(ctx context.Context, c client.Interface, namespace string, resources []Resource) ([]Resource, error) {
+	var lines []Resource
+	for _, component := range resources {
+		if component.Kind != "Component" {
+			continue
+		}
+		fetch := newFetcher("ReleaseLine",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ReleaseLine], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				response, err := c.ListComponentReleaseLines(ctx, namespace, component.Name,
+					&gen.ListComponentReleaseLinesParams{Limit: pageLimit, Cursor: pageCursor})
+				if err != nil || response == nil {
+					return (*resourcePage[gen.ReleaseLine])(response), err
+				}
+				items := make([]gen.ReleaseLine, 0, len(response.Items))
+				for _, line := range response.Items {
+					if line.Metadata.Name != releaseline.MainLine {
+						items = append(items, line)
+					}
+				}
+				return &resourcePage[gen.ReleaseLine]{Items: items, Pagination: response.Pagination}, nil
+			},
+			func(item gen.ReleaseLine) string { return item.Metadata.Name },
+		)
+		items, err := fetch(ctx, namespace)
+		if err != nil {
+			return nil, fmt.Errorf("component %q: %w", component.Name, err)
+		}
+		lines = append(lines, items...)
+	}
+	return lines, nil
 }
 
 // Clamp the day to the target month's last day (May 31 -> February 28/29).

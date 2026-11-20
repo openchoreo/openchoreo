@@ -70,6 +70,7 @@ var resourceLayouts = map[string]resourceLayout{
 	"ProjectRelease":            {scope: projectScope, directory: "releases"},
 	"ProjectReleaseBinding":     {scope: projectScope, directory: "release-bindings"},
 	"Component":                 {scope: componentScope, filename: "component.yaml"},
+	"ReleaseLine":               {scope: componentScope, directory: "release-lines"},
 	"Workload":                  {scope: componentScope, directory: "workloads"},
 	"ComponentRelease":          {scope: componentScope, directory: "releases"},
 	"ReleaseBinding":            {scope: componentScope, directory: "release-bindings"},

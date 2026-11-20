@@ -24,6 +24,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
+const testComponentsPath = "/api/v1/namespaces/acme/components"
+
 func TestRun_ExportsFilteredObjects(t *testing.T) {
 	f := newFetchFixture(t, false)
 	directory := filepath.Join(t.TempDir(), "nested", "export")
@@ -80,6 +82,9 @@ func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 		{"missing component and trait actions", func(caps map[string]gen.ActionCapability) {
 			delete(caps, "component:view")
 			delete(caps, "trait:view")
+		}},
+		{"missing release line action", func(caps map[string]gen.ActionCapability) {
+			delete(caps, "releaseline:view")
 		}},
 		{"namespace only", func(caps map[string]gen.ActionCapability) {
 			setCapabilityPath(caps, "component:view", "ns/acme")
@@ -303,7 +308,7 @@ func TestRun_RequiresOutputBeforeFetching(t *testing.T) {
 func TestRun_SerializationErrorDoesNotCreateOutput(t *testing.T) {
 	f := newFetchFixture(t, false)
 	f.override = func(req *http.Request) (*http.Response, error) {
-		if req.URL.Path == "/api/v1/namespaces/acme/components" {
+		if req.URL.Path == testComponentsPath {
 			object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
 			delete(object, "spec")
 			return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
@@ -357,12 +362,14 @@ func TestRun_EmptyInventoryCreatesOutputFolder(t *testing.T) {
 
 func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
 	f := newFetchFixture(t, false)
+	// This case adds a second component to the fixture's single-page response.
+	f.collections["/api/v1/namespaces/acme/components/components-1/releaselines"] = requiredComponentCollections[0]
 	f.override = func(req *http.Request) (*http.Response, error) {
 		var collection collectionFixture
 		switch req.URL.Path {
 		case "/api/v1/clustertraits":
 			collection = collectionFixture{kind: "ClusterTrait", path: "clustertraits"}
-		case "/api/v1/namespaces/acme/components":
+		case testComponentsPath:
 			collection = collectionFixture{kind: testComponentKind, path: "components"}
 		default:
 			return nil, nil
@@ -478,4 +485,67 @@ func TestRun_MissingReferencedReleaseLeavesFilesUnchanged(t *testing.T) {
 	require.ErrorContains(t, err, "binding-referenced release is missing")
 	assert.Nil(t, result)
 	assert.Equal(t, before, snapshotTree(t, directory))
+}
+
+func TestRun_ExportsReleaseLineConfigurationAndSynchronizesItsFile(t *testing.T) {
+	f := newFetchFixture(t, false)
+	present := true
+	replicas := 2
+	f.override = func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case testComponentsPath:
+			component := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+			component["metadata"].(map[string]any)["name"] = "backend"
+			return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{component}, "pagination": map[string]any{}}), nil
+		case "/api/v1/namespaces/acme/components/backend/releaselines":
+			items := []any{releaseLineTestObject("acme", "backend", "main")}
+			if present {
+				line := releaseLineTestObject("acme", "backend", "backend-v2")
+				line["metadata"].(map[string]any)["creationTimestamp"] = "2000-01-01T00:00:00Z"
+				line["spec"].(map[string]any)["autoDeploy"] = false
+				line["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": replicas}
+				line["spec"].(map[string]any)["workflow"] = map[string]any{"parameters": map[string]any{"branch": "v2"}}
+				line["status"] = map[string]any{"observedGeneration": 3}
+				items = append(items, line)
+			}
+			return testutil.JSONResp(http.StatusOK, map[string]any{"items": items, "pagination": map[string]any{}}), nil
+		default:
+			return nil, nil
+		}
+	}
+	directory := t.TempDir()
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, 59, result.Counts.Created)
+	base := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "backend", "release-lines")
+	name := filepath.Join(base, "backend-v2.yaml")
+	data, err := os.ReadFile(name)
+	require.NoError(t, err)
+	var document map[string]any
+	require.NoError(t, yaml.Unmarshal(data, &document))
+	assert.Equal(t, testReleaseLineKind, document["kind"])
+	assert.Equal(t, map[string]any{
+		"owner":      map[string]any{"projectName": "store", "componentName": "backend"},
+		"autoDeploy": false,
+		"parameters": map[string]any{"replicas": float64(2)},
+		"workflow":   map[string]any{"parameters": map[string]any{"branch": "v2"}},
+	}, document["spec"])
+	assert.NotContains(t, document, "status")
+	assert.NotContains(t, document["metadata"], "creationTimestamp")
+	assert.NoFileExists(t, filepath.Join(base, "main.yaml"))
+
+	replicas = 3
+	result, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Counts.Updated)
+	data, err = os.ReadFile(name)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "replicas: 3")
+
+	present = false
+	result, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.Counts.Deleted)
+	assert.NoFileExists(t, name)
+	assert.NoDirExists(t, base)
 }

@@ -28,6 +28,7 @@ import (
 const (
 	testComponentKind        = "Component"
 	testComponentReleaseKind = "ComponentRelease"
+	testReleaseLineKind      = "ReleaseLine"
 	testNamespaceKind        = "Namespace"
 	testWorkloadKind         = "Workload"
 )
@@ -80,6 +81,10 @@ var requiredNamespacedCollections = []collectionFixture{
 	{kind: "ResourceReleaseBinding", path: "resourcereleasebindings"},
 }
 
+var requiredComponentCollections = []collectionFixture{
+	{kind: testReleaseLineKind, path: "releaselines"},
+}
+
 type fetchFixture struct {
 	t               *testing.T
 	client          *client.Client
@@ -108,6 +113,16 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 	for _, namespace := range []string{"acme", "payments"} {
 		for _, collection := range requiredNamespacedCollections {
 			f.collections["/api/v1/namespaces/"+namespace+"/"+collection.path] = collection
+		}
+		components := 1
+		if paginated {
+			components = 2
+		}
+		for i := range components {
+			for _, collection := range requiredComponentCollections {
+				path := "/api/v1/namespaces/" + namespace + "/components/components-" + strconv.Itoa(i) + "/" + collection.path
+				f.collections[path] = collection
+			}
 		}
 	}
 	f.collections["/api/v1/namespaces"] = collectionFixture{kind: testNamespaceKind, path: "namespaces"}
@@ -180,6 +195,13 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 					items = append(items, map[string]any{"metadata": map[string]any{"name": namespace}})
 				}
 			}
+		} else if collection.kind == testReleaseLineKind {
+			// An ordinary component has only the implicit main entry, which is
+			// not backed by a ReleaseLine and must never be written to disk.
+			if page == 0 {
+				component := strings.Split(path, "/")[6]
+				items = append(items, releaseLineTestObject(strings.Split(path, "/")[4], component, "main"))
+			}
 		} else {
 			items = append(items, fixtureObject(collection, path, page))
 		}
@@ -195,6 +217,7 @@ func fullExportProfile() gen.UserCapabilitiesResponse {
 	capabilities := make(map[string]gen.ActionCapability)
 	collections := append([]collectionFixture{{kind: testNamespaceKind}}, requiredClusterCollections...)
 	collections = append(collections, requiredNamespacedCollections...)
+	collections = append(collections, requiredComponentCollections...)
 	for _, collection := range collections {
 		allowed := []gen.CapabilityResource{{Path: &wildcard}}
 		capabilities[strings.ToLower(collection.kind)+":view"] = gen.ActionCapability{Allowed: &allowed}
@@ -223,7 +246,7 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	switch collection.kind {
 	case "ProjectRelease", "ProjectReleaseBinding", "Resource":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
-	case testWorkloadKind, testComponentReleaseKind, "ReleaseBinding":
+	case testWorkloadKind, testComponentReleaseKind, "ReleaseBinding", testReleaseLineKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "componentName": "checkout"}}
 	case "ResourceRelease", "ResourceReleaseBinding":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "resourceName": "database"}}
@@ -323,6 +346,10 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 		{name: "cluster collection", path: "/api/v1/clustertraits", kind: "ClusterTrait", status: http.StatusForbidden},
 		{name: "namespace discovery", path: "/api/v1/namespaces", kind: testNamespaceKind, status: http.StatusForbidden},
 		{name: "namespaced collection", path: "/api/v1/namespaces/acme/resources", kind: "Resource", namespace: "acme", status: http.StatusInternalServerError},
+		{name: "component release lines", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
+			namespace: "acme", status: http.StatusForbidden},
+		{name: "later release line page", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
+			namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 		{name: "later release page", path: "/api/v1/namespaces/acme/resourcereleases", kind: "ResourceRelease", namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -604,5 +631,83 @@ func TestReleaseCutoff_CalendarMonthsAndUTC(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, releaseCutoff(now).Format(time.RFC3339))
 		})
+	}
+}
+
+func releaseLineTestObject(namespace, component, name string) map[string]any {
+	object := fixtureObject(collectionFixture{kind: testReleaseLineKind, path: "releaselines"},
+		"/api/v1/namespaces/"+namespace+"/components/"+component+"/releaselines", 0)
+	object["metadata"].(map[string]any)["name"] = name
+	object["spec"].(map[string]any)["owner"] = map[string]string{"projectName": "store", "componentName": component}
+	return object
+}
+
+func TestFetch_ReleaseLinesForEveryComponentAndPage(t *testing.T) {
+	f := newFetchFixture(t, true)
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if !strings.HasSuffix(req.URL.Path, "/releaselines") {
+			return nil, nil
+		}
+		parts := strings.Split(req.URL.Path, "/")
+		namespace, component := parts[4], parts[6]
+		page := 0
+		if req.URL.Query().Get("cursor") != "" {
+			page = 1
+		}
+		line := releaseLineTestObject(namespace, component, component+"-v"+strconv.Itoa(page+2))
+		line["metadata"].(map[string]any)["creationTimestamp"] = "2000-01-01T00:00:00Z"
+		line["spec"].(map[string]any)["autoDeploy"] = false
+		line["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 2}
+		line["status"] = map[string]any{"observedGeneration": 1}
+		items := []any{line}
+		pagination := map[string]string{}
+		if page == 0 {
+			items = append([]any{releaseLineTestObject(namespace, component, "main")}, items...)
+			pagination["nextCursor"] = "next " + req.URL.Path
+		}
+		return testutil.JSONResp(http.StatusOK, map[string]any{"items": items, "pagination": pagination}), nil
+	}
+	result, err := Fetch(context.Background(), f.client, false)
+	require.NoError(t, err)
+	var lines []Resource
+	for _, resource := range result.Resources {
+		if resource.Kind == testReleaseLineKind {
+			lines = append(lines, resource)
+		}
+	}
+	require.Len(t, lines, 8, "two namespaces, two components, and two release lines each")
+	for _, resource := range lines {
+		line, ok := resource.Object.(gen.ReleaseLine)
+		require.True(t, ok, "fetch must retain the typed API object")
+		require.NotNil(t, line.Spec)
+		assert.NotEqual(t, "main", line.Metadata.Name)
+		assert.Equal(t, "store", line.Spec.Owner.ProjectName)
+		assert.Contains(t, []string{"components-0", "components-1"}, line.Spec.Owner.ComponentName)
+		assert.Contains(t, []string{"acme", "payments"}, resource.Namespace)
+		require.NotNil(t, line.Spec.AutoDeploy)
+		assert.False(t, *line.Spec.AutoDeploy)
+		assert.NotNil(t, line.Status)
+		require.NotNil(t, line.Metadata.CreationTimestamp)
+		assert.Equal(t, 2000, line.Metadata.CreationTimestamp.Year(), "the history cutoff must not exclude ReleaseLine configuration")
+		path := "/api/v1/namespaces/" + resource.Namespace + "/components/" + line.Spec.Owner.ComponentName + "/releaselines"
+		assert.Equal(t, []string{"", "next " + path}, f.calls[path])
+	}
+}
+
+func TestFetch_NoReleaseLineCallsWithoutComponents(t *testing.T) {
+	f := newFetchFixture(t, false)
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(req.URL.Path, "/components") {
+			return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{}, "pagination": map[string]any{}}), nil
+		}
+		return nil, nil
+	}
+	result, err := Fetch(context.Background(), f.client, false)
+	require.NoError(t, err)
+	for _, resource := range result.Resources {
+		assert.NotEqual(t, testReleaseLineKind, resource.Kind)
+	}
+	for path := range f.calls {
+		assert.False(t, strings.HasSuffix(path, "/releaselines"), path)
 	}
 }

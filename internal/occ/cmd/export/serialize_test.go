@@ -85,6 +85,7 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 		{"ProjectRelease", "namespaces/acme/projects/store/releases/sample.yaml"},
 		{"ProjectReleaseBinding", "namespaces/acme/projects/store/release-bindings/sample.yaml"},
 		{testComponentKind, "namespaces/acme/projects/store/components/sample/component.yaml"},
+		{testReleaseLineKind, "namespaces/acme/projects/store/components/backend/release-lines/sample.yaml"},
 		{testWorkloadKind, "namespaces/acme/projects/store/components/backend/workloads/sample.yaml"},
 		{"ComponentRelease", "namespaces/acme/projects/store/components/backend/releases/sample.yaml"},
 		{"ReleaseBinding", "namespaces/acme/projects/store/components/backend/release-bindings/sample.yaml"},
