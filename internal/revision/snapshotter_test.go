@@ -1170,10 +1170,12 @@ func TestReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {
 	assert.Len(t, listRBRs(t, c), 5, "rollbacks create no revisions")
 }
 
-// TestReleaseBindingSnapshotter_HistoryLimitKeepsTheUndoTarget: a rollback to
-// the oldest revision followed by a new deploy must not evict the revision an
-// undo returns to.
-func TestReleaseBindingSnapshotter_HistoryLimitKeepsTheUndoTarget(t *testing.T) {
+// TestReleaseBindingSnapshotter_HistoryLimitTrimsTheUndoTarget: the history
+// limit spares no revision but the active one. After a rollback to the oldest
+// revision and a new deploy, that revision -- the target of an undo -- is the
+// oldest old revision and is trimmed first; an undo then reports it gone rather
+// than going anywhere else.
+func TestReleaseBindingSnapshotter_HistoryLimitTrimsTheUndoTarget(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 	c := newTestClient(t, binding.DeepCopy())
@@ -1196,17 +1198,17 @@ func TestReleaseBindingSnapshotter_HistoryLimitKeepsTheUndoTarget(t *testing.T) 
 	rollbackTo(t, c, binding, 1)
 	record()
 	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = secondRelease })
-	record() // r4 replaces r1; the limit of 2 old revisions evicts one revision
+	record() // r4 replaces r1; r1, r2 and r3 are old, and the limit of 2 trims the oldest
 
-	_, prev, _, err := PreviousActive(activationsOf(t, c), binding.Status.HighestRevision)
-	require.NoError(t, err, "the undo target was not evicted")
-	assert.Equal(t, int64(1), prev.Number)
 	stored := listRBRs(t, c)
 	numbers := make([]int64, 0, len(stored))
 	for _, r := range stored {
 		numbers = append(numbers, r.Spec.Revision)
 	}
-	assert.ElementsMatch(t, []int64{1, 3, 4}, numbers, "r2, the oldest revision that is not protected, went")
+	assert.ElementsMatch(t, []int64{2, 3, 4}, numbers, "r1, the oldest old revision, went although it is the undo target")
+
+	_, _, _, err := PreviousActive(activationsOf(t, c), binding.Status.HighestRevision)
+	require.ErrorIs(t, err, ErrPreviousRevisionDeleted, "an undo reports its target gone instead of picking another")
 }
 
 func TestResourceReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testing.T) {

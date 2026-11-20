@@ -244,7 +244,7 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		Expect(revisionNamed(1).Status).To(Equal(r1.Status))
 	})
 
-	It("keeps the only known-good revision when 12 revisions exceed a limit of 9 old revisions", func() {
+	It("trims the oldest revisions, a known-good one included, when 12 revisions exceed a limit of 9", func() {
 		r.RevisionKnownGoodWindow = 0
 		// Nine old revisions and the active one: ten in all.
 		r.RevisionHistoryLimit = 9
@@ -269,9 +269,8 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		for _, rev := range revs {
 			numbers = append(numbers, rev.Spec.Revision)
 		}
-		Expect(numbers).To(Equal([]int64{2, 4, 5, 6, 7, 8, 9, 10, 11, 12}),
-			"r1 and r3 are evicted; r2 survives as the only known-good revision")
-		Expect(revs[0].Status.KnownGood).To(BeTrue())
+		Expect(numbers).To(Equal([]int64{3, 4, 5, 6, 7, 8, 9, 10, 11, 12}),
+			"the nine newest old revisions and the active one stay; r1 and r2 go, although r2 is known-good")
 		Expect(revs[len(revs)-1].Status.Active).To(BeTrue())
 	})
 

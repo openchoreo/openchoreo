@@ -11,11 +11,6 @@ type EvictionCandidate struct {
 	Number    int64
 	Active    bool
 	KnownGood bool
-	// UndoTarget is true for the revision that was active before the active one
-	// (AnnotationKeyPreviousRevision on the active revision): the target of a
-	// rollback that names no revision. Only the history limit spares it; it may
-	// still be deleted by hand.
-	UndoTarget bool
 }
 
 // SelectEvictions returns the revisions to delete so that at most limit old
@@ -24,48 +19,26 @@ type EvictionCandidate struct {
 // revisionHistoryLimit counts old ReplicaSets. A limit of zero or less keeps no
 // old revision.
 //
-// While the limit is above zero, the newest known-good revision (the rollback
-// target of last resort) and the UndoTarget are never selected -- otherwise a
-// rollback to an old revision followed by a new deploy would evict the very
-// revision an undo returns to. When the
-// spared revisions alone outnumber the limit, every other old revision is
-// selected, the spared ones stay, and overLimit reports that the history is
-// still above the limit.
-//
-// A limit of zero asks for no history at all, so the newest known-good revision
-// and the UndoTarget are selected too.
-func SelectEvictions(candidates []EvictionCandidate, limit int) (evict []EvictionCandidate, overLimit bool) {
+// Only the revisions in candidates count: a revision deleted earlier, by hand or
+// by a previous trim, is simply absent, and gaps in the numbering mean nothing.
+// The active revision is the one marked Active, whatever its number, so after a
+// rollback an old number can be active; it is skipped and the next-oldest old
+// revision goes instead.
+func SelectEvictions(candidates []EvictionCandidate, limit int) []EvictionCandidate {
 	limit = max(limit, 0)
 
-	sorted := append([]EvictionCandidate(nil), candidates...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Number < sorted[j].Number })
-
-	old := 0
-	for _, c := range sorted {
+	old := make([]EvictionCandidate, 0, len(candidates))
+	for _, c := range candidates {
 		if !c.Active {
-			old++
+			old = append(old, c)
 		}
 	}
-	excess := old - limit
+	excess := len(old) - limit
 	if excess <= 0 {
-		return nil, false
+		return nil
 	}
-
-	newestKnownGood := newestKnownGood(sorted)
-	for _, c := range sorted {
-		if excess == 0 {
-			break
-		}
-		if c.Active {
-			continue
-		}
-		if limit > 0 && (c.UndoTarget || c.Number == newestKnownGood) {
-			continue
-		}
-		evict = append(evict, c)
-		excess--
-	}
-	return evict, excess > 0
+	sort.Slice(old, func(i, j int) bool { return old[i].Number < old[j].Number })
+	return old[:excess]
 }
 
 // Protection is why a revision may not be deleted, by the history limit or by
@@ -79,12 +52,11 @@ const (
 	ProtectionNewestKnownGood Protection = "it is the newest known-good revision, kept as the rollback target of last resort"
 )
 
-// Protected returns why target may not be deleted by hand, or "" when it may.
-// These are the revisions SelectEvictions spares under a limit above zero,
-// except the UndoTarget.
-// The UndoTarget is left deletable on purpose: it is often the failed revision
-// a user just rolled back from and wants gone. candidates are all of the
-// binding's revisions, target among them.
+// Protected returns why target may not be deleted by hand, or "" when it may:
+// the active revision, and the newest known-good revision, the rollback target
+// of last resort. The history limit applies only the first rule; a limit that
+// is lowered can delete the newest known-good revision. candidates are all of
+// the binding's revisions, target among them.
 func Protected(candidates []EvictionCandidate, target EvictionCandidate) Protection {
 	switch {
 	case target.Active:
