@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -373,3 +374,49 @@ func TestPromote_UpdateError(t *testing.T) {
 	err := r.Promote(PromoteParams{Namespace: "my-org", ResourceName: "analytics-db", Environment: "dev"})
 	assert.EqualError(t, err, "conflict")
 }
+
+func TestPromote_RetriesOnConflict(t *testing.T) {
+	// The binding changes between promote's read and its write (#5370): the API
+	// rejects the stale write with 409, promote reads the newer version and
+	// sets the release on it, so the other edit is kept.
+	stale := bindingForEnv("analytics-db-dev", "dev")
+	stale.Metadata.ResourceVersion = ptr("1")
+	fresh := bindingForEnv("analytics-db-dev", "dev")
+	fresh.Metadata.ResourceVersion = ptr("2")
+	fresh.Metadata.Annotations = &map[string]string{"example/marker": "x"}
+
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetResource(mock.Anything, "my-org", "analytics-db").Return(resourceWithLatestRelease(), nil)
+	mc.EXPECT().ListResourceReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.ResourceReleaseBindingList{Items: []gen.ResourceReleaseBinding{stale}}, nil).Once()
+	mc.EXPECT().ListResourceReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.ResourceReleaseBindingList{Items: []gen.ResourceReleaseBinding{fresh}}, nil).Once()
+	mc.EXPECT().UpdateResourceReleaseBinding(mock.Anything, "my-org", "analytics-db-dev", mock.MatchedBy(func(b gen.ResourceReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "1"
+	})).Return(nil, fmt.Errorf("ResourceReleaseBinding was modified since it was read: %w", client.ErrConflict)).Once()
+	mc.EXPECT().UpdateResourceReleaseBinding(mock.Anything, "my-org", "analytics-db-dev", mock.MatchedBy(func(b gen.ResourceReleaseBinding) bool {
+		return *b.Metadata.ResourceVersion == "2" && (*b.Metadata.Annotations)["example/marker"] == "x" &&
+			*b.Spec.ResourceRelease == "analytics-db-abc123"
+	})).Return(&gen.ResourceReleaseBinding{Metadata: gen.ObjectMeta{Name: "analytics-db-dev"}}, nil).Once()
+
+	r := New(mc)
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, r.Promote(PromoteParams{Namespace: "my-org", ResourceName: "analytics-db", Environment: "dev"}))
+	})
+	assert.Contains(t, out, "promoted")
+}
+
+func TestPromote_GivesUpAfterRepeatedConflicts(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetResource(mock.Anything, "my-org", "analytics-db").Return(resourceWithLatestRelease(), nil)
+	mc.EXPECT().ListResourceReleaseBindings(mock.Anything, "my-org", mock.Anything).
+		Return(&gen.ResourceReleaseBindingList{Items: []gen.ResourceReleaseBinding{bindingForEnv("analytics-db-dev", "dev")}}, nil).Times(5)
+	mc.EXPECT().UpdateResourceReleaseBinding(mock.Anything, "my-org", "analytics-db-dev", mock.Anything).
+		Return(nil, fmt.Errorf("modified: %w", client.ErrConflict)).Times(5)
+
+	r := New(mc)
+	err := r.Promote(PromoteParams{Namespace: "my-org", ResourceName: "analytics-db", Environment: "dev"})
+	require.ErrorIs(t, err, client.ErrConflict)
+}
+
+func ptr(s string) *string { return &s }

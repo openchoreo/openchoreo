@@ -28,6 +28,12 @@ func notFound(resource string) gen.NotFoundJSONResponse {
 	}
 }
 
+// staleUpdateMessage is the 409 message for an update whose metadata.resourceVersion
+// no longer matches the stored resource.
+func staleUpdateMessage(kind string) string {
+	return kind + " was modified since it was read; get it again, reapply your changes and retry"
+}
+
 func conflict(message string) gen.ConflictJSONResponse {
 	return gen.ConflictJSONResponse{
 		Code:  gen.CONFLICT,

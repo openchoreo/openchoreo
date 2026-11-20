@@ -172,6 +172,9 @@ func (h *Handler) UpdateReleaseBinding(
 		if errors.Is(err, releasebindingsvc.ErrReleaseBindingNotFound) {
 			return gen.UpdateReleaseBinding404JSONResponse{NotFoundJSONResponse: notFound("ReleaseBinding")}, nil
 		}
+		if errors.Is(err, services.ErrConflict) {
+			return gen.UpdateReleaseBinding409JSONResponse{ConflictJSONResponse: conflict(staleUpdateMessage("ReleaseBinding"))}, nil
+		}
 		if validationErr, ok := errors.AsType[*services.ValidationError](err); ok {
 			if validationErr.StatusCode == http.StatusUnprocessableEntity {
 				return gen.UpdateReleaseBinding422JSONResponse{UnprocessableContentJSONResponse: unprocessableContent(validationErr.Msg)}, nil

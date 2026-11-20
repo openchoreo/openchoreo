@@ -109,6 +109,11 @@ func (s *endpointReleaseBindingService) UpdateEndpointReleaseBinding(ctx context
 	existing.Spec = rb.Spec
 	existing.Labels = rb.Labels
 	existing.Annotations = rb.Annotations
+	// A caller that sends the resourceVersion it read gets a conditional update:
+	// the API server rejects it if the binding changed since that read.
+	if err := services.ApplyRequestedResourceVersion(existing, rb.ResourceVersion); err != nil {
+		return nil, err
+	}
 
 	// Preserve special labels
 	if existing.Labels == nil {
@@ -118,6 +123,10 @@ func (s *endpointReleaseBindingService) UpdateEndpointReleaseBinding(ctx context
 	existing.Labels[labels.LabelKeyEndpointCRName] = existing.Spec.Owner.EndpointName
 
 	if err := s.k8sClient.Update(ctx, existing); err != nil {
+		if apierrors.IsConflict(err) {
+			s.logger.Warn("Endpoint release binding update conflicts with a newer version", "namespace", namespaceName, "endpointReleaseBinding", rb.Name)
+			return nil, fmt.Errorf("%w: %s", services.ErrConflict, err.Error())
+		}
 		if apierrors.IsInvalid(err) {
 			return nil, &services.ValidationError{Msg: services.ExtractValidationMessage(err)}
 		}
