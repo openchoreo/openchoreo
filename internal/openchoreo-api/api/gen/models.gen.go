@@ -3708,6 +3708,9 @@ type ReleaseBindingSpec struct {
 	// Environment Target environment name
 	Environment string `json:"environment"`
 
+	// Interval Watch interval for the rendered release resources when stable, copied into the RenderedRelease. 0 or at least 30s. Defaults to the controller's stable interval when unset.
+	Interval *string `json:"interval,omitempty"`
+
 	// Owner Owner identifies the component and project this ReleaseBinding belongs to
 	Owner struct {
 		// ComponentName Name of the component
@@ -3719,6 +3722,9 @@ type ReleaseBindingSpec struct {
 		// ReleaseLine Release line this binding belongs to. Omitted for the main line.
 		ReleaseLine *string `json:"releaseLine,omitempty"`
 	} `json:"owner"`
+
+	// ProgressingInterval Watch interval for the rendered release resources when transitioning, copied into the RenderedRelease. 0 or at least 5s. Defaults to the controller's progressing interval when unset.
+	ProgressingInterval *string `json:"progressingInterval,omitempty"`
 
 	// ReleaseName Reference to component release
 	ReleaseName *string `json:"releaseName,omitempty"`
@@ -4326,6 +4332,9 @@ type ResourceReleaseBindingSpec struct {
 	// Environment Target environment name. Immutable after creation.
 	Environment string `json:"environment"`
 
+	// Interval Watch interval for the rendered release resources when stable, copied into the RenderedRelease. 0 or at least 30s. Defaults to the controller's stable interval when unset.
+	Interval *string `json:"interval,omitempty"`
+
 	// Owner Identifies the resource and project this binding belongs to.
 	Owner struct {
 		// ProjectName Parent project name
@@ -4334,6 +4343,9 @@ type ResourceReleaseBindingSpec struct {
 		// ResourceName Parent resource name
 		ResourceName string `json:"resourceName"`
 	} `json:"owner"`
+
+	// ProgressingInterval Watch interval for the rendered release resources when transitioning, copied into the RenderedRelease. 0 or at least 5s. Defaults to the controller's progressing interval when unset.
+	ProgressingInterval *string `json:"progressingInterval,omitempty"`
 
 	// ResourceRelease Pinned ResourceRelease name. Advanced manually (e.g. via `occ resource promote`).
 	ResourceRelease *string `json:"resourceRelease,omitempty"`

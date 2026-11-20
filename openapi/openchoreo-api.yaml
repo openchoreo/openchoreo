@@ -11084,6 +11084,16 @@ components:
           enum: [Active, Undeploy]
           default: Active
           example: Active
+        interval:
+          type: string
+          description: Watch interval for the rendered release resources when stable, copied into the RenderedRelease. 0 or at least 30s. Defaults to the controller's stable interval when unset.
+          pattern: '^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$'
+          example: 5m
+        progressingInterval:
+          type: string
+          description: Watch interval for the rendered release resources when transitioning, copied into the RenderedRelease. 0 or at least 5s. Defaults to the controller's progressing interval when unset.
+          pattern: '^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$'
+          example: 15s
 
     ReleaseBindingStatus:
       type: object
@@ -12145,6 +12155,16 @@ components:
           type: object
           description: Per-environment values for ResourceType.spec.environmentConfigs.
           additionalProperties: true
+        interval:
+          type: string
+          description: Watch interval for the rendered release resources when stable, copied into the RenderedRelease. 0 or at least 30s. Defaults to the controller's stable interval when unset.
+          pattern: '^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$'
+          example: 5m
+        progressingInterval:
+          type: string
+          description: Watch interval for the rendered release resources when transitioning, copied into the RenderedRelease. 0 or at least 5s. Defaults to the controller's progressing interval when unset.
+          pattern: '^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$'
+          example: 15s
 
     ResolvedResourceOutput:
       type: object
