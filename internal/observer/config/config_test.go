@@ -528,3 +528,43 @@ func TestValidateDeliveryInsightsAggregation(t *testing.T) {
 		assert.Contains(t, err.Error(), "deliveryinsights.aggregation.incident.lookback must be positive")
 	})
 }
+
+// TestInvalidDeliveryInsightsSettingsDisableOnlyThatFeature pins that a Delivery
+// Insights setting that does not validate turns the feature off rather than
+// failing Load, which would stop the whole Observer.
+func TestInvalidDeliveryInsightsSettingsDisableOnlyThatFeature(t *testing.T) {
+	for _, tc := range []struct {
+		name, key, value, wantReason string
+	}{
+		{"zero interval", "DELIVERY_INSIGHTS_AGGREGATION_INTERVAL", "0s",
+			"deliveryinsights.aggregation.interval must be positive"},
+		{"unknown store backend", "DELIVERY_INSIGHTS_STORE_BACKEND", "mysql",
+			"deliveryinsights.store.backend must be 'sqlite' or 'postgresql'"},
+		{"separate backend without a DSN", "DELIVERY_INSIGHTS_STORE_BACKEND", "postgresql",
+			"deliveryinsights.store.dsn is required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, key := range []string{
+				"DELIVERY_INSIGHTS_STORE_BACKEND", "DELIVERY_INSIGHTS_STORE_DSN",
+				"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "DELIVERY_INSIGHTS_AGGREGATION_INTERVAL",
+				"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP", "DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW",
+				"DELIVERY_INSIGHTS_INCIDENT_LOOKBACK",
+			} {
+				t.Setenv(key, "")
+			}
+			t.Setenv(tc.key, tc.value)
+
+			cfg, err := Load()
+			require.NoError(t, err, "an invalid Delivery Insights setting must not fail the Observer")
+			assert.False(t, cfg.DeliveryInsights.Enabled)
+			require.Error(t, cfg.DeliveryInsights.DisabledReason)
+			assert.Contains(t, cfg.DeliveryInsights.DisabledReason.Error(), tc.wantReason)
+
+			// Turned off on purpose, the same setting is not reported: nothing was disabled.
+			t.Setenv("FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "false")
+			cfg, err = Load()
+			require.NoError(t, err)
+			assert.NoError(t, cfg.DeliveryInsights.DisabledReason)
+		})
+	}
+}

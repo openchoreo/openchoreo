@@ -429,6 +429,17 @@ func (s *sqlStore) createSchemaVersionTable(ctx context.Context) error {
 	return nil
 }
 
+// ErrSchemaNewer reports a store migrated by a newer Observer than this one, as
+// after a downgrade. This Observer cannot know what the newer migrations changed,
+// and its aggregator would write facts and rollups by its own, older rules into
+// tables shaped for the newer ones, so it refuses rather than risk that.
+var ErrSchemaNewer = errors.New("delivery insights schema is newer than this observer supports")
+
+// latestSchemaVersion is the version the last migration brings the store to.
+func latestSchemaVersion() int {
+	return migrations[len(migrations)-1].version
+}
+
 func (s *sqlStore) applyMigrations(ctx context.Context) error {
 	if err := s.createSchemaVersionTable(ctx); err != nil {
 		return err
@@ -438,6 +449,10 @@ func (s *sqlStore) applyMigrations(ctx context.Context) error {
 	row := s.db.QueryRowContext(ctx, "SELECT MAX(version) FROM delivery_insights_schema_version;")
 	if err := row.Scan(&current); err != nil {
 		return fmt.Errorf("failed to read delivery insights schema version: %w", err)
+	}
+	if current.Valid && int(current.Int64) > latestSchemaVersion() {
+		return fmt.Errorf("%w: the store is at version %d, this observer knows up to %d; "+
+			"was the observer downgraded?", ErrSchemaNewer, current.Int64, latestSchemaVersion())
 	}
 
 	for _, m := range migrations {

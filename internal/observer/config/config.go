@@ -187,6 +187,10 @@ type DeliveryInsightsConfig struct {
 	// incident resolutions do not bump ingestion timestamps, so pure watermark
 	// increments would miss them).
 	IncidentLookback time.Duration `koanf:"aggregation.incident.lookback"`
+	// DisabledReason is why Delivery Insights was turned off although Enabled was
+	// set: its configuration did not validate. Nil otherwise. Not loaded from
+	// anything; validation sets it, and startup logs it.
+	DisabledReason error `koanf:"-"`
 }
 
 // UIDResolverConfig holds configuration for the resource UID resolver
@@ -589,6 +593,22 @@ func ensureSQLiteBusyTimeout(dsn string) string {
 	return fmt.Sprintf("%s%s_pragma=busy_timeout(%d)", dsn, separator, sqliteBusyTimeoutMs)
 }
 
+// disableInvalidDeliveryInsights validates the delivery insights section and, when
+// it does not validate, turns the feature off instead of failing the Observer.
+// Delivery Insights is one optional feature on by default; a typo in one of its
+// settings must not take logs, alerts, traces and MCP down with it. The error is
+// kept in DisabledReason for startup to log.
+func (c *Config) disableInvalidDeliveryInsights() {
+	err := c.validateDeliveryInsightsStore()
+	if err == nil {
+		err = c.validateDeliveryInsights()
+	}
+	if err != nil && c.DeliveryInsights.Enabled {
+		c.DeliveryInsights.Enabled = false
+		c.DeliveryInsights.DisabledReason = err
+	}
+}
+
 // validateDeliveryInsights normalizes and validates the delivery insights section.
 func (c *Config) validateDeliveryInsights() error {
 	if !c.DeliveryInsights.Enabled {
@@ -693,12 +713,7 @@ func (c *Config) validate() error {
 	if err := c.validateAlertNotifications(); err != nil {
 		return err
 	}
-	if err := c.validateDeliveryInsightsStore(); err != nil {
-		return err
-	}
-	if err := c.validateDeliveryInsights(); err != nil {
-		return err
-	}
+	c.disableInvalidDeliveryInsights()
 
 	if err := c.validateTracingRawQuery(); err != nil {
 		return err
