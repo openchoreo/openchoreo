@@ -7750,7 +7750,7 @@ components:
             code: NOT_FOUND
 
     Conflict:
-      description: Resource already exists, or on an update, it changed since the sent `metadata.resourceVersion` was read
+      description: Resource already exists, or, on a release binding update, it changed since the sent `metadata.resourceVersion` was read
       content:
         application/json:
           schema:
@@ -7879,10 +7879,12 @@ components:
           type: string
           description: |
             Opaque version of the resource, set by the server on every write.
-            Send back the value you read on an update to make it conditional:
-            update operations that document a 409 response reject the write
-            when the resource changed since it was read. Omit it to overwrite
-            unconditionally.
+            The release binding updates (updateReleaseBinding,
+            updateResourceReleaseBinding and updateEndpointReleaseBinding)
+            honor it: send back the value you read to make the update
+            conditional, and it is rejected with 409 when the binding changed
+            since that read. Omit it to overwrite unconditionally. Other
+            updates ignore it.
           example: "123456"
         labels:
           type: object
