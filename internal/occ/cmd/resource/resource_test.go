@@ -356,6 +356,26 @@ func TestPromote_FiltersByResource(t *testing.T) {
 	assert.Contains(t, out, "analytics-db-abc123")
 }
 
+func TestPromote_DuplicateBindingsError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetResource(mock.Anything, "my-org", "analytics-db").Return(
+		resourceWithLatestRelease(), nil)
+	mc.EXPECT().ListResourceReleaseBindings(mock.Anything, "my-org", mock.Anything).Return(&gen.ResourceReleaseBindingList{
+		Items: []gen.ResourceReleaseBinding{
+			bindingForEnv("analytics-db-dev-1", "dev"),
+			bindingForEnv("analytics-db-dev-2", "dev"),
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	r := New(mc)
+	err := r.Promote(PromoteParams{Namespace: "my-org", ResourceName: "analytics-db", Environment: "dev"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple ResourceReleaseBindings")
+	assert.Contains(t, err.Error(), "analytics-db-dev-1")
+	assert.Contains(t, err.Error(), "analytics-db-dev-2")
+}
+
 func TestPromote_UpdateError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetResource(mock.Anything, "my-org", "analytics-db").Return(
