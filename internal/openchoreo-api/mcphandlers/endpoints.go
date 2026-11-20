@@ -473,6 +473,14 @@ func (h *MCPHandler) UpdateEndpointReleaseBinding(
 			}
 			existing.Spec.EndpointTypeEnvironmentConfigs = &runtime.RawExtension{Raw: raw}
 		}
+		if req.Spec.BackendOverrides != nil {
+			overrides, cErr := convertSpec[[]gen.EndpointBackendOverride, []openchoreov1alpha1.EndpointBackendOverride](
+				*req.Spec.BackendOverrides)
+			if cErr != nil {
+				return nil, fmt.Errorf("convert backendOverrides: %w", cErr)
+			}
+			existing.Spec.BackendOverrides = overrides
+		}
 	}
 
 	updated, err := h.services.EndpointReleaseBindingService.UpdateEndpointReleaseBinding(ctx, namespaceName, existing)
