@@ -568,3 +568,56 @@ func TestInvalidDeliveryInsightsSettingsDisableOnlyThatFeature(t *testing.T) {
 		})
 	}
 }
+
+// TestMalformedDeliveryInsightsValuesDisableOnlyThatFeature covers values that do
+// not even decode. Decoding fails Load on one of them, so an interval of "5ss"
+// stopped the Observer -- with the feature off as well as on.
+func TestMalformedDeliveryInsightsValuesDisableOnlyThatFeature(t *testing.T) {
+	clearEnv := func(t *testing.T) {
+		for _, key := range []string{
+			"DELIVERY_INSIGHTS_STORE_BACKEND", "DELIVERY_INSIGHTS_STORE_DSN",
+			"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "DELIVERY_INSIGHTS_AGGREGATION_INTERVAL",
+			"DELIVERY_INSIGHTS_AGGREGATION_OVERLAP", "DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW",
+			"DELIVERY_INSIGHTS_INCIDENT_LOOKBACK",
+		} {
+			t.Setenv(key, "")
+		}
+	}
+
+	t.Run("a malformed duration with the feature on", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("DELIVERY_INSIGHTS_AGGREGATION_INTERVAL", "5ss")
+		t.Setenv("DELIVERY_INSIGHTS_ATTRIBUTION_WINDOW", "a day")
+
+		cfg, err := Load()
+		require.NoError(t, err, "a malformed Delivery Insights value must not fail the Observer")
+		assert.False(t, cfg.DeliveryInsights.Enabled)
+		require.Error(t, cfg.DeliveryInsights.DisabledReason)
+		reason := cfg.DeliveryInsights.DisabledReason.Error()
+		assert.Contains(t, reason, `deliveryinsights.aggregation.interval: "5ss" is not a duration`)
+		assert.Contains(t, reason, `deliveryinsights.aggregation.attribution.window: "a day" is not a duration`)
+		assert.Positive(t, cfg.Server.Port, "the rest of the config still decodes")
+	})
+
+	t.Run("a malformed duration with the feature off", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "false")
+		t.Setenv("DELIVERY_INSIGHTS_AGGREGATION_INTERVAL", "5ss")
+
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.False(t, cfg.DeliveryInsights.Enabled)
+		assert.NoError(t, cfg.DeliveryInsights.DisabledReason, "nothing was disabled; it was off already")
+	})
+
+	t.Run("a malformed switch", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "yes-please")
+
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.False(t, cfg.DeliveryInsights.Enabled, "an unreadable switch turns the feature off")
+		require.Error(t, cfg.DeliveryInsights.DisabledReason)
+		assert.Contains(t, cfg.DeliveryInsights.DisabledReason.Error(), `"yes-please" is not true or false`)
+	})
+}

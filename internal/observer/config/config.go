@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -359,9 +360,16 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Before decoding, which fails the whole Load on one unparseable value.
+	enabledMalformed, malformedDeliveryInsights := dropMalformedDeliveryInsightsValues(k)
+
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+	if malformedDeliveryInsights != nil && (cfg.DeliveryInsights.Enabled || enabledMalformed) {
+		cfg.DeliveryInsights.Enabled = false
+		cfg.DeliveryInsights.DisabledReason = malformedDeliveryInsights
 	}
 
 	// Parse CORS allowed origins from comma-separated env var
@@ -591,6 +599,45 @@ func ensureSQLiteBusyTimeout(dsn string) string {
 		separator = "&"
 	}
 	return fmt.Sprintf("%s%s_pragma=busy_timeout(%d)", dsn, separator, sqliteBusyTimeoutMs)
+}
+
+// deliveryInsightsDurationKeys are the delivery insights settings decoded as
+// durations, and deliveryInsightsEnabledKey the one decoded as a bool.
+var deliveryInsightsDurationKeys = []string{
+	"deliveryinsights.aggregation.interval",
+	"deliveryinsights.aggregation.overlap",
+	"deliveryinsights.aggregation.attribution.window",
+	"deliveryinsights.aggregation.incident.lookback",
+}
+
+const deliveryInsightsEnabledKey = "deliveryinsights.enabled"
+
+// dropMalformedDeliveryInsightsValues removes every delivery insights value that
+// would not decode, and returns what was wrong with them. Decoding fails Load on
+// a single unparseable value -- an interval of "5ss" stopped the Observer, even
+// with the feature off -- so they are taken out first and the feature turned off
+// in their place, the way an invalid but parseable value is. enabledMalformed
+// reports that the switch itself was unparseable, which turns the feature off
+// rather than leaving it as nobody set it.
+func dropMalformedDeliveryInsightsValues(k *koanf.Koanf) (enabledMalformed bool, err error) {
+	for _, key := range deliveryInsightsDurationKeys {
+		value, ok := k.Get(key).(string)
+		if !ok {
+			continue
+		}
+		if _, parseErr := time.ParseDuration(value); parseErr != nil {
+			k.Delete(key)
+			err = errors.Join(err, fmt.Errorf("%s: %q is not a duration", key, value))
+		}
+	}
+	if value, ok := k.Get(deliveryInsightsEnabledKey).(string); ok {
+		if _, parseErr := strconv.ParseBool(value); parseErr != nil {
+			k.Delete(deliveryInsightsEnabledKey)
+			err = errors.Join(err, fmt.Errorf("%s: %q is not true or false", deliveryInsightsEnabledKey, value))
+			enabledMalformed = true
+		}
+	}
+	return enabledMalformed, err
 }
 
 // disableInvalidDeliveryInsights validates the delivery insights section and, when

@@ -41,7 +41,7 @@ func TestASchemaNewerThanTheCodeIsRefused(t *testing.T) {
 	require.Contains(t, err.Error(), fmt.Sprintf("version %d", latestSchemaVersion()+1))
 }
 
-// TestTheCurrentSchemaIsAccepted pins that re-initialising a store already at
+// TestTheCurrentSchemaIsAccepted pins that re-initializing a store already at
 // this Observer's version -- every restart -- is not mistaken for a downgrade.
 func TestTheCurrentSchemaIsAccepted(t *testing.T) {
 	store := newTestStore(t)
