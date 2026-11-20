@@ -709,6 +709,9 @@ func validateAlertRuleRequest(req internalgen.AlertRuleRequest) error {
 	if strings.TrimSpace(req.Metadata.Name) == "" {
 		return fmt.Errorf("metadata.name is required")
 	}
+	if strings.TrimSpace(req.Metadata.Namespace) == "" {
+		return fmt.Errorf("metadata.namespace is required")
+	}
 	if req.Metadata.ComponentUid == (openapi_types.UUID{}) {
 		return fmt.Errorf("metadata.componentUid is required")
 	}

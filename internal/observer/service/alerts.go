@@ -129,26 +129,26 @@ func (s *AlertService) CreateAlertRule(ctx context.Context, req internalgen.Aler
 	}
 }
 
-// GetAlertRule fetches an alert rule via the configured adapter.
+// GetAlertRule fetches the alert rule with the given namespace and name via the configured adapter.
 // sourceType must be "log", "metric", or "budget".
 // Returns an error wrapping ErrAlertRuleNotFound if the rule does not exist.
-func (s *AlertService) GetAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error) {
+func (s *AlertService) GetAlertRule(ctx context.Context, namespace, ruleName, sourceType string) (*internalgen.AlertRuleResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
 		if s.logsAdapter == nil {
 			return nil, fmt.Errorf("logs adapter is required for log alert rules")
 		}
-		return s.getLogAlertRuleViaAdapter(ctx, ruleName)
+		return s.getLogAlertRuleViaAdapter(ctx, namespace, ruleName)
 	case sourceTypeMetric:
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for metric alert rules")
 		}
-		return s.getMetricAlertRuleViaAdapter(ctx, ruleName)
+		return s.getMetricAlertRuleViaAdapter(ctx, namespace, ruleName)
 	case sourceTypeBudget:
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 		}
-		return s.getMetricAlertRuleViaAdapter(ctx, ruleName)
+		return s.getMetricAlertRuleViaAdapter(ctx, namespace, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
@@ -189,26 +189,26 @@ func (s *AlertService) UpdateAlertRule(ctx context.Context, ruleName string, req
 	}
 }
 
-// DeleteAlertRule deletes an alert rule via the configured adapter.
+// DeleteAlertRule deletes the alert rule with the given namespace and name via the configured adapter.
 // sourceType must be "log", "metric", or "budget".
 // Returns ErrAlertRuleNotFound if the rule does not exist.
-func (s *AlertService) DeleteAlertRule(ctx context.Context, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error) {
+func (s *AlertService) DeleteAlertRule(ctx context.Context, namespace, ruleName, sourceType string) (*internalgen.AlertingRuleSyncResponse, error) {
 	switch sourceType {
 	case sourceTypeLog:
 		if s.logsAdapter == nil {
 			return nil, fmt.Errorf("logs adapter is required for log alert rules")
 		}
-		return s.deleteLogAlertRuleViaAdapter(ctx, ruleName)
+		return s.deleteLogAlertRuleViaAdapter(ctx, namespace, ruleName)
 	case sourceTypeMetric:
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for metric alert rules")
 		}
-		return s.deleteMetricAlertRuleViaAdapter(ctx, ruleName)
+		return s.deleteMetricAlertRuleViaAdapter(ctx, namespace, ruleName)
 	case sourceTypeBudget:
 		if s.metricsAdapterClient == nil {
 			return nil, fmt.Errorf("metrics adapter is required for budget alert rules")
 		}
-		return s.deleteMetricAlertRuleViaAdapter(ctx, ruleName)
+		return s.deleteMetricAlertRuleViaAdapter(ctx, namespace, ruleName)
 	default:
 		return nil, fmt.Errorf("unsupported source type: %s", sourceType)
 	}
