@@ -379,6 +379,29 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 				} `json:"warnings"`
 			}
 
+			By("refusing the rollback, dry run included, while auto-deploy is on in the first environment")
+			_, err = framework.CallMCPTool(session, "rollback_release_binding", map[string]any{
+				"namespace_name": mcpNs,
+				"name":           rbName,
+				"revision":       1,
+			})
+			Expect(err).To(HaveOccurred(), "auto-deploy would undo a rollback in the first environment")
+			Expect(err.Error()).To(ContainSubstring("auto-deploy is enabled"))
+
+			By("turning auto-deploy off for the component")
+			_, err = framework.CallMCPTool(session, "patch_component", map[string]any{
+				"namespace_name": mcpNs,
+				"component_name": componentName,
+				"auto_deploy":    false,
+			})
+			Expect(err).NotTo(HaveOccurred(), "patch_component should turn auto-deploy off")
+			Eventually(func(g Gomega) {
+				autoDeploy, err := framework.KubectlGetJsonpath(kubeContext, mcpNs, "component", componentName,
+					"{.spec.autoDeploy}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(autoDeploy).NotTo(Equal("true"))
+			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
 			By("dry-running the rollback to r1 (dry_run defaults to true)")
 			var preview rollbackResult
 			Expect(framework.CallMCPToolJSON(session, "rollback_release_binding", map[string]any{
