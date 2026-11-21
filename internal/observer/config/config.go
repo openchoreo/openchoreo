@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	coreconfig "github.com/openchoreo/openchoreo/internal/config"
 	observeraudit "github.com/openchoreo/openchoreo/internal/observer/audit"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth/subject"
 )
 
@@ -146,6 +148,14 @@ type AlertingConfig struct {
 	NotificationAttemptTimeout time.Duration `koanf:"notification.attempt.timeout"`
 	// NotificationRetryBackoff is the delay before the first retry. It doubles for each later retry.
 	NotificationRetryBackoff time.Duration `koanf:"notification.retry.backoff"`
+	// NotificationPrivateDestinations are the private addresses that notifications may be sent to,
+	// besides public ones. Read from ALERT_NOTIFICATION_PRIVATE_DESTINATIONS, a comma-separated
+	// list of IP addresses, CIDRs and host names.
+	NotificationPrivateDestinations destination.Entries `koanf:"-"`
+	// NotificationProtectedHosts are hosts that notifications never reach, besides the adapters
+	// and agents the observer uses: the observer's own services. Read from
+	// ALERT_NOTIFICATION_PROTECTED_HOSTS, a comma-separated list.
+	NotificationProtectedHosts []string `koanf:"-"`
 	// FinOpsAgentURL is the base URL for the FinOps agent service.
 	// Used for triggering AI cost analysis for budget alerts.
 	FinOpsAgentURL string `koanf:"finops.agent.url"`
@@ -370,6 +380,16 @@ func Load() (*Config, error) {
 		}
 	}
 
+	private, err := destination.ParseEntries(splitList(os.Getenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS")))
+	if err != nil {
+		return nil, fmt.Errorf("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS: %w", err)
+	}
+	cfg.Alerting.NotificationPrivateDestinations = private
+	cfg.Alerting.NotificationProtectedHosts = defaultNotificationProtectedHosts
+	if hosts, ok := os.LookupEnv("ALERT_NOTIFICATION_PROTECTED_HOSTS"); ok {
+		cfg.Alerting.NotificationProtectedHosts = splitList(hosts)
+	}
+
 	// Assign subject types from separately loaded auth config
 	cfg.Auth.SubjectTypes = authCfg.Auth.SubjectTypes
 
@@ -507,7 +527,44 @@ func getDefaults() map[string]interface{} {
 	}
 }
 
-// validateAlertNotifications checks the retry and timeout settings of alert notifications.
+// defaultNotificationProtectedHosts are the observer's own services, as the Helm chart names them.
+var defaultNotificationProtectedHosts = []string{"observer", "observer-internal"}
+
+// splitList splits a comma-separated list, dropping empty items.
+func splitList(value string) []string {
+	var items []string
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+// NotificationProtectedHostList returns the hosts that notifications never reach: the adapters
+// and agents the observer uses, and NotificationProtectedHosts.
+func (c *Config) NotificationProtectedHostList() []string {
+	var hosts []string
+	for _, raw := range []string{
+		c.Adapters.LogsAdapterURL,
+		c.Adapters.MetricsAdapterURL,
+		c.Adapters.TracingAdapterURL,
+		c.Adapters.FinOpsAdapterURL,
+		c.Alerting.RCAServiceURL,
+		c.Alerting.FinOpsAgentURL,
+	} {
+		if u, err := url.Parse(raw); err == nil && u.Hostname() != "" {
+			hosts = append(hosts, destination.NormalizeHost(u.Hostname()))
+		}
+	}
+	for _, host := range c.Alerting.NotificationProtectedHosts {
+		hosts = append(hosts, destination.NormalizeHost(host))
+	}
+	return hosts
+}
+
+// validateAlertNotifications checks the retry, timeout and destination settings of alert
+// notifications.
 func (c *Config) validateAlertNotifications() error {
 	if c.Alerting.NotificationMaxAttempts < 1 {
 		return fmt.Errorf("alerting.notification.max.attempts must be at least 1")
@@ -517,6 +574,13 @@ func (c *Config) validateAlertNotifications() error {
 	}
 	if c.Alerting.NotificationRetryBackoff < 0 {
 		return fmt.Errorf("alerting.notification.retry.backoff must not be negative")
+	}
+	protected := c.NotificationProtectedHostList()
+	for _, host := range c.Alerting.NotificationPrivateDestinations.Hosts {
+		if slices.Contains(protected, host) {
+			return fmt.Errorf("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS: %q is a service the observer itself uses, "+
+				"which notifications never reach", host)
+		}
 	}
 	return nil
 }

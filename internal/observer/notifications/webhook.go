@@ -28,10 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Shared HTTP client for webhook notifications. Each attempt is bounded by the caller's context,
-// so the client sets no timeout of its own.
-var httpClient = &http.Client{}
-
 // maxErrorBodyBytes bounds how much of an error response is read into the returned error.
 const maxErrorBodyBytes = 64 << 10
 
@@ -118,6 +114,13 @@ func SendWebhookWithConfig(ctx context.Context, config *WebhookConfig, alertDeta
 			RedactWebhookURL(config.URL), safeCause(err, progress)))
 	}
 	defer resp.Body.Close()
+
+	// A redirect could lead to an address that the channel's URL could not name, so it is not
+	// followed. Its Location is left out, since it can quote the webhook URL.
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return newDeliveryError(ReasonChannelConfig, fmt.Sprintf("HTTP %d redirect", resp.StatusCode),
+			fmt.Errorf("webhook receiver answered with a redirect (status code %d), which is not followed", resp.StatusCode))
+	}
 
 	// Check response status
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
