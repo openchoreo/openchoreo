@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -33,10 +34,9 @@ func newReleaseBindingRevision() *openchoreov1alpha1.ReleaseBindingRevision {
 	return &openchoreov1alpha1.ReleaseBindingRevision{
 		ObjectMeta: metav1.ObjectMeta{GenerateName: "rb-", Namespace: testNamespace},
 		Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
-			Revision:             1,
-			Cause:                openchoreov1alpha1.RevisionCauseDeploy,
-			ComponentReleaseName: currentRelease,
-			SnapshotHash:         "hash-1",
+			Revision:     1,
+			Cause:        openchoreov1alpha1.RevisionCauseDeploy,
+			SnapshotHash: "hash-1",
 			BindingSpec: openchoreov1alpha1.ReleaseBindingSpec{
 				Owner:                           openchoreov1alpha1.ReleaseBindingOwner{ProjectName: "proj", ComponentName: "comp"},
 				Environment:                     "dev",
@@ -60,10 +60,9 @@ func newResourceReleaseBindingRevision() *openchoreov1alpha1.ResourceReleaseBind
 	return &openchoreov1alpha1.ResourceReleaseBindingRevision{
 		ObjectMeta: metav1.ObjectMeta{GenerateName: "rrb-", Namespace: testNamespace},
 		Spec: openchoreov1alpha1.ResourceReleaseBindingRevisionSpec{
-			Revision:            1,
-			Cause:               openchoreov1alpha1.RevisionCausePromote,
-			ResourceReleaseName: "db-abc123",
-			SnapshotHash:        "hash-1",
+			Revision:     1,
+			Cause:        openchoreov1alpha1.RevisionCausePromote,
+			SnapshotHash: "hash-1",
 			BindingSpec: openchoreov1alpha1.ResourceReleaseBindingSpec{
 				Owner:                          openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: "proj", ResourceName: "db"},
 				Environment:                    "dev",
@@ -82,6 +81,29 @@ func expectImmutable(err error) {
 	Expect(err).To(HaveOccurred())
 	Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
 	Expect(err.Error()).To(ContainSubstring(immutableSpecMessage))
+}
+
+// expectSpecRequired asserts that err is the apiserver's Invalid response for
+// a missing spec.
+func expectSpecRequired(err error) {
+	GinkgoHelper()
+	Expect(err).To(HaveOccurred())
+	Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
+	Expect(err.Error()).To(ContainSubstring("spec: Required value"))
+}
+
+// removeSpec is a JSON patch that removes the whole spec.
+var removeSpec = client.RawPatch(types.JSONPatchType, []byte(`[{"op":"remove","path":"/spec"}]`))
+
+// withoutSpec returns a revision object of the given kind with no spec at all,
+// which a typed object cannot express.
+func withoutSpec(kind string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetAPIVersion(openchoreov1alpha1.GroupVersion.String())
+	u.SetKind(kind)
+	u.SetGenerateName("nospec-")
+	u.SetNamespace(testNamespace)
+	return u
 }
 
 var _ = Describe("ReleaseBindingRevision mutability", func() {
@@ -146,9 +168,6 @@ var _ = Describe("ReleaseBindingRevision mutability", func() {
 		Entry("spec.cause", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) {
 			s.Cause = openchoreov1alpha1.RevisionCauseRedeploy
 		}),
-		Entry("spec.componentReleaseName", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) {
-			s.ComponentReleaseName = otherRelease
-		}),
 		Entry("spec.snapshotHash", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) { s.SnapshotHash = "hash-2" }),
 		Entry("spec.bindingSpec.releaseName", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) {
 			s.BindingSpec.ReleaseName = otherRelease
@@ -180,6 +199,26 @@ var _ = Describe("ReleaseBindingRevision mutability", func() {
 			}
 		}),
 	)
+
+	It("should reject removing the spec, which would skip the immutability rule", func() {
+		expectSpecRequired(k8sClient.Patch(ctx, rev, removeSpec))
+
+		after := &openchoreov1alpha1.ReleaseBindingRevision{}
+		Expect(k8sClient.Get(ctx, nn, after)).To(Succeed())
+		Expect(after.Spec.BindingSpec.ReleaseName).To(Equal(currentRelease))
+	})
+
+	It("should reject creating a revision without a spec", func() {
+		expectSpecRequired(k8sClient.Create(ctx, withoutSpec("ReleaseBindingRevision")))
+	})
+
+	It("should reject a revision whose binding spec names no release", func() {
+		noRelease := newReleaseBindingRevision()
+		noRelease.Spec.BindingSpec.ReleaseName = ""
+		err := k8sClient.Create(ctx, noRelease)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
+		Expect(err.Error()).To(ContainSubstring("bindingSpec.releaseName must name the ComponentRelease"))
+	})
 
 	It("should reject a spec change sent as a merge patch", func() {
 		patch := client.RawPatch(types.MergePatchType, []byte(`{"spec":{"bindingSpec":{"releaseName":"`+otherRelease+`"}}}`))
@@ -226,13 +265,13 @@ var _ = Describe("ReleaseBindingRevision mutability", func() {
 		fetched := &openchoreov1alpha1.ReleaseBindingRevision{}
 		Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
 
-		fetched.Spec.ComponentReleaseName = otherRelease
+		fetched.Spec.BindingSpec.ReleaseName = otherRelease
 		fetched.Status.Health = openchoreov1alpha1.RevisionHealthProgressing
 		Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
 
 		after := &openchoreov1alpha1.ReleaseBindingRevision{}
 		Expect(k8sClient.Get(ctx, nn, after)).To(Succeed())
-		Expect(after.Spec.ComponentReleaseName).To(Equal(currentRelease))
+		Expect(after.Spec.BindingSpec.ReleaseName).To(Equal(currentRelease))
 		Expect(after.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
 	})
 
@@ -272,7 +311,27 @@ var _ = Describe("ResourceReleaseBindingRevision mutability", func() {
 	It("should create successfully", func() {
 		fetched := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
 		Expect(k8sClient.Get(ctx, nn, fetched)).To(Succeed())
-		Expect(fetched.Spec.ResourceReleaseName).To(Equal("db-abc123"))
+		Expect(fetched.Spec.BindingSpec.ResourceRelease).To(Equal("db-abc123"))
+	})
+
+	It("should reject removing the spec, which would skip the immutability rule", func() {
+		expectSpecRequired(k8sClient.Patch(ctx, rev, removeSpec))
+
+		after := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
+		Expect(k8sClient.Get(ctx, nn, after)).To(Succeed())
+		Expect(after.Spec.BindingSpec.ResourceRelease).To(Equal("db-abc123"))
+	})
+
+	It("should reject creating a revision without a spec", func() {
+		expectSpecRequired(k8sClient.Create(ctx, withoutSpec("ResourceReleaseBindingRevision")))
+	})
+
+	It("should reject a revision whose binding spec names no release", func() {
+		noRelease := newResourceReleaseBindingRevision()
+		noRelease.Spec.BindingSpec.ResourceRelease = ""
+		err := k8sClient.Create(ctx, noRelease)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
+		Expect(err.Error()).To(ContainSubstring("bindingSpec.resourceRelease must name the ResourceRelease"))
 	})
 
 	DescribeTable("should reject spec changes with the immutability message",
@@ -292,9 +351,6 @@ var _ = Describe("ResourceReleaseBindingRevision mutability", func() {
 		Entry("spec.revision", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) { s.Revision = 2 }),
 		Entry("spec.cause", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {
 			s.Cause = openchoreov1alpha1.RevisionCauseOverride
-		}),
-		Entry("spec.resourceReleaseName", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {
-			s.ResourceReleaseName = "db-def456"
 		}),
 		Entry("spec.snapshotHash", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) { s.SnapshotHash = "hash-2" }),
 		Entry("spec.bindingSpec.resourceRelease", func(s *openchoreov1alpha1.ResourceReleaseBindingRevisionSpec) {

@@ -10,6 +10,7 @@ import (
 // ReleaseBindingRevisionSpec defines the recorded state of one ReleaseBinding revision.
 // The spec is fixed after creation; only status may change.
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="revision spec is immutable; only status may change"
+// +kubebuilder:validation:XValidation:rule="has(self.bindingSpec.releaseName) && size(self.bindingSpec.releaseName) > 0",message="bindingSpec.releaseName must name the ComponentRelease the revision binds"
 type ReleaseBindingRevisionSpec struct {
 	// Revision is the sequence number of this revision within its ReleaseBinding.
 	// +kubebuilder:validation:Required
@@ -19,11 +20,6 @@ type ReleaseBindingRevisionSpec struct {
 	// Cause records why this revision was created.
 	// +kubebuilder:validation:Required
 	Cause RevisionCause `json:"cause"`
-
-	// ComponentReleaseName is the name of the ComponentRelease bound by this revision.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ComponentReleaseName string `json:"componentReleaseName"`
 
 	// SnapshotHash is the hash of the binding spec captured in this revision.
 	// +kubebuilder:validation:Required
@@ -37,6 +33,7 @@ type ReleaseBindingRevisionSpec struct {
 	Message string `json:"message,omitempty"`
 
 	// BindingSpec is a copy of the ReleaseBinding spec at the time of this revision.
+	// Its releaseName is the ComponentRelease the revision binds.
 	// +kubebuilder:validation:Required
 	BindingSpec ReleaseBindingSpec `json:"bindingSpec"`
 }
@@ -74,9 +71,9 @@ type BindingRevisionStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=rbr
+// +kubebuilder:resource:scope=Namespaced,shortName=rbr;rbrs
 // +kubebuilder:printcolumn:name="Revision",type=integer,JSONPath=`.spec.revision`
-// +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.componentReleaseName`
+// +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.bindingSpec.releaseName`
 // +kubebuilder:printcolumn:name="Cause",type=string,JSONPath=`.spec.cause`
 // +kubebuilder:printcolumn:name="Health",type=string,JSONPath=`.status.health`
 // +kubebuilder:printcolumn:name="Active",type=boolean,JSONPath=`.status.active`
@@ -88,7 +85,10 @@ type ReleaseBindingRevision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ReleaseBindingRevisionSpec `json:"spec,omitempty"`
+	// Spec is required: without it the spec immutability rule would not run,
+	// so a spec could be removed and a different one set.
+	// +kubebuilder:validation:Required
+	Spec   ReleaseBindingRevisionSpec `json:"spec"`
 	Status BindingRevisionStatus      `json:"status,omitempty"`
 }
 
