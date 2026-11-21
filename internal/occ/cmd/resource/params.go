@@ -26,4 +26,5 @@ type PromoteParams struct {
 	Namespace    string
 	ResourceName string
 	Environment  string
+	Message      string // --message: optional reason recorded on the new revision
 }

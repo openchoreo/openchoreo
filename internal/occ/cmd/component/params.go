@@ -36,6 +36,7 @@ type DeployParams struct {
 	To            string   // --to flag (target env for promotion)
 	Set           []string // --set values (type.path=value)
 	ReleaseLine   string   // --release-line flag; empty or "main" is the main line
+	Message       string   // --message: optional reason recorded on the new revision
 }
 
 func (p DeployParams) GetNamespace() string     { return p.Namespace }
