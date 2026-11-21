@@ -114,6 +114,11 @@ type Reconciler struct {
 	// Recorder records events on ReleaseBindings, such as a revision history
 	// that protected revisions keep above the limit. Set by SetupWithManager.
 	Recorder record.EventRecorder
+
+	// APIReader reads from the apiserver, bypassing the cache. Revision
+	// recording uses it when the revision cache is behind a binding. Set by
+	// SetupWithManager; when nil, the cached Client is used.
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -302,12 +307,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	snapshotter := r.revisionSnapshotter(environment)
 	revErr := r.recordRevision(ctx, snapshotter, releaseBinding)
 
-	res, err := r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID)
+	var rendered renderedReleaseRead
+	res, err := r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID, &rendered)
 
 	// The active revision follows the binding's health as this reconcile left it,
 	// on every return path of reconcileRelease, including errors.
 	if revErr == nil {
-		requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, releaseBinding, componentRelease)
+		requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, releaseBinding, componentRelease, rendered.release)
 		if healthErr != nil {
 			logger.Error(healthErr, "Failed to update ReleaseBinding revision health")
 			revErr = healthErr
@@ -360,18 +366,34 @@ func (r *Reconciler) revisionSnapshotter(environment *openchoreov1alpha1.Environ
 		KnownGoodWindow: r.RevisionKnownGoodWindow,
 		HistoryLimit:    revision.EnvironmentHistoryLimit(environment, r.RevisionHistoryLimit),
 		Recorder:        r.Recorder,
+		APIReader:       r.APIReader,
 	})
+}
+
+// renderedReleaseRead holds the dataplane RenderedRelease a reconcile read or
+// wrote, once it has one.
+type renderedReleaseRead struct {
+	release *openchoreov1alpha1.RenderedRelease
 }
 
 // observeRevisionHealth maps the binding's conditions and its dataplane
 // RenderedRelease to a revision health and records it on the active revision.
 // It returns how long until that revision can become known-good, if it is
 // waiting for that.
+//
+// rendered is the RenderedRelease this reconcile read or wrote, when it got
+// that far: the object ResourcesReady was evaluated from, or the one just
+// written. Health is judged from that same object. Reading it again could
+// return a newer status than ResourcesReady saw, or, through the cache, the
+// generation before the one just written; either could pass a revision as
+// Healthy before its spec is applied. Only when the reconcile stopped before
+// reaching the RenderedRelease is it read here.
 func (r *Reconciler) observeRevisionHealth(
 	ctx context.Context,
 	snapshotter *revision.Snapshotter[*openchoreov1alpha1.ReleaseBinding, *openchoreov1alpha1.ReleaseBindingRevision],
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease,
+	rendered *openchoreov1alpha1.RenderedRelease,
 ) (time.Duration, error) {
 	observation := revision.Observation{
 		Generation:      releaseBinding.Generation,
@@ -380,6 +402,10 @@ func (r *Reconciler) observeRevisionHealth(
 		Undeploy:        releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy,
 	}
 
+	if rendered != nil {
+		observation.RenderedRelease = rendered
+		return snapshotter.ObserveHealth(ctx, releaseBinding, observation.Health())
+	}
 	renderedRelease := &openchoreov1alpha1.RenderedRelease{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      makeDataPlaneReleaseName(componentRelease, releaseBinding),
@@ -612,13 +638,15 @@ func (r *Reconciler) collectSecretReferences(ctx context.Context, workload *open
 }
 
 // reconcileRelease creates or updates the Release resource and sets appropriate status conditions.
+// Once the dataplane RenderedRelease is written, it is kept in rendered for the
+// revision health (see observeRevisionHealth).
 //
 // nolint:gocyclo // Long reconcile state machine; complexity is structural, not accidental.
 // Matches the same nolint directive on setResourcesReadyStatus and the workflowrun reconcile.
 func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openchoreov1alpha1.ReleaseBinding,
 	componentRelease *openchoreov1alpha1.ComponentRelease, environment *openchoreov1alpha1.Environment,
 	dataPlaneResult *controller.DataPlaneResult, component *openchoreov1alpha1.Component, project *openchoreov1alpha1.Project,
-	releaseLineUID string) (ctrl.Result, error) {
+	releaseLineUID string, rendered *renderedReleaseRead) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
 	// Handle undeploy state - delete Release resources if they exist
@@ -886,6 +914,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		logger.Error(err, "Failed to reconcile dataplane Release", "release", dataPlaneRelease.Name)
 		return ctrl.Result{}, err
 	}
+	rendered.release = dataPlaneRelease
 
 	// Delivery events describe the rollout the RenderedRelease above just carried
 	// to the data plane, so they are reconciled here, before any of the guards
@@ -1846,6 +1875,9 @@ func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, name
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	if r.Pipeline == nil {
 		r.Pipeline = componentpipeline.NewPipeline(
 			componentpipeline.WithCostLimit(r.CELCostLimit),
