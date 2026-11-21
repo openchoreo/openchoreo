@@ -107,8 +107,7 @@ func sendMailContext(ctx context.Context, addr string, auth smtp.Auth, from stri
 		return newDeliveryError(ReasonChannelConfig, "invalid SMTP address", err)
 	}
 
-	var dialer net.Dialer
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	conn, err := smtpDial(ctx, "tcp", addr)
 	if err != nil {
 		return err
 	}
