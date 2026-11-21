@@ -593,10 +593,14 @@ func (s *Snapshotter[B, R]) clearChangeAnnotations(ctx context.Context, binding 
 // before it was made active again. Its known-good mark is kept. A revision that
 // stops being active keeps its health as last observed. Only revisions whose
 // status changes are written, so this is safe to run on every reconcile.
+//
+// The other revisions are marked inactive before the active one is marked
+// active, so a client reading between the writes sees at most one active
+// revision, never the old and the new together. The active one is still
+// written when a deactivation fails; the error is returned for a retry.
 func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active int64, restart bool) error {
 	var errs []error
-	for _, rev := range revs {
-		want := s.Adapter.Number(rev) == active
+	project := func(rev R, want bool) {
 		err := s.updateStatus(ctx, rev, func(status *openchoreov1alpha1.BindingRevisionStatus) bool {
 			start := want && (restart || !status.Active || status.Health == "")
 			if status.Active == want && !start {
@@ -613,6 +617,16 @@ func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active 
 		})
 		if err != nil {
 			errs = append(errs, fmt.Errorf("update status of revision %q: %w", rev.GetName(), err))
+		}
+	}
+	for _, rev := range revs {
+		if s.Adapter.Number(rev) != active {
+			project(rev, false)
+		}
+	}
+	for _, rev := range revs {
+		if s.Adapter.Number(rev) == active {
+			project(rev, true)
 		}
 	}
 	return kerrors.NewAggregate(errs)

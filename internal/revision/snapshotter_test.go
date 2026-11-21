@@ -1453,3 +1453,38 @@ func TestReleaseBindingSnapshotter_DeactivateKeepsHealth(t *testing.T) {
 	assert.True(t, r2.Status.Active)
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r2.Status.Health)
 }
+
+// Readers of the revisions (the REST API, the portal) must never see two
+// active at once: the revision that stops being active is written first.
+func TestReleaseBindingSnapshotter_DeactivatesBeforeActivating(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	var writes []string
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok {
+					writes = append(writes, fmt.Sprintf("r%d active=%v", r.Spec.Revision, r.Status.Active))
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	bump(binding, newRelease)
+	_, err = s.Record(ctx, binding) // r2 replaces r1
+	require.NoError(t, err)
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = firstRelease })
+	_, err = s.Record(ctx, binding) // rollback: r1 replaces r2
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{
+		"r1 active=true",
+		"r1 active=false", "r2 active=true",
+		"r2 active=false", "r1 active=true",
+	}, writes)
+}
