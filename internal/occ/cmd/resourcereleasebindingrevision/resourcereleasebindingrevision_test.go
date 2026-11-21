@@ -46,10 +46,11 @@ func expectHistory(mc *mocks.MockInterface) {
 		h := gen.BindingRevisionStatusHealth(health)
 		r := gen.ResourceReleaseBindingRevision{
 			Metadata: gen.ObjectMeta{Name: fmt.Sprintf("%s-r%d", testBinding, n), CreationTimestamp: &created},
-			Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: n, ResourceReleaseName: release, Cause: "Deploy", SnapshotHash: "h"},
+			Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: n, Cause: "Deploy", SnapshotHash: "h"},
 			Status:   &gen.BindingRevisionStatus{Health: &h, Active: &active, KnownGood: &knownGood},
 		}
 		r.Spec.BindingSpec.Owner.ResourceName = "db"
+		r.Spec.BindingSpec.ResourceRelease = &release
 		return r
 	}
 	mc.EXPECT().ListResourceReleaseBindingRevisions(mock.Anything, testNS, mock.MatchedBy(func(p *gen.ListResourceReleaseBindingRevisionsParams) bool {
@@ -63,7 +64,7 @@ func expectHistory(mc *mocks.MockInterface) {
 func TestNewResourceReleaseBindingRevisionCmd(t *testing.T) {
 	cmd := NewResourceReleaseBindingRevisionCmd(errFactory("unused"))
 	assert.Equal(t, "resourcereleasebindingrevision", cmd.Use)
-	assert.ElementsMatch(t, []string{"resourcereleasebindingrevisions", "rrbr"}, cmd.Aliases)
+	assert.ElementsMatch(t, []string{"resourcereleasebindingrevisions", "rrbr", "rrbrs"}, cmd.Aliases)
 
 	names := make([]string, 0, len(cmd.Commands()))
 	for _, sub := range cmd.Commands() {
@@ -109,7 +110,7 @@ func TestGet(t *testing.T) {
 		out := testutil.CaptureStdout(t, func() {
 			require.NoError(t, New(mc).Get(GetParams{Namespace: testNS, Binding: testBinding, Revision: 1, Output: "yaml"}))
 		})
-		assert.Contains(t, out, "resourceReleaseName: db-aaa")
+		assert.Contains(t, out, "resourceRelease: db-aaa")
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -135,10 +136,11 @@ func TestList_AllBindings(t *testing.T) {
 		active, knownGood := true, true
 		r := gen.ResourceReleaseBindingRevision{
 			Metadata: gen.ObjectMeta{Name: fmt.Sprintf("x-r%d", n), CreationTimestamp: &created},
-			Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: n, ResourceReleaseName: release, Cause: "Deploy", SnapshotHash: "h"},
+			Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: n, Cause: "Deploy", SnapshotHash: "h"},
 			Status:   &gen.BindingRevisionStatus{Health: &h, Active: &active, KnownGood: &knownGood},
 		}
 		r.Spec.BindingSpec.Owner.ResourceName = "db"
+		r.Spec.BindingSpec.ResourceRelease = &release
 		return r
 	}
 
@@ -180,10 +182,12 @@ func TestList_AllBindingsByProject(t *testing.T) {
 	active := true
 	dbRev := gen.ResourceReleaseBindingRevision{
 		Metadata: gen.ObjectMeta{Name: "db-dev-r1"},
-		Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: 1, ResourceReleaseName: "db-aaa", Cause: "Deploy", SnapshotHash: "h"},
+		Spec:     gen.ResourceReleaseBindingRevisionSpec{Revision: 1, Cause: "Deploy", SnapshotHash: "h"},
 		Status:   &gen.BindingRevisionStatus{Health: &h, Active: &active},
 	}
 	dbRev.Spec.BindingSpec.Owner.ResourceName = "db"
+	dbRelease := "db-aaa"
+	dbRev.Spec.BindingSpec.ResourceRelease = &dbRelease
 	mc.EXPECT().ListResourceReleaseBindingRevisions(mock.Anything, testNS, mock.MatchedBy(func(p *gen.ListResourceReleaseBindingRevisionsParams) bool {
 		return p.Resource == "db"
 	})).Return(&gen.ResourceReleaseBindingRevisionList{Items: []gen.ResourceReleaseBindingRevision{dbRev}}, nil)

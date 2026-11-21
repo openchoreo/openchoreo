@@ -39,11 +39,12 @@ func testRevision(n int64, release, cause, health string, active, knownGood bool
 	rev := gen.ReleaseBindingRevision{
 		Metadata: gen.ObjectMeta{Name: fmt.Sprintf("%s-r%d", testBinding, n), CreationTimestamp: &created},
 		Spec: gen.ReleaseBindingRevisionSpec{
-			Revision: n, ComponentReleaseName: release, Cause: gen.RevisionCause(cause), SnapshotHash: "h",
+			Revision: n, Cause: gen.RevisionCause(cause), SnapshotHash: "h",
 		},
 		Status: &gen.BindingRevisionStatus{Health: &h, Active: &active, KnownGood: &knownGood},
 	}
 	rev.Spec.BindingSpec.Owner.ComponentName = testComponent
+	rev.Spec.BindingSpec.ReleaseName = &release
 	return rev
 }
 
@@ -227,7 +228,7 @@ func TestGet_YAML(t *testing.T) {
 		require.NoError(t, New(mc).Get(GetParams{Namespace: testNS, Binding: testBinding, Revision: 1, Output: "yaml"}))
 	})
 	assert.Contains(t, out, "name: api-dev-r1")
-	assert.Contains(t, out, "componentReleaseName: api-aaa")
+	assert.Contains(t, out, "releaseName: api-aaa")
 	assert.Contains(t, out, "knownGood: true")
 }
 

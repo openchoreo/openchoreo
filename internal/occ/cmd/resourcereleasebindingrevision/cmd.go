@@ -16,7 +16,7 @@ import (
 func NewResourceReleaseBindingRevisionCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "resourcereleasebindingrevision",
-		Aliases: []string{"resourcereleasebindingrevisions", "rrbr"},
+		Aliases: []string{"resourcereleasebindingrevisions", "rrbr", "rrbrs"},
 		Short:   "Manage resource release binding revisions",
 		Long:    "Commands for listing, showing and deleting resource release binding revisions. To roll back, use occ resourcereleasebinding rollback.",
 	}

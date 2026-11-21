@@ -35,6 +35,7 @@ func TestNewReleaseBindingRevisionCmd_Use(t *testing.T) {
 	cmd := NewReleaseBindingRevisionCmd(errFactory("unused"))
 	assert.Equal(t, "releasebindingrevision", cmd.Use)
 	assert.Contains(t, cmd.Aliases, "rbr")
+	assert.Contains(t, cmd.Aliases, "rbrs")
 	assert.Contains(t, cmd.Aliases, "crbr")
 	assert.Contains(t, cmd.Aliases, "releasebindingrevisions")
 }
@@ -107,7 +108,7 @@ func TestGetCmd_YAMLViaShorthand(t *testing.T) {
 	out := testutil.CaptureStdout(t, func() {
 		require.NoError(t, cmd.RunE(cmd, nil))
 	})
-	assert.Contains(t, out, "componentReleaseName: api-aaa")
+	assert.Contains(t, out, "releaseName: api-aaa")
 }
 
 // list's --project, --component and --resource are filters: they must not be

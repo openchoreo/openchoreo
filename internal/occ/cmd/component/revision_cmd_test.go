@@ -39,10 +39,11 @@ func expectRevisionHistory(mc *mocks.MockInterface) {
 		knownGood := !active
 		r := gen.ReleaseBindingRevision{
 			Metadata: gen.ObjectMeta{Name: fmt.Sprintf("%s-r%d", revBinding, n), CreationTimestamp: &created},
-			Spec:     gen.ReleaseBindingRevisionSpec{Revision: n, ComponentReleaseName: release, Cause: "Deploy", SnapshotHash: "h"},
+			Spec:     gen.ReleaseBindingRevisionSpec{Revision: n, Cause: "Deploy", SnapshotHash: "h"},
 			Status:   &gen.BindingRevisionStatus{Health: &h, Active: &active, KnownGood: &knownGood},
 		}
 		r.Spec.BindingSpec.Owner.ComponentName = revOwner
+		r.Spec.BindingSpec.ReleaseName = &release
 		return r
 	}
 	mc.EXPECT().ListReleaseBindingRevisions(mock.Anything, revNS, mock.MatchedBy(func(p *gen.ListReleaseBindingRevisionsParams) bool {
@@ -216,7 +217,7 @@ func TestRevisionGetCmd(t *testing.T) {
 		out := testutil.CaptureStdout(t, func() {
 			require.NoError(t, cmd.RunE(cmd, []string{revBinding, "1"}))
 		})
-		assert.Contains(t, out, "componentReleaseName: api-aaa")
+		assert.Contains(t, out, "releaseName: api-aaa")
 	})
 
 	t.Run("revision not found", func(t *testing.T) {

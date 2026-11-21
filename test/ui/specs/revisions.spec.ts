@@ -173,11 +173,11 @@ async function expectRevisions(expected: string[], timeout: number): Promise<voi
 // so r1 and r2 bind different ones.
 function releaseOf(revision: number): string {
   return (
-    kGetJSON<{ spec?: { componentReleaseName?: string } }>(
+    kGetJSON<{ spec?: { bindingSpec?: { releaseName?: string } } }>(
       'releasebindingrevision',
       `${BINDING_NAME}-r${revision}`,
       NS,
-    ).spec?.componentReleaseName ?? ''
+    ).spec?.bindingSpec?.releaseName ?? ''
   );
 }
 
@@ -265,8 +265,8 @@ test.describe('release binding revisions through the Deploy tab', () => {
     await revs.expectDiffBetween(1, 2);
     // Full ReleaseBindingRevision objects: each side binds its own release.
     // (Unchanged lines such as `kind:` may be collapsed in the diff.)
-    await revs.expectDiffShows(`componentReleaseName: ${release1}`);
-    await revs.expectDiffShows(`componentReleaseName: ${release2}`);
+    await revs.expectDiffShows(`releaseName: ${release1}`);
+    await revs.expectDiffShows(`releaseName: ${release2}`);
     await revs.closeBrowser();
 
     // ── Development is the first environment and the component auto-deploys:
