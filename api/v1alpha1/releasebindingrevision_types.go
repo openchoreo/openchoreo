@@ -50,7 +50,10 @@ type BindingRevisionStatus struct {
 	// +optional
 	Active bool `json:"active,omitempty"`
 
-	// KnownGood is true once this revision has been observed healthy.
+	// KnownGood is true once this revision has stayed Healthy, while active, for
+	// the controller's known-good window (--revision-known-good-window, 60s by
+	// default; with a zero window the first Healthy observation is enough).
+	// Once set it stays set, whatever the revision's health later.
 	// +optional
 	KnownGood bool `json:"knownGood,omitempty"`
 
