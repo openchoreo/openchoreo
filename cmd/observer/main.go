@@ -30,6 +30,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
@@ -49,6 +51,19 @@ import (
 // observer left pending as interrupted.
 const staleDeliverySweepInterval = 5 * time.Minute
 
+// configureNotificationDestinations sets which addresses alert notifications may be sent to.
+func configureNotificationDestinations(cfg *config.Config, logger *slog.Logger) {
+	private := cfg.Alerting.NotificationPrivateDestinations
+	notifications.SetDestinationPolicy(destination.Options{
+		Private:        private,
+		ProtectedHosts: cfg.NotificationProtectedHostList(),
+	})
+	if !private.IsEmpty() {
+		logger.Info("Alert notifications may be sent to these private destinations",
+			"addresses", private.Prefixes, "hosts", private.Hosts)
+	}
+}
+
 func main() {
 	// Create bootstrap logger for early initialization
 	bootstrapLogger := createBootstrapLogger()
@@ -67,6 +82,8 @@ func main() {
 	// Initialize logger with proper configuration
 	logger := initLogger(cfg.LogLevel)
 	logger.Info("Configuration loaded successfully", "log_level", cfg.LogLevel)
+
+	configureNotificationDestinations(cfg, logger)
 
 	// Initialize Kubernetes client for fetching notification channel configs
 	k8sClient, err := k8s.NewK8sClient()
