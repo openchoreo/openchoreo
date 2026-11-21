@@ -9,9 +9,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
+	"github.com/openchoreo/openchoreo/internal/controller"
 )
 
 const (
@@ -70,4 +73,64 @@ func (r *Reconciler) listResourceReleaseBindingsForResourceRelease(ctx context.C
 		}
 	}
 	return requests
+}
+
+// listResourceReleaseBindingsForProjectReleaseBinding returns reconcile
+// requests for the ResourceReleaseBindings of the ProjectReleaseBinding's
+// project and environment, which take their namespace from it.
+func (r *Reconciler) listResourceReleaseBindingsForProjectReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	prb, ok := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ResourceReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(prb.Namespace)); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings for ProjectReleaseBinding",
+			"projectReleaseBinding", prb.Name, "namespace", prb.Namespace)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		b := &bindings.Items[i]
+		if b.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName && b.Spec.Environment == prb.Spec.Environment {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: b.Name, Namespace: b.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// listResourceReleaseBindingsForResource returns reconcile requests for the
+// ResourceReleaseBindings of a Resource, found through the shared owner index.
+func (r *Reconciler) listResourceReleaseBindingsForResource(ctx context.Context, obj client.Object) []reconcile.Request {
+	resource, ok := obj.(*openchoreov1alpha1.Resource)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ResourceReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(resource.Namespace),
+		client.MatchingFields{controller.IndexKeyResourceReleaseBindingOwnerResourceName: resource.Name},
+	); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings for Resource",
+			"resource", resource.Name, "namespace", resource.Namespace)
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(bindings.Items))
+	for i := range bindings.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: bindings.Items[i].Name, Namespace: bindings.Items[i].Namespace},
+		})
+	}
+	return requests
+}
+
+// createOrDeletePredicate passes creates and deletes only. A Resource's owner
+// can't change, so an update never changes which bindings it has or whether
+// they can observe.
+func createOrDeletePredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(event.UpdateEvent) bool { return false },
+	}
 }

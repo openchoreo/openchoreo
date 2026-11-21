@@ -128,6 +128,18 @@ const (
 	// ReasonFinalizing indicates the binding is being finalized.
 	ReasonFinalizing controller.ConditionReason = "Finalizing"
 
+	// ReasonNothingObserved indicates a binding in Observe mode lists no
+	// resources in spec.observe.resources.
+	ReasonNothingObserved controller.ConditionReason = "NothingObserved"
+
+	// ReasonResourceProjectMismatch indicates the owning Resource belongs to a
+	// different project than the binding's spec.owner.projectName.
+	ReasonResourceProjectMismatch controller.ConditionReason = "ResourceProjectMismatch"
+
+	// ReasonResourcesUnknown indicates an observed resource could not be read,
+	// for example because it doesn't exist.
+	ReasonResourcesUnknown controller.ConditionReason = "ResourcesUnknown"
+
 	// ReasonRetainHold indicates the finalizer is being held because the
 	// effective retainPolicy is Retain. PE clears it manually after
 	// reclaiming any DP-side state.

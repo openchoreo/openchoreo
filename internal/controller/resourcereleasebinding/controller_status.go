@@ -40,13 +40,16 @@ func (r *Reconciler) evaluateReadiness(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	rr *openchoreov1alpha1.RenderedRelease,
 ) time.Duration {
 	logger := log.FromContext(ctx)
 
 	observed := observedStatusByID(rr.Status.Resources, logger)
-	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, observed, logger)
-	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, rr, observed, logger)
+	retryAfter := r.evaluateOutputs(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace,
+		observed, logger)
+	r.evaluateResourcesReady(ctx, binding, release, environment, dataPlane, resource, project, dataPlaneNamespace,
+		rr, observed, logger)
 	return retryAfter
 }
 
@@ -86,10 +89,11 @@ func (r *Reconciler) evaluateOutputs(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	observed map[string]map[string]any,
 	logger logr.Logger,
 ) time.Duration {
-	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project, dataPlaneNamespace)
 
 	resolved, err := r.Pipeline.ResolveOutputs(ctx, input, observed)
 	if err == nil {
@@ -154,6 +158,7 @@ func (r *Reconciler) evaluateResourcesReady(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 	rr *openchoreov1alpha1.RenderedRelease,
 	observed map[string]map[string]any,
 	logger logr.Logger,
@@ -179,7 +184,7 @@ func (r *Reconciler) evaluateResourcesReady(
 		renderedIDs[rr.Spec.Resources[i].ID] = true
 	}
 
-	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project)
+	input := buildPipelineInput(binding, release, environment, dataPlane, resource, project, dataPlaneNamespace)
 	entries := release.Spec.ResourceType.Spec.Resources
 
 	rendered := 0
@@ -233,24 +238,30 @@ func (r *Reconciler) evaluateResourcesReady(
 		fmt.Sprintf("All %d resource(s) ready", rendered))
 }
 
-// setReadyCondition aggregates Synced, ResourcesReady, and OutputsResolved
-// into the top-level Ready. Ready=True only when all three sub-conditions
-// are True; otherwise Ready=False inherits the failing sub-condition's
+// setReadyCondition aggregates Synced, ResourcesReady, and, in Manage mode,
+// OutputsResolved into the top-level Ready. Ready=True only when all of them
+// are True; otherwise Ready=False inherits the first failing sub-condition's
 // Reason and Message.
 //
 // EndpointsResolved is excluded: it identifies the resource's dialable addresses, which
 // is separate from whether the resource is ready.
 func (r *Reconciler) setReadyCondition(binding *openchoreov1alpha1.ResourceReleaseBinding) {
-	synced := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionSynced))
-	resReady := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionResourcesReady))
-	outputs := meta.FindStatusCondition(binding.Status.Conditions, string(ConditionOutputsResolved))
+	subConditions := []*metav1.Condition{
+		meta.FindStatusCondition(binding.Status.Conditions, string(ConditionSynced)),
+		meta.FindStatusCondition(binding.Status.Conditions, string(ConditionResourcesReady)),
+	}
+	// Observe mode resolves no outputs, so its readiness is the observed health.
+	if !binding.Spec.IsObserve() {
+		subConditions = append(subConditions,
+			meta.FindStatusCondition(binding.Status.Conditions, string(ConditionOutputsResolved)))
+	}
 
-	if isTrue(synced) && isTrue(resReady) && isTrue(outputs) {
+	if allTrue(subConditions) {
 		controller.MarkTrueCondition(binding, ConditionReady, ReasonReady, "ResourceReleaseBinding is ready")
 		return
 	}
 
-	for _, c := range []*metav1.Condition{synced, resReady, outputs} {
+	for _, c := range subConditions {
 		if c == nil || c.Status == metav1.ConditionTrue {
 			continue
 		}
@@ -265,6 +276,15 @@ func (r *Reconciler) setReadyCondition(binding *openchoreov1alpha1.ResourceRelea
 
 func isTrue(c *metav1.Condition) bool {
 	return c != nil && c.Status == metav1.ConditionTrue
+}
+
+func allTrue(conditions []*metav1.Condition) bool {
+	for _, c := range conditions {
+		if !isTrue(c) {
+			return false
+		}
+	}
+	return true
 }
 
 // markSyncedFalse marks Synced=False and forces ResourcesReady and
@@ -291,12 +311,13 @@ func buildPipelineInput(
 	dataPlane *openchoreov1alpha1.DataPlane,
 	resource *openchoreov1alpha1.Resource,
 	project *openchoreov1alpha1.Project,
+	dataPlaneNamespace string,
 ) *resourcepipeline.RenderInput {
 	return &resourcepipeline.RenderInput{
 		ResourceType:           buildResourceTypeFromRelease(release),
 		Resource:               buildResourceFromRelease(release),
 		ResourceReleaseBinding: binding,
-		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project),
+		Metadata:               buildMetadataContext(binding, environment, dataPlane, resource, project, dataPlaneNamespace),
 		DataPlane:              resourcepipeline.BuildDataPlaneContext(dataPlane),
 		Environment:            resourcepipeline.BuildEnvironmentContext(environment, dataPlane),
 	}

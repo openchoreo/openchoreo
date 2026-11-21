@@ -99,8 +99,7 @@ func MakeNamespaceNames(environmentNames []string, project openchoreov1alpha1.Pr
 	for _, env := range environmentNames {
 		environmentName := env
 		// Limit the name to 63 characters to comply with the K8s name length limit for Namespaces
-		k8sNamespaceName := dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength,
-			"dp", namespaceName, projectName, environmentName)
+		k8sNamespaceName := dpkubernetes.DataPlaneNamespace(namespaceName, projectName, environmentName)
 		namespaceNames = append(namespaceNames, k8sNamespaceName)
 	}
 

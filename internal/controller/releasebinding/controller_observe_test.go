@@ -14,6 +14,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/projectreleasebinding"
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/releaseline"
@@ -321,7 +322,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		_, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Switched to Manage without a release to render, it keeps observing while allowed")
+		By("Switched to Manage under the observed ProjectReleaseBinding, it keeps observing and renders nothing")
 		updated := fetchRB(rb.Name)
 		updated.Spec.Mode = openchoreov1alpha1.BindingModeManage
 		updated.Spec.ReleaseName = "not-a-release"
@@ -331,7 +332,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
 		Expect(conditionFor(fetchRB(rb.Name), string(ConditionReleaseSynced)).Reason).
-			To(Equal(string(ReasonComponentReleaseNotFound)))
+			To(Equal(string(projectreleasebinding.ReasonProjectObserved)))
 
 		By("Revoking the namespace removes it")
 		prb.Status.Namespace = ""
@@ -353,7 +354,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		current.Spec.Mode = openchoreov1alpha1.RenderedReleaseModeManage
 		Expect(k8sClient.Update(ctx, current)).To(Succeed())
 
-		Expect(testReconciler().deleteObservingRelease(ctx, stale)).NotTo(Succeed())
+		Expect(renderedrelease.DeleteObserving(ctx, k8sClient, stale)).NotTo(Succeed())
 		_, err = releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
 	})

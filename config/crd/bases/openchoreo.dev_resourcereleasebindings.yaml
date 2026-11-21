@@ -33,6 +33,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .spec.mode
+      name: Mode
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -64,7 +67,8 @@ spec:
           spec:
             description: |-
               ResourceReleaseBindingSpec defines the desired state of ResourceReleaseBinding.
-              Pins a ResourceRelease to an Environment and carries per-env overrides.
+              Pins a ResourceRelease to an Environment and carries per-env overrides, or,
+              in Observe mode, lists the objects the resource already runs as.
               The Resource controller never creates or modifies ResourceReleaseBindings;
               they are authored externally (kubectl, GitOps, API server).
               The resourceRelease pin is advanced manually via `occ resource promote` or
@@ -78,6 +82,64 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.environment is immutable
                   rule: self == oldSelf
+              mode:
+                default: Manage
+                description: |-
+                  Mode decides whether this binding deploys the resource's release
+                  (Manage) or reads objects the resource already runs as (Observe).
+                  Observe needs a ProjectReleaseBinding in Observe mode for the same
+                  project and environment. In Observe mode, resourceRelease and
+                  resourceTypeEnvironmentConfigs are kept but have no effect, and
+                  retainPolicy applies only to what Manage mode applied before.
+                enum:
+                - Manage
+                - Observe
+                type: string
+              observe:
+                description: Observe configures Observe mode. It is ignored in Manage
+                  mode.
+                properties:
+                  resources:
+                    description: |-
+                      Resources lists objects in the namespace of the project's
+                      ProjectReleaseBinding that make up this resource, such as a database's
+                      StatefulSet and Service.
+                    items:
+                      description: |-
+                        ObservedResourceClaim names an existing object for a binding in observe mode
+                        to read. The object is in the namespace the binding observes, so only
+                        namespaced kinds can be claimed.
+                      properties:
+                        apiVersion:
+                          description: APIVersion is the object's API version, such
+                            as "apps/v1" or "v1".
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^([^/]+/)?[^/]+$
+                          type: string
+                        kind:
+                          description: Kind is the object's kind, such as "Deployment".
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[A-Z][A-Za-z0-9]*$
+                          type: string
+                        name:
+                          description: Name is the object's name.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - apiVersion
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - apiVersion
+                    - kind
+                    - name
+                    x-kubernetes-list-type: map
+                type: object
               owner:
                 description: Owner identifies the resource and project this ResourceReleaseBinding
                   belongs to.
@@ -132,9 +194,9 @@ spec:
               conditions:
                 description: |-
                   Conditions represent the latest available observations of the binding's state.
-                  Includes Synced, ResourcesReady, OutputsResolved, Ready (aggregate), and
-                  Finalizing during deletion. observedGeneration is set per-condition (project
-                  convention).
+                  Includes Synced, ResourcesReady, OutputsResolved (Manage mode only), Ready
+                  (aggregate), and Finalizing during deletion. observedGeneration is set
+                  per-condition (project convention).
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -199,7 +261,7 @@ spec:
                   from the underlying RenderedRelease.status by the binding controller. Each
                   entry corresponds to a declared ResourceType output. Secret/ConfigMap values
                   stay on the data plane; only the {name, key} reference transits to the
-                  control plane.
+                  control plane. Empty in Observe mode, which resolves no outputs.
                 items:
                   description: |-
                     ResolvedResourceOutput is a single resolved output value populated by the

@@ -44,6 +44,15 @@ func GenerateK8sNameWithLengthLimit(limit int, names ...string) string {
 	return generateK8sName(limit, "", names)
 }
 
+// DataPlaneNamespace returns the data-plane namespace OpenChoreo generates for
+// a project's environment: dp-{namespace}-{project}-{environment}-{hash},
+// within the namespace name limit. The ProjectReleaseBinding of a managed
+// project creates it, and bindings without one fall back to it.
+// NOTE: Changing it moves every managed project to a new namespace.
+func DataPlaneNamespace(namespace, project, environment string) string {
+	return GenerateK8sNameWithLengthLimit(MaxNamespaceNameLength, "dp", namespace, project, environment)
+}
+
 // GenerateK8sNameWithExtraHashInput generates a Kubernetes-compliant name like
 // GenerateK8sNameWithLengthLimit, but includes extraHashInput in the SHA-256
 // hash computation without adding it to the visible base name. Use this when

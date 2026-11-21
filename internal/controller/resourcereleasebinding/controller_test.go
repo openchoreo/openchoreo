@@ -1652,7 +1652,7 @@ var _ = Describe("ResourceReleaseBinding controller — metadata.name and labels
 		// Resource "foo" → visible name r-foo-dev-{hash(r_foo-dev)}
 		// Component "r-foo" → visible name r-foo-dev-{hash(r-foo-dev)}
 		// Same visible base, different hash, different K8s name.
-		resMeta := buildMetadataContext(makeBinding("foo", "dev"), envObj("dev"), dpObj(), resourceObj("foo"), projectObj())
+		resMeta := buildMetadataContext(makeBinding("foo", "dev"), envObj("dev"), dpObj(), resourceObj("foo"), projectObj(), "dp-ns")
 		componentName := dpkubernetes.GenerateK8sName("r-foo", "dev")
 
 		Expect(resMeta.Name).To(HavePrefix("r-foo-dev-"),
@@ -1662,7 +1662,7 @@ var _ = Describe("ResourceReleaseBinding controller — metadata.name and labels
 	})
 
 	It("populates the per-Resource standard labels including UIDs", func() {
-		meta := buildMetadataContext(makeBinding("mysql", "prod"), envObj("prod"), dpObj(), resourceObj("mysql"), projectObj())
+		meta := buildMetadataContext(makeBinding("mysql", "prod"), envObj("prod"), dpObj(), resourceObj("mysql"), projectObj(), "dp-ns")
 
 		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyResourceName, "mysql"))
 		Expect(meta.Labels).To(HaveKeyWithValue(labels.LabelKeyResourceUID, "res-uid"))
