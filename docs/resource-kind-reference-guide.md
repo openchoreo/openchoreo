@@ -298,6 +298,8 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `traitEnvironmentConfigs` | map[string]RawExtension | No | Yes | Per-environment trait overrides (keyed by instanceName) |
 | `workloadOverrides` | WorkloadOverrideTemplateSpec | No | Yes | Container env/file overrides |
 | `state` | ReleaseState | No | Yes | Active (default) or Undeploy |
+| `interval` | Duration | No | Yes | Stable-state watch interval, copied into the RenderedRelease. `0` or at least `30s`; unset uses the controller default |
+| `progressingInterval` | Duration | No | Yes | Transitioning watch interval, copied into the RenderedRelease. `0` or at least `5s`; unset uses the controller default |
 
 **Status:**
 
@@ -440,6 +442,8 @@ All spec fields are **immutable** after creation (enforced via `XValidation:rule
 | `resourceRelease` | string | No | Yes | ResourceRelease name to pin. Advanced manually via `occ resource promote` or kubectl edit |
 | `retainPolicy` | ResourceRetainPolicy | No | Yes | `Delete` or `Retain`. Per-env override; falls back to the (Cluster)ResourceType's `retainPolicy` (default `Delete`) |
 | `resourceTypeEnvironmentConfigs` | RawExtension | No | Yes | Per-environment values validated against `(Cluster)ResourceType.spec.environmentConfigs` |
+| `interval` | Duration | No | Yes | Stable-state watch interval, copied into the RenderedRelease. `0` or at least `30s`; unset uses the controller default |
+| `progressingInterval` | Duration | No | Yes | Transitioning watch interval, copied into the RenderedRelease. `0` or at least `5s`; unset uses the controller default |
 
 **Status:**
 

@@ -5158,6 +5158,16 @@ func (in *ReleaseBindingSpec) DeepCopyInto(out *ReleaseBindingSpec) {
 		*out = new(WorkloadOverrideTemplateSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Interval != nil {
+		in, out := &in.Interval, &out.Interval
+		*out = new(v1.Duration)
+		**out = **in
+	}
+	if in.ProgressingInterval != nil {
+		in, out := &in.ProgressingInterval, &out.ProgressingInterval
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	if in.Observe != nil {
 		in, out := &in.Observe, &out.Observe
 		*out = new(ReleaseBindingObserve)
@@ -5924,6 +5934,16 @@ func (in *ResourceReleaseBindingSpec) DeepCopyInto(out *ResourceReleaseBindingSp
 		in, out := &in.ResourceTypeEnvironmentConfigs, &out.ResourceTypeEnvironmentConfigs
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.Interval != nil {
+		in, out := &in.Interval, &out.Interval
+		*out = new(v1.Duration)
+		**out = **in
+	}
+	if in.ProgressingInterval != nil {
+		in, out := &in.ProgressingInterval, &out.ProgressingInterval
+		*out = new(v1.Duration)
+		**out = **in
 	}
 }
 

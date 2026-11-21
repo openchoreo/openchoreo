@@ -4,6 +4,8 @@
 package resourcereleasebinding
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -509,6 +511,50 @@ var _ = Describe("ResourceReleaseBinding controller — render and emit", func()
 		hasOwner, err := controllerutil.HasOwnerReference(rr.GetOwnerReferences(), updated, k8sClient.Scheme())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(hasOwner).To(BeTrue(), "RenderedRelease should be controller-owned by the binding")
+	})
+
+	It("copies the binding's requeue intervals into the RenderedRelease and clears them when unset", func() {
+		release := snapshotWithEntries("interval-release",
+			[]openchoreov1alpha1.ResourceTypeManifest{
+				{ID: "claim", Template: configMapTemplate("interval-claim")},
+			},
+		)
+		Expect(k8sClient.Create(ctx, release)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, release) })
+
+		env := makeEnvAndDP("interval")
+
+		b := makeBinding("interval-binding", release.Name, env.Name)
+		b.Spec.Interval = &metav1.Duration{Duration: 2 * time.Minute}
+		b.Spec.ProgressingInterval = &metav1.Duration{Duration: 30 * time.Second}
+		Expect(k8sClient.Create(ctx, b)).To(Succeed())
+		DeferCleanup(func() {
+			rrList := &openchoreov1alpha1.RenderedReleaseList{}
+			_ = k8sClient.List(ctx, rrList, client.InNamespace("default"))
+			for i := range rrList.Items {
+				_ = k8sClient.Delete(ctx, &rrList.Items[i])
+			}
+			_ = k8sClient.Delete(ctx, b)
+		})
+
+		updated := reconcileBinding(b)
+
+		rrList := &openchoreov1alpha1.RenderedReleaseList{}
+		Expect(k8sClient.List(ctx, rrList, client.InNamespace("default"))).To(Succeed())
+		Expect(rrList.Items).To(HaveLen(1))
+		Expect(rrList.Items[0].Spec.Interval).To(Equal(&metav1.Duration{Duration: 2 * time.Minute}))
+		Expect(rrList.Items[0].Spec.ProgressingInterval).To(Equal(&metav1.Duration{Duration: 30 * time.Second}))
+
+		By("unsetting the intervals on the binding")
+		updated.Spec.Interval = nil
+		updated.Spec.ProgressingInterval = nil
+		Expect(k8sClient.Update(ctx, updated)).To(Succeed())
+		reconcileBinding(updated)
+
+		rr := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(&rrList.Items[0]), rr)).To(Succeed())
+		Expect(rr.Spec.Interval).To(BeNil())
+		Expect(rr.Spec.ProgressingInterval).To(BeNil())
 	})
 
 	It("filters entries whose includeWhen evaluates false and preserves order of the rest", func() {

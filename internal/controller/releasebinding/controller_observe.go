@@ -193,10 +193,12 @@ func (r *Reconciler) emitObservedRelease(
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
-			EnvironmentName:   releaseBinding.Spec.Environment,
-			TargetPlane:       openchoreov1alpha1.TargetPlaneDataPlane,
-			Mode:              openchoreov1alpha1.RenderedReleaseModeObserve,
-			ObservedResources: observed,
+			EnvironmentName:     releaseBinding.Spec.Environment,
+			TargetPlane:         openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:                openchoreov1alpha1.RenderedReleaseModeObserve,
+			ObservedResources:   observed,
+			Interval:            releaseBinding.Spec.Interval,
+			ProgressingInterval: releaseBinding.Spec.ProgressingInterval,
 		}
 		return controllerutil.SetControllerReference(releaseBinding, rr, r.Scheme)
 	})
