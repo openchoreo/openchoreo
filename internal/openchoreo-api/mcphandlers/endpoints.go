@@ -456,26 +456,32 @@ func (h *MCPHandler) UpdateEndpointReleaseBinding(
 	if req == nil {
 		return nil, errors.New("request body is required")
 	}
-	existing, err := h.services.EndpointReleaseBindingService.GetEndpointReleaseBinding(
-		ctx, namespaceName, req.Metadata.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Spec != nil {
-		if req.Spec.EndpointRelease != nil {
-			existing.Spec.EndpointRelease = *req.Spec.EndpointRelease
+	// Read, apply the requested fields and write in one step, retried from the
+	// read on a conflict, so a concurrent edit to the binding is never overwritten.
+	var updated *openchoreov1alpha1.EndpointReleaseBinding
+	err := retryOnConflict(func() error {
+		existing, err := h.services.EndpointReleaseBindingService.GetEndpointReleaseBinding(
+			ctx, namespaceName, req.Metadata.Name)
+		if err != nil {
+			return err
 		}
-		if req.Spec.EndpointTypeEnvironmentConfigs != nil {
-			raw, mErr := json.Marshal(*req.Spec.EndpointTypeEnvironmentConfigs)
-			if mErr != nil {
-				return nil, fmt.Errorf("marshal endpointTypeEnvironmentConfigs: %w", mErr)
+
+		if req.Spec != nil {
+			if req.Spec.EndpointRelease != nil {
+				existing.Spec.EndpointRelease = *req.Spec.EndpointRelease
 			}
-			existing.Spec.EndpointTypeEnvironmentConfigs = &runtime.RawExtension{Raw: raw}
+			if req.Spec.EndpointTypeEnvironmentConfigs != nil {
+				raw, mErr := json.Marshal(*req.Spec.EndpointTypeEnvironmentConfigs)
+				if mErr != nil {
+					return fmt.Errorf("marshal endpointTypeEnvironmentConfigs: %w", mErr)
+				}
+				existing.Spec.EndpointTypeEnvironmentConfigs = &runtime.RawExtension{Raw: raw}
+			}
 		}
-	}
 
-	updated, err := h.services.EndpointReleaseBindingService.UpdateEndpointReleaseBinding(ctx, namespaceName, existing)
+		updated, err = h.services.EndpointReleaseBindingService.UpdateEndpointReleaseBinding(ctx, namespaceName, existing)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}

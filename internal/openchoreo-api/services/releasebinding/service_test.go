@@ -5,6 +5,7 @@ package releasebinding
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -231,5 +232,139 @@ func TestDeleteReleaseBinding(t *testing.T) {
 
 		err := svc.DeleteReleaseBinding(ctx, testNamespace, "nonexistent")
 		require.ErrorIs(t, err, ErrReleaseBindingNotFound)
+	})
+}
+
+const newReleaseName = "new-release"
+
+// TestUpdateReleaseBindingResourceVersion covers the optimistic concurrency of the update:
+// a resourceVersion read earlier makes it conditional (#5370).
+func TestUpdateReleaseBindingResourceVersion(t *testing.T) {
+	ctx := context.Background()
+
+	setup := func(t *testing.T) (client.Client, Service, *openchoreov1alpha1.ReleaseBinding) {
+		t.Helper()
+		// dev is the first environment of the pipeline, so any release may be set on it.
+		fc := testutil.NewFakeClient(
+			testutil.NewReleaseBinding(testNamespace, testProjectName, testComponentName, testEnvironmentName, testRBName),
+			testutil.NewProject(testNamespace, testProjectName),
+			testutil.NewDeploymentPipeline(testNamespace, "default"),
+		)
+		svc := NewService(fc, testutil.TestLogger())
+		read, err := svc.GetReleaseBinding(ctx, testNamespace, testRBName)
+		require.NoError(t, err)
+		require.NotEmpty(t, read.ResourceVersion)
+		return fc, svc, read
+	}
+
+	t.Run("stale resourceVersion is rejected and keeps the newer change", func(t *testing.T) {
+		fc, svc, read := setup(t)
+
+		// Someone else changes the binding after it was read.
+		other := read.DeepCopy()
+		other.Annotations = map[string]string{"example/marker": "x"}
+		require.NoError(t, fc.Update(ctx, other))
+
+		stale := read.DeepCopy()
+		stale.Spec.ReleaseName = newReleaseName
+		_, err := svc.UpdateReleaseBinding(ctx, testNamespace, stale)
+		require.ErrorIs(t, err, services.ErrConflict)
+
+		stored := &openchoreov1alpha1.ReleaseBinding{}
+		require.NoError(t, fc.Get(ctx, client.ObjectKeyFromObject(read), stored))
+		assert.Equal(t, "x", stored.Annotations["example/marker"])
+		assert.Equal(t, read.Spec.ReleaseName, stored.Spec.ReleaseName)
+	})
+
+	t.Run("current resourceVersion succeeds", func(t *testing.T) {
+		_, svc, read := setup(t)
+
+		update := read.DeepCopy()
+		update.Spec.ReleaseName = newReleaseName
+		result, err := svc.UpdateReleaseBinding(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, newReleaseName, result.Spec.ReleaseName)
+		assert.NotEqual(t, read.ResourceVersion, result.ResourceVersion)
+	})
+
+	t.Run("no resourceVersion overwrites unconditionally", func(t *testing.T) {
+		fc, svc, read := setup(t)
+
+		other := read.DeepCopy()
+		other.Annotations = map[string]string{"example/marker": "x"}
+		require.NoError(t, fc.Update(ctx, other))
+
+		update := read.DeepCopy()
+		update.ResourceVersion = ""
+		update.Spec.ReleaseName = newReleaseName
+		result, err := svc.UpdateReleaseBinding(ctx, testNamespace, update)
+		require.NoError(t, err)
+		assert.Equal(t, newReleaseName, result.Spec.ReleaseName)
+	})
+
+	for _, rv := range []string{"abc", "0", "-1", "1.5", " 12"} {
+		t.Run("malformed resourceVersion "+rv+" is a validation error", func(t *testing.T) {
+			fc, svc, read := setup(t)
+
+			update := read.DeepCopy()
+			update.ResourceVersion = rv
+			update.Spec.ReleaseName = newReleaseName
+			_, err := svc.UpdateReleaseBinding(ctx, testNamespace, update)
+			validationErr, ok := errors.AsType[*services.ValidationError](err)
+			require.True(t, ok, "expected a ValidationError, got %v", err)
+			assert.Contains(t, validationErr.Msg, "metadata.resourceVersion")
+
+			stored := &openchoreov1alpha1.ReleaseBinding{}
+			require.NoError(t, fc.Get(ctx, client.ObjectKeyFromObject(read), stored))
+			assert.Equal(t, read.Spec.ReleaseName, stored.Spec.ReleaseName)
+		})
+	}
+}
+
+// unpromotedRelease is a release no binding in the source environment references.
+const unpromotedRelease = "old-release"
+
+// TestUpdateReleaseBindingStaleBeforePromotionCheck: a stale request is judged
+// against a state its caller never saw, so it must get the conflict (which the
+// clients retry on) rather than a promotion error about that state.
+func TestUpdateReleaseBindingStaleBeforePromotionCheck(t *testing.T) {
+	ctx := context.Background()
+	// The test pipeline promotes dev -> prod; nothing in dev references unpromotedRelease.
+	fc := testutil.NewFakeClient(
+		testutil.NewReleaseBinding(testNamespace, testProjectName, testComponentName, "prod", "rb-prod"),
+		testutil.NewProject(testNamespace, testProjectName),
+		testutil.NewDeploymentPipeline(testNamespace, "default"),
+	)
+	svc := NewService(fc, testutil.TestLogger())
+	read, err := svc.GetReleaseBinding(ctx, testNamespace, "rb-prod")
+	require.NoError(t, err)
+
+	other := read.DeepCopy()
+	other.Annotations = map[string]string{"example/marker": "x"}
+	require.NoError(t, fc.Update(ctx, other))
+
+	stale := read.DeepCopy()
+	stale.Spec.ReleaseName = unpromotedRelease
+	_, err = svc.UpdateReleaseBinding(ctx, testNamespace, stale)
+	require.ErrorIs(t, err, services.ErrConflict)
+
+	t.Run("a malformed version is still a validation error", func(t *testing.T) {
+		bad := read.DeepCopy()
+		bad.ResourceVersion = "abc"
+		bad.Spec.ReleaseName = unpromotedRelease
+		_, err := svc.UpdateReleaseBinding(ctx, testNamespace, bad)
+		validationErr, ok := errors.AsType[*services.ValidationError](err)
+		require.True(t, ok, "expected a ValidationError, got %v", err)
+		assert.Contains(t, validationErr.Msg, "metadata.resourceVersion")
+	})
+
+	t.Run("a current version still runs the promotion check", func(t *testing.T) {
+		current, err := svc.GetReleaseBinding(ctx, testNamespace, "rb-prod")
+		require.NoError(t, err)
+		current.Spec.ReleaseName = unpromotedRelease
+		_, err = svc.UpdateReleaseBinding(ctx, testNamespace, current)
+		validationErr, ok := errors.AsType[*services.ValidationError](err)
+		require.True(t, ok, "expected a ValidationError, got %v", err)
+		assert.Contains(t, validationErr.Msg, "must be referenced by a ReleaseBinding")
 	})
 }
