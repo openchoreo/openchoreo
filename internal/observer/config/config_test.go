@@ -28,6 +28,28 @@ func TestLoad_WithDefaults(t *testing.T) {
 	assert.Equal(t, 30*time.Second, cfg.Adapters.FinOpsAdapterTimeout)
 }
 
+func TestLoad_AlertNotificationDefaults(t *testing.T) {
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 3, cfg.Alerting.NotificationMaxAttempts)
+	assert.Equal(t, 10*time.Second, cfg.Alerting.NotificationAttemptTimeout)
+	assert.Equal(t, time.Second, cfg.Alerting.NotificationRetryBackoff)
+}
+
+func TestLoad_AlertNotificationEnvOverride(t *testing.T) {
+	t.Setenv("ALERT_NOTIFICATION_MAX_ATTEMPTS", "5")
+	t.Setenv("ALERT_NOTIFICATION_ATTEMPT_TIMEOUT", "4s")
+	t.Setenv("ALERT_NOTIFICATION_RETRY_BACKOFF", "500ms")
+
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 5, cfg.Alerting.NotificationMaxAttempts)
+	assert.Equal(t, 4*time.Second, cfg.Alerting.NotificationAttemptTimeout)
+	assert.Equal(t, 500*time.Millisecond, cfg.Alerting.NotificationRetryBackoff)
+}
+
 func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
 	t.Setenv("FINOPS_ADAPTER_URL", "http://custom-finops:1234")
 	t.Setenv("FINOPS_ADAPTER_TIMEOUT", "45s")
@@ -130,6 +152,11 @@ func TestValidate(t *testing.T) {
 				ServiceURL: "http://localhost:8081",
 				Timeout:    30 * time.Second,
 			},
+			Alerting: AlertingConfig{
+				NotificationMaxAttempts:    3,
+				NotificationAttemptTimeout: 10 * time.Second,
+				NotificationRetryBackoff:   time.Second,
+			},
 			UIDResolver: UIDResolverConfig{
 				OpenChoreoAPIURL:  "http://localhost:9099",
 				OAuthTokenURL:     "http://localhost:8080/oauth2/token",
@@ -154,6 +181,26 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "valid config",
 			mutate:    func(c *Config) {},
+			expectErr: false,
+		},
+		{
+			name:      "notification max attempts must be at least 1",
+			mutate:    func(c *Config) { c.Alerting.NotificationMaxAttempts = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "notification attempt timeout must be positive",
+			mutate:    func(c *Config) { c.Alerting.NotificationAttemptTimeout = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "notification retry backoff must not be negative",
+			mutate:    func(c *Config) { c.Alerting.NotificationRetryBackoff = -time.Second },
+			expectErr: true,
+		},
+		{
+			name:      "notification retry backoff may be zero",
+			mutate:    func(c *Config) { c.Alerting.NotificationRetryBackoff = 0 },
 			expectErr: false,
 		},
 		{
