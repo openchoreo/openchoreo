@@ -24,6 +24,7 @@ INCLUDE_DATA_PLANE=false
 INCLUDE_WORKFLOW_PLANE=false
 INCLUDE_OBSERVABILITY_PLANE=false
 CP_VALUES=""
+CP_SET_ARGS=()
 DP_VALUES=""
 WP_VALUES=""
 OP_VALUES=""
@@ -94,6 +95,10 @@ Plane Selection (at least one required):
 
 Optional:
   --cp-values FILE            Helm values file for Control Plane
+  --cp-set KEY=VALUE          Extra --set override for the Control Plane render, repeatable.
+                              Use it for values the installer passes on the command line
+                              rather than in --cp-values (e.g. backstage.enabled=false),
+                              so the images collected match the ones that get installed.
   --dp-values FILE            Helm values file for Data Plane
   --wp-values FILE            Helm values file for Workflow Plane
   --op-values FILE            Helm values file for Observability Plane
@@ -190,6 +195,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --cp-values)
             CP_VALUES="$2"
+            shift 2
+            ;;
+        --cp-set)
+            CP_SET_ARGS+=("--set" "$2")
             shift 2
             ;;
         --dp-values)
@@ -412,10 +421,14 @@ resolve_chart_location() {
 # Extract images from Helm chart templates
 # Filters out CEL template expressions like ${workload.containers["main"].image}
 # Supports both local paths and OCI chart URLs
+# Any further arguments are passed to helm template as-is, for overrides the
+# caller applies on the command line instead of through a values file.
 get_helm_chart_images() {
     local chart_ref="$1"
     local values_file="$2"
     local release_name="$3"
+    shift 3
+    local extra_args=("$@")
 
     local helm_args=("template" "$release_name")
 
@@ -431,6 +444,8 @@ get_helm_chart_images() {
             helm_args+=("--values" "$values_file")
         fi
     fi
+
+    helm_args+=(${extra_args[@]+"${extra_args[@]}"})
 
     # For local filesystem charts, verify the chart directory exists.
     # chart_ref may be a local path, an OCI/http(s) URL, or a classic "repo/chart"
@@ -517,7 +532,8 @@ collect_images() {
         local cp_images=()
         while IFS= read -r line; do
             cp_images+=("$line")
-        done < <(get_helm_chart_images "$cp_chart" "${CP_VALUES}" "openchoreo-cp")
+        done < <(get_helm_chart_images "$cp_chart" "${CP_VALUES}" "openchoreo-cp" \
+            ${CP_SET_ARGS[@]+"${CP_SET_ARGS[@]}"})
         if [[ ${#cp_images[@]} -eq 0 ]]; then
             log_warning "No images found for Control Plane (helm template may have failed)" >&2
         fi

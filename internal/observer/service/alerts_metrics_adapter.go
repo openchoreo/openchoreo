@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	neturl "net/url"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
 )
@@ -41,8 +42,8 @@ func (s *AlertService) createMetricAlertRuleViaAdapter(ctx context.Context, req 
 }
 
 // getMetricAlertRuleViaAdapter forwards a get-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) getMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertRuleResponse, error) {
-	url := s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + ruleName
+func (s *AlertService) getMetricAlertRuleViaAdapter(ctx context.Context, namespace, ruleName string) (*internalgen.AlertRuleResponse, error) {
+	url := s.metricAlertRuleURL(namespace, ruleName)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics adapter request: %w", err)
@@ -68,7 +69,7 @@ func (s *AlertService) updateMetricAlertRuleViaAdapter(ctx context.Context, rule
 		return nil, fmt.Errorf("failed to marshal alert rule request: %w", err)
 	}
 
-	url := s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + ruleName
+	url := s.metricAlertRuleURL(req.Metadata.Namespace, ruleName)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics adapter request: %w", err)
@@ -89,8 +90,8 @@ func (s *AlertService) updateMetricAlertRuleViaAdapter(ctx context.Context, rule
 }
 
 // deleteMetricAlertRuleViaAdapter forwards a delete-alert-rule request for metric alerts to the metrics adapter.
-func (s *AlertService) deleteMetricAlertRuleViaAdapter(ctx context.Context, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
-	url := s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + ruleName
+func (s *AlertService) deleteMetricAlertRuleViaAdapter(ctx context.Context, namespace, ruleName string) (*internalgen.AlertingRuleSyncResponse, error) {
+	url := s.metricAlertRuleURL(namespace, ruleName)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics adapter request: %w", err)
@@ -107,4 +108,10 @@ func (s *AlertService) deleteMetricAlertRuleViaAdapter(ctx context.Context, rule
 	}
 
 	return decodeAdapterSyncResponse(resp)
+}
+
+// metricAlertRuleURL returns the metrics adapter URL of the alert rule with the given namespace and name.
+func (s *AlertService) metricAlertRuleURL(namespace, ruleName string) string {
+	return s.metricsAdapterURL + "/api/v1alpha1/alerts/rules/" + neturl.PathEscape(ruleName) +
+		"?namespace=" + neturl.QueryEscape(namespace)
 }

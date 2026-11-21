@@ -1,0 +1,182 @@
+// Copyright 2026 The OpenChoreo Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package service
+
+import (
+	"context"
+	"time"
+
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
+	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
+)
+
+// defaultRetryPolicy matches the observer's configuration defaults.
+var defaultRetryPolicy = RetryPolicy{MaxAttempts: 3, AttemptTimeout: 10 * time.Second, Backoff: time.Second}
+
+const (
+	// recordTimeout bounds writing a delivery result, which also runs after dispatches are stopped.
+	recordTimeout = 10 * time.Second
+	// recordAttempts bounds how many times a delivery result write is tried within recordTimeout.
+	recordAttempts = 3
+	// recordBackoff is the delay before the first retry of a failed result write. It doubles for each later retry.
+	recordBackoff = 500 * time.Millisecond
+	// drainRecordGrace is how long the drain waits for stopped dispatches to record their results.
+	drainRecordGrace = recordTimeout
+	// dispatchSlack covers the work of a dispatch outside its lookups and attempts.
+	dispatchSlack = 5 * time.Second
+)
+
+// effectiveRetryPolicy returns the configured policy, or the default for a service built without one.
+func (s *AlertService) effectiveRetryPolicy() RetryPolicy {
+	if s.retryPolicy.MaxAttempts < 1 || s.retryPolicy.AttemptTimeout <= 0 {
+		return defaultRetryPolicy
+	}
+	return s.retryPolicy
+}
+
+// MaxDispatchDuration returns the longest one alert's notification dispatch can take. Shutdown
+// waits this long for dispatches in flight.
+func (s *AlertService) MaxDispatchDuration() time.Duration {
+	return MaxDispatchDuration(s.effectiveRetryPolicy())
+}
+
+// dispatchContext returns the context that notification dispatches run under. DrainNotifications
+// cancels it.
+func (s *AlertService) dispatchContext() context.Context {
+	s.dispatchOnce.Do(func() {
+		s.dispatchCtx, s.stopDispatches = context.WithCancel(context.Background())
+	})
+	return s.dispatchCtx
+}
+
+// recordPendingDeliveries records every channel of a new alert as pending, so a notification that
+// never finishes still shows up.
+func (s *AlertService) recordPendingDeliveries(ctx context.Context, alertID string, channels []string) {
+	if s.alertEntryStore == nil {
+		return
+	}
+	now := time.Now().UTC()
+	for _, channel := range channels {
+		if err := s.alertEntryStore.RecordNotificationDelivery(ctx, alertentry.NotificationDelivery{
+			AlertID: alertID, Channel: channel, Status: alertentry.DeliveryStatusPending, CreatedAt: now,
+		}); err != nil {
+			s.logger.Warn("Failed to record pending alert notification", "alertID", alertID, "channel", channel, "error", err)
+		}
+	}
+}
+
+// recordDeliveryResult stores a channel's delivery result in store and logs it. It runs on its own
+// context, so results are recorded even when the dispatch was stopped. The logs carry the
+// classified reason, never the error text, which can include a webhook URL that is itself a
+// credential.
+func (s *AlertService) recordDeliveryResult(store alertentry.AlertEntryStore, alertID, alertName string, r ChannelDeliveryResult) {
+	status := alertentry.DeliveryStatusSent
+	if r.Sent {
+		s.logger.Info("Alert notification sent", "alertID", alertID, "alertName", alertName,
+			"channel", r.Channel, "channelType", r.ChannelType, "attempts", r.Attempts)
+	} else {
+		status = alertentry.DeliveryStatusFailed
+		s.logger.Warn("Alert notification failed", "alertID", alertID, "alertName", alertName,
+			"channel", r.Channel, "channelType", r.ChannelType, "reason", r.Reason, "detail", r.Detail,
+			"attempts", r.Attempts)
+	}
+	if store == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), recordTimeout)
+	defer cancel()
+	writes, err := writeDeliveryResult(ctx, store, alertentry.NotificationDelivery{
+		AlertID:       alertID,
+		Channel:       r.Channel,
+		Status:        status,
+		Reason:        string(r.Reason),
+		Attempts:      r.Attempts,
+		LastAttemptAt: r.LastAttempt,
+	})
+	if err != nil {
+		// The row stays pending, and the stale sweep later marks it interrupted.
+		s.logger.Warn("Failed to record alert notification result", "alertID", alertID, "channel", r.Channel,
+			"status", status, "writeAttempts", writes, "error", err)
+	}
+}
+
+// writeDeliveryResult writes d to store, retrying a failed write with backoff until recordAttempts
+// writes have failed or ctx ends, so a temporary database error does not lose the result. It
+// returns how many writes it made.
+func writeDeliveryResult(ctx context.Context, store alertentry.AlertEntryStore, d alertentry.NotificationDelivery) (int, error) {
+	backoff := recordBackoff
+	for attempt := 1; ; attempt++ {
+		err := store.RecordNotificationDelivery(ctx, d)
+		if err == nil || attempt == recordAttempts || !sleepContext(ctx, backoff) {
+			return attempt, err
+		}
+		backoff *= 2
+	}
+}
+
+// DrainNotifications waits for in-flight notification dispatches until ctx ends. It then stops
+// the rest, which record their unfinished channels as interrupted. Call it after the servers have
+// stopped accepting alerts.
+func (s *AlertService) DrainNotifications(ctx context.Context) {
+	// No dispatch starts once draining is set, so the wait below sees every dispatch.
+	s.dispatchMu.Lock()
+	s.draining = true
+	s.dispatchMu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		s.dispatches.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return
+	case <-ctx.Done():
+	}
+
+	s.logger.Warn("Stopping alert notification dispatches that did not finish in time")
+	s.dispatchContext()
+	s.stopDispatches()
+	select {
+	case <-done:
+	case <-time.After(drainRecordGrace):
+		s.logger.Warn("Alert notification dispatches did not record their results before shutdown")
+	}
+}
+
+// RunStaleDeliverySweep marks deliveries still pending well after they could have finished as
+// failed with reason interrupted, at start and then every interval until ctx ends. Their dispatch
+// stopped without recording a result, as when the observer crashed. The cutoff is twice the
+// longest dispatch, so no dispatch in flight on any replica is marked.
+func (s *AlertService) RunStaleDeliverySweep(ctx context.Context, interval time.Duration) {
+	if s.alertEntryStore == nil {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		s.sweepStaleDeliveries(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (s *AlertService) sweepStaleDeliveries(ctx context.Context) {
+	cutoff := time.Now().Add(-2 * s.MaxDispatchDuration())
+	n, err := s.alertEntryStore.FailStaleNotificationDeliveries(ctx, cutoff, string(notifications.ReasonInterrupted))
+	if err != nil {
+		if ctx.Err() == nil {
+			s.logger.Warn("Failed to mark stale alert notifications as interrupted", "error", err)
+		}
+		return
+	}
+	if n > 0 {
+		s.logger.Warn("Marked stale alert notifications as interrupted", "count", n)
+	}
+}

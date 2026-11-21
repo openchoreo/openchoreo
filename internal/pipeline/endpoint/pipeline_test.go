@@ -49,6 +49,7 @@ func fixtureBackends() []Backend {
 			Name: "stable", Kind: "Component", ComponentName: "greeter", Endpoint: "http", Protocol: "HTTP",
 			ServiceName: "greeter-dev-1a2b", Namespace: "dp-org-shop-dev-a1b2c3d", Port: 8080, Weight: 90,
 			ServiceURL: "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080", BasePath: "/",
+			TargetPort: 9090, PodSelectors: map[string]string{"openchoreo.dev/component-uid": "greeter-uid"},
 		},
 		{
 			Name: "canary", Kind: "Component", ComponentName: "greeter-v2", Endpoint: "http", Protocol: "HTTP",
@@ -89,6 +90,41 @@ func sampleInput(t *testing.T) *RenderInput {
 		Metadata:         fixtureMetadata(),
 		Environment:      fixtureEnvironment(),
 	}
+}
+
+func TestRender_SampleRejectsAnExternalBackendWithoutAService(t *testing.T) {
+	// A backend whose ComponentType renders no Service has no name to route to.
+	input := sampleInput(t)
+	input.Backends[1].ServiceName = ""
+	input.Backends[1].ServiceURL = ""
+
+	_, err := NewPipeline().Render(context.Background(), input)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "use an EndpointType that renders its own Service")
+
+	// Without external visibility the sample routes nothing, so it does not care.
+	input.Visibility = []v1alpha1.EndpointVisibility{v1alpha1.EndpointVisibilityProject}
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	assert.Empty(t, out.Entries)
+}
+
+func TestRender_SampleLeavesAStagedBackendWithoutAServiceOutOfTheRoute(t *testing.T) {
+	// A canary staged at weight 0 receives no traffic, so its missing Service
+	// must not block the route for the backends that do.
+	input := sampleInput(t)
+	input.Backends[0].Weight = 100
+	input.Backends[1].Weight = 0
+	input.Backends[1].ServiceName = ""
+	input.Backends[1].ServiceURL = ""
+
+	out, err := NewPipeline().Render(context.Background(), input)
+	require.NoError(t, err)
+	require.Len(t, out.Entries, 1)
+	rule := out.Entries[0].Object["spec"].(map[string]any)["rules"].([]any)[0].(map[string]any)
+	assert.Equal(t, []any{
+		map[string]any{"name": "greeter-dev-1a2b", "port": float64(8080), "weight": float64(100)},
+	}, rule["backendRefs"])
 }
 
 func TestRender_SampleRendersWeightedHTTPRoute(t *testing.T) {
@@ -159,9 +195,10 @@ func TestRender_ExposesBackendFields(t *testing.T) {
 	assert.Equal(t, map[string]any{
 		"name": "stable", "kind": "Component", "componentName": "greeter", "endpoint": "http",
 		"protocol": "HTTP", "serviceName": "greeter-dev-1a2b", "namespace": "dp-org-shop-dev-a1b2c3d",
-		"port": float64(8080), "weight": float64(90),
-		"serviceURL": "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
-		"basePath":   "/",
+		"port": float64(8080), "targetPort": float64(9090), "weight": float64(90),
+		"podSelectors": map[string]any{"openchoreo.dev/component-uid": "greeter-uid"},
+		"serviceURL":   "http://greeter-dev-1a2b.dp-org-shop-dev-a1b2c3d.svc.cluster.local:8080",
+		"basePath":     "/",
 	}, out.Entries[0].Object["data"].(map[string]any)["backend"])
 }
 

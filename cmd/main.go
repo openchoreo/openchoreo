@@ -75,6 +75,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/revision"
 	"github.com/openchoreo/openchoreo/internal/version"
 	authzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/authzrolebinding"
+	bindingrevisionwebhook "github.com/openchoreo/openchoreo/internal/webhook/bindingrevision"
 	clusterauthzrolebindingwebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterauthzrolebinding"
 	clustercomponenttypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clustercomponenttype"
 	clusterendpointtypewebhook "github.com/openchoreo/openchoreo/internal/webhook/clusterendpointtype"
@@ -625,6 +626,8 @@ func main() {
 			{"ClusterTrait", clustertraitwebhook.SetupClusterTraitWebhookWithManager},
 			{"ComponentRelease", componentreleasewebhook.SetupComponentReleaseWebhookWithManager},
 			{"ReleaseBinding", releasebindingwebhook.SetupReleaseBindingWebhookWithManager},
+			{"ReleaseBindingRevision", bindingrevisionwebhook.SetupReleaseBindingRevisionWebhookWithManager},
+			{"ResourceReleaseBindingRevision", bindingrevisionwebhook.SetupResourceReleaseBindingRevisionWebhookWithManager},
 			{"ResourceType", resourcetypewebhook.SetupResourceTypeWebhookWithManager},
 			{"ClusterResourceType", clusterresourcetypewebhook.SetupClusterResourceTypeWebhookWithManager},
 			{"ResourceRelease", resourcereleasewebhook.SetupResourceReleaseWebhookWithManager},

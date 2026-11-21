@@ -163,6 +163,12 @@ var _ = Describe("ReleaseBinding connection resolution", func() {
 			By("ConditionReleaseSynced is NOT True (guard blocked sync)")
 			synced := conditionFor(rb, string(ConditionReleaseSynced))
 			Expect(synced == nil || synced.Status != metav1.ConditionTrue).To(BeTrue())
+
+			By("Endpoints are still recorded for the current generation, ahead of ReleaseSynced")
+			// Endpoints routing to this component read this instead of
+			// ReleaseSynced, so they don't wait on this component's own
+			// dependencies.
+			Expect(rb.Status.EndpointsObservedGeneration).To(Equal(rb.Generation))
 		})
 	})
 

@@ -158,8 +158,9 @@ spec:
                       type: boolean
                     serviceURL:
                       description: |-
-                        ServiceURL is the in-cluster address of the backend in this environment.
-                        Set only when resolved is true.
+                        ServiceURL is the in-cluster address of the Service the backend's
+                        ComponentType renders in this environment. Set only when resolved is true
+                        and the ComponentType renders a Service for the endpoint.
                       properties:
                         host:
                           description: Host is the hostname or IP address.

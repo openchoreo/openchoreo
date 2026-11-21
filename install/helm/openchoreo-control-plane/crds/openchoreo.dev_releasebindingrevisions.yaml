@@ -12,6 +12,7 @@ spec:
     plural: releasebindingrevisions
     shortNames:
     - rbr
+    - rbrs
     singular: releasebindingrevision
   scope: Namespaced
   versions:
@@ -19,7 +20,7 @@ spec:
     - jsonPath: .spec.revision
       name: Revision
       type: integer
-    - jsonPath: .spec.componentReleaseName
+    - jsonPath: .spec.bindingSpec.releaseName
       name: Release
       type: string
     - jsonPath: .spec.cause
@@ -60,12 +61,13 @@ spec:
             type: object
           spec:
             description: |-
-              ReleaseBindingRevisionSpec defines the recorded state of one ReleaseBinding revision.
-              The spec is fixed after creation; only status may change.
+              Spec is required: without it the spec immutability rule would not run,
+              so a spec could be removed and a different one set.
             properties:
               bindingSpec:
-                description: BindingSpec is a copy of the ReleaseBinding spec at the
-                  time of this revision.
+                description: |-
+                  BindingSpec is a copy of the ReleaseBinding spec at the time of this revision.
+                  Its releaseName is the ComponentRelease the revision binds.
                 properties:
                   componentTypeEnvironmentConfigs:
                     description: |-
@@ -304,11 +306,6 @@ spec:
                 - Undeploy
                 - Redeploy
                 type: string
-              componentReleaseName:
-                description: ComponentReleaseName is the name of the ComponentRelease
-                  bound by this revision.
-                minLength: 1
-                type: string
               message:
                 description: |-
                   Message is the optional reason given for the change this revision records,
@@ -329,13 +326,16 @@ spec:
             required:
             - bindingSpec
             - cause
-            - componentReleaseName
             - revision
             - snapshotHash
             type: object
             x-kubernetes-validations:
             - message: revision spec is immutable; only status may change
               rule: self == oldSelf
+            - message: bindingSpec.releaseName must name the ComponentRelease the
+                revision binds
+              rule: has(self.bindingSpec.releaseName) && size(self.bindingSpec.releaseName)
+                > 0
           status:
             description: |-
               BindingRevisionStatus defines the observed state of a ReleaseBindingRevision or
@@ -430,6 +430,8 @@ spec:
                 format: date-time
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

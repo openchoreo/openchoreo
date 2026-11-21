@@ -46,11 +46,15 @@ type DeliveryEvent struct {
 // returns it imports this one; the service translates its own 501 sentinel into
 // this on the way out.
 //
-// The aggregator stops attempting the sweep on it. Retrying would fail the tick
-// forever, and because the tick folds incidents before events and recomputes
-// rollups after both, that would take Mean Time to Recovery down with it -- a
-// metric derived entirely from incidents and needing no adapter support.
+// The aggregator stops attempting the sweep on it for eventsUnavailableRetryAfter
+// and carries on with incidents alone, so Mean Time to Recovery -- derived
+// entirely from incidents -- keeps working.
 var ErrEventsSourceUnavailable = errors.New("delivery events source unavailable")
+
+// errEventsFetchFailed marks an error as coming from the events source rather
+// than the store, so RunOnce can carry on with incidents through an adapter
+// outage while a store failure still fails the tick.
+var errEventsFetchFailed = errors.New("delivery events fetch failed")
 
 // EventsSource reads delivery lifecycle events from the observability event store.
 //
@@ -144,7 +148,10 @@ func (a *Aggregator) processEvents(
 
 	events, complete, err := a.events.FetchDeliveryEvents(ctx, fromMs, tickStart.UnixMilli())
 	if err != nil {
-		return nil, eventsProgress{}, err
+		if errors.Is(err, ErrEventsSourceUnavailable) {
+			return nil, eventsProgress{}, err
+		}
+		return nil, eventsProgress{}, fmt.Errorf("%w: %w", errEventsFetchFailed, err)
 	}
 	progress = eventsProgress{watermarkMs: tickStart.UnixMilli()}
 	// The !complete branch runs before the empty-result return on purpose. An

@@ -62,6 +62,12 @@ spec:
   type: webhook
   webhookConfig:
     url: https://webhook.acme.com  # Replace with your webhook URL
+    # If the URL itself carries a credential, as a Slack incoming webhook does, keep it out of the
+    # channel: store it in the SecretReference and replace `url` with
+    #   urlFrom:
+    #     secretKeyRef:
+    #       name: webhook-notification-channel-development-webhook-auth
+    #       key: url
     headers:
       Content-Type:
         value: "application/json"

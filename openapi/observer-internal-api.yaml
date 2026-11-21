@@ -111,6 +111,14 @@ paths:
         schema:
           type: string
           minLength: 1
+      - name: namespace
+        in: query
+        required: true
+        description: >
+          The namespace of the alert rule CR. A rule is identified by its namespace and name.
+        schema:
+          type: string
+          minLength: 1
     get:
       tags:
         - Alerts

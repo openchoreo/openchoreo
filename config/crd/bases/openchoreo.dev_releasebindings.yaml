@@ -647,6 +647,18 @@ spec:
                   - name
                   type: object
                 type: array
+              endpointsObservedGeneration:
+                description: |-
+                  EndpointsObservedGeneration is the generation whose rendered release
+                  endpoints was last computed from. It is recorded as soon as the release is
+                  rendered, before the binding waits on its connections and resource
+                  dependencies, so it can lead ReleaseSynced. When it matches the
+                  generation, an endpoint listed without a serviceURL has no Service from
+                  the ComponentType, rather than one not reported yet. Zero while the
+                  binding renders nothing: before its first render, when undeployed, and in
+                  Observe mode.
+                format: int64
+                type: integer
               highestRevision:
                 description: |-
                   HighestRevision is the highest revision number this binding has ever

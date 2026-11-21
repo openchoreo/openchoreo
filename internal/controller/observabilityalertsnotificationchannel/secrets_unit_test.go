@@ -38,6 +38,10 @@ const (
 	testRemoteKey = "secret/default/generic/webhook-auth"
 	testChannel   = "ch"
 	testHeaderKey = "api-key"
+	testURLKey    = "url"
+
+	// testHeaderSecretKey is the key of newWebhookChannelWithHeaderRef's header in the channel's Secret.
+	testHeaderSecretKey = "webhook.header.X-API-Key"
 )
 
 var testRemoteKeys = RemoteKeyFormat{Prefix: "secret", Separator: "/"}
@@ -73,6 +77,15 @@ func newWebhookChannelWithHeaderRef(name, secretName string) *openchoreov1alpha1
 		"X-API-Key": {ValueFrom: &openchoreov1alpha1.SecretValueFrom{
 			SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: secretName, Key: testHeaderKey},
 		}},
+	}
+	return channel
+}
+
+func newWebhookChannelWithURLRef(name, secretName string) *openchoreov1alpha1.ObservabilityAlertsNotificationChannel {
+	channel := newWebhookChannel(name, "dev")
+	channel.Spec.WebhookConfig.URL = ""
+	channel.Spec.WebhookConfig.URLFrom = &openchoreov1alpha1.SecretValueFrom{
+		SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: secretName, Key: testURLKey},
 	}
 	return channel
 }
@@ -134,8 +147,27 @@ func TestChannelSecretRefs_WebhookSkipsInlineHeaders(t *testing.T) {
 	if len(refs) != 1 {
 		t.Fatalf("got %d refs, want 1", len(refs))
 	}
-	if refs[0].secretKey != "webhook.header.X-API-Key" || refs[0].ref.Name != "webhook-auth" {
+	if refs[0].secretKey != testHeaderSecretKey || refs[0].ref.Name != "webhook-auth" {
 		t.Errorf("refs[0] = %+v", refs[0])
+	}
+}
+
+func TestChannelSecretRefs_WebhookURLFrom(t *testing.T) {
+	channel := newWebhookChannelWithHeaderRef("ch", "webhook-auth")
+	channel.Spec.WebhookConfig.URL = ""
+	channel.Spec.WebhookConfig.URLFrom = &openchoreov1alpha1.SecretValueFrom{
+		SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "webhook-url", Key: testURLKey},
+	}
+
+	refs := channelSecretRefs(channel)
+	if len(refs) != 2 {
+		t.Fatalf("got %d refs, want 2", len(refs))
+	}
+	if refs[0].secretKey != testHeaderSecretKey || refs[0].ref.Name != "webhook-auth" {
+		t.Errorf("refs[0] = %+v", refs[0])
+	}
+	if refs[1].secretKey != webhookURLKey || refs[1].ref.Name != "webhook-url" || refs[1].ref.Key != testURLKey {
+		t.Errorf("refs[1] = %+v", refs[1])
 	}
 }
 
@@ -364,7 +396,7 @@ func resolvedFor(sr *openchoreov1alpha1.SecretReference) *resolvedSecrets {
 		source: secretSourceSecretReference,
 		refs: []resolvedSecretRef{{
 			channelSecretRef: channelSecretRef{
-				secretKey: "webhook.header.X-API-Key",
+				secretKey: testHeaderSecretKey,
 				ref:       &openchoreov1alpha1.SecretKeyRef{Name: sr.Name, Key: testHeaderKey},
 			},
 			secretReference: sr,
@@ -775,7 +807,7 @@ func setExternalSecretReady(t *testing.T, opClient client.Client, status corev1.
 func TestReconcile_SecretReferenceAppliesExternalSecret(t *testing.T) {
 	channel := newWebhookChannelWithHeaderRef("ch", "webhook-auth")
 	sr := newSecretReference("webhook-auth", map[string]string{"api-key": "api-key"})
-	copied := newKubernetesSecret("ch", map[string]string{"webhook.header.X-API-Key": "old"})
+	copied := newKubernetesSecret("ch", map[string]string{testHeaderSecretKey: "old"})
 	copied.Labels = channelResourceLabels(channel)
 	f := newReconcileFixture(t, []client.Object{channel, sr}, copied)
 
@@ -789,7 +821,7 @@ func TestReconcile_SecretReferenceAppliesExternalSecret(t *testing.T) {
 		t.Fatal("ExternalSecret was not applied to the observability plane")
 	}
 	data, _, _ := unstructured.NestedSlice(es.Object, "spec", "data")
-	if len(data) != 1 || data[0].(map[string]any)["secretKey"] != "webhook.header.X-API-Key" {
+	if len(data) != 1 || data[0].(map[string]any)["secretKey"] != testHeaderSecretKey {
 		t.Errorf("ExternalSecret data = %v", data)
 	}
 	if err := f.op.Get(context.Background(), types.NamespacedName{Name: "ch", Namespace: testNamespace}, &corev1.Secret{}); !apierrors.IsNotFound(err) {
@@ -814,6 +846,79 @@ func TestReconcile_SecretReferenceAppliesExternalSecret(t *testing.T) {
 	requireCondition(t, got, ConditionReady, metav1.ConditionTrue, ReasonReconciled)
 	if got.Status.ObservedGeneration != got.Generation {
 		t.Errorf("observedGeneration = %d, want %d", got.Status.ObservedGeneration, got.Generation)
+	}
+}
+
+func TestReconcile_WebhookURLFromSecretReference(t *testing.T) {
+	channel := newWebhookChannelWithURLRef("ch", "webhook-auth")
+	sr := newSecretReference("webhook-auth", map[string]string{testURLKey: testURLKey})
+	f := newReconcileFixture(t, []client.Object{channel, sr})
+
+	f.reconcile(t)
+
+	es, ok := f.externalSecret(t)
+	if !ok {
+		t.Fatal("ExternalSecret was not applied to the observability plane")
+	}
+	data, _, _ := unstructured.NestedSlice(es.Object, "spec", "data")
+	if len(data) != 1 || data[0].(map[string]any)["secretKey"] != webhookURLKey {
+		t.Errorf("ExternalSecret data = %v", data)
+	}
+	cm := &corev1.ConfigMap{}
+	if err := f.op.Get(context.Background(), types.NamespacedName{Name: "ch", Namespace: testNamespace}, cm); err != nil {
+		t.Fatalf("ConfigMap was not applied: %v", err)
+	}
+	if _, ok := cm.Data[webhookURLKey]; ok {
+		t.Error("a webhook URL that comes from a secret must not be in the ConfigMap")
+	}
+
+	setExternalSecretReady(t, f.op, corev1.ConditionTrue)
+	f.reconcile(t)
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionTrue, ReasonReconciled)
+}
+
+func TestReconcile_WebhookURLMovesFromConfigMapToExternalSecret(t *testing.T) {
+	channel := newWebhookChannel("ch", "dev")
+	sr := newSecretReference("webhook-auth", map[string]string{testURLKey: testURLKey})
+	f := newReconcileFixture(t, []client.Object{channel, sr})
+	key := types.NamespacedName{Name: "ch", Namespace: testNamespace}
+
+	f.reconcile(t)
+	cm := &corev1.ConfigMap{}
+	if err := f.op.Get(context.Background(), key, cm); err != nil {
+		t.Fatalf("ConfigMap was not applied: %v", err)
+	}
+	if cm.Data[webhookURLKey] == "" {
+		t.Fatal("an inline webhook URL should be in the ConfigMap")
+	}
+
+	updated := f.channel(t)
+	updated.Spec.WebhookConfig.URL = ""
+	updated.Spec.WebhookConfig.URLFrom = &openchoreov1alpha1.SecretValueFrom{
+		SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "webhook-auth", Key: testURLKey},
+	}
+	if err := f.cp.Update(context.Background(), updated); err != nil {
+		t.Fatalf("update channel: %v", err)
+	}
+	f.reconcile(t)
+
+	cm = &corev1.ConfigMap{}
+	if err := f.op.Get(context.Background(), key, cm); err != nil {
+		t.Fatalf("get ConfigMap: %v", err)
+	}
+	if _, ok := cm.Data[webhookURLKey]; ok {
+		t.Error("the webhook URL should be removed from the ConfigMap once it comes from a secret")
+	}
+	es, ok := f.externalSecret(t)
+	if !ok {
+		t.Fatal("ExternalSecret was not applied to the observability plane")
+	}
+	data, _, _ := unstructured.NestedSlice(es.Object, "spec", "data")
+	if len(data) != 1 || data[0].(map[string]any)["secretKey"] != webhookURLKey {
+		t.Errorf("ExternalSecret data = %v", data)
+	}
+	if err := f.op.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
+		t.Errorf("the copied Secret should be deleted so the ExternalSecret can own the name, got %v", err)
 	}
 }
 
@@ -846,8 +951,8 @@ func TestReconcile_KubernetesSecretFallback(t *testing.T) {
 	if err := f.op.Get(context.Background(), types.NamespacedName{Name: "ch", Namespace: testNamespace}, copied); err != nil {
 		t.Fatalf("copied Secret was not applied: %v", err)
 	}
-	if string(copied.Data["webhook.header.X-API-Key"]) != "s3cret" {
-		t.Errorf("copied value = %q", copied.Data["webhook.header.X-API-Key"])
+	if string(copied.Data[testHeaderSecretKey]) != "s3cret" {
+		t.Errorf("copied value = %q", copied.Data[testHeaderSecretKey])
 	}
 	if _, ok := f.externalSecret(t); ok {
 		t.Error("no ExternalSecret should be applied for Kubernetes Secret references")
@@ -890,7 +995,7 @@ func TestReconcile_SwitchBackToKubernetesSecretWaitsForSyncedSecret(t *testing.T
 	es.SetName("ch")
 	es.SetNamespace(testNamespace)
 	es.SetLabels(map[string]string{"app.kubernetes.io/managed-by": managedByLabelValue})
-	synced := newKubernetesSecret("ch", map[string]string{"webhook.header.X-API-Key": "old"})
+	synced := newKubernetesSecret("ch", map[string]string{testHeaderSecretKey: "old"})
 	synced.OwnerReferences = []metav1.OwnerReference{{APIVersion: "external-secrets.io/v1", Kind: "ExternalSecret", Name: "ch", UID: "uid"}}
 	f := newReconcileFixture(t, []client.Object{channel, secret}, es, synced)
 
@@ -1029,6 +1134,34 @@ func TestReconcile_InvalidReferenceRemovesTheExternalSecret(t *testing.T) {
 	}
 }
 
+func TestReconcile_InvalidReferenceRemovesTheCopiedSecret(t *testing.T) {
+	channel := newWebhookChannelWithURLRef(testChannel, "webhook-url")
+	secret := newKubernetesSecret("webhook-url", map[string]string{testURLKey: "https://hooks.example.com/services/old"})
+	f := newReconcileFixture(t, []client.Object{channel, secret})
+	key := types.NamespacedName{Name: testChannel, Namespace: testNamespace}
+
+	f.reconcile(t)
+	copied := &corev1.Secret{}
+	if err := f.op.Get(context.Background(), key, copied); err != nil {
+		t.Fatalf("copied Secret was not applied: %v", err)
+	}
+	if string(copied.Data[webhookURLKey]) != "https://hooks.example.com/services/old" {
+		t.Fatalf("copied webhook URL = %q", copied.Data[webhookURLKey])
+	}
+
+	updated := f.channel(t)
+	updated.Spec.WebhookConfig.URLFrom.SecretKeyRef.Name = "missing"
+	if err := f.cp.Update(context.Background(), updated); err != nil {
+		t.Fatalf("update channel: %v", err)
+	}
+	f.reconcile(t)
+
+	requireCondition(t, f.channel(t), ConditionReady, metav1.ConditionFalse, ReasonSecretNotFound)
+	if err := f.op.Get(context.Background(), key, &corev1.Secret{}); !apierrors.IsNotFound(err) {
+		t.Errorf("the copied Secret should be deleted so the observer stops using its values, got %v", err)
+	}
+}
+
 func newForeignExternalSecret() *unstructured.Unstructured {
 	es := newExternalSecretObject()
 	es.SetName(testChannel)
@@ -1159,6 +1292,15 @@ func TestFinalize_DeletesExternalSecret(t *testing.T) {
 // ---------------------------------------------------------------------------
 // findChannelsReferencing
 // ---------------------------------------------------------------------------
+
+func TestFindChannelsReferencing_WebhookURL(t *testing.T) {
+	r := newReconcilerWithObjects(t, newWebhookChannelWithURLRef("referencing", "webhook-url"), newWebhookChannel("inline", "dev"))
+
+	requests := r.findChannelsReferencing(context.Background(), newSecretReference("webhook-url", nil))
+	if len(requests) != 1 || requests[0].Name != "referencing" {
+		t.Errorf("requests = %v, want [referencing]", requests)
+	}
+}
 
 func TestFindChannelsReferencing(t *testing.T) {
 	referencing := newWebhookChannelWithHeaderRef("referencing", "webhook-auth")

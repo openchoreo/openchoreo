@@ -366,6 +366,17 @@ type ReleaseBindingStatus struct {
 	// +optional
 	Endpoints []EndpointURLStatus `json:"endpoints,omitempty"`
 
+	// EndpointsObservedGeneration is the generation whose rendered release
+	// endpoints was last computed from. It is recorded as soon as the release is
+	// rendered, before the binding waits on its connections and resource
+	// dependencies, so it can lead ReleaseSynced. When it matches the
+	// generation, an endpoint listed without a serviceURL has no Service from
+	// the ComponentType, rather than one not reported yet. Zero while the
+	// binding renders nothing: before its first render, when undeployed, and in
+	// Observe mode.
+	// +optional
+	EndpointsObservedGeneration int64 `json:"endpointsObservedGeneration,omitempty"`
+
 	// ConnectionTargets lists the connection targets derived from the workload connections.
 	// Used as an index source for finding consumer ReleaseBindings when a provider's endpoints change.
 	// +optional
