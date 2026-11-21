@@ -66,6 +66,9 @@ input=$(cat)
 echo "jq $*" >> "$CALLS"
 echo "jq-stdin $input" >> "$CALLS"
 case "$input" in
+  *CUSTOM_JRE_VERSION*)
+    printf '%s\n' "Q1VTVE9NX0pSRV9WRVJTSU9OPWpkay0yNS4wLjMrNQ=="
+    ;;
   *MULTILINE_ENV*)
     printf '%s\n' "TVVMVElMSU5FX0VOVj1maXJzdApzZWNvbmQK"
     ;;
@@ -276,6 +279,106 @@ func TestBuildpackBuilds_Behavior(t *testing.T) {
 				"buildpack build must wait until the built image exists before saving")
 			requireCallContains(t, res, "podman save -o", filepath.Join(res.root, "mnt-vol", "app-image.tar"),
 				"buildpack build must save the image tar handoff for publish-image")
+		})
+	}
+}
+
+func TestBallerinaBuildpack_SelectsJava25ForBallerina2201_14(t *testing.T) {
+	for _, dir := range []string{templatesDir, buildCacheTemplatesDir} {
+		for _, distributionLine := range []struct {
+			name  string
+			value string
+		}{
+			{name: "basic string", value: `distribution = "2201.14.0"`},
+			{name: "literal string", value: `distribution = '2201.14.0'`},
+		} {
+			t.Run(dir+"/"+distributionLine.name, func(t *testing.T) {
+				script := scriptForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
+				env := envForTemplateFromDir(t, dir, "ballerina-buildpack-build.yaml", "build-image")
+				res := runScriptWithEnv(t, script, env, map[string]string{
+					"podman": buildPodmanStub,
+					"pack":   packStub,
+					"jq":     buildJQStub,
+				}, func(root string) {
+					appDir := filepath.Join(root, "mnt-vol", "source", "service")
+					require.NoError(t, os.MkdirAll(appDir, 0o755))
+					require.NoError(t, os.WriteFile(
+						filepath.Join(appDir, "Ballerina.toml"),
+						[]byte("[package]\n"+distributionLine.value+"\n"),
+						0o644,
+					))
+					require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+					require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+				}, buildReplacements)
+
+				requireScriptSuccess(t, res, "Ballerina 2201.14 build should complete")
+				requireCallContains(t, res, "pack build", "--env CUSTOM_JRE_VERSION=jdk-25.0.4.1+1",
+					"Ballerina 2201.14 must use Java 25")
+			})
+		}
+	}
+}
+
+func TestBallerinaBuildpack_PreservesJavaSelection(t *testing.T) {
+	tests := []struct {
+		name         string
+		distribution string
+		buildEnv     string
+		wantEnv      string
+		notWantEnv   string
+	}{
+		{
+			name:         "older distribution retains buildpack default",
+			distribution: "2201.13.2",
+			buildEnv:     `[{"name":"FOO","value":"bar"}]`,
+			notWantEnv:   "CUSTOM_JRE_VERSION=jdk-25.0.4.1+1",
+		},
+		{
+			name:         "user override wins",
+			distribution: "2201.14.0",
+			buildEnv:     `[{"name":"CUSTOM_JRE_VERSION","value":"jdk-25.0.3+5"}]`,
+			wantEnv:      "CUSTOM_JRE_VERSION=jdk-25.0.3+5",
+			notWantEnv:   "CUSTOM_JRE_VERSION=jdk-25.0.4.1+1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			script := scriptForTemplate(t, "ballerina-buildpack-build.yaml", "build-image")
+			env := envForTemplate(t, "ballerina-buildpack-build.yaml", "build-image")
+			res := runScriptWithEnv(t, script, env, map[string]string{
+				"podman": buildPodmanStub,
+				"pack":   packStub,
+				"jq":     buildJQStub,
+			}, func(root string) {
+				appDir := filepath.Join(root, "mnt-vol", "source", "service")
+				require.NoError(t, os.MkdirAll(appDir, 0o755))
+				require.NoError(t, os.WriteFile(
+					filepath.Join(appDir, "Ballerina.toml"),
+					[]byte("[package]\ndistribution = \""+tt.distribution+"\"\n"),
+					0o644,
+				))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+			}, func(root string) []string {
+				replacements := buildReplacements(root)
+				for i := 0; i < len(replacements); i += 2 {
+					if replacements[i] == "{{inputs.parameters.build-env}}" || replacements[i] == "{{workflow.parameters.build-env}}" {
+						replacements[i+1] = tt.buildEnv
+					}
+				}
+				return replacements
+			})
+
+			requireScriptSuccess(t, res, tt.name)
+			if tt.wantEnv != "" {
+				requireCallContains(t, res, "pack build", "--env "+tt.wantEnv,
+					"Ballerina build must preserve the user-provided JRE")
+			}
+			if tt.notWantEnv != "" {
+				requireNoCallContains(t, res, "pack build", "--env "+tt.notWantEnv,
+					"Ballerina build must not inject an unintended JRE version")
+			}
 		})
 	}
 }

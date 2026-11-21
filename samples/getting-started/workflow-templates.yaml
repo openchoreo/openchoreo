@@ -357,6 +357,7 @@ spec:
             # Build --env flags as argv entries, not shell fragments.
             # Base64 keeps embedded newlines within a single argv entry.
             set --
+            has_custom_jre=false
             if [ -n "$BUILD_ENV_JSON" ] && [ "$BUILD_ENV_JSON" != "[]" ]; then
               encoded_env_entries=$(printf '%s' "$BUILD_ENV_JSON" |
                 jq -r '.[] | "\(.name)=\(.value)" | @base64')
@@ -367,10 +368,40 @@ spec:
                   printf '.'
                 )
                 kv=${kv_with_sentinel%?}
+                case "$kv" in
+                  CUSTOM_JRE_VERSION=*|CUSTOM_JRE_URL=*) has_custom_jre=true ;;
+                esac
                 set -- "$@" --env "$kv"
               done <<EOF
             $encoded_env_entries
             EOF
+            fi
+
+            # Ballerina 2201.14+ requires Java 25. The bundled buildpack defaults
+            # to Java 21 for 2201.11+, so supply Java 25 unless the user already
+            # selected a custom JRE through buildEnv.
+            ballerina_toml="$WORKDIR/$APP_PATH/Ballerina.toml"
+            if [ "$has_custom_jre" = false ] && [ -f "$ballerina_toml" ]; then
+              ballerina_version=$(awk '
+                /^[[:space:]]*distribution[[:space:]]*=/ {
+                  value = $0
+                  sub(/^[^=]*=[[:space:]]*/, "", value)
+                  quote = substr(value, 1, 1)
+                  if (quote == "\"" || quote == sprintf("%c", 39)) {
+                    value = substr(value, 2)
+                    closing_quote = index(value, quote)
+                    if (closing_quote > 0) {
+                      print substr(value, 1, closing_quote - 1)
+                    }
+                  }
+                  exit
+                }
+              ' "$ballerina_toml")
+              ballerina_major=$(printf '%s' "$ballerina_version" | cut -d. -f1)
+              ballerina_minor=$(printf '%s' "$ballerina_version" | cut -d. -f2)
+              if [ "$ballerina_major" = "2201" ] && [ "$ballerina_minor" -ge 14 ] 2>/dev/null; then
+                set -- "$@" --env "CUSTOM_JRE_VERSION=jdk-25.0.4.1+1"
+              fi
             fi
 
             echo ">> Building image with Ballerina buildpack"
