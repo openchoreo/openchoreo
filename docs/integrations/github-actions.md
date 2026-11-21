@@ -9,6 +9,11 @@ This document covers the **portal-side wiring** that ships in the `openchoreo-co
 Helm chart. The **deployment bridge** (reusable workflow + OIDC validation) is tracked in
 the linked follow-up and will be documented in this file when it lands.
 
+> **Requires the portal.** Everything below configures the bundled Backstage portal, so
+> none of it applies to an install made with `--without-portal` (or
+> `backstage.enabled=false`). External CI itself does not depend on the portal — only the
+> visibility of its runs does.
+
 > **Two GitHub credentials are involved.** The optional backend token in sections 4–5
 > (`github-actions-token`) is consumed only by Backstage **backend** plugins (catalog
 > ingestion, scaffolder, TechDocs). The **GitHub Actions card itself authenticates each

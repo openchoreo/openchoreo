@@ -6,9 +6,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -393,6 +395,12 @@ type fakeAlertEntryStore struct {
 	entries         []alertentry.AlertEntry
 	total           int
 	lastQueryParams alertentry.QueryParams
+
+	mu         sync.Mutex
+	deliveries map[string]map[string]alertentry.NotificationDelivery // alert ID, then channel
+	// failRecords is how many of the next RecordNotificationDelivery calls fail.
+	failRecords int
+	records     int
 }
 
 func (f *fakeAlertEntryStore) Initialize(context.Context) error { return nil }
@@ -407,6 +415,63 @@ func (f *fakeAlertEntryStore) HasRecentAlert(context.Context, string, string, st
 	return false, nil
 }
 func (f *fakeAlertEntryStore) Close() error { return nil }
+
+func (f *fakeAlertEntryStore) RecordNotificationDelivery(_ context.Context, d alertentry.NotificationDelivery) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.records++
+	if f.failRecords > 0 {
+		f.failRecords--
+		return errors.New("database is locked")
+	}
+	if f.deliveries == nil {
+		f.deliveries = map[string]map[string]alertentry.NotificationDelivery{}
+	}
+	if f.deliveries[d.AlertID] == nil {
+		f.deliveries[d.AlertID] = map[string]alertentry.NotificationDelivery{}
+	}
+	if existing, ok := f.deliveries[d.AlertID][d.Channel]; ok {
+		d.CreatedAt = existing.CreatedAt
+	}
+	f.deliveries[d.AlertID][d.Channel] = d
+	return nil
+}
+
+func (f *fakeAlertEntryStore) QueryNotificationDeliveries(_ context.Context, alertIDs []string) (map[string][]alertentry.NotificationDelivery, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	result := map[string][]alertentry.NotificationDelivery{}
+	for _, id := range alertIDs {
+		for _, d := range f.deliveries[id] {
+			result[id] = append(result[id], d)
+		}
+	}
+	return result, nil
+}
+
+func (f *fakeAlertEntryStore) FailStaleNotificationDeliveries(_ context.Context, cutoff time.Time, reason string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var n int64
+	for _, byChannel := range f.deliveries {
+		for ch, d := range byChannel {
+			if d.Status == alertentry.DeliveryStatusPending && d.CreatedAt.Before(cutoff) {
+				d.Status, d.Reason = alertentry.DeliveryStatusFailed, reason
+				byChannel[ch] = d
+				n++
+			}
+		}
+	}
+	return n, nil
+}
+
+// delivery returns the recorded delivery of an alert's channel.
+func (f *fakeAlertEntryStore) delivery(alertID, channel string) (alertentry.NotificationDelivery, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	d, ok := f.deliveries[alertID][channel]
+	return d, ok
+}
 
 type fakeIncidentEntryStore struct {
 	entries          []incidententry.IncidentEntry
@@ -449,3 +514,61 @@ func (f *fakeIncidentEntryStore) UpdateIncidentEntry(_ context.Context, id strin
 	return f.updateEntry, nil
 }
 func (f *fakeIncidentEntryStore) Close() error { return nil }
+
+func TestAlertServiceQueryAlerts_NotificationDeliveries(t *testing.T) {
+	t.Parallel()
+
+	fakeStore := &fakeAlertEntryStore{
+		entries: []alertentry.AlertEntry{
+			{ID: "with-deliveries", Timestamp: "2026-03-07T10:20:30Z", NotificationChannels: `["slack","email"]`},
+			{ID: "before-deliveries", Timestamp: "2026-03-07T10:10:30Z", NotificationChannels: `["slack"]`},
+		},
+		total: 2,
+	}
+	attempted := time.Date(2026, 3, 7, 10, 20, 35, 0, time.UTC)
+	ctx := context.Background()
+	if err := fakeStore.RecordNotificationDelivery(ctx, alertentry.NotificationDelivery{
+		AlertID: "with-deliveries", Channel: "slack", Status: alertentry.DeliveryStatusSent, Attempts: 1, LastAttemptAt: attempted,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fakeStore.RecordNotificationDelivery(ctx, alertentry.NotificationDelivery{
+		AlertID: "with-deliveries", Channel: "email", Status: alertentry.DeliveryStatusFailed, Reason: "smtp_temporary",
+		Attempts: 3, LastAttemptAt: attempted,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := &AlertService{alertEntryStore: fakeStore, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	resp, err := svc.QueryAlerts(ctx, gen.AlertsQueryRequest{
+		StartTime:   time.Date(2026, 3, 7, 10, 0, 0, 0, time.UTC),
+		EndTime:     time.Date(2026, 3, 7, 11, 0, 0, 0, time.UTC),
+		SearchScope: gen.ComponentSearchScope{Namespace: "team-a"},
+	})
+	if err != nil {
+		t.Fatalf("query alerts failed: %v", err)
+	}
+	alerts := *resp.Alerts
+	if len(alerts) != 2 {
+		t.Fatalf("expected 2 alerts, got %d", len(alerts))
+	}
+
+	if alerts[0].NotificationDeliveries == nil || len(*alerts[0].NotificationDeliveries) != 2 {
+		t.Fatalf("expected 2 deliveries on the first alert, got %v", alerts[0].NotificationDeliveries)
+	}
+	byChannel := map[string]gen.NotificationDelivery{}
+	for _, d := range *alerts[0].NotificationDeliveries {
+		byChannel[d.Channel] = d
+	}
+	slack, email := byChannel["slack"], byChannel["email"]
+	if slack.Status != gen.Sent || slack.Reason != nil || slack.Attempts != 1 ||
+		slack.LastAttemptAt == nil || !slack.LastAttemptAt.Equal(attempted) {
+		t.Errorf("unexpected slack delivery: %+v", slack)
+	}
+	if email.Status != gen.Failed || email.Reason == nil || *email.Reason != "smtp_temporary" || email.Attempts != 3 {
+		t.Errorf("unexpected email delivery: %+v", email)
+	}
+	if alerts[1].NotificationDeliveries != nil {
+		t.Errorf("an alert fired before delivery results were recorded has none, got %v", *alerts[1].NotificationDeliveries)
+	}
+}

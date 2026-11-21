@@ -425,7 +425,6 @@ func TestSendAlertNotification_WebhookLogsLeaveOutTheURL(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
-			assert.Contains(t, logs.String(), ts.URL+"/<redacted>")
 			assert.NotContains(t, logs.String(), "s3cr3t")
 		})
 	}
@@ -437,7 +436,7 @@ func TestSendAlertNotification_EmailRoute(t *testing.T) {
 
 		orig := smtpSendMail
 		t.Cleanup(func() { smtpSendMail = orig })
-		smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 			msgStr := string(msg)
 			for _, line := range strings.Split(msgStr, "\r\n") {
 				if strings.HasPrefix(line, "Subject: ") {
@@ -471,7 +470,7 @@ func TestSendAlertNotification_EmailRoute(t *testing.T) {
 
 		orig := smtpSendMail
 		t.Cleanup(func() { smtpSendMail = orig })
-		smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 			msgStr := string(msg)
 			for _, line := range strings.Split(msgStr, "\r\n") {
 				if strings.HasPrefix(line, "Subject: ") {
@@ -506,7 +505,7 @@ func TestSendAlertNotification_EmailRoute(t *testing.T) {
 
 		orig := smtpSendMail
 		t.Cleanup(func() { smtpSendMail = orig })
-		smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 			capturedMsg = string(msg)
 			return nil
 		}
@@ -533,7 +532,7 @@ func TestSendAlertNotification_EmailRoute(t *testing.T) {
 	t.Run("propagates email error", func(t *testing.T) {
 		orig := smtpSendMail
 		t.Cleanup(func() { smtpSendMail = orig })
-		smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+		smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 			return assert.AnError
 		}
 

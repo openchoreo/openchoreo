@@ -4,6 +4,7 @@
 package config
 
 import (
+	"net/netip"
 	"os"
 	"testing"
 	"time"
@@ -26,6 +27,67 @@ func TestLoad_WithDefaults(t *testing.T) {
 	assert.Equal(t, "http://metrics-adapter:9099", cfg.Adapters.MetricsAdapterURL)
 	assert.Equal(t, "http://finops-adapter:9101", cfg.Adapters.FinOpsAdapterURL)
 	assert.Equal(t, 30*time.Second, cfg.Adapters.FinOpsAdapterTimeout)
+}
+
+func TestLoad_AlertNotificationDefaults(t *testing.T) {
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 3, cfg.Alerting.NotificationMaxAttempts)
+	assert.Equal(t, 10*time.Second, cfg.Alerting.NotificationAttemptTimeout)
+	assert.Equal(t, time.Second, cfg.Alerting.NotificationRetryBackoff)
+}
+
+func TestLoad_AlertNotificationEnvOverride(t *testing.T) {
+	t.Setenv("ALERT_NOTIFICATION_MAX_ATTEMPTS", "5")
+	t.Setenv("ALERT_NOTIFICATION_ATTEMPT_TIMEOUT", "4s")
+	t.Setenv("ALERT_NOTIFICATION_RETRY_BACKOFF", "500ms")
+
+	cfg, err := Load()
+	require.NoError(t, err, "Failed to load config")
+
+	assert.Equal(t, 5, cfg.Alerting.NotificationMaxAttempts)
+	assert.Equal(t, 4*time.Second, cfg.Alerting.NotificationAttemptTimeout)
+	assert.Equal(t, 500*time.Millisecond, cfg.Alerting.NotificationRetryBackoff)
+}
+
+func TestLoad_AlertNotificationDestinations(t *testing.T) {
+	t.Run("defaults", func(t *testing.T) {
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.True(t, cfg.Alerting.NotificationPrivateDestinations.IsEmpty())
+		assert.Equal(t, []string{
+			"logs-adapter", "metrics-adapter", "tracing-adapter", "finops-adapter", "sre-agent", "finops-agent",
+			"observer", "observer-internal",
+		}, cfg.NotificationProtectedHostList())
+	})
+
+	t.Run("listed private destinations", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", " 10.43.0.0/16, 10.0.12.5 ,,Relay.Corp.Internal")
+		t.Setenv("ALERT_NOTIFICATION_PROTECTED_HOSTS", "observer-internal")
+		cfg, err := Load()
+		require.NoError(t, err)
+		assert.Equal(t, []netip.Prefix{
+			netip.MustParsePrefix("10.43.0.0/16"),
+			netip.MustParsePrefix("10.0.12.5/32"),
+		}, cfg.Alerting.NotificationPrivateDestinations.Prefixes)
+		assert.Equal(t, []string{"relay.corp.internal"}, cfg.Alerting.NotificationPrivateDestinations.Hosts)
+		assert.Equal(t, []string{"observer-internal"}, cfg.Alerting.NotificationProtectedHosts)
+	})
+
+	t.Run("invalid entry", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", "10.43.0.0/16,169.254.169.254")
+		_, err := Load()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `"169.254.169.254"`)
+	})
+
+	t.Run("a listed host the observer itself uses", func(t *testing.T) {
+		t.Setenv("ALERT_NOTIFICATION_PRIVATE_DESTINATIONS", "logs-adapter")
+		_, err := Load()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), `"logs-adapter"`)
+	})
 }
 
 func TestLoad_FinOpsAdapterEnvOverride(t *testing.T) {
@@ -161,6 +223,11 @@ func TestValidate(t *testing.T) {
 				ServiceURL: "http://localhost:8081",
 				Timeout:    30 * time.Second,
 			},
+			Alerting: AlertingConfig{
+				NotificationMaxAttempts:    3,
+				NotificationAttemptTimeout: 10 * time.Second,
+				NotificationRetryBackoff:   time.Second,
+			},
 			UIDResolver: UIDResolverConfig{
 				OpenChoreoAPIURL:  "http://localhost:9099",
 				OAuthTokenURL:     "http://localhost:8080/oauth2/token",
@@ -191,6 +258,26 @@ func TestValidate(t *testing.T) {
 		{
 			name:      "valid config",
 			mutate:    func(c *Config) {},
+			expectErr: false,
+		},
+		{
+			name:      "notification max attempts must be at least 1",
+			mutate:    func(c *Config) { c.Alerting.NotificationMaxAttempts = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "notification attempt timeout must be positive",
+			mutate:    func(c *Config) { c.Alerting.NotificationAttemptTimeout = 0 },
+			expectErr: true,
+		},
+		{
+			name:      "notification retry backoff must not be negative",
+			mutate:    func(c *Config) { c.Alerting.NotificationRetryBackoff = -time.Second },
+			expectErr: true,
+		},
+		{
+			name:      "notification retry backoff may be zero",
+			mutate:    func(c *Config) { c.Alerting.NotificationRetryBackoff = 0 },
 			expectErr: false,
 		},
 		{
@@ -314,12 +401,9 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-// TestDeliveryInsightsDefaultsLeaveTheFeatureOff pins that a chart or install which does
-// not mention Delivery Insights gets it disabled. Aggregation in particular must
-// default off: the aggregator has no leader election, so the chart refuses
-// observer.replicas > 1 while it is enabled, and defaulting it on would fail the
-// render of an existing scaled deployment that never opted in.
-func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
+// TestDeliveryInsightsDefaultsTurnTheFeatureOn pins that a chart or install which does
+// not mention Delivery Insights gets it enabled, and that the flag still turns it off.
+func TestDeliveryInsightsDefaultsTurnTheFeatureOn(t *testing.T) {
 	// Load() reads the process environment, and anyone working on this feature is
 	// likely to have DELIVERY_INSIGHTS_* set in their shell -- which would make this assert
 	// their environment rather than the defaults. Load() skips empty values, so
@@ -339,8 +423,14 @@ func TestDeliveryInsightsDefaultsLeaveTheFeatureOff(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
+	assert.True(t, cfg.DeliveryInsights.Enabled,
+		"Delivery Insights must default on")
+
+	t.Setenv("FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED", "false")
+	cfg, err = Load()
+	require.NoError(t, err)
 	assert.False(t, cfg.DeliveryInsights.Enabled,
-		"Delivery Insights must default off; it is opt-in per deployment")
+		"FEATURE_PREVIEW_DELIVERY_INSIGHTS_ENABLED=false must still turn it off")
 }
 
 func TestValidateDeliveryInsightsStore(t *testing.T) {

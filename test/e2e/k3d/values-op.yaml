@@ -8,6 +8,10 @@
 observer:
   openSearchSecretName: observer-opensearch-credentials
   secretName: observer-secret
+  # The alerts suite's webhook receiver runs in the cluster, at a private address.
+  alertNotification:
+    privateDestinations:
+    - webhook-receiver.e2e-alert-webhook.svc.cluster.local
   http:
     hostnames:
     - observer.e2e-op.local

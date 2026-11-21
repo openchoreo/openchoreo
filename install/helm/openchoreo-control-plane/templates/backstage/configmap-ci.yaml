@@ -19,14 +19,17 @@ data:
       baseUrl: ${JENKINS_BASE_URL}
       username: ${JENKINS_USERNAME}
       apiKey: ${JENKINS_API_KEY}
-{{- if .Values.backstage.externalCI.githubActions.enabled }}
-    # GitHub Actions: requires the `github.com/project-slug` annotation on the Component.
-    # See https://backstage.io/docs/integrations/github/locations for the Backstage GitHub
-    # integration. For GitHub Enterprise Server, set both GITHUB_HOST and GITHUB_API_BASE_URL.
+{{- $github := include "openchoreo-control-plane.backstage.githubIntegration" . | fromJson }}
+{{- if $github }}
+    # GitHub integration, read by the GitHub Actions card (which needs the
+    # `github.com/project-slug` annotation on the Component) and by the Scorecards
+    # GitHub fact collector. See https://backstage.io/docs/integrations/github/locations
+    # for the Backstage GitHub integration. For GitHub Enterprise Server, set both
+    # GITHUB_HOST and GITHUB_API_BASE_URL.
     integrations:
       github:
         - host: ${GITHUB_HOST}
-          {{- if .Values.backstage.externalCI.githubActions.apiBaseUrl }}
+          {{- if $github.apiBaseUrl }}
           apiBaseUrl: ${GITHUB_API_BASE_URL}
           {{- end }}
           token: ${GITHUB_TOKEN}

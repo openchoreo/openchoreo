@@ -129,7 +129,7 @@ var _ = Describe("ReleaseBinding Controller — revisions", func() {
 		wantHash, err := revision.ReleaseBindingSpecHash(&rb.Spec)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(current.Spec.SnapshotHash).To(Equal(wantHash), "the active revision must record the current spec")
-		Expect(current.Spec.ComponentReleaseName).To(Equal(rb.Spec.ReleaseName))
+		Expect(current.Spec.BindingSpec.ReleaseName).To(Equal(rb.Spec.ReleaseName))
 		Expect(rb.Status.CurrentRevision).To(Equal(current.Name), "the binding must point at its active revision")
 		return revs
 	}
@@ -184,7 +184,7 @@ var _ = Describe("ReleaseBinding Controller — revisions", func() {
 		r1 := revs[0]
 		Expect(r1.Name).To(Equal(rbName+"-r1"), "revision objects are named {binding}-r{N}")
 		Expect(r1.Spec.Cause).To(Equal(openchoreov1alpha1.RevisionCauseDeploy))
-		Expect(r1.Spec.ComponentReleaseName).To(Equal(crA))
+		Expect(r1.Spec.BindingSpec.ReleaseName).To(Equal(crA))
 		Expect(r1.Spec.SnapshotHash).To(HaveLen(64))
 		Expect(r1.Status.Active).To(BeTrue())
 		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
@@ -208,7 +208,7 @@ var _ = Describe("ReleaseBinding Controller — revisions", func() {
 		revs := expectRevisionInvariants()
 		Expect(revs).To(HaveLen(2))
 		Expect(revs[1].Spec.Cause).To(Equal(openchoreov1alpha1.RevisionCauseOverride))
-		Expect(revs[1].Spec.ComponentReleaseName).To(Equal(crA))
+		Expect(revs[1].Spec.BindingSpec.ReleaseName).To(Equal(crA))
 		Expect(string(revs[1].Spec.BindingSpec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(`{"replicas":3}`))
 
 		Expect(revs[0].Status.Active).To(BeFalse())

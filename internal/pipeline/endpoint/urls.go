@@ -36,7 +36,7 @@ var APIKeyLocations = []string{
 
 // ResolveURLs evaluates EndpointTypeSpec.URLs against the same CEL context
 // Render uses. A visibility's URL is resolved when the type declares it, the
-// Endpoint requests that visibility (project is implicit and always counts),
+// Endpoint requests that visibility (project always counts; see requested),
 // and its IncludeWhen passes. URLs are computed from the render inputs alone;
 // nothing is read back from the data plane.
 //
@@ -99,9 +99,14 @@ func (p *Pipeline) ResolveURLs(ctx context.Context, input *RenderInput) (*v1alph
 	return resolved, errors.Join(errs...)
 }
 
-// requested reports whether the Endpoint asks for visibility v. Project
-// visibility is implicit for every Endpoint and cannot be requested, so it
-// always counts.
+// requested reports whether the Endpoint asks for visibility v. Project always
+// counts, listed or not: while ComponentTypes still render each component's
+// own Service, existing types point urls.project at it for every Endpoint. A
+// type that serves project visibility itself gates urls.project with
+// includeWhen: ${"project" in visibility}.
+//
+// TODO: count project only when listed once ComponentTypes no longer render
+// Services.
 func requested(v v1alpha1.EndpointVisibility, visibility []v1alpha1.EndpointVisibility) bool {
 	return v == v1alpha1.EndpointVisibilityProject || slices.Contains(visibility, v)
 }

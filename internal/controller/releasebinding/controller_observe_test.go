@@ -73,6 +73,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 			Name:       "http",
 			ServiceURL: &openchoreov1alpha1.EndpointURL{Scheme: "http", Host: "api.payments.svc", Port: 8080},
 		}}
+		rb.Status.EndpointsObservedGeneration = rb.Generation
 		rb.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: "rollout-1"}
 		rb.Status.CurrentRevision = rb.Name + "-r2"
 		rb.Status.HighestRevision = 2
@@ -389,6 +390,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 
 		updated := fetchRB(rb.Name)
 		Expect(updated.Status.Endpoints).To(BeEmpty())
+		Expect(updated.Status.EndpointsObservedGeneration).To(BeZero())
 		Expect(updated.Status.Delivery).To(BeNil())
 		Expect(updated.Status.CurrentRevision).To(BeEmpty(), "an observed binding applies no revision")
 		Expect(updated.Status.HighestRevision).To(Equal(int64(2)), "kept so revision numbers are never reused")
