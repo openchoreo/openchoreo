@@ -71,3 +71,62 @@ var _ = Describe("ResourceRelease watch mapper", func() {
 		Expect(r.listResourceReleaseBindingsForResourceRelease(mapperCtx, release)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("Project watch mapper", func() {
+	mapperCtx := context.Background()
+
+	newBinding := func(name, ns, projectName string) *openchoreov1alpha1.ResourceReleaseBinding {
+		return &openchoreov1alpha1.ResourceReleaseBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			Spec: openchoreov1alpha1.ResourceReleaseBindingSpec{
+				Owner: openchoreov1alpha1.ResourceReleaseBindingOwner{
+					ProjectName:  projectName,
+					ResourceName: "r",
+				},
+				Environment:     "dev",
+				ResourceRelease: "r-abc123",
+			},
+		}
+	}
+
+	buildClient := func(objs ...client.Object) client.Client {
+		s := runtime.NewScheme()
+		Expect(openchoreov1alpha1.AddToScheme(s)).To(Succeed())
+		return fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(objs...).
+			WithIndex(&openchoreov1alpha1.ResourceReleaseBinding{},
+				ownerProjectNameIndex, indexOwnerProjectName).
+			Build()
+	}
+
+	// A binding that hit ProjectNotFound returns without a requeue, so this
+	// mapper is the only thing that wakes it once the Project is created.
+	// Bindings of other projects, or of a same-named project in another
+	// namespace, must not be woken.
+	It("enqueues only bindings in the same namespace that belong to the project", func() {
+		matching := newBinding("matches", "ns1", "billing")
+		otherProject := newBinding("other-project", "ns1", "payments")
+		otherNs := newBinding("other-ns", "ns2", "billing")
+
+		r := &Reconciler{Client: buildClient(matching, otherProject, otherNs)}
+		project := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "billing", Namespace: "ns1"},
+		}
+
+		requests := r.listResourceReleaseBindingsForProject(mapperCtx, project)
+
+		Expect(requests).To(HaveLen(1))
+		Expect(requests[0].Namespace).To(Equal("ns1"))
+		Expect(requests[0].Name).To(Equal("matches"))
+	})
+
+	It("returns no requests when the project has no bindings", func() {
+		r := &Reconciler{Client: buildClient(newBinding("a", "ns1", "payments"))}
+		project := &openchoreov1alpha1.Project{
+			ObjectMeta: metav1.ObjectMeta{Name: "billing", Namespace: "ns1"},
+		}
+
+		Expect(r.listResourceReleaseBindingsForProject(mapperCtx, project)).To(BeEmpty())
+	})
+})

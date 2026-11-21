@@ -475,6 +475,10 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 //     live binding's pinned release is removed; in the normal teardown
 //     path bindings are already deleting under their own finalizer by
 //     the time the Resource finalizer cascades the snapshot.
+//   - Watches: Project — wakes a binding that hit ProjectNotFound when the
+//     Project is created later. The ResourceRelease watch does not cover
+//     this, because the Resource controller cuts a release without checking
+//     that the Project exists.
 //
 // (Cluster)ResourceType is intentionally not watched. Rendering reads from
 // the immutable ResourceRelease.spec.resourceType.spec snapshot, so live
@@ -492,12 +496,17 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := r.setupResourceReleaseRefIndex(context.Background(), mgr); err != nil {
 		return fmt.Errorf("setup ResourceRelease ref index: %w", err)
 	}
+	if err := r.setupOwnerProjectNameIndex(context.Background(), mgr); err != nil {
+		return fmt.Errorf("setup owner project name index: %w", err)
+	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ResourceReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.ResourceRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResourceRelease)).
+		Watches(&openchoreov1alpha1.Project{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForProject)).
 		Named("resourcereleasebinding").
 		Complete(r)
 }
