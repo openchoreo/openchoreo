@@ -152,7 +152,8 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
 
     await expect
       .poll(() => kNotFound('project', PROJECT_NAME, NS), {
-        timeout: 60_000,
+        // Finalization cascades through several stages on a 5s requeue; observed up to ~120s.
+        timeout: 150_000,
       })
       .toBe(true);
   });

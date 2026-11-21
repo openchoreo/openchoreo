@@ -143,7 +143,8 @@ test.describe('audit: portal actions publish audit records the Audit Logs page s
     await del.openOverflowAndDelete('Project');
     await del.confirm();
     await expect
-      .poll(() => kNotFound('project', PROJECT_NAME, NS), { timeout: 60_000 })
+      // Finalization cascades through several stages on a 5s requeue; observed up to ~120s.
+      .poll(() => kNotFound('project', PROJECT_NAME, NS), { timeout: 150_000 })
       .toBe(true);
 
     const audit = new AuditLogsPO(page);
