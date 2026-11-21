@@ -20,6 +20,65 @@ const (
 	ReleaseStateUndeploy ReleaseState = "Undeploy"
 )
 
+const (
+	// AnnotationKeyRevisionCause is set on a ReleaseBinding or ResourceReleaseBinding by the
+	// client that makes a change, to state its cause when it cannot be told from the spec.
+	// Its only value is "Promote", on a binding created by promotion, honored only for the
+	// binding's first revision. The binding controller removes it once the revision is written.
+	AnnotationKeyRevisionCause = "openchoreo.dev/revision-cause"
+
+	// AnnotationKeyChangeMessage is set on a ReleaseBinding or ResourceReleaseBinding,
+	// in the same write as a spec change, to say why the change was made. It is
+	// optional free text. The binding controller copies it into the revision that
+	// records the change (spec.message) and removes it once the revision is
+	// written. A change that makes an earlier revision active again, such as a
+	// rollback, creates no revision; its message is put on the binding's
+	// RevisionReactivated event instead.
+	AnnotationKeyChangeMessage = "openchoreo.dev/change-message"
+)
+
+// RevisionCause records why a binding revision was created.
+// +kubebuilder:validation:Enum=Deploy;Promote;Override;Undeploy;Redeploy
+type RevisionCause string
+
+const (
+	// RevisionCauseDeploy is a new release deployed to the binding's environment.
+	RevisionCauseDeploy RevisionCause = "Deploy"
+
+	// RevisionCausePromote is a release promoted from another environment.
+	RevisionCausePromote RevisionCause = "Promote"
+
+	// RevisionCauseOverride is a change to the binding's per-environment overrides.
+	RevisionCauseOverride RevisionCause = "Override"
+
+	// RevisionCauseUndeploy is the binding being switched to the Undeploy state.
+	RevisionCauseUndeploy RevisionCause = "Undeploy"
+
+	// RevisionCauseRedeploy is a redeployment of an unchanged binding spec.
+	RevisionCauseRedeploy RevisionCause = "Redeploy"
+)
+
+// RevisionHealth is the observed health of a binding revision.
+// +kubebuilder:validation:Enum=Progressing;Healthy;Degraded;Failed;Unknown
+type RevisionHealth string
+
+const (
+	// RevisionHealthProgressing indicates the revision is still rolling out.
+	RevisionHealthProgressing RevisionHealth = "Progressing"
+
+	// RevisionHealthHealthy indicates the revision is rolled out and healthy.
+	RevisionHealthHealthy RevisionHealth = "Healthy"
+
+	// RevisionHealthDegraded indicates the revision is running with reduced health.
+	RevisionHealthDegraded RevisionHealth = "Degraded"
+
+	// RevisionHealthFailed indicates the revision failed to roll out.
+	RevisionHealthFailed RevisionHealth = "Failed"
+
+	// RevisionHealthUnknown indicates the revision's health could not be determined.
+	RevisionHealthUnknown RevisionHealth = "Unknown"
+)
+
 // BindingMode decides whether a binding deploys what OpenChoreo renders or
 // observes objects that already run on the data plane.
 // +kubebuilder:validation:Enum=Manage;Observe

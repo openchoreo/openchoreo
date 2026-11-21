@@ -395,6 +395,12 @@ spec:
                   - visibility
                   type: object
                 type: array
+              currentRevision:
+                description: |-
+                  CurrentRevision is the name of the revision this binding currently applies,
+                  {binding}-r{N}. The controller updates it whenever the active revision
+                  changes, including when a rollback makes an earlier revision active again.
+                type: string
               delivery:
                 description: |-
                   Delivery tracks which delivery lifecycle events have been emitted for the
@@ -651,6 +657,13 @@ spec:
                   the ComponentType, rather than one not reported yet. Zero while the
                   binding renders nothing: before its first render, when undeployed, and in
                   Observe mode.
+                format: int64
+                type: integer
+              highestRevision:
+                description: |-
+                  HighestRevision is the highest revision number this binding has ever
+                  recorded. New revisions are numbered above it, so the number of a deleted
+                  revision is never given to another one.
                 format: int64
                 type: integer
               lastSpecUpdateTime:
