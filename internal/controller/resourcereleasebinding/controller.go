@@ -65,6 +65,11 @@ type Reconciler struct {
 	// Recorder records events on ResourceReleaseBindings, such as a revision
 	// made active again. Set by SetupWithManager.
 	Recorder record.EventRecorder
+
+	// APIReader reads from the apiserver, bypassing the cache. Revision
+	// recording uses it when the revision cache is behind a binding. Set by
+	// SetupWithManager; when nil, the cached Client is used.
+	APIReader client.Reader
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings,verbs=get;list;watch;create;update;patch;delete
@@ -220,7 +225,11 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	snapshotter := revision.NewResourceReleaseBindingSnapshotter(r.Client, r.Scheme, revision.Options{
 		KnownGoodWindow: r.RevisionKnownGoodWindow,
 		Recorder:        r.Recorder,
+		APIReader:       r.APIReader,
 	})
+	// The RenderedRelease this reconcile writes, once it has one; the revision
+	// health is judged from it (see observeRevisionHealth).
+	var rendered *openchoreov1alpha1.RenderedRelease
 	revResult, revErr := snapshotter.Record(ctx, binding)
 	// Point the binding at its active revision and record the highest revision
 	// number it has used; persisted with the rest of the status by the deferred
@@ -245,7 +254,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		// The active revision follows the binding's health as this reconcile
 		// leaves it, on every return path below, including errors.
 		defer func() {
-			requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, binding)
+			requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, binding, rendered)
 			if healthErr != nil {
 				logger.Error(healthErr, "Failed to update ResourceReleaseBinding revision health")
 				rErr = kerrors.NewAggregate([]error{rErr, fmt.Errorf("record revision health: %w", healthErr)})
@@ -261,6 +270,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	rendered = rr
 	if rr == nil {
 		// Synced is False; the deferred aggregator handles Ready.
 		return ctrl.Result{}, nil
@@ -382,15 +392,25 @@ func (r *Reconciler) renderAndEmit(
 // observeRevisionHealth maps the binding's conditions and its RenderedRelease to
 // a revision health and records it on the active revision. It returns how long
 // until that revision can become known-good, if it is waiting for that.
+//
+// rendered is the RenderedRelease this reconcile wrote, when it got that far:
+// the object readiness was evaluated from. Health is judged from that same
+// object, as for a ReleaseBinding; only when the reconcile stopped before
+// writing it is it read here.
 func (r *Reconciler) observeRevisionHealth(
 	ctx context.Context,
 	snapshotter *revision.Snapshotter[*openchoreov1alpha1.ResourceReleaseBinding, *openchoreov1alpha1.ResourceReleaseBindingRevision],
 	binding *openchoreov1alpha1.ResourceReleaseBinding,
+	rendered *openchoreov1alpha1.RenderedRelease,
 ) (time.Duration, error) {
 	observation := revision.Observation{
 		Generation:      binding.Generation,
 		Conditions:      binding.Status.Conditions,
 		SyncedCondition: string(ConditionSynced),
+	}
+	if rendered != nil {
+		observation.RenderedRelease = rendered
+		return snapshotter.ObserveHealth(ctx, binding, observation.Health())
 	}
 
 	renderedRelease := &openchoreov1alpha1.RenderedRelease{}
@@ -566,6 +586,9 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 // ResourceRelease cut by the Resource controller plus a manual pin
 // advance moves a binding forward.
 func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.APIReader == nil {
+		r.APIReader = mgr.GetAPIReader()
+	}
 	if r.Pipeline == nil {
 		r.Pipeline = resourcepipeline.NewPipeline(
 			resourcepipeline.WithCostLimit(r.CELCostLimit),

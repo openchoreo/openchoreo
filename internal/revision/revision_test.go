@@ -211,12 +211,16 @@ func TestCanonicalHash_NilVsEmpty(t *testing.T) {
 			wantSame: true,
 		},
 		{name: "raw null member vs absent", a: raw(`{"a":1,"b":null}`), b: raw(`{"a":1}`), wantSame: true},
-		{name: "raw empty array member vs absent", a: raw(`{"a":1,"b":[]}`), b: raw(`{"a":1}`), wantSame: true},
-		{name: "raw object that empties out vs absent", a: raw(`{"a":1,"b":{"c":null,"d":[]}}`), b: raw(`{"a":1}`), wantSame: true},
+		{name: "raw object that empties out vs absent", a: raw(`{"a":1,"b":{"c":null,"d":{}}}`), b: raw(`{"a":1}`), wantSame: true},
 		{name: "nil vs empty map at top level", a: nil, b: map[string]any{}, wantSame: true},
-		{name: "nil vs empty slice at top level", a: []string(nil), b: []string{}, wantSame: true},
+		{name: "typed omitempty slice: nil vs empty", a: openchoreov1alpha1.ContainerOverride{}, b: openchoreov1alpha1.ContainerOverride{Env: []openchoreov1alpha1.EnvVar{}}, wantSame: true},
 		{name: "integer vs float spelling of the same number", a: raw(`{"n":1}`), b: raw(`{"n":1.0}`), wantSame: true},
 		{name: "integer vs exponent spelling of the same number", a: raw(`{"n":100}`), b: raw(`{"n":1e2}`), wantSame: true},
+		{name: "fraction vs exponent spelling of the same number", a: raw(`{"n":1}`), b: raw(`{"n":10e-1}`), wantSame: true},
+		{name: "leading and trailing zeros", a: raw(`{"n":0.5}`), b: raw(`{"n":0.500e0}`), wantSame: true},
+		{name: "upper-case exponent and explicit plus", a: raw(`{"n":1.5}`), b: raw(`{"n":0.15E+1}`), wantSame: true},
+		{name: "negative zero is zero", a: raw(`{"n":0}`), b: raw(`{"n":-0.0}`), wantSame: true},
+		{name: "large exponent spellings of the same number", a: raw(`{"n":1e400}`), b: raw(`{"n":10e399}`), wantSame: true},
 
 		// Values, not "not set": these must hash differently.
 		{name: "raw empty string vs absent", a: raw(`{"a":1,"b":""}`), b: raw(`{"a":1}`), wantSame: false},
@@ -224,6 +228,17 @@ func TestCanonicalHash_NilVsEmpty(t *testing.T) {
 		{name: "raw zero vs absent", a: raw(`{"a":1,"b":0}`), b: raw(`{"a":1}`), wantSame: false},
 		{name: "empty array element keeps its position", a: raw(`{"a":[{},1]}`), b: raw(`{"a":[1]}`), wantSame: false},
 		{name: "non-integer floats stay distinct", a: raw(`{"n":1.5}`), b: raw(`{"n":1.25}`), wantSame: false},
+		// A schema default applies only to an absent field, so [] and absent can render differently.
+		{name: "raw empty array member vs absent", a: raw(`{"a":1,"b":[]}`), b: raw(`{"a":1}`), wantSame: false},
+		{name: "raw empty array nested in an object vs absent", a: raw(`{"a":1,"b":{"d":[]}}`), b: raw(`{"a":1}`), wantSame: false},
+		{name: "raw empty array element vs null element", a: raw(`{"a":[[],1]}`), b: raw(`{"a":[null,1]}`), wantSame: false},
+		// float64 cannot tell these apart; the canonical form must.
+		{name: "integers beyond float64 precision", a: raw(`{"n":9007199254740992}`), b: raw(`{"n":9007199254740993}`), wantSame: false},
+		{name: "integral floats beyond float64 precision", a: raw(`{"n":9007199254740992.0}`), b: raw(`{"n":9007199254740993.0}`), wantSame: false},
+		{name: "fractions beyond float64 precision", a: raw(`{"n":0.1}`), b: raw(`{"n":0.1000000000000000000001}`), wantSame: false},
+		{name: "integers beyond int64", a: raw(`{"n":100000000000000000000001}`), b: raw(`{"n":100000000000000000000002}`), wantSame: false},
+		{name: "exponents beyond float64 range", a: raw(`{"n":1e400}`), b: raw(`{"n":1e401}`), wantSame: false},
+		{name: "sign", a: raw(`{"n":1.5}`), b: raw(`{"n":-1.5}`), wantSame: false},
 	}
 
 	for _, tt := range tests {

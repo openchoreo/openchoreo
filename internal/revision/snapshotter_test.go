@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -352,6 +353,7 @@ func TestReleaseBindingSnapshotter_Causes(t *testing.T) {
 				binding.Annotations = tt.annotations
 			}
 			c := newTestClient(t, binding.DeepCopy())
+			require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
 			s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
 
 			res, err := s.Record(ctx, binding)
@@ -488,9 +490,14 @@ func TestReleaseBindingSnapshotter_AlreadyExistsIsSuccess(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
 
-	// r1 was created by an earlier attempt whose response was lost, and the cache
-	// has not seen it yet: it is invisible to List but occupies the name.
+	// r1 was created for this spec by an earlier attempt whose response was
+	// lost, and the cache has not seen it yet: it is invisible to List but
+	// occupies the name.
 	existing := earlierRevision(binding, binding.UID)
+	hash, err := ReleaseBindingSpecHash(&binding.Spec)
+	require.NoError(t, err)
+	existing.Spec.SnapshotHash = hash
+	existing.Spec.Message = "from the earlier attempt"
 	c := newTestClient(t, existing)
 	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
 
@@ -499,9 +506,120 @@ func TestReleaseBindingSnapshotter_AlreadyExistsIsSuccess(t *testing.T) {
 	assert.Equal(t, Result{Number: 1, Name: getRBR(t, c, "frontend-development-r1").Name, Created: false, Cause: openchoreov1alpha1.RevisionCauseDeploy, Highest: 1}, res)
 
 	rev := getRBR(t, c, "frontend-development-r1")
-	assert.Equal(t, "from-earlier-attempt", rev.Spec.SnapshotHash, "the stored revision must not be overwritten")
+	assert.Equal(t, "from the earlier attempt", rev.Spec.Message, "the stored revision must not be overwritten")
 	assert.True(t, rev.Status.Active)
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, rev.Status.Health)
+}
+
+func TestReleaseBindingSnapshotter_NameHeldByRevisionOfAnotherSpec(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	binding.Annotations = map[string]string{openchoreov1alpha1.AnnotationKeyChangeMessage: "deploy B"}
+	c0 := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c0.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+
+	// r1 records another spec of this binding, and the list this reconcile
+	// works from has not seen it yet.
+	existing := earlierRevision(binding, binding.UID)
+	existing.Spec.BindingSpec.ReleaseName = "frontend-older"
+	existing.Labels = map[string]string{LabelKeyBindingUID: string(binding.UID)}
+	require.NoError(t, c0.Create(ctx, existing))
+	hidden := true
+	c := interceptor.NewClient(c0.(client.WithWatch), interceptor.Funcs{
+		List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := cl.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if l, ok := list.(*openchoreov1alpha1.ReleaseBindingRevisionList); ok && hidden {
+				l.Items = nil
+			}
+			return nil
+		},
+	})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+
+	res, err := s.Record(ctx, binding)
+	require.ErrorContains(t, err, "already records a different spec")
+	assert.Empty(t, res.Name, "r1 must not be reported as this spec's revision")
+	assert.False(t, getRBR(t, c0, "frontend-development-r1").Status.Active)
+	assert.Contains(t, binding.Annotations, openchoreov1alpha1.AnnotationKeyChangeMessage, "the change is not recorded yet")
+
+	// Once the list includes r1, this spec is recorded as r2.
+	hidden = false
+	res, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.True(t, res.Created)
+	assert.Equal(t, int64(2), res.Number)
+	assert.Equal(t, "deploy B", getRBR(t, c0, "frontend-development-r2").Spec.Message)
+}
+
+// The binding's status counts r1, but the revision cache has not received r1
+// yet. Recording from that cache would record the unchanged spec again as r2.
+func TestReleaseBindingSnapshotter_RevisionCacheBehindTheBinding(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	api := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, api.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	res, err := NewReleaseBindingSnapshotter(api, newTestScheme(t), Options{}).Record(ctx, binding)
+	require.NoError(t, err)
+	binding.Status.CurrentRevision, binding.Status.HighestRevision = res.Name, res.Highest
+
+	cachedLists := 0
+	cached := interceptor.NewClient(api.(client.WithWatch), interceptor.Funcs{
+		List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if l, ok := list.(*openchoreov1alpha1.ReleaseBindingRevisionList); ok {
+				cachedLists++
+				l.Items = nil // r1 has not reached the cache
+				return nil
+			}
+			return cl.List(ctx, list, opts...)
+		},
+	})
+	s := NewReleaseBindingSnapshotter(cached, newTestScheme(t), Options{APIReader: api})
+
+	res, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, Result{Number: 1, Name: res.Name, Highest: 1}, res, "nothing is created")
+	assert.Len(t, listRBRs(t, api), 1)
+	assert.Equal(t, 1, cachedLists)
+
+	// A current revision that is gone from the apiserver too was deleted: the
+	// spec is recorded again, numbered above the highest.
+	require.NoError(t, api.Delete(ctx, getRBR(t, api, res.Name)))
+	res, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.True(t, res.Created)
+	assert.Equal(t, int64(2), res.Number)
+}
+
+// A new spec and change message written after Record read the binding must
+// not lose the message to that stale read's cleanup.
+func TestReleaseBindingSnapshotter_StaleReadKeepsANewerChangeMessage(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	binding.Annotations = map[string]string{openchoreov1alpha1.AnnotationKeyChangeMessage: "deploy A"}
+	c := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+
+	newer := binding.DeepCopy()
+	newer.Spec.ReleaseName = secondRelease
+	newer.Annotations[openchoreov1alpha1.AnnotationKeyChangeMessage] = "deploy B"
+	require.NoError(t, c.Update(ctx, newer))
+
+	_, err := s.Record(ctx, binding) // the read from before the update
+	require.ErrorContains(t, err, "Operation cannot be fulfilled", "the cleanup is refused as a conflict")
+	stored := &openchoreov1alpha1.ReleaseBinding{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), stored))
+	assert.Equal(t, "deploy B", stored.Annotations[openchoreov1alpha1.AnnotationKeyChangeMessage])
+
+	// The next reconcile reads the newer binding and records it with its message.
+	stored.Generation = binding.Generation + 1
+	res, err := s.Record(ctx, stored)
+	require.NoError(t, err)
+	assert.True(t, res.Created)
+	assert.Equal(t, "deploy B", getRBR(t, c, res.Name).Spec.Message)
+	assert.NotContains(t, stored.Annotations, openchoreov1alpha1.AnnotationKeyChangeMessage)
 }
 
 func TestReleaseBindingSnapshotter_NameHeldByDeletedBindingsRevision(t *testing.T) {
@@ -754,7 +872,7 @@ func TestReleaseBindingSnapshotter_RollbackReactivatesTheTarget(t *testing.T) {
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthDegraded, r2.Status.Health, "r2 keeps the health it last had")
 	assert.Equal(t, "3", r1.Annotations[AnnotationKeyBindingGeneration], "r1 records the generation it became active at")
 	assert.Equal(t, "Normal RevisionReactivated Revision 1 (frontend-development-r1) is active again: "+
-		"the binding spec matches the one it recorded", <-recorder.Events)
+		"the binding spec matches the one it recorded", receiveEvent(t, recorder, EventReasonRevisionReactivated))
 
 	// Reconciling the same binding again changes nothing.
 	res, err = s.Record(ctx, binding)
@@ -1205,4 +1323,92 @@ func TestResourceReleaseBindingSnapshotter_UndoFollowsActivationHistory(t *testi
 	assert.Equal(t, int64(5), undoTarget())
 	deploy("db-r5") // undo
 	assert.Equal(t, int64(3), undoTarget())
+}
+
+// receiveEvent returns the next event recorded, failing the test if none
+// arrives promptly instead of blocking until the test binary times out.
+func receiveEvent(t *testing.T, recorder *record.FakeRecorder, reason string) string {
+	t.Helper()
+	select {
+	case e := <-recorder.Events:
+		return e
+	case <-time.After(5 * time.Second):
+		require.FailNowf(t, "event not recorded", "no %s event was recorded", reason)
+		return ""
+	}
+}
+
+// r1 is Healthy but not yet known-good when r2 replaces it, and marking r1
+// inactive fails. A rollback to r1 must still start its health window over:
+// time it spent Healthy before the rollback does not count.
+func TestReleaseBindingSnapshotter_RollbackRestartsTheHealthWindowAfterAFailedDeactivation(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	binding := newBinding("frontend-development")
+	failDeactivate := false
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && failDeactivate && r.Spec.Revision == 1 && !r.Status.Active {
+					return fmt.Errorf("injected deactivation failure")
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{KnownGoodWindow: time.Hour, Now: func() time.Time { return now }})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+
+	now = now.Add(50 * time.Minute)
+	failDeactivate = true
+	bump(binding, newRelease)
+	_, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected deactivation failure")
+	require.True(t, getRBR(t, c, "frontend-development-r1").Status.Active, "r1 still reads active")
+	failDeactivate = false
+
+	now = now.Add(time.Minute)
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = firstRelease })
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	require.True(t, res.Reactivated)
+	r1 := getRBR(t, c, "frontend-development-r1")
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r1.Status.Health)
+	assert.Nil(t, r1.Status.HealthySince)
+
+	now = now.Add(10 * time.Minute)
+	requeue, err := s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	r1 = getRBR(t, c, "frontend-development-r1")
+	assert.False(t, r1.Status.KnownGood, "10 minutes Healthy since the rollback is not the 1h window")
+	assert.Equal(t, time.Hour, requeue)
+	assert.Equal(t, now, r1.Status.HealthySince.Time.UTC())
+}
+
+func TestReleaseBindingSnapshotter_DeactivateKeepsHealth(t *testing.T) {
+	ctx := context.Background()
+	s, binding, c, _ := reactivationFixture(t)
+
+	require.NoError(t, s.Deactivate(ctx, binding))
+	for _, rev := range listRBRs(t, c) {
+		assert.False(t, rev.Status.Active, "revision %d", rev.Spec.Revision)
+	}
+	r1, r2 := getRBR(t, c, "frontend-development-r1"), getRBR(t, c, "frontend-development-r2")
+	assert.True(t, r1.Status.KnownGood)
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthDegraded, r2.Status.Health, "health is kept as last observed")
+
+	// Deactivating again writes nothing; recording the spec again makes r2
+	// active, starting over at Progressing.
+	require.NoError(t, s.Deactivate(ctx, binding))
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), res.Number)
+	r2 = getRBR(t, c, "frontend-development-r2")
+	assert.True(t, r2.Status.Active)
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r2.Status.Health)
 }

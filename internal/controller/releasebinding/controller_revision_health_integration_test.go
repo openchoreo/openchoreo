@@ -96,15 +96,20 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		Expect(k8sClient.Status().Update(ctx, rb)).To(Succeed())
 	}
 
-	// observe runs the controller's health observation against the stored
-	// binding and returns the requeue it asks for.
-	observe := func() time.Duration {
+	// observeWith runs the controller's health observation against the stored
+	// binding, judging it from rendered (nil reads the stored RenderedRelease),
+	// and returns the requeue it asks for.
+	observeWith := func(rendered *openchoreov1alpha1.RenderedRelease) time.Duration {
 		GinkgoHelper()
 		cr := &openchoreov1alpha1.ComponentRelease{}
 		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: crName}, cr)).To(Succeed())
-		requeueAfter, err := r.observeRevisionHealth(ctx, r.revisionSnapshotter(), fetchRB(rbName), cr)
+		requeueAfter, err := r.observeRevisionHealth(ctx, r.revisionSnapshotter(), fetchRB(rbName), cr, rendered)
 		Expect(err).NotTo(HaveOccurred())
 		return requeueAfter
+	}
+	observe := func() time.Duration {
+		GinkgoHelper()
+		return observeWith(nil)
 	}
 
 	override := func(replicas int) {
@@ -170,6 +175,32 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		}, 4*window, 200*time.Millisecond).Should(Succeed())
 		// healthySince is stored with one-second precision, so allow that much.
 		Expect(time.Since(healthyAt)).To(BeNumerically(">=", window-time.Second))
+		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
+	})
+
+	// The reconcile has just written a new generation of the RenderedRelease
+	// (a data plane change, with the binding's generation unchanged), so
+	// ResourcesReady from the last pass still reads True and a read of the
+	// RenderedRelease can still return the applied generation before it. Health
+	// is judged from the object the reconcile wrote, and stays Progressing.
+	It("judges health from the RenderedRelease the reconcile wrote, not another read", func() {
+		r.RevisionKnownGoodWindow = 0
+		reconcileRB()
+		markApplied()
+		setResourcesReady(metav1.ConditionTrue, ReasonReady)
+
+		stored := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rrName}, stored)).To(Succeed())
+		written := stored.DeepCopy()
+		written.Generation++ // its status still reports the previous generation
+
+		observeWith(written)
+		r1 := revisionNamed(1)
+		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
+		Expect(r1.Status.KnownGood).To(BeFalse(), "not known-good before the new generation is applied")
+
+		By("the stored RenderedRelease alone would have passed it as Healthy")
+		observe()
 		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
 	})
 
