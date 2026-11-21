@@ -114,8 +114,9 @@ type ResolvedEndpointBackend struct {
 	// in this environment.
 	Resolved bool `json:"resolved"`
 
-	// ServiceURL is the in-cluster address of the backend in this environment.
-	// Set only when resolved is true.
+	// ServiceURL is the in-cluster address of the Service the backend's
+	// ComponentType renders in this environment. Set only when resolved is true
+	// and the ComponentType renders a Service for the endpoint.
 	// +optional
 	ServiceURL *EndpointURL `json:"serviceURL,omitempty"`
 

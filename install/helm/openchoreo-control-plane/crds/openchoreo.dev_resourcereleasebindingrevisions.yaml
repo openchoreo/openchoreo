@@ -12,6 +12,7 @@ spec:
     plural: resourcereleasebindingrevisions
     shortNames:
     - rrbr
+    - rrbrs
     singular: resourcereleasebindingrevision
   scope: Namespaced
   versions:
@@ -19,7 +20,7 @@ spec:
     - jsonPath: .spec.revision
       name: Revision
       type: integer
-    - jsonPath: .spec.resourceReleaseName
+    - jsonPath: .spec.bindingSpec.resourceRelease
       name: Release
       type: string
     - jsonPath: .spec.cause
@@ -60,12 +61,13 @@ spec:
             type: object
           spec:
             description: |-
-              ResourceReleaseBindingRevisionSpec defines the recorded state of one ResourceReleaseBinding revision.
-              The spec is fixed after creation; only status may change.
+              Spec is required: without it the spec immutability rule would not run,
+              so a spec could be removed and a different one set.
             properties:
               bindingSpec:
-                description: BindingSpec is a copy of the ResourceReleaseBinding spec
-                  at the time of this revision.
+                description: |-
+                  BindingSpec is a copy of the ResourceReleaseBinding spec at the time of this revision.
+                  Its resourceRelease is the ResourceRelease the revision pins.
                 properties:
                   environment:
                     description: Environment is the name of the Environment this binding
@@ -152,11 +154,6 @@ spec:
                   copied from the binding's openchoreo.dev/change-message annotation.
                 maxLength: 1024
                 type: string
-              resourceReleaseName:
-                description: ResourceReleaseName is the name of the ResourceRelease
-                  pinned by this revision.
-                minLength: 1
-                type: string
               revision:
                 description: Revision is the sequence number of this revision within
                   its ResourceReleaseBinding.
@@ -171,13 +168,16 @@ spec:
             required:
             - bindingSpec
             - cause
-            - resourceReleaseName
             - revision
             - snapshotHash
             type: object
             x-kubernetes-validations:
             - message: revision spec is immutable; only status may change
               rule: self == oldSelf
+            - message: bindingSpec.resourceRelease must name the ResourceRelease the
+                revision pins
+              rule: has(self.bindingSpec.resourceRelease) && size(self.bindingSpec.resourceRelease)
+                > 0
           status:
             description: |-
               BindingRevisionStatus defines the observed state of a ReleaseBindingRevision or
@@ -272,6 +272,8 @@ spec:
                 format: date-time
                 type: string
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

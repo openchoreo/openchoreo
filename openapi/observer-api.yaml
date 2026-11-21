@@ -3590,15 +3590,55 @@ components:
           description: The value of the alert
         notificationChannels:
           type: array
-          description: The notification channels of the alert. Empty if failed to notify.
+          description: >
+            The notification channels configured for the alert. See notificationDeliveries for
+            whether each one was notified.
           items:
             type: string
             description: The name of the notification channel
+        notificationDeliveries:
+          type: array
+          description: >
+            The delivery result of the alert's notification to each channel. Absent for alerts
+            fired before delivery results were recorded.
+          items:
+            $ref: "#/components/schemas/NotificationDelivery"
         incidentEnabled:
           type: boolean
           description: Whether the alert rule is configured to trigger incidents when fired
         metadata:
           $ref: "#/components/schemas/AlertMetadata"
+
+    NotificationDelivery:
+      type: object
+      description: The delivery result of an alert's notification to one channel.
+      required: [channel, status, attempts]
+      properties:
+        channel:
+          type: string
+          description: The name of the notification channel
+        status:
+          type: string
+          description: >
+            pending while the notification is being sent, sent once it was delivered, failed when
+            it could not be delivered
+          enum:
+            - pending
+            - sent
+            - failed
+        reason:
+          type: string
+          description: >
+            Why the notification failed, for status failed: timeout, connection, http_5xx,
+            http_429, http_4xx, smtp_temporary, smtp_permanent, channel_config, template,
+            interrupted or unknown
+        attempts:
+          type: integer
+          description: How many times the notification was sent
+        lastAttemptAt:
+          type: string
+          format: date-time
+          description: When the last attempt finished
 
     # Response schema for alerts query
     AlertsQueryResponse:

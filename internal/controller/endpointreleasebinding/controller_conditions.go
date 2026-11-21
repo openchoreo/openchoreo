@@ -154,6 +154,13 @@ const (
 	// does not (yet) report an in-cluster address for the workload endpoint.
 	BackendReasonEndpointNotAvailable = "EndpointNotAvailable"
 
+	// BackendReasonObservedComponent indicates the backend component's
+	// ReleaseBinding is in Observe mode and reports no Service for the workload
+	// endpoint. Its pods are not OpenChoreo's, so they do not carry the pod
+	// selectors a type would render a Service with. It does not resolve while
+	// the binding stays in Observe mode.
+	BackendReasonObservedComponent = "ObservedComponent"
+
 	// BackendReasonUnsupportedProtocol indicates the workload endpoint speaks a
 	// protocol no route kind can carry.
 	BackendReasonUnsupportedProtocol = "UnsupportedProtocol"
