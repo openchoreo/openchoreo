@@ -99,13 +99,15 @@ func TestIntersectConditionsForActions(t *testing.T) {
 	attrLabel := AttributeSpec{Key: "resource.release"}
 
 	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
-		ActionCreateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionViewReleaseBinding:   {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionUpdateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionDeleteReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionViewLogs:             {AttrResourceEnvironment, AttrResourceComponentType},
-		ActionViewMetrics:          {AttrResourceEnvironment},
-		ActionViewTraces:           {AttrResourceComponentType, attrLabel},
+		ActionCreateReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewReleaseBinding:           {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionUpdateReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionDeleteReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionRollbackReleaseBinding:       {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionDeleteReleaseBindingRevision: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewLogs:                     {AttrResourceEnvironment, AttrResourceComponentType},
+		ActionViewMetrics:                  {AttrResourceEnvironment},
+		ActionViewTraces:                   {AttrResourceComponentType, attrLabel},
 	})
 
 	tests := []struct {

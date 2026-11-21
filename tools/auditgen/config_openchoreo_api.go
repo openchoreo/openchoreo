@@ -57,6 +57,7 @@ var apiAccessReadOverrides = []auditgen.OperationDef{
 var apiActionSuffixSegments = map[string]bool{
 	"trigger":          true,
 	"generate-release": true,
+	"rollback":         true,
 }
 
 // apiResourceCategories maps every resource kind (the plural REST path segment)
@@ -101,9 +102,11 @@ var apiResourceCategories = map[string]string{
 	"projecttypes":                            "CategoryManagement",
 	"releasebindings":                         "CategoryManagement",
 	"releaselines":                            "CategoryManagement",
+	"releasebindingrevisions":                 "CategoryManagement",
 	"resources":                               "CategoryManagement",
 	"resourcereleases":                        "CategoryManagement",
 	"resourcereleasebindings":                 "CategoryManagement",
+	"resourcereleasebindingrevisions":         "CategoryManagement",
 	"resourcetypes":                           "CategoryManagement",
 	"secrets":                                 "CategoryManagement",
 	"secretreferences":                        "CategoryManagement",

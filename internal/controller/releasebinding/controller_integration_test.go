@@ -195,13 +195,19 @@ func releaseFixture(name, project, component, envName string, extraFinalizers ..
 
 // ─── Test Helpers ─────────────────────────────────────────────────────────────
 
+// testRevisionHistoryLimit is the revision history limit of test reconcilers:
+// high enough that tests which are not about the limit lose no revision. The
+// controller's own default is 10.
+const testRevisionHistoryLimit = 100
+
 // testReconciler returns a Reconciler wired to the global envtest client.
 // Pipeline is intentionally nil — use testReconcilerWithPipeline for tests
 // that need to exercise the rendering path.
 func testReconciler() *Reconciler {
 	return &Reconciler{
-		Client: k8sClient,
-		Scheme: k8sClient.Scheme(),
+		Client:               k8sClient,
+		Scheme:               k8sClient.Scheme(),
+		RevisionHistoryLimit: testRevisionHistoryLimit,
 	}
 }
 
@@ -210,9 +216,10 @@ func testReconciler() *Reconciler {
 // and all code paths beyond the undeploy check.
 func testReconcilerWithPipeline() *Reconciler {
 	return &Reconciler{
-		Client:   k8sClient,
-		Scheme:   k8sClient.Scheme(),
-		Pipeline: componentpipeline.NewPipeline(),
+		Client:               k8sClient,
+		Scheme:               k8sClient.Scheme(),
+		Pipeline:             componentpipeline.NewPipeline(),
+		RevisionHistoryLimit: testRevisionHistoryLimit,
 	}
 }
 
