@@ -6,8 +6,8 @@ import { kApplyYAML, kDelete, kGetJSON, kubectl } from '../fixtures/kube';
 import { RevisionsPO } from '../po/revisions';
 
 // Release binding revision history and rollback through the Deploy tab's
-// environment side panel. The history is seeded with kubectl so the spec
-// only drives what it tests:
+// environment side panel and the Revision Browser its Roll back action opens.
+// The history is seeded with kubectl so the spec only drives what it tests:
 //   r1  the initial auto-deploy                     (cause Deploy)
 //   r2  a workload env change, auto-deployed        (cause Deploy, active)
 // then rolls back to r1 in the UI. No revision is created: r1 becomes active
@@ -169,6 +169,18 @@ async function expectRevisions(expected: string[], timeout: number): Promise<voi
   }
 }
 
+// The ComponentRelease a revision bound. Each Workload change cuts a release,
+// so r1 and r2 bind different ones.
+function releaseOf(revision: number): string {
+  return (
+    kGetJSON<{ spec?: { componentReleaseName?: string } }>(
+      'releasebindingrevision',
+      `${BINDING_NAME}-r${revision}`,
+      NS,
+    ).spec?.componentReleaseName ?? ''
+  );
+}
+
 function currentRevision(): string {
   return (
     kGetJSON<{ status?: { currentRevision?: string } }>('releasebinding', BINDING_NAME, NS)
@@ -221,7 +233,7 @@ test.describe('release binding revisions through the Deploy tab', () => {
     kDelete('project', PROJECT_NAME, NS);
   });
 
-  test('shows the timeline, compares two revisions and rolls back', async ({
+  test('lists the revisions, compares two and rolls back', async ({
     page,
   }) => {
     test.setTimeout(420_000);
@@ -231,37 +243,45 @@ test.describe('release binding revisions through the Deploy tab', () => {
     await revs.openDeployTab(COMPONENT_NAME);
     await revs.selectEnvironment(ENV_DISPLAY);
 
-    // ── Timeline: newest first, r2 active ──
+    // ── The panel names the active revision, {component}-r{N} ──
+    await expect(revs.activeRevisionName()).toHaveText(`${COMPONENT_NAME}-r2`, {
+      timeout: 60_000,
+    });
+
+    // ── Revision Browser: newest first, r2 active ──
     await expect
       .poll(async () => (await revs.readTimeline()).map(r => r.revision))
       .toEqual([2, 1]);
     const [r2, r1] = await revs.readTimeline();
     expect(r2).toMatchObject({ cause: 'Deploy', health: 'Healthy', active: true });
     expect(r1).toMatchObject({ cause: 'Deploy', health: 'Healthy', active: false });
-    expect(r1.release).not.toBe(r2.release);
+    expect(r1.owner).toBe(COMPONENT_NAME);
+    const [release1, release2] = [releaseOf(1), releaseOf(2)];
+    expect(release1).not.toBe('');
+    expect(release1).not.toBe(release2);
 
     // ── Compare r1 with r2 in the revision browser ──
-    await revs.openBrowser();
     await revs.compare(1, 2);
     await revs.expectDiffBetween(1, 2);
     // Full ReleaseBindingRevision objects: each side binds its own release.
     // (Unchanged lines such as `kind:` may be collapsed in the diff.)
-    await revs.expectDiffShows(`componentReleaseName: ${r1.release}`);
-    await revs.expectDiffShows(`componentReleaseName: ${r2.release}`);
+    await revs.expectDiffShows(`componentReleaseName: ${release1}`);
+    await revs.expectDiffShows(`componentReleaseName: ${release2}`);
     await revs.closeBrowser();
 
     // ── Development is the first environment and the component auto-deploys:
     // the rollback is blocked with a clear message, and nothing changes ──
-    await revs.openTimeline();
-    await revs.row(1).click();
-    await page.getByRole('button', { name: 'Roll back to r1', exact: true }).click();
-    const blockedDialog = page.getByRole('dialog');
+    const blockedDialog = await revs.openRollback(1);
     await expect(
       blockedDialog.getByText(/^Rollback blocked: auto deploy is enabled for this component/),
     ).toBeVisible({ timeout: 30_000 });
     await expect(
       blockedDialog.getByRole('button', { name: 'Roll back', exact: true }),
     ).toBeDisabled();
+    // The dialog offers the Set up pane's switch, showing the setting as it is.
+    await expect(
+      blockedDialog.getByRole('checkbox', { name: 'Auto Deploy' }),
+    ).toBeChecked();
     await blockedDialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(blockedDialog).toBeHidden();
     expect(autoDeploy()).toBe(true);
@@ -296,7 +316,10 @@ test.describe('release binding revisions through the Deploy tab', () => {
     // while r1 is Progressing again.
     await expect
       .poll(() => revs.rowState(1), { timeout: 60_000 })
-      .toMatchObject({ cause: 'Deploy', release: r1.release, active: true });
+      .toMatchObject({ cause: 'Deploy', active: true });
+    await expect(revs.activeRevisionName()).toHaveText(`${COMPONENT_NAME}-r1`, {
+      timeout: 60_000,
+    });
     await expect
       .poll(async () => (await revs.rowState(1)).health, {
         timeout: 240_000,
@@ -314,9 +337,9 @@ test.describe('release binding revisions through the Deploy tab', () => {
 
     // ── Cluster agrees ──
     expect(revisionSummary()).toEqual(['2:Healthy:-', '1:Healthy:active']);
-    // The object is {binding}-r{N}; it is shown as {release}-r{N}.
+    // The object is {binding}-r{N}; it is shown as {component}-r{N}.
     expect(currentRevision()).toBe(`${BINDING_NAME}-r1`);
-    expect(r1.name).toBe(`${r1.release}-r1`);
+    expect(r1.name).toBe(`${COMPONENT_NAME}-r1`);
     expect(autoDeploy()).toBe(false);
   });
 });

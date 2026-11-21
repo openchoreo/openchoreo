@@ -4,15 +4,15 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { ComponentPO } from './component';
 
-// One row of the environment side-panel's revision timeline, as read from
-// its accessible name. The row's visible text is split across badges, so the
-// UI spells it out in aria-label, starting with the revision's name,
-// {release}-r{N}:
-//   "frontend-6f9c2a-r3, Healthy, cause Deploy, active, known good"
+// One revision in the Revision Browser's list, as read from its accessible
+// name. The row's visible text is split across badges, so the UI spells it
+// out in aria-label, starting with the revision's name, {component}-r{N}:
+//   "frontend-r3, Healthy, cause Deploy, active, known good"
 export interface RevisionRow {
   name: string;
   revision: number;
-  release: string;
+  /** The component (or resource) the name starts with. */
+  owner: string;
   health: string;
   cause: string;
   active: boolean;
@@ -27,7 +27,7 @@ export function parseRevisionRow(name: string): RevisionRow {
   const flags = m[6].split(', ').filter(Boolean);
   return {
     name: m[1],
-    release: m[2],
+    owner: m[2],
     revision: Number(m[3]),
     health: m[4],
     cause: m[5],
@@ -36,12 +36,13 @@ export function parseRevisionRow(name: string): RevisionRow {
   };
 }
 
-// Matches a revision name, {release}-r{N}, by its number.
+// Matches a revision name, {component}-r{N}, by its number.
 const named = (revision: number) => `\\S+-r${revision}`;
 
-// Revision history in the Deploy tab's environment side panel: the timeline
-// (a listbox named "Revisions" whose options are revisions, newest first),
-// the revision browser dialog, and the dry-run rollback confirmation.
+// Revision history in the Deploy tab's environment side panel: the active
+// revision's name, the Roll back action that opens the Revision Browser on
+// it, the browser (a list of revisions newest first, the highlighted one's
+// details with View and Compare), and the dry-run rollback confirmation.
 export class RevisionsPO {
   constructor(private readonly page: Page) {}
 
@@ -67,86 +68,68 @@ export class RevisionsPO {
     if ((await node.getAttribute('aria-pressed')) !== 'true') {
       await node.click();
     }
-    await expect(this.picker()).toBeVisible({ timeout: 30_000 });
+    await expect(this.rollBackAction()).toBeVisible({ timeout: 30_000 });
   }
 
-  // The revision picker, built like the Deploy panel's release picker: the
-  // field shows the selected revision (the active one by default) and its
-  // dropdown, a listbox named "Revisions", lists the revisions newest first.
-  picker(): Locator {
-    return this.page.getByRole('textbox', { name: 'Revision', exact: true });
+  // The panel's Actions entry that opens the Revision Browser.
+  rollBackAction(): Locator {
+    return this.page.getByRole('button', { name: 'Roll back', exact: true });
   }
 
-  timeline(): Locator {
-    return this.page.getByRole('listbox', { name: 'Revisions', exact: true });
-  }
-
-  async openTimeline(): Promise<void> {
-    if (!(await this.timeline().isVisible())) {
-      await this.picker().click();
-    }
-    await expect(this.timeline()).toBeVisible();
-  }
-
-  async closeTimeline(): Promise<void> {
-    if (await this.timeline().isVisible()) {
-      await this.picker().press('Escape');
-    }
-    await expect(this.timeline()).toBeHidden();
-  }
-
-  row(revision: number): Locator {
-    return this.timeline().getByRole('option', {
-      name: new RegExp(`^${named(revision)},`),
-    });
-  }
-
-  // The accessible label is on each option's content.
-  private async label(option: Locator): Promise<string> {
-    return (
-      (await option.locator('[data-testid^="revision-row-"]').getAttribute('aria-label')) ?? ''
-    );
-  }
-
-  // The revisions as the dropdown lists them, top to bottom.
-  async readTimeline(): Promise<RevisionRow[]> {
-    await this.openTimeline();
-    const options = await this.timeline().getByRole('option').all();
-    const labels = await Promise.all(options.map(o => this.label(o)));
-    await this.closeTimeline();
-    return labels.map(parseRevisionRow);
-  }
-
-  async rowState(revision: number): Promise<RevisionRow> {
-    await this.openTimeline();
-    const label = await this.label(this.row(revision));
-    await this.closeTimeline();
-    return parseRevisionRow(label);
+  // The active revision's name, as the panel's Revision row shows it.
+  activeRevisionName(): Locator {
+    return this.page.getByTestId('active-revision-name');
   }
 
   // ── Revision browser ────────────────────────────────────────────────
 
-  // The Revision Browser, built like the Release Browser: a list of
-  // revisions on the left, the highlighted revision on the right with View
-  // and Compare tabs.
   browser(): Locator {
     return this.page.getByRole('dialog', { name: /^Select revision/ });
   }
 
-  // The Revision Browser opens from the picker dropdown's footer.
+  // Roll back opens the Revision Browser on the active revision.
   async openBrowser(): Promise<void> {
-    await this.openTimeline();
-    await this.page.getByText('Open Revision Browser', { exact: true }).click();
+    if (await this.browser().isVisible()) return;
+    await this.rollBackAction().click();
     await expect(this.browser()).toBeVisible();
+  }
+
+  async closeBrowser(): Promise<void> {
+    if (!(await this.browser().isVisible())) return;
+    await this.browser().getByRole('button', { name: 'Close' }).first().click();
+    await expect(this.browser()).toBeHidden();
+  }
+
+  row(revision: number): Locator {
+    return this.browser().getByTestId(`browser-revision-${revision}`);
+  }
+
+  // The revisions as the browser lists them, top to bottom.
+  async readTimeline(): Promise<RevisionRow[]> {
+    await this.openBrowser();
+    const rows = await this.browser()
+      .locator('[data-testid^="browser-revision-"]')
+      .all();
+    const labels = await Promise.all(
+      rows.map(async r => (await r.getAttribute('aria-label')) ?? ''),
+    );
+    await this.closeBrowser();
+    return labels.map(parseRevisionRow);
+  }
+
+  async rowState(revision: number): Promise<RevisionRow> {
+    await this.openBrowser();
+    const label = (await this.row(revision).getAttribute('aria-label')) ?? '';
+    await this.closeBrowser();
+    return parseRevisionRow(label);
   }
 
   // Highlight `target` in the list, switch to Compare, and compare it with
   // `base` picked in "Compare with". The diff shows the two full
   // ReleaseBindingRevision objects: base on the left, target on the right.
   async compare(base: number, target: number): Promise<void> {
-    await this.browser()
-      .getByRole('button', { name: new RegExp(`^${named(target)},`) })
-      .click();
+    await this.openBrowser();
+    await this.row(target).click();
     await this.browser()
       .getByRole('button', { name: 'Compare with another revision' })
       .click();
@@ -173,11 +156,6 @@ export class RevisionsPO {
     await expect(this.browser().getByText(text).first()).toBeVisible();
   }
 
-  async closeBrowser(): Promise<void> {
-    await this.browser().getByRole('button', { name: 'Close' }).first().click();
-    await expect(this.browser()).toBeHidden();
-  }
-
   // ── Rollback ────────────────────────────────────────────────────────
 
   confirmDialog(revision: number): Locator {
@@ -186,18 +164,23 @@ export class RevisionsPO {
     });
   }
 
-  // Pick a revision in the dropdown and open the rollback confirmation.
-  // The dialog runs a dry run on open; returns the warnings it shows so the
-  // spec can assert them before confirming.
-  async startRollback(revision: number): Promise<string[]> {
-    await this.openTimeline();
+  // Highlight a revision in the browser and open its rollback confirmation,
+  // which replaces the browser and runs a dry run on open.
+  async openRollback(revision: number): Promise<Locator> {
+    await this.openBrowser();
     await this.row(revision).click();
-    await expect(this.picker()).toHaveValue(new RegExp(`-r${revision}$`));
-    await this.page
+    await this.browser()
       .getByRole('button', { name: `Roll back to r${revision}`, exact: true })
       .click();
     const dialog = this.confirmDialog(revision);
     await expect(dialog).toBeVisible();
+    return dialog;
+  }
+
+  // Open the confirmation and wait for its dry run; returns the warnings it
+  // shows so the spec can assert them before confirming.
+  async startRollback(revision: number): Promise<string[]> {
+    const dialog = await this.openRollback(revision);
     // The confirm button only enables once the dry run returned.
     await expect(
       dialog.getByRole('button', { name: 'Roll back', exact: true }),
