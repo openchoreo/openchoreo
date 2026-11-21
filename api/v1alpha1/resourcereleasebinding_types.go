@@ -84,6 +84,18 @@ type ResourceReleaseBindingStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	Outputs []ResolvedResourceOutput `json:"outputs,omitempty"`
+
+	// CurrentRevision is the name of the revision this binding currently applies,
+	// {binding}-r{N}. The controller updates it whenever the active revision
+	// changes, including when a rollback makes an earlier revision active again.
+	// +optional
+	CurrentRevision string `json:"currentRevision,omitempty"`
+
+	// HighestRevision is the highest revision number this binding has ever
+	// recorded. New revisions are numbered above it, so the number of a deleted
+	// revision is never given to another one.
+	// +optional
+	HighestRevision int64 `json:"highestRevision,omitempty"`
 }
 
 // ResolvedResourceOutput is a single resolved output value populated by the
