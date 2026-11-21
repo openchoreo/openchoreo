@@ -7,6 +7,8 @@ metadata:
   namespace: default
 spec:
   environment: development
+  # Alert rules that list no channels of their own use the environment's default channel.
+  isEnvDefault: true
   type: email
   emailConfig:
     from: notifications@openchoreo.dev    # Replace with your SMTP sender email address
