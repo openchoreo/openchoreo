@@ -9,12 +9,16 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/validation"
+
 	"github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 )
 
 const (
 	protocolTCP = "TCP"
 	protocolUDP = "UDP"
+
+	maxPortNameLength = 15
 )
 
 // DerivedContext holds precomputed derived views of configurations, workload,
@@ -30,7 +34,8 @@ type DerivedContext struct {
 	ConfigEnvs         []EnvsByContainerEntry `json:"configEnvs"`
 	SecretEnvs         []EnvsByContainerEntry `json:"secretEnvs"`
 
-	ServicePorts []ServicePortEntry `json:"servicePorts"`
+	ServicePorts   []ServicePortEntry   `json:"servicePorts"`
+	ContainerPorts []ContainerPortEntry `json:"containerPorts"`
 
 	DependencyEnvVars      []EnvVarEntry      `json:"dependencyEnvVars"`
 	DependencyVolumeMounts []VolumeMountEntry `json:"dependencyVolumeMounts"`
@@ -61,6 +66,7 @@ func BuildDerivedContext(
 		ConfigEnvs:             buildConfigEnvs(configurations, prefix),
 		SecretEnvs:             buildSecretEnvs(configurations, prefix),
 		ServicePorts:           buildServicePorts(workload),
+		ContainerPorts:         buildContainerPorts(workload),
 		DependencyEnvVars:      nonNilEnvVars(dependencies.EnvVars),
 		DependencyVolumeMounts: nonNilVolumeMounts(dependencies.VolumeMounts),
 		DependencyVolumes:      nonNilVolumes(dependencies.Volumes),
@@ -222,6 +228,73 @@ func buildServicePorts(workload WorkloadData) []ServicePortEntry {
 		})
 	}
 	return result
+}
+
+// buildContainerPorts emits one named container port per unique
+// (containerPort, protocol). Endpoints sharing a container port share one entry,
+// named after the first endpoint in sorted order, since Kubernetes keys
+// container ports by containerPort and protocol.
+func buildContainerPorts(workload WorkloadData) []ContainerPortEntry {
+	if len(workload.Endpoints) == 0 {
+		return []ContainerPortEntry{}
+	}
+
+	endpointNames := make([]string, 0, len(workload.Endpoints))
+	for name := range workload.Endpoints {
+		endpointNames = append(endpointNames, name)
+	}
+	sort.Strings(endpointNames)
+
+	result := make([]ContainerPortEntry, 0, len(workload.Endpoints))
+	usedNames := make(map[string]bool)
+	seenPortProto := make(map[string]bool)
+
+	for _, epName := range endpointNames {
+		ep := workload.Endpoints[epName]
+		containerPort := int64(ep.TargetPort)
+		if containerPort == 0 {
+			containerPort = int64(ep.Port)
+		}
+		protocol := mapEndpointTypeToProtocol(ep.Type)
+
+		portProtoKey := fmt.Sprintf("%d/%s", containerPort, protocol)
+		if seenPortProto[portProtoKey] {
+			continue
+		}
+		seenPortProto[portProtoKey] = true
+
+		finalName := uniqueContainerPortName(epName, containerPort, usedNames)
+		usedNames[finalName] = true
+
+		result = append(result, ContainerPortEntry{
+			Name:          finalName,
+			ContainerPort: containerPort,
+			Protocol:      protocol,
+		})
+	}
+	return result
+}
+
+// uniqueContainerPortName returns a unique IANA_SVC_NAME, which container port
+// names must satisfy: at most 15 chars, at least one letter, no "--".
+func uniqueContainerPortName(endpointName string, port int64, usedNames map[string]bool) string {
+	base := sanitizePortName(endpointName)
+	for strings.Contains(base, "--") {
+		base = strings.ReplaceAll(base, "--", "-")
+	}
+	if len(validation.IsValidPortName(base)) != 0 {
+		base = fmt.Sprintf("port-%d", port)
+	}
+
+	name := base
+	for i := 2; usedNames[name]; i++ {
+		suffix := fmt.Sprintf("-%d", i)
+		name = strings.TrimRight(base[:min(len(base), maxPortNameLength-len(suffix))], "-") + suffix
+		if len(validation.IsValidPortName(name)) != 0 {
+			name = "p" + suffix
+		}
+	}
+	return name
 }
 
 func uniquePortName(endpointName string, port int64, usedNames map[string]bool) string {

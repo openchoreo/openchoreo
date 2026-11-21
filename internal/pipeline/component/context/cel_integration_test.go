@@ -309,6 +309,17 @@ func TestCELMacroIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("workload.toContainerPorts", func(t *testing.T) {
+		got := eval(t, "workload.toContainerPorts()", buildContext(t, workload, nil, ConnectionsData{}))
+		want := []any{
+			map[string]any{"name": "grpc", "containerPort": float64(9090), "protocol": "TCP"},
+			map[string]any{"name": "http", "containerPort": float64(8080), "protocol": "TCP"},
+		}
+		if diff := cmp.Diff(want, got, diffOpts...); diff != "" {
+			t.Errorf("mismatch (-want +got):\n%s", diff)
+		}
+	})
+
 	t.Run("dependencies.toContainerEnvs", func(t *testing.T) {
 		got := eval(t, "dependencies.toContainerEnvs()", buildContext(t, workload, nil, depData))
 		want := []any{
@@ -369,6 +380,7 @@ func TestCELMacroIntegration(t *testing.T) {
 			"configurations.toConfigEnvsByContainer()",
 			"configurations.toSecretEnvsByContainer()",
 			"workload.toServicePorts()",
+			"workload.toContainerPorts()",
 			"dependencies.toContainerEnvs()",
 			"dependencies.toContainerVolumeMounts()",
 			"dependencies.toVolumes()",
