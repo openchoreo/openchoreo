@@ -70,7 +70,7 @@ func gitOpsObjects(t *testing.T, bindingLabels map[string]string) []client.Objec
 		rbRevs = append(rbRevs, &openchoreov1alpha1.ReleaseBindingRevision{
 			ObjectMeta: ownedBy("ReleaseBinding", gitOpsRB, rb.UID, n, map[string]string{}),
 			Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy,
-				ComponentReleaseName: release, SnapshotHash: hash, BindingSpec: spec},
+				SnapshotHash: hash, BindingSpec: spec},
 		})
 	}
 
@@ -90,7 +90,7 @@ func gitOpsObjects(t *testing.T, bindingLabels map[string]string) []client.Objec
 		rrbRevs = append(rrbRevs, &openchoreov1alpha1.ResourceReleaseBindingRevision{
 			ObjectMeta: ownedBy("ResourceReleaseBinding", gitOpsRRB, rrb.UID, n, map[string]string{}),
 			Spec: openchoreov1alpha1.ResourceReleaseBindingRevisionSpec{Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy,
-				ResourceReleaseName: release, SnapshotHash: hash, BindingSpec: spec},
+				SnapshotHash: hash, BindingSpec: spec},
 		})
 	}
 

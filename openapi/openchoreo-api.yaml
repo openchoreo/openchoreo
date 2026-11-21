@@ -11522,11 +11522,12 @@ components:
 
     ReleaseBindingRevisionSpec:
       type: object
-      description: The recorded state of one revision. Immutable.
+      description: >-
+        The recorded state of one revision. Immutable. bindingSpec.releaseName is the
+        ComponentRelease the revision binds.
       required:
         - revision
         - cause
-        - componentReleaseName
         - snapshotHash
         - bindingSpec
       properties:
@@ -11538,10 +11539,6 @@ components:
           example: 3
         cause:
           $ref: '#/components/schemas/RevisionCause'
-        componentReleaseName:
-          type: string
-          description: ComponentRelease bound by this revision
-          example: api-service-6f9c2a
         message:
           type: string
           maxLength: 1024
@@ -12682,11 +12679,12 @@ components:
 
     ResourceReleaseBindingRevisionSpec:
       type: object
-      description: The recorded state of one revision. Immutable.
+      description: >-
+        The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the
+        ResourceRelease the revision pins.
       required:
         - revision
         - cause
-        - resourceReleaseName
         - snapshotHash
         - bindingSpec
       properties:
@@ -12698,10 +12696,6 @@ components:
           example: 3
         cause:
           $ref: '#/components/schemas/RevisionCause'
-        resourceReleaseName:
-          type: string
-          description: ResourceRelease pinned by this revision
-          example: analytics-shared-db-abc123
         message:
           type: string
           maxLength: 1024

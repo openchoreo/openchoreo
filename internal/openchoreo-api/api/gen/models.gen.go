@@ -3791,7 +3791,7 @@ type ReleaseBindingRevision struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec The recorded state of one revision. Immutable.
+	// Spec The recorded state of one revision. Immutable. bindingSpec.releaseName is the ComponentRelease the revision binds.
 	Spec   ReleaseBindingRevisionSpec `json:"spec"`
 	Status *BindingRevisionStatus     `json:"status,omitempty"`
 }
@@ -3805,16 +3805,13 @@ type ReleaseBindingRevisionList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ReleaseBindingRevisionSpec The recorded state of one revision. Immutable.
+// ReleaseBindingRevisionSpec The recorded state of one revision. Immutable. bindingSpec.releaseName is the ComponentRelease the revision binds.
 type ReleaseBindingRevisionSpec struct {
 	// BindingSpec Desired state of a ReleaseBinding
 	BindingSpec ReleaseBindingSpec `json:"bindingSpec"`
 
 	// Cause Why a binding revision was created
 	Cause RevisionCause `json:"cause"`
-
-	// ComponentReleaseName ComponentRelease bound by this revision
-	ComponentReleaseName string `json:"componentReleaseName"`
 
 	// Message Optional reason given for the change this revision records, copied from the binding's openchoreo.dev/change-message annotation
 	Message *string `json:"message,omitempty"`
@@ -4464,7 +4461,7 @@ type ResourceReleaseBindingRevision struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec The recorded state of one revision. Immutable.
+	// Spec The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the ResourceRelease the revision pins.
 	Spec   ResourceReleaseBindingRevisionSpec `json:"spec"`
 	Status *BindingRevisionStatus             `json:"status,omitempty"`
 }
@@ -4478,7 +4475,7 @@ type ResourceReleaseBindingRevisionList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ResourceReleaseBindingRevisionSpec The recorded state of one revision. Immutable.
+// ResourceReleaseBindingRevisionSpec The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the ResourceRelease the revision pins.
 type ResourceReleaseBindingRevisionSpec struct {
 	// BindingSpec Desired state of a ResourceReleaseBinding. spec.owner and spec.environment
 	// are immutable after creation. spec.resourceRelease is the promote pin and is
@@ -4490,9 +4487,6 @@ type ResourceReleaseBindingRevisionSpec struct {
 
 	// Message Optional reason given for the change this revision records, copied from the binding's openchoreo.dev/change-message annotation
 	Message *string `json:"message,omitempty"`
-
-	// ResourceReleaseName ResourceRelease pinned by this revision
-	ResourceReleaseName string `json:"resourceReleaseName"`
 
 	// Revision Sequence number of this revision within its binding
 	Revision int64 `json:"revision"`

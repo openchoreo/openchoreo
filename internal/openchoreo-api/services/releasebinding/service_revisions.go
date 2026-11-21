@@ -176,11 +176,11 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 	}
 
 	componentRelease := &openchoreov1alpha1.ComponentRelease{}
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: target.Spec.ComponentReleaseName},
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: target.Spec.BindingSpec.ReleaseName},
 		componentRelease); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("%w: ComponentRelease %q bound by revision %d", bindingrevision.ErrReleaseDeleted,
-				target.Spec.ComponentReleaseName, targetRevision)
+				target.Spec.BindingSpec.ReleaseName, targetRevision)
 		}
 		return nil, fmt.Errorf("failed to get component release: %w", err)
 	}
