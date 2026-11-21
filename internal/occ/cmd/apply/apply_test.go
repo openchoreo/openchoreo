@@ -6,6 +6,7 @@ package apply
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,11 +25,28 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/testutil"
 )
 
+const (
+	keyKind       = "kind"
+	keyAPIVersion = "apiVersion"
+	keyMetadata   = "metadata"
+	keyName       = "name"
+	keyNamespace  = "namespace"
+	kindProject   = "Project"
+	testMyNs      = "my-ns"
+)
+
 // --- Params ---
 
 func TestParams_GetFilePath(t *testing.T) {
 	p := Params{FilePath: "/tmp/test.yaml"}
 	assert.Equal(t, "/tmp/test.yaml", p.GetFilePath())
+}
+
+func TestParams_GetDryRun(t *testing.T) {
+	p := Params{FilePath: "/tmp/dryrun.yaml", DryRun: true}
+	assert.True(t, p.GetDryRun())
+	pFalse := Params{FilePath: "/tmp/dryrun.yaml", DryRun: false}
+	assert.False(t, pFalse.GetDryRun())
 }
 
 func TestExtractResourceInfo(t *testing.T) {
@@ -41,42 +60,42 @@ func TestExtractResourceInfo(t *testing.T) {
 		{
 			name: "valid resource",
 			resource: map[string]any{
-				"kind":       "Project",
-				"apiVersion": "core.openchoreo.dev/v1alpha1",
-				"metadata": map[string]any{
-					"name":      "my-project",
-					"namespace": "my-ns",
+				keyKind:       kindProject,
+				keyAPIVersion: "core.openchoreo.dev/v1alpha1",
+				keyMetadata: map[string]any{
+					keyName:      "my-project",
+					keyNamespace: testMyNs,
 				},
 			},
-			wantInfo: resourceInfo{kind: "Project", apiVersion: "core.openchoreo.dev/v1alpha1", name: "my-project", namespace: "my-ns"},
+			wantInfo: resourceInfo{kind: kindProject, apiVersion: "core.openchoreo.dev/v1alpha1", name: "my-project", namespace: testMyNs},
 		},
 		{
 			name:     "missing kind",
-			resource: map[string]any{"metadata": map[string]any{"name": "x"}},
+			resource: map[string]any{keyMetadata: map[string]any{keyName: "x"}},
 			wantErr:  true,
 			errMsg:   "missing 'kind'",
 		},
 		{
 			name:     "missing metadata.name",
-			resource: map[string]any{"kind": "Project", "metadata": map[string]any{}},
+			resource: map[string]any{keyKind: kindProject, keyMetadata: map[string]any{}},
 			wantErr:  true,
 			errMsg:   "missing 'metadata.name'",
 		},
 		{
 			name: "no namespace is ok",
 			resource: map[string]any{
-				"kind":     "Namespace",
-				"metadata": map[string]any{"name": "my-ns"},
+				keyKind:     "Namespace",
+				keyMetadata: map[string]any{keyName: testMyNs},
 			},
-			wantInfo: resourceInfo{kind: "Namespace", name: "my-ns"},
+			wantInfo: resourceInfo{kind: "Namespace", name: testMyNs},
 		},
 		{
 			name: "no apiVersion is ok",
 			resource: map[string]any{
-				"kind":     "Project",
-				"metadata": map[string]any{"name": "p"},
+				keyKind:     kindProject,
+				keyMetadata: map[string]any{keyName: "p"},
 			},
-			wantInfo: resourceInfo{kind: "Project", name: "p"},
+			wantInfo: resourceInfo{kind: kindProject, name: "p"},
 		},
 		{
 			name:     "empty map",
@@ -109,8 +128,8 @@ func TestStripKindAndAPIVersion(t *testing.T) {
 	}{
 		{
 			name:     "removes kind and apiVersion",
-			resource: map[string]any{"kind": "Project", "apiVersion": "v1", "metadata": map[string]any{"name": "x"}},
-			wantKeys: []string{"kind", "apiVersion"},
+			resource: map[string]any{keyKind: kindProject, keyAPIVersion: "v1", keyMetadata: map[string]any{keyName: "x"}},
+			wantKeys: []string{keyKind, keyAPIVersion},
 		},
 		{
 			name:     "empty map",
@@ -119,7 +138,7 @@ func TestStripKindAndAPIVersion(t *testing.T) {
 		},
 		{
 			name:     "fields already absent",
-			resource: map[string]any{"metadata": map[string]any{"name": "x"}},
+			resource: map[string]any{keyMetadata: map[string]any{keyName: "x"}},
 			wantKeys: []string{},
 		},
 	}
@@ -255,6 +274,12 @@ func TestDiscoverResourceFiles(t *testing.T) {
 		assert.Equal(t, []string{"https://example.com/resource.yaml"}, files)
 	})
 
+	t.Run("stdin dash", func(t *testing.T) {
+		files, err := discoverResourceFiles("-")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"-"}, files)
+	})
+
 	t.Run("nonexistent path", func(t *testing.T) {
 		dir := t.TempDir()
 		_, err := discoverResourceFiles(filepath.Join(dir, "no-such-subdir"))
@@ -312,22 +337,61 @@ func TestReadResourceContent(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "HTTP 404")
 	})
+
+	t.Run("read from stdin", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		want := "kind: Namespace\nmetadata:\n  name: from-stdin\n"
+		stdinReader = strings.NewReader(want)
+
+		got, err := readResourceContent(ctx, "-")
+		require.NoError(t, err)
+		assert.Equal(t, want, string(got))
+	})
+
+	t.Run("read from empty stdin", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		stdinReader = strings.NewReader("   \n\t  ")
+
+		_, err := readResourceContent(ctx, "-")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "standard input is empty")
+	})
+
+	t.Run("read from stdin read error", func(t *testing.T) {
+		origStdin := stdinReader
+		defer func() { stdinReader = origStdin }()
+
+		stdinReader = iotest.ErrReader(errors.New("simulated read error"))
+
+		_, err := readResourceContent(ctx, "-")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "error reading from standard input")
+		assert.Contains(t, err.Error(), "simulated read error")
+	})
 }
 
-// setupApplyTest configures a test home with OC config and mocks HTTP transport.
-// It returns a *client.Client ready for use.
-func setupApplyTest(t *testing.T, handler testutil.RoundTripFunc) *client.Client {
+// writeTestOCConfig configures a test home with standard test OC config.
+func writeTestOCConfig(t *testing.T, home string) {
 	t.Helper()
 	const baseURL = "http://mock-api"
-
-	home := testutil.SetupTestHome(t)
 	testutil.WriteOCConfig(t, home, config.StoredConfig{
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "cp", URL: baseURL}},
 		Credentials:    []config.Credential{{Name: "cred", Token: testutil.NonExpiredJWT}},
 		Contexts:       []config.Context{{Name: "test", ControlPlane: "cp", Credentials: "cred"}},
 	})
+}
 
+// setupApplyTest configures a test home with OC config and mocks HTTP transport.
+// It returns a *client.Client ready for use.
+func setupApplyTest(t *testing.T, handler testutil.RoundTripFunc) *client.Client {
+	t.Helper()
+	home := testutil.SetupTestHome(t)
+	writeTestOCConfig(t, home)
 	testutil.SetTransport(t, handler)
 
 	cl, err := client.NewClient()
@@ -572,4 +636,185 @@ spec: {}
 		require.Error(t, Apply(cl, Params{FilePath: yamlFile}))
 	})
 	assert.Contains(t, out, "releaseline/next: spec.owner.componentName is required")
+}
+
+func TestApply_Stdin(t *testing.T) {
+	origStdin := stdinReader
+	defer func() { stdinReader = origStdin }()
+
+	stdinContent := `kind: Namespace
+metadata:
+  name: stdin-ns
+`
+	stdinReader = strings.NewReader(stdinContent)
+
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/stdin-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/namespaces") {
+			return testutil.JSONResp(http.StatusCreated, map[string]any{
+				keyMetadata: map[string]any{keyName: "stdin-ns"},
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: "-"}))
+	})
+	assert.Contains(t, out, "namespace/stdin-ns created")
+	assert.Contains(t, out, "Applied 1 resource(s) from 1 file(s)")
+}
+
+func TestApply_DryRun_Create(t *testing.T) {
+	postCalled := false
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/dry-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			postCalled = true
+			return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: dry-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: yamlFile, DryRun: true}))
+	})
+	assert.Contains(t, out, "namespace/dry-ns created (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
+	assert.False(t, postCalled, "POST should not be called in dry-run mode")
+}
+
+func TestApply_DryRun_Update(t *testing.T) {
+	putCalled := false
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/existing-ns") {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				keyMetadata: map[string]any{keyName: "existing-ns"},
+			}), nil
+		}
+		if r.Method == http.MethodPut {
+			putCalled = true
+			return testutil.JSONResp(http.StatusOK, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "ns.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: Namespace
+metadata:
+  name: existing-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: yamlFile, DryRun: true}))
+	})
+	assert.Contains(t, out, "namespace/existing-ns configured (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
+	assert.False(t, putCalled, "PUT should not be called in dry-run mode")
+}
+
+func TestApply_DryRun_CreateOnly_Error(t *testing.T) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				keyMetadata: map[string]any{keyName: "p1"},
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "project_release.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: ProjectRelease
+metadata:
+  name: p1
+  namespace: test-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile, DryRun: true})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "dry run completed with 1 error(s)")
+	})
+	assert.Contains(t, out, "resource already exists and cannot be updated (create-only resource)")
+}
+
+func TestApply_CreateOnly_Error(t *testing.T) {
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet {
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				keyMetadata: map[string]any{keyName: "p1"},
+			}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	dir := t.TempDir()
+	yamlFile := filepath.Join(dir, "project_release.yaml")
+	require.NoError(t, os.WriteFile(yamlFile, []byte(`kind: ProjectRelease
+metadata:
+  name: p1
+  namespace: test-ns
+`), 0600))
+
+	out := testutil.CaptureStdout(t, func() {
+		err := Apply(cl, Params{FilePath: yamlFile})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "apply completed with 1 error(s)")
+	})
+	assert.Contains(t, out, "resource already exists and cannot be updated (create-only resource)")
+}
+
+func TestApply_Stdin_DryRun(t *testing.T) {
+	origStdin := stdinReader
+	defer func() { stdinReader = origStdin }()
+
+	stdinContent := `kind: Namespace
+metadata:
+  name: stdin-dry-ns
+`
+	stdinReader = strings.NewReader(stdinContent)
+
+	postCalled := false
+	cl := setupApplyTest(t, testutil.RoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/namespaces/stdin-dry-ns") {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":"not found"}`))),
+				Header:     http.Header{},
+			}, nil
+		}
+		if r.Method == http.MethodPost {
+			postCalled = true
+			return testutil.JSONResp(http.StatusCreated, map[string]any{}), nil
+		}
+		return &http.Response{StatusCode: http.StatusNotFound, Body: http.NoBody}, nil
+	}))
+
+	out := testutil.CaptureStdout(t, func() {
+		require.NoError(t, Apply(cl, Params{FilePath: "-", DryRun: true}))
+	})
+	assert.Contains(t, out, "namespace/stdin-dry-ns created (dry run)")
+	assert.Contains(t, out, "Dry run: 1 resource(s) would be applied from 1 file(s)")
+	assert.False(t, postCalled, "POST should not be called in dry-run mode")
 }
