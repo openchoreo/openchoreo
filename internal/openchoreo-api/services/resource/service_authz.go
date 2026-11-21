@@ -65,18 +65,23 @@ func (s *resourceServiceWithAuthz) CreateResource(ctx context.Context, namespace
 }
 
 func (s *resourceServiceWithAuthz) UpdateResource(ctx context.Context, namespaceName string, resource *openchoreov1alpha1.Resource) (*openchoreov1alpha1.Resource, error) {
+	// Fetch the existing resource to get the project for authz hierarchy
+	existing, err := s.internal.GetResource(ctx, namespaceName, resource.Name)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       authz.ActionUpdateResource,
 		ResourceType: resourceTypeResource,
 		ResourceID:   resource.Name,
 		Hierarchy: authz.ResourceHierarchy{
 			Namespace: namespaceName,
-			Project:   resource.Spec.Owner.ProjectName,
+			Project:   existing.Spec.Owner.ProjectName,
 			Resource:  resource.Name,
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				ResourceType: formatResourceTypeAttr(namespaceName, resource.Spec.Type),
+				ResourceType: formatResourceTypeAttr(namespaceName, existing.Spec.Type),
 			},
 		},
 	}); err != nil {
