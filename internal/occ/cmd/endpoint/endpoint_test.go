@@ -363,6 +363,26 @@ func TestPromote_FiltersByEndpoint(t *testing.T) {
 	assert.Contains(t, out, "orders-api-abc123")
 }
 
+func TestPromote_DuplicateBindingsError(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	mc.EXPECT().GetEndpoint(mock.Anything, "my-org", "orders-api").Return(
+		endpointWithLatestRelease(), nil)
+	mc.EXPECT().ListEndpointReleaseBindings(mock.Anything, "my-org", mock.Anything).Return(&gen.EndpointReleaseBindingList{
+		Items: []gen.EndpointReleaseBinding{
+			bindingForEnv("orders-api-dev-1", "dev"),
+			bindingForEnv("orders-api-dev-2", "dev"),
+		},
+		Pagination: gen.Pagination{},
+	}, nil)
+
+	r := New(mc)
+	err := r.Promote(PromoteParams{Namespace: "my-org", EndpointName: "orders-api", Environment: "dev"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple EndpointReleaseBindings")
+	assert.Contains(t, err.Error(), "orders-api-dev-1")
+	assert.Contains(t, err.Error(), "orders-api-dev-2")
+}
+
 func TestPromote_UpdateError(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().GetEndpoint(mock.Anything, "my-org", "orders-api").Return(
