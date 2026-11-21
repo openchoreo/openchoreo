@@ -707,12 +707,21 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"time statistics describe only that share of deployments and should be reported together " +
 			"with the coverage rather than on their own. " +
 			"Use this to answer questions like 'how often do we deploy', 'what's our lead time for " +
-			"changes', 'what's our change failure rate', or 'how long does it take to recover from failures'.",
+			"changes', 'what's our change failure rate', or 'how long does it take to recover from failures'. " +
+			"DORA metrics are about production: with no environment, this reports the namespace's environment " +
+			"marked as production, and says so in 'notes'. Set by_environment for one summary per environment, " +
+			"or all_environments to combine them (no classification then, since a promotion through several " +
+			"environments counts once per environment). Each observer covers only the environments of its own " +
+			"observability plane; 'notes' names environments it has no data for. Always pass 'notes' on to " +
+			"the user.",
 		InputSchema: createSchema(map[string]any{
-			"namespace":         stringProperty("Namespace (required)"),
-			"project":           stringProperty("Project name to scope the metrics to"),
-			"component":         stringProperty("Component name to scope the metrics to (requires project)"),
-			"environment":       stringProperty("Environment name to scope the metrics to (e.g., 'development', 'production')"),
+			"namespace": stringProperty("Namespace (required)"),
+			"project":   stringProperty("Project name to scope the metrics to"),
+			"component": stringProperty("Component name to scope the metrics to (requires project)"),
+			"environment": stringProperty("Environment to report on (e.g., 'production'). Omit to report on " +
+				"the namespace's production environment"),
+			"all_environments":  allEnvironmentsProperty(),
+			"by_environment":    byEnvironmentProperty(),
 			"release_line":      releaseLineAnyEnvProperty(),
 			"all_release_lines": allReleaseLinesProperty(),
 			"granularity":       granularityProperty(),
@@ -727,6 +736,8 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		Environment     string   `json:"environment"`
 		ReleaseLine     string   `json:"release_line"`
 		AllReleaseLines bool     `json:"all_release_lines"`
+		AllEnvironments bool     `json:"all_environments"`
+		ByEnvironment   bool     `json:"by_environment"`
 		Granularity     string   `json:"granularity"`
 		StartTime       string   `json:"start_time"`
 		EndTime         string   `json:"end_time"`
@@ -737,7 +748,7 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 		}
 		result, err := handler.QueryDoraMetrics(ctx,
 			args.Namespace, args.Project, args.Component, args.Environment, args.ReleaseLine, args.AllReleaseLines,
-			args.Granularity, args.StartTime, args.EndTime, args.Metrics,
+			args.AllEnvironments, args.ByEnvironment, args.Granularity, args.StartTime, args.EndTime, args.Metrics,
 		)
 		return handler.handleToolResult(req, result, err)
 	})
@@ -750,7 +761,9 @@ func registerTools(s *mcpsdk.Server, handler *MCPHandler) {
 			"(succeeded or failed) and its lead time. Use this after query_dora_metrics to show the work " +
 			"behind a number -- which deployments failed, what shipped in a window, or which rollout took " +
 			"longest -- and to answer questions like 'what did we deploy to production last week' or " +
-			"'which deployments failed'.",
+			"'which deployments failed'. Without environment it lists every environment's rollouts, each " +
+			"row naming its environment; to show the work behind a query_dora_metrics answer, pass the " +
+			"environment that answer reported in its scope.",
 		InputSchema: createSchema(map[string]any{
 			"namespace":         stringProperty("Namespace (required)"),
 			"project":           stringProperty("Project name to scope the deployments to"),

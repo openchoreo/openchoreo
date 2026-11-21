@@ -208,6 +208,77 @@ func (r *ResourceUIDResolver) GetEnvironmentUID(ctx context.Context, namespaceNa
 	return uid, nil
 }
 
+// Environment is one environment of a namespace, as a caller choosing which
+// environment to report on needs it.
+type Environment struct {
+	Name         string
+	IsProduction bool
+}
+
+// environmentListPageSize is the API's maximum page size, and
+// environmentListMaxPages bounds the paging so a cursor that never ends cannot
+// spin the request. Running out of pages is an error rather than a short list: a
+// production environment on a page not read would go unnoticed.
+const (
+	environmentListPageSize = 100
+	environmentListMaxPages = 10
+)
+
+// ListEnvironments lists the environments of a namespace in the order the API
+// returns them. It returns an error rather than a partial or repeated list: a
+// cursor that does not advance would list the same environments again, and a
+// production environment listed twice reads as two of them.
+func (r *ResourceUIDResolver) ListEnvironments(ctx context.Context, namespaceName string) ([]Environment, error) {
+	var out []Environment
+	cursor := ""
+	seen := map[string]bool{}
+	for page := 0; page < environmentListMaxPages; page++ {
+		query := url.Values{"limit": {fmt.Sprint(environmentListPageSize)}}
+		if cursor != "" {
+			query.Set("cursor", cursor)
+		}
+		path := fmt.Sprintf("/api/v1/namespaces/%s/environments?%s",
+			url.PathEscape(namespaceName), query.Encode())
+		body, err := r.fetchBody(ctx, path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list environments of namespace %q: %w", namespaceName,
+				namedNotFound(err, "namespace", namespaceName))
+		}
+
+		var response struct {
+			Items []struct {
+				Metadata struct {
+					Name string `json:"name"`
+				} `json:"metadata"`
+				Spec struct {
+					IsProduction bool `json:"isProduction"`
+				} `json:"spec"`
+			} `json:"items"`
+			Pagination struct {
+				NextCursor string `json:"nextCursor"`
+			} `json:"pagination"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+		for _, item := range response.Items {
+			out = append(out, Environment{Name: item.Metadata.Name, IsProduction: item.Spec.IsProduction})
+		}
+		next := response.Pagination.NextCursor
+		if next == "" {
+			return out, nil
+		}
+		if next == cursor || seen[next] {
+			return nil, fmt.Errorf("failed to list environments of namespace %q: the API returned cursor %q again",
+				namespaceName, next)
+		}
+		seen[next] = true
+		cursor = next
+	}
+	return nil, fmt.Errorf("failed to list environments of namespace %q: more than %d pages",
+		namespaceName, environmentListMaxPages)
+}
+
 // ReleaseLineScope is the release line part of a component search scope, resolved to UIDs.
 // The zero value covers the component's main line, and a scope without a component covers
 // every line.

@@ -377,6 +377,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create MCP handler: %v", err)
 	}
+	// The DORA tools list the namespace's environments to default to production.
+	newMCPHandler.WithEnvironmentLister(uidResolver)
 
 	mcpBindings, err := observeraudit.MCPBindings()
 	if err != nil {
