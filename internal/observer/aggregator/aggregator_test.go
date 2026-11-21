@@ -1286,10 +1286,10 @@ func (u *unavailableEventsSource) FetchDeliveryEvents(
 }
 
 // TestUnservableEventsSourceDoesNotStopIncidents pins why an unservable sweep is
-// stood down rather than left to fail the tick. The tick folds incidents first,
-// events second, and recomputes rollups after both -- so an events error that
-// fails the tick takes Mean Time to Recovery down with it, even though MTTR is
-// derived from incidents and needs no adapter support at all.
+// stood down rather than left to fail the tick. Rollups are recomputed after both
+// sources, so an events error that fails the tick takes Mean Time to Recovery down
+// with it, even though MTTR is derived from incidents and needs no adapter support
+// at all.
 func TestUnservableEventsSourceDoesNotStopIncidents(t *testing.T) {
 	store, incidents := newTestStores(t)
 	now := time.Now().UTC()

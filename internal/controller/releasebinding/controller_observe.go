@@ -301,6 +301,7 @@ func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 func clearManagedStatus(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	releaseBinding.Status.CurrentRevision = ""
 	releaseBinding.Status.Endpoints = nil
+	releaseBinding.Status.EndpointsObservedGeneration = 0
 	releaseBinding.Status.ConnectionTargets = nil
 	releaseBinding.Status.ResolvedConnections = nil
 	releaseBinding.Status.PendingConnections = nil

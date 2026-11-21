@@ -50,9 +50,13 @@ type EndpointTypeSpec struct {
 // EndpointTypeURLs holds one optional URL template per Endpoint visibility.
 // The keys match the values of Endpoint.spec.visibility.
 type EndpointTypeURLs struct {
-	// Project is the URL for callers within the Endpoint's project. Project
-	// visibility is implicit for every Endpoint, so it is resolved whenever it
-	// is declared; includeWhen is its only gate.
+	// Project is the URL for callers within the Endpoint's project. It is
+	// evaluated whenever it is declared, whether or not the Endpoint lists
+	// project visibility, because the component's own Service serves that
+	// scope while ComponentTypes still render one. It is reported when
+	// includeWhen passes and its scheme, host and port resolve to valid values.
+	// A type that renders its own Service for project visibility gates this URL
+	// on it: includeWhen: ${"project" in visibility}.
 	// +optional
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 
@@ -76,9 +80,10 @@ type EndpointTypeURLs struct {
 // to call it. Every string field accepts a literal or ${...} CEL.
 type EndpointURLTemplate struct {
 	// IncludeWhen is an optional ${...}-wrapped CEL expression, ANDed with the
-	// visibility gate, that decides whether this URL is resolved. Use it for
-	// conditions of the type itself, such as the environment having a gateway
-	// for this visibility. Must evaluate to a boolean.
+	// visibility gate, that decides whether this URL is resolved. The project
+	// URL has no visibility gate, so for it includeWhen is the only condition.
+	// Use it for conditions of the type itself, such as the environment having
+	// a gateway for this visibility. Must evaluate to a boolean.
 	// Example: "${gateway.?ingress.?external.?https.hasValue()}".
 	// +optional
 	// +kubebuilder:validation:Pattern=`^\$\{[\s\S]+\}\s*$`

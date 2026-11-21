@@ -201,6 +201,24 @@ Service account is always created when backstage is enabled for security.
 {{- end }}
 
 {{/*
+The GitHub integration Backstage reads, as JSON with host, apiBaseUrl and the
+backstage.secretName key that holds the token. backstage.integrations.github
+wins over backstage.externalCI.githubActions, since Backstage takes one
+integration per host. An empty object when neither is enabled.
+*/}}
+{{- define "openchoreo-control-plane.backstage.githubIntegration" -}}
+{{- $integration := (.Values.backstage.integrations | default dict).github | default dict -}}
+{{- $actions := .Values.backstage.externalCI.githubActions -}}
+{{- if $integration.enabled -}}
+{{- dict "host" $integration.host "apiBaseUrl" $integration.apiBaseUrl "tokenSecretKey" ($integration.tokenSecretKey | default "github-token") | toJson -}}
+{{- else if $actions.enabled -}}
+{{- dict "host" $actions.host "apiBaseUrl" $actions.apiBaseUrl "tokenSecretKey" "github-actions-token" | toJson -}}
+{{- else -}}
+{}
+{{- end -}}
+{{- end }}
+
+{{/*
 OpenChoreo API service account name
 */}}
 {{- define "openchoreo-control-plane.openchoreoApi.serviceAccountName" -}}

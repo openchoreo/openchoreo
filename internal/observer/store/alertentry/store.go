@@ -68,6 +68,12 @@ type AlertEntryStore interface {
 	WriteAlertEntry(ctx context.Context, entry *AlertEntry) (id string, err error)
 	QueryAlertEntries(ctx context.Context, params QueryParams) ([]AlertEntry, int, error)
 	HasRecentAlert(ctx context.Context, alertRuleCRName, alertRuleCRNamespace, componentUID string, since time.Time) (bool, error)
+	// RecordNotificationDelivery inserts or updates the delivery result of one channel.
+	RecordNotificationDelivery(ctx context.Context, delivery NotificationDelivery) error
+	// QueryNotificationDeliveries returns the delivery results of the given alerts, by alert ID.
+	QueryNotificationDeliveries(ctx context.Context, alertIDs []string) (map[string][]NotificationDelivery, error)
+	// FailStaleNotificationDeliveries marks deliveries pending since before cutoff as failed.
+	FailStaleNotificationDeliveries(ctx context.Context, cutoff time.Time, reason string) (int64, error)
 	Close() error
 }
 

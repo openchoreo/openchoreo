@@ -181,7 +181,7 @@ func TestReleaseBindingSnapshotter_FirstRevision(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rev.Spec.Revision)
 	assert.Equal(t, openchoreov1alpha1.RevisionCauseDeploy, rev.Spec.Cause)
-	assert.Equal(t, firstRelease, rev.Spec.ComponentReleaseName)
+	assert.Equal(t, firstRelease, rev.Spec.BindingSpec.ReleaseName)
 	assert.Equal(t, wantHash, rev.Spec.SnapshotHash)
 	assert.Equal(t, binding.Spec, rev.Spec.BindingSpec)
 
@@ -276,7 +276,7 @@ func TestReleaseBindingSnapshotter_SpecChanges(t *testing.T) {
 			assert.Equal(t, Result{Number: 2, Name: getRBR(t, c, "frontend-development-r2").Name, Created: true, Cause: tt.wantCause, Highest: 2}, res)
 			r2 := getRBR(t, c, "frontend-development-r2")
 			assert.Equal(t, tt.wantCause, r2.Spec.Cause)
-			assert.Equal(t, tt.wantRelease, r2.Spec.ComponentReleaseName)
+			assert.Equal(t, tt.wantRelease, r2.Spec.BindingSpec.ReleaseName)
 			assert.Equal(t, "2", r2.Annotations[AnnotationKeyBindingGeneration])
 
 			assert.True(t, r2.Status.Active)
@@ -545,8 +545,8 @@ func earlierRevision(binding *openchoreov1alpha1.ReleaseBinding, ownerUID types.
 		},
 		Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
 			Revision: 1, Cause: openchoreov1alpha1.RevisionCauseDeploy,
-			ComponentReleaseName: firstRelease, SnapshotHash: "from-earlier-attempt",
-			BindingSpec: binding.Spec,
+			SnapshotHash: "from-earlier-attempt",
+			BindingSpec:  binding.Spec,
 		},
 	}
 }
@@ -898,7 +898,7 @@ func TestResourceReleaseBindingSnapshotter(t *testing.T) {
 	assert.Equal(t, Result{Number: 1, Name: "db-development-r1", Created: true, Cause: openchoreov1alpha1.RevisionCauseDeploy, Highest: 1}, res)
 
 	r1 := getRRBR("db-development-r1")
-	assert.Equal(t, "db-abc123", r1.Spec.ResourceReleaseName)
+	assert.Equal(t, "db-abc123", r1.Spec.BindingSpec.ResourceRelease)
 	assert.Equal(t, dev.Spec, r1.Spec.BindingSpec)
 	assert.Equal(t, map[string]string{
 		LabelKeyBindingUID:             "uid-db-development",

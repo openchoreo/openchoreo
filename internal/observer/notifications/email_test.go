@@ -227,11 +227,11 @@ func TestSendEmailWithConfig_NoRecipients(t *testing.T) {
 	assert.Contains(t, err.Error(), "no recipients specified")
 }
 
-func TestSendEmailWithConfig_SkipEmptyHost(t *testing.T) {
+func TestSendEmailWithConfig_RejectsEmptyHost(t *testing.T) {
 	called := false
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		called = true
 		return nil
 	}
@@ -243,15 +243,16 @@ func TestSendEmailWithConfig_SkipEmptyHost(t *testing.T) {
 		},
 	}
 	err := SendEmailWithConfig(context.Background(), config, "subj", "body")
-	assert.NoError(t, err)
+	require.Error(t, err)
+	assert.Equal(t, ReasonChannelConfig, ReasonOf(err))
 	assert.False(t, called, "smtpSendMail should not be called when host is empty")
 }
 
-func TestSendEmailWithConfig_SkipExampleHost(t *testing.T) {
+func TestSendEmailWithConfig_RejectsExampleHost(t *testing.T) {
 	called := false
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		called = true
 		return nil
 	}
@@ -263,7 +264,8 @@ func TestSendEmailWithConfig_SkipExampleHost(t *testing.T) {
 		},
 	}
 	err := SendEmailWithConfig(context.Background(), config, "subj", "body")
-	assert.NoError(t, err)
+	require.Error(t, err)
+	assert.Equal(t, ReasonChannelConfig, ReasonOf(err))
 	assert.False(t, called, "smtpSendMail should not be called for smtp.example.com")
 }
 
@@ -279,7 +281,7 @@ func TestSendEmailWithConfig_SendsWithCredentials(t *testing.T) {
 
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		captured = capturedArgs{addr: addr, auth: a, from: from, to: to, msg: msg}
 		return nil
 	}
@@ -314,7 +316,7 @@ func TestSendEmailWithConfig_SendsWithoutCredentials(t *testing.T) {
 
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		capturedAuth = a
 		return nil
 	}
@@ -338,7 +340,7 @@ func TestSendEmailWithConfig_SendsWithoutCredentials(t *testing.T) {
 func TestSendEmailWithConfig_SMTPError(t *testing.T) {
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		return fmt.Errorf("connection refused")
 	}
 
@@ -362,7 +364,7 @@ func TestSendEmailWithConfig_MessageFormat(t *testing.T) {
 
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		capturedMsg = msg
 		return nil
 	}
@@ -421,7 +423,7 @@ func TestSendEmailWithConfig_ContentType(t *testing.T) {
 
 			orig := smtpSendMail
 			t.Cleanup(func() { smtpSendMail = orig })
-			smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+			smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 				capturedMsg = msg
 				return nil
 			}
@@ -492,7 +494,7 @@ func TestSendEmailWithConfig_FromName(t *testing.T) {
 
 			orig := smtpSendMail
 			t.Cleanup(func() { smtpSendMail = orig })
-			smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+			smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 				capturedFrom = from
 				capturedMsg = msg
 				return nil
@@ -522,7 +524,7 @@ func TestSendEmailWithConfig_FromNameCannotInjectHeaders(t *testing.T) {
 
 	orig := smtpSendMail
 	t.Cleanup(func() { smtpSendMail = orig })
-	smtpSendMail = func(addr string, a smtp.Auth, from string, to []string, msg []byte) error {
+	smtpSendMail = func(_ context.Context, addr string, a smtp.Auth, from string, to []string, msg []byte) error {
 		capturedMsg = msg
 		return nil
 	}

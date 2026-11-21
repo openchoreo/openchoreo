@@ -107,17 +107,36 @@ type Backend struct {
 	// restrict what it routes through its validations.
 	Protocol string `json:"protocol"`
 
-	// ServiceName and Namespace locate the backend's Kubernetes Service on the
-	// data plane. Gateway API backendRefs use {name: serviceName, port: port}.
+	// ServiceName locates the Kubernetes Service the backend's ComponentType
+	// renders. Gateway API backendRefs use {name: serviceName, port: port}. It
+	// is empty when the ComponentType renders no Service for the endpoint; a
+	// type then renders its own Service from podSelectors and targetPort and
+	// routes to that. A type that routes to this Service says so with a
+	// validation: ${backends.all(b, b.serviceName != "")}.
 	ServiceName string `json:"serviceName"`
-	Namespace   string `json:"namespace"`
-	Port        int32  `json:"port"`
+
+	// Namespace is the data-plane namespace the backend's pods and Service run
+	// in, which is also the namespace the Endpoint renders into.
+	Namespace string `json:"namespace"`
+
+	// Port is the workload endpoint's service port: the port of the
+	// ComponentType's Service, and the port a Service the type renders exposes.
+	Port int32 `json:"port"`
+
+	// TargetPort is the container port the backend's pods listen on: the
+	// workload endpoint's targetPort, or its port when that is unset.
+	TargetPort int32 `json:"targetPort"`
+
+	// PodSelectors are the labels on the pods of the backend's component line
+	// in this environment, for the selector of a Service the type renders.
+	PodSelectors map[string]string `json:"podSelectors"`
 
 	// Weight is the relative traffic weight from the backendRef.
 	Weight int32 `json:"weight"`
 
-	// ServiceURL is the in-cluster URL of the backend, e.g.
+	// ServiceURL is the in-cluster URL of the ComponentType's Service, e.g.
 	// http://greeter-dev-1a2b3c.dp-default-shop-dev-4d5e6f.svc.cluster.local:8080/api.
+	// Empty when serviceName is.
 	ServiceURL string `json:"serviceURL"`
 
 	// BasePath is the path the backend serves under ("/" when unset). Templates

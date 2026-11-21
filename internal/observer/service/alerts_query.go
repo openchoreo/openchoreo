@@ -88,9 +88,12 @@ func (s *AlertService) QueryAlerts(ctx context.Context, req gen.AlertsQueryReque
 		return nil, fmt.Errorf("query alert entries: %w", err)
 	}
 
+	deliveries := s.queryNotificationDeliveries(ctx, entries)
 	items := make([]gen.Alert, 0, len(entries))
 	for _, entry := range entries {
-		items = append(items, s.buildAlertQueryItem(entry))
+		item := s.buildAlertQueryItem(entry)
+		item.NotificationDeliveries = notificationDeliveriesOrNil(deliveries[entry.ID])
+		items = append(items, item)
 	}
 
 	return &gen.AlertsQueryResponse{
@@ -315,6 +318,47 @@ func (s *AlertService) buildAlertQueryItem(entry alertentry.AlertEntry) gen.Aler
 		}
 	}
 	return item
+}
+
+// queryNotificationDeliveries returns the delivery results of the given alerts. A failed lookup
+// is logged and the alerts are returned without them.
+func (s *AlertService) queryNotificationDeliveries(ctx context.Context, entries []alertentry.AlertEntry) map[string][]alertentry.NotificationDelivery {
+	if len(entries) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		ids = append(ids, entry.ID)
+	}
+	deliveries, err := s.alertEntryStore.QueryNotificationDeliveries(ctx, ids)
+	if err != nil {
+		s.logger.Warn("Failed to query alert notification deliveries", "error", err)
+		return nil
+	}
+	return deliveries
+}
+
+func notificationDeliveriesOrNil(deliveries []alertentry.NotificationDelivery) *[]gen.NotificationDelivery {
+	if len(deliveries) == 0 {
+		return nil
+	}
+	items := make([]gen.NotificationDelivery, 0, len(deliveries))
+	for _, d := range deliveries {
+		item := gen.NotificationDelivery{
+			Channel:  d.Channel,
+			Status:   gen.NotificationDeliveryStatus(d.Status),
+			Attempts: d.Attempts,
+		}
+		if d.Reason != "" {
+			item.Reason = stringPtr(d.Reason)
+		}
+		if !d.LastAttemptAt.IsZero() {
+			t := d.LastAttemptAt
+			item.LastAttemptAt = &t
+		}
+		items = append(items, item)
+	}
+	return &items
 }
 
 func parseNotificationChannelsJSON(raw string) []string {
