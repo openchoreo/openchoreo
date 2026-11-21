@@ -95,8 +95,12 @@ helm upgrade --install thunder oci://ghcr.io/thunder-id/helm-charts/thunderid \
   --namespace thunder \
   --create-namespace \
   --version "$THUNDER_VERSION" \
-  --values install/k3d/common/values-thunder.yaml
+  --values install/k3d/common/values-thunder.yaml \
+  --values install/k3d/common/values-thunder-portal.yaml
 ```
+
+The second values file registers the bundled portal's OAuth application; drop it, and
+the Backstage secret below, to install without the portal.
 
 ### CoreDNS Rewrite
 
@@ -128,6 +132,11 @@ helm upgrade --install openchoreo-control-plane install/helm/openchoreo-control-
   --create-namespace \
   --values install/k3d/multi-cluster/values-cp.yaml
 ```
+
+Installing without the portal? `values-cp.yaml` enables it, so add
+`--set backstage.enabled=false --set eventForwarder.enabled=false` to the command above.
+Without them you get a Backstage deployment that waits forever for the secret the earlier
+step told you to skip, and an event forwarder whose only default subscriber is gone.
 
 ```bash
 kubectl --context k3d-openchoreo-cp wait -n openchoreo-control-plane \

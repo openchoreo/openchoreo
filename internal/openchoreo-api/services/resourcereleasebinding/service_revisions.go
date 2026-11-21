@@ -146,11 +146,11 @@ func (s *resourceReleaseBindingService) RollbackResourceReleaseBinding(ctx conte
 			targetRevision, bindingName)
 	}
 
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: target.Spec.ResourceReleaseName},
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: target.Spec.BindingSpec.ResourceRelease},
 		&openchoreov1alpha1.ResourceRelease{}); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("%w: ResourceRelease %q bound by revision %d", bindingrevision.ErrReleaseDeleted,
-				target.Spec.ResourceReleaseName, targetRevision)
+				target.Spec.BindingSpec.ResourceRelease, targetRevision)
 		}
 		return nil, fmt.Errorf("failed to get resource release: %w", err)
 	}

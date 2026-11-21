@@ -10,6 +10,7 @@ import (
 // ResourceReleaseBindingRevisionSpec defines the recorded state of one ResourceReleaseBinding revision.
 // The spec is fixed after creation; only status may change.
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="revision spec is immutable; only status may change"
+// +kubebuilder:validation:XValidation:rule="has(self.bindingSpec.resourceRelease) && size(self.bindingSpec.resourceRelease) > 0",message="bindingSpec.resourceRelease must name the ResourceRelease the revision pins"
 type ResourceReleaseBindingRevisionSpec struct {
 	// Revision is the sequence number of this revision within its ResourceReleaseBinding.
 	// +kubebuilder:validation:Required
@@ -19,11 +20,6 @@ type ResourceReleaseBindingRevisionSpec struct {
 	// Cause records why this revision was created.
 	// +kubebuilder:validation:Required
 	Cause RevisionCause `json:"cause"`
-
-	// ResourceReleaseName is the name of the ResourceRelease pinned by this revision.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ResourceReleaseName string `json:"resourceReleaseName"`
 
 	// SnapshotHash is the hash of the binding spec captured in this revision.
 	// +kubebuilder:validation:Required
@@ -37,15 +33,16 @@ type ResourceReleaseBindingRevisionSpec struct {
 	Message string `json:"message,omitempty"`
 
 	// BindingSpec is a copy of the ResourceReleaseBinding spec at the time of this revision.
+	// Its resourceRelease is the ResourceRelease the revision pins.
 	// +kubebuilder:validation:Required
 	BindingSpec ResourceReleaseBindingSpec `json:"bindingSpec"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Namespaced,shortName=rrbr
+// +kubebuilder:resource:scope=Namespaced,shortName=rrbr;rrbrs
 // +kubebuilder:printcolumn:name="Revision",type=integer,JSONPath=`.spec.revision`
-// +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.resourceReleaseName`
+// +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.bindingSpec.resourceRelease`
 // +kubebuilder:printcolumn:name="Cause",type=string,JSONPath=`.spec.cause`
 // +kubebuilder:printcolumn:name="Health",type=string,JSONPath=`.status.health`
 // +kubebuilder:printcolumn:name="Active",type=boolean,JSONPath=`.status.active`
@@ -57,7 +54,10 @@ type ResourceReleaseBindingRevision struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ResourceReleaseBindingRevisionSpec `json:"spec,omitempty"`
+	// Spec is required: without it the spec immutability rule would not run,
+	// so a spec could be removed and a different one set.
+	// +kubebuilder:validation:Required
+	Spec   ResourceReleaseBindingRevisionSpec `json:"spec"`
 	Status BindingRevisionStatus              `json:"status,omitempty"`
 }
 

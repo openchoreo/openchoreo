@@ -64,7 +64,7 @@ func rrbRevision(t *testing.T, n int64, spec openchoreov1alpha1.ResourceReleaseB
 			}},
 		},
 		Spec: openchoreov1alpha1.ResourceReleaseBindingRevisionSpec{
-			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy, ResourceReleaseName: spec.ResourceRelease,
+			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy,
 			SnapshotHash: hash, BindingSpec: spec,
 		},
 	}
@@ -209,7 +209,7 @@ func TestListResourceReleaseBindingRevisions(t *testing.T) {
 
 	rev, err := svc.GetResourceReleaseBindingRevision(ctx, testNamespace, testBindingName+"-r1")
 	require.NoError(t, err)
-	assert.Equal(t, rrReleaseA, rev.Spec.ResourceReleaseName)
+	assert.Equal(t, rrReleaseA, rev.Spec.BindingSpec.ResourceRelease)
 	_, err = svc.GetResourceReleaseBindingRevision(ctx, testNamespace, testBindingName+"-r9")
 	assert.ErrorIs(t, err, bindingrevision.ErrRevisionNotFound)
 }

@@ -84,7 +84,7 @@ func newRevision(t *testing.T, bindingName string, uid types.UID, n int64, spec 
 			}},
 		},
 		Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
-			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy, ComponentReleaseName: spec.ReleaseName,
+			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy,
 			SnapshotHash: hash, BindingSpec: spec,
 		},
 	}

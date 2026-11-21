@@ -213,6 +213,7 @@ const (
 	EndpointReleaseSpecVisibilityExternal  EndpointReleaseSpecVisibility = "external"
 	EndpointReleaseSpecVisibilityInternal  EndpointReleaseSpecVisibility = "internal"
 	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
+	EndpointReleaseSpecVisibilityProject   EndpointReleaseSpecVisibility = "project"
 )
 
 // Defines values for EndpointSecurityApiKeyIn.
@@ -234,6 +235,7 @@ const (
 	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
 	EndpointSpecVisibilityInternal  EndpointSpecVisibility = "internal"
 	EndpointSpecVisibilityNamespace EndpointSpecVisibility = "namespace"
+	EndpointSpecVisibilityProject   EndpointSpecVisibility = "project"
 )
 
 // Defines values for EndpointTypeRefKind.
@@ -2460,7 +2462,7 @@ type EndpointSpec struct {
 	// Type Reference to an EndpointType or ClusterEndpointType template.
 	Type EndpointTypeRef `json:"type"`
 
-	// Visibility Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+	// Visibility Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service. Reachability comes from what the types render; without project listed, callers in the project reach a backend only through the Service its ComponentType renders, when it renders one.
 	Visibility []EndpointSpecVisibility `json:"visibility"`
 }
 
@@ -2575,19 +2577,27 @@ type EndpointTypeSpecResourcesTargetPlane string
 // context as resources; nothing is read back from the data plane.
 type EndpointTypeURLs struct {
 	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	External *EndpointURLTemplate `json:"external,omitempty"`
 
 	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Internal *EndpointURLTemplate `json:"internal,omitempty"`
 
 	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
 
 	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 }
 
@@ -2631,7 +2641,9 @@ type EndpointURLStatus struct {
 type EndpointURLStatusType string
 
 // EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
-// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+// with includeWhen: ${"project" in visibility}.
 type EndpointURLTemplate struct {
 	// Host Hostname or IP address clients connect to.
 	Host string `json:"host"`
@@ -3779,7 +3791,7 @@ type ReleaseBindingRevision struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec The recorded state of one revision. Immutable.
+	// Spec The recorded state of one revision. Immutable. bindingSpec.releaseName is the ComponentRelease the revision binds.
 	Spec   ReleaseBindingRevisionSpec `json:"spec"`
 	Status *BindingRevisionStatus     `json:"status,omitempty"`
 }
@@ -3793,16 +3805,13 @@ type ReleaseBindingRevisionList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ReleaseBindingRevisionSpec The recorded state of one revision. Immutable.
+// ReleaseBindingRevisionSpec The recorded state of one revision. Immutable. bindingSpec.releaseName is the ComponentRelease the revision binds.
 type ReleaseBindingRevisionSpec struct {
 	// BindingSpec Desired state of a ReleaseBinding
 	BindingSpec ReleaseBindingSpec `json:"bindingSpec"`
 
 	// Cause Why a binding revision was created
 	Cause RevisionCause `json:"cause"`
-
-	// ComponentReleaseName ComponentRelease bound by this revision
-	ComponentReleaseName string `json:"componentReleaseName"`
 
 	// Message Optional reason given for the change this revision records, copied from the binding's openchoreo.dev/change-message annotation
 	Message *string `json:"message,omitempty"`
@@ -4122,7 +4131,7 @@ type ResolvedEndpointBackend struct {
 	// Name Name of the backendRef this entry resolves.
 	Name string `json:"name"`
 
-	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
 	Reason *string `json:"reason,omitempty"`
 
 	// Resolved Whether the backend was found and can receive traffic in this environment.
@@ -4452,7 +4461,7 @@ type ResourceReleaseBindingRevision struct {
 	// Matches the structure of metav1.ObjectMeta for the fields exposed via the API.
 	Metadata ObjectMeta `json:"metadata"`
 
-	// Spec The recorded state of one revision. Immutable.
+	// Spec The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the ResourceRelease the revision pins.
 	Spec   ResourceReleaseBindingRevisionSpec `json:"spec"`
 	Status *BindingRevisionStatus             `json:"status,omitempty"`
 }
@@ -4466,7 +4475,7 @@ type ResourceReleaseBindingRevisionList struct {
 	Pagination Pagination `json:"pagination"`
 }
 
-// ResourceReleaseBindingRevisionSpec The recorded state of one revision. Immutable.
+// ResourceReleaseBindingRevisionSpec The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the ResourceRelease the revision pins.
 type ResourceReleaseBindingRevisionSpec struct {
 	// BindingSpec Desired state of a ResourceReleaseBinding. spec.owner and spec.environment
 	// are immutable after creation. spec.resourceRelease is the promote pin and is
@@ -4478,9 +4487,6 @@ type ResourceReleaseBindingRevisionSpec struct {
 
 	// Message Optional reason given for the change this revision records, copied from the binding's openchoreo.dev/change-message annotation
 	Message *string `json:"message,omitempty"`
-
-	// ResourceReleaseName ResourceRelease pinned by this revision
-	ResourceReleaseName string `json:"resourceReleaseName"`
 
 	// Revision Sequence number of this revision within its binding
 	Revision int64 `json:"revision"`

@@ -125,12 +125,11 @@ func (releaseBindingAdapter) Build(binding *openchoreov1alpha1.ReleaseBinding, n
 	cause openchoreov1alpha1.RevisionCause, hash string) *openchoreov1alpha1.ReleaseBindingRevision {
 	return &openchoreov1alpha1.ReleaseBindingRevision{
 		Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
-			Revision:             number,
-			Cause:                cause,
-			ComponentReleaseName: binding.Spec.ReleaseName,
-			SnapshotHash:         hash,
-			Message:              ChangeMessage(binding.Annotations),
-			BindingSpec:          *ReleaseBindingRecordedSpec(&binding.Spec),
+			Revision:     number,
+			Cause:        cause,
+			SnapshotHash: hash,
+			Message:      ChangeMessage(binding.Annotations),
+			BindingSpec:  *ReleaseBindingRecordedSpec(&binding.Spec),
 		},
 	}
 }
@@ -252,12 +251,11 @@ func (resourceReleaseBindingAdapter) Build(binding *openchoreov1alpha1.ResourceR
 	cause openchoreov1alpha1.RevisionCause, hash string) *openchoreov1alpha1.ResourceReleaseBindingRevision {
 	return &openchoreov1alpha1.ResourceReleaseBindingRevision{
 		Spec: openchoreov1alpha1.ResourceReleaseBindingRevisionSpec{
-			Revision:            number,
-			Cause:               cause,
-			ResourceReleaseName: binding.Spec.ResourceRelease,
-			SnapshotHash:        hash,
-			Message:             ChangeMessage(binding.Annotations),
-			BindingSpec:         *ResourceReleaseBindingRecordedSpec(&binding.Spec),
+			Revision:     number,
+			Cause:        cause,
+			SnapshotHash: hash,
+			Message:      ChangeMessage(binding.Annotations),
+			BindingSpec:  *ResourceReleaseBindingRecordedSpec(&binding.Spec),
 		},
 	}
 }

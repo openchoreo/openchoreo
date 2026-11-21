@@ -11522,11 +11522,12 @@ components:
 
     ReleaseBindingRevisionSpec:
       type: object
-      description: The recorded state of one revision. Immutable.
+      description: >-
+        The recorded state of one revision. Immutable. bindingSpec.releaseName is the
+        ComponentRelease the revision binds.
       required:
         - revision
         - cause
-        - componentReleaseName
         - snapshotHash
         - bindingSpec
       properties:
@@ -11538,10 +11539,6 @@ components:
           example: 3
         cause:
           $ref: '#/components/schemas/RevisionCause'
-        componentReleaseName:
-          type: string
-          description: ComponentRelease bound by this revision
-          example: api-service-6f9c2a
         message:
           type: string
           maxLength: 1024
@@ -12682,11 +12679,12 @@ components:
 
     ResourceReleaseBindingRevisionSpec:
       type: object
-      description: The recorded state of one revision. Immutable.
+      description: >-
+        The recorded state of one revision. Immutable. bindingSpec.resourceRelease is the
+        ResourceRelease the revision pins.
       required:
         - revision
         - cause
-        - resourceReleaseName
         - snapshotHash
         - bindingSpec
       properties:
@@ -12698,10 +12696,6 @@ components:
           example: 3
         cause:
           $ref: '#/components/schemas/RevisionCause'
-        resourceReleaseName:
-          type: string
-          description: ResourceRelease pinned by this revision
-          example: analytics-shared-db-abc123
         message:
           type: string
           maxLength: 1024
@@ -13127,12 +13121,12 @@ components:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:
           type: array
-          description: Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+          description: Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service. Reachability comes from what the types render; without project listed, callers in the project reach a backend only through the Service its ComponentType renders, when it renders one.
           minItems: 1
           uniqueItems: true
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
@@ -13340,7 +13334,7 @@ components:
           description: Snapshot of the visibilities requested by the Endpoint.
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Snapshot of the backend references and weights from the Endpoint.
@@ -13466,7 +13460,9 @@ components:
       type: object
       description: |
         Template for one URL and the security clients must satisfy to call it. Resolved only when the
-        Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+        Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+        Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+        with includeWhen: ${"project" in visibility}.
       required:
         - scheme
         - host
@@ -13619,7 +13615,7 @@ components:
           $ref: '#/components/schemas/EndpointURL'
         reason:
           type: string
-          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
           example: NotDeployed
         message:
           type: string
