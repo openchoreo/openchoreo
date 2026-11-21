@@ -16,11 +16,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
@@ -29,6 +32,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
 	resourcepipeline "github.com/openchoreo/openchoreo/internal/pipeline/resource"
+	"github.com/openchoreo/openchoreo/internal/revision"
 	"github.com/openchoreo/openchoreo/internal/template"
 )
 
@@ -53,16 +57,34 @@ type Reconciler struct {
 	// timeout again at each step. Zero disables the deadline. It is handed to the
 	// pipeline at construction; the pipeline derives the deadline per entry point.
 	RenderTimeout time.Duration
+
+	// RevisionKnownGoodWindow is how long a revision must stay Healthy before it
+	// is marked known-good. Zero marks it known-good on its first Healthy observation.
+	RevisionKnownGoodWindow time.Duration
+
+	// RevisionHistoryLimit is the number of old ResourceReleaseBindingRevisions kept
+	// per binding, for bindings whose spec sets no revisionHistoryLimit and whose
+	// Environment sets no componentRevisionHistoryLimit: the controller's
+	// --component-revision-history-limit, which applies to resource bindings too.
+	// Zero keeps no old revision.
+	RevisionHistoryLimit int
+
+	// Recorder records events on ResourceReleaseBindings, such as a revision
+	// history that protected revisions keep above the limit. Set by SetupWithManager.
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindings/finalizers,verbs=update
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindingrevisions,verbs=get;list;watch;create;patch;delete
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleasebindingrevisions/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=resourcereleases,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=renderedreleases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -199,6 +221,52 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	// needing a second context threaded to whatever renders.
 	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
 
+	// Record the validated spec as a revision before rendering. Recording fails
+	// open: a revision error never blocks the rollout; it is returned once the
+	// rest of the reconcile has run so the request is retried with backoff.
+	snapshotter := revision.NewResourceReleaseBindingSnapshotter(r.Client, r.Scheme, revision.Options{
+		KnownGoodWindow: r.RevisionKnownGoodWindow,
+		// A binding that sets no spec.revisionHistoryLimit takes the
+		// Environment's limit, and when that is unset too, the controller's.
+		HistoryLimit: revision.EnvironmentHistoryLimit(environment, r.RevisionHistoryLimit),
+		Recorder:     r.Recorder,
+	})
+	revResult, revErr := snapshotter.Record(ctx, binding)
+	// Point the binding at its active revision and record the highest revision
+	// number it has used; persisted with the rest of the status by the deferred
+	// update.
+	if revResult.Name != "" {
+		binding.Status.CurrentRevision = revResult.Name
+	}
+	binding.Status.HighestRevision = max(binding.Status.HighestRevision, revResult.Highest)
+	if revErr != nil {
+		logger.Error(revErr, "Failed to record ResourceReleaseBinding revision")
+		defer func() {
+			rErr = kerrors.NewAggregate([]error{rErr, fmt.Errorf("record revision: %w", revErr)})
+		}()
+	} else {
+		switch {
+		case revResult.Created:
+			logger.Info("Recorded ResourceReleaseBinding revision",
+				"revision", revResult.Number, "cause", revResult.Cause)
+		case revResult.Reactivated:
+			logger.Info("Reactivated ResourceReleaseBinding revision", "revision", revResult.Number)
+		}
+		// The active revision follows the binding's health as this reconcile
+		// leaves it, on every return path below, including errors.
+		defer func() {
+			requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, binding)
+			if healthErr != nil {
+				logger.Error(healthErr, "Failed to update ResourceReleaseBinding revision health")
+				rErr = kerrors.NewAggregate([]error{rErr, fmt.Errorf("record revision health: %w", healthErr)})
+				return
+			}
+			if requeueAfter > 0 && (result.RequeueAfter == 0 || requeueAfter < result.RequeueAfter) {
+				result.RequeueAfter = requeueAfter
+			}
+		}()
+	}
+
 	rr, err := r.renderAndEmit(ctx, binding, release, environment, dataPlane, resource, project)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -319,6 +387,32 @@ func (r *Reconciler) renderAndEmit(
 	}
 
 	return rr, nil
+}
+
+// observeRevisionHealth maps the binding's conditions and its RenderedRelease to
+// a revision health and records it on the active revision. It returns how long
+// until that revision can become known-good, if it is waiting for that.
+func (r *Reconciler) observeRevisionHealth(
+	ctx context.Context,
+	snapshotter *revision.Snapshotter[*openchoreov1alpha1.ResourceReleaseBinding, *openchoreov1alpha1.ResourceReleaseBindingRevision],
+	binding *openchoreov1alpha1.ResourceReleaseBinding,
+) (time.Duration, error) {
+	observation := revision.Observation{
+		Generation:      binding.Generation,
+		Conditions:      binding.Status.Conditions,
+		SyncedCondition: string(ConditionSynced),
+	}
+
+	renderedRelease := &openchoreov1alpha1.RenderedRelease{}
+	err := r.Get(ctx, types.NamespacedName{Name: makeRenderedReleaseName(binding), Namespace: binding.Namespace}, renderedRelease)
+	switch {
+	case err == nil:
+		observation.RenderedRelease = renderedRelease
+	case !apierrors.IsNotFound(err):
+		return 0, fmt.Errorf("get RenderedRelease: %w", err)
+	}
+
+	return snapshotter.ObserveHealth(ctx, binding, observation.Health())
 }
 
 // makeRenderedReleaseName returns the RenderedRelease name for a binding.
@@ -488,6 +582,9 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			resourcepipeline.WithRenderTimeout(r.RenderTimeout),
 		)
 	}
+	if r.Recorder == nil {
+		r.Recorder = mgr.GetEventRecorderFor("resourcereleasebinding-controller")
+	}
 
 	if err := r.setupResourceReleaseRefIndex(context.Background(), mgr); err != nil {
 		return fmt.Errorf("setup ResourceRelease ref index: %w", err)
@@ -496,8 +593,19 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ResourceReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
+		// Revisions are listed from the cache when recording. Their spec never
+		// changes, so the predicate passes only create and delete events and the
+		// controller's own status writes on revisions do not re-trigger it.
+		Owns(&openchoreov1alpha1.ResourceReleaseBindingRevision{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&openchoreov1alpha1.ResourceRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResourceRelease)).
+		// An Environment's componentRevisionHistoryLimit applies to its bindings that set
+		// none, so a change to it trims their histories without waiting for
+		// their next reconcile.
+		Watches(&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForEnvironment),
+			builder.WithPredicates(revision.EnvironmentHistoryLimitChanged())).
 		Named("resourcereleasebinding").
 		Complete(r)
 }
