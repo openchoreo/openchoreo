@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -29,6 +30,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
@@ -43,6 +46,23 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+// staleDeliverySweepInterval is how often the observer marks alert notifications that a stopped
+// observer left pending as interrupted.
+const staleDeliverySweepInterval = 5 * time.Minute
+
+// configureNotificationDestinations sets which addresses alert notifications may be sent to.
+func configureNotificationDestinations(cfg *config.Config, logger *slog.Logger) {
+	private := cfg.Alerting.NotificationPrivateDestinations
+	notifications.SetDestinationPolicy(destination.Options{
+		Private:        private,
+		ProtectedHosts: cfg.NotificationProtectedHostList(),
+	})
+	if !private.IsEmpty() {
+		logger.Info("Alert notifications may be sent to these private destinations",
+			"addresses", private.Prefixes, "hosts", private.Hosts)
+	}
+}
 
 func main() {
 	// Create bootstrap logger for early initialization
@@ -62,6 +82,8 @@ func main() {
 	// Initialize logger with proper configuration
 	logger := initLogger(cfg.LogLevel)
 	logger.Info("Configuration loaded successfully", "log_level", cfg.LogLevel)
+
+	configureNotificationDestinations(cfg, logger)
 
 	// Initialize Kubernetes client for fetching notification channel configs
 	k8sClient, err := k8s.NewK8sClient()
@@ -502,6 +524,9 @@ func main() {
 	backgroundWG, doraAggregator = startDoraAggregator(
 		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
 
+	// Mark alert notifications that a stopped observer left pending as interrupted.
+	go alertService.RunStaleDeliverySweep(ctx, staleDeliverySweepInterval)
+
 	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
@@ -526,6 +551,11 @@ func main() {
 	defer cancel()
 
 	shutdownServers(shutdownCtx, server, internalServer, backgroundWG, logger)
+
+	// The servers no longer accept alerts, so let the notifications in flight finish.
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), alertService.MaxDispatchDuration())
+	defer cancelDrain()
+	alertService.DrainNotifications(drainCtx)
 	logger.Info("Server shutdown complete")
 }
 

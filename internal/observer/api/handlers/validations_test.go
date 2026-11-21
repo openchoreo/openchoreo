@@ -742,6 +742,7 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 	baseLogRule := func() internalgen.AlertRuleRequest {
 		req := internalgen.AlertRuleRequest{}
 		req.Metadata.Name = "test-rule"
+		req.Metadata.Namespace = "test-ns"
 		req.Metadata.ComponentUid = uid
 		req.Metadata.ProjectUid = uid
 		req.Metadata.EnvironmentUid = uid
@@ -765,6 +766,12 @@ func TestValidateAlertRuleRequest(t *testing.T) {
 			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Metadata.Name = ""; return r },
 			wantErr:     true,
 			errContains: "metadata.name is required",
+		},
+		{
+			name:        "missing namespace",
+			req:         func() internalgen.AlertRuleRequest { r := baseLogRule(); r.Metadata.Namespace = " "; return r },
+			wantErr:     true,
+			errContains: "metadata.namespace is required",
 		},
 		{
 			name: "missing componentUid",

@@ -139,20 +139,28 @@ func (r *Reconciler) resolveBackend(
 }
 
 // resolveComponentBackend resolves a Component backend through the
-// ReleaseBinding of the backend's release line in the environment, reading the
-// in-cluster address its status reports for the workload endpoint. This reuses
-// the lookup the connection/dependency path already relies on. A backend
+// ReleaseBinding of the backend's release line in the environment. A backend
 // without a release line routes to the component's main line, as a component
 // reference does everywhere else.
 //
-// TODO: resolve by selector equality instead: compute the line's podSelectors
-// for (component, line, environment) independently and match them against the
-// Services on its RenderedRelease. That does not depend on how a ComponentType
-// names or shapes its Service.
+// The workload endpoint (its ports, protocol and base path) comes from the
+// release the line runs, and the pods from the component's and the line's
+// UIDs. Those are all a type needs to render its own Service, and what the
+// backend's network policy selects and opens.
 //
-// It also resolves what the backend's network policy selects: the pods of the
-// component's line, which carry the component's and the line's UIDs, and the
-// workload endpoint's container port from the release the line runs.
+// The component's own Service is optional. When the ComponentType renders one,
+// the ReleaseBinding's status reports its in-cluster address for the endpoint,
+// and the backend carries its name, URL, port and protocol from that status
+// entry, so routes target the Service as it was rendered. When the
+// ReleaseBinding has computed its endpoints for its current spec without
+// reporting one, the ComponentType renders no Service for the endpoint, and
+// the backend resolves without it. Until then the address may still come, so
+// the backend waits. This does not wait on the ReleaseBinding's own
+// connections or resource dependencies: like a component dependency reading
+// the same status, an Endpoint resolves once the backend has rendered.
+//
+// TODO: once ComponentTypes no longer render Services, drop the ReleaseBinding
+// address and resolve from the release and the pod selectors alone.
 func (r *Reconciler) resolveComponentBackend(
 	ctx context.Context,
 	binding *openchoreov1alpha1.EndpointReleaseBinding,
@@ -212,34 +220,48 @@ func (r *Reconciler) resolveComponentBackend(
 		return unresolved(BackendReasonNotDeployed, "%s is undeployed in environment %q", subject, env)
 	}
 
-	var epStatus *openchoreov1alpha1.EndpointURLStatus
+	// The component's own Service, when its ComponentType renders one. Its
+	// address and protocol come from the same status entry, so they describe
+	// the same rendered release even while the ReleaseBinding is rolling out a
+	// new one.
+	var serviceURL *openchoreov1alpha1.EndpointURL
+	var serviceProtocol openchoreov1alpha1.EndpointProtocol
 	for i := range rb.Status.Endpoints {
 		if rb.Status.Endpoints[i].Name == endpoint {
-			epStatus = &rb.Status.Endpoints[i]
+			serviceURL = rb.Status.Endpoints[i].ServiceURL
+			serviceProtocol = rb.Status.Endpoints[i].Type
 			break
 		}
 	}
-	if epStatus == nil || epStatus.ServiceURL == nil {
+	if serviceURL == nil && rb.Spec.IsObserve() {
+		// Not a wait: nothing changes until the binding leaves Observe mode.
+		return unresolved(BackendReasonObservedComponent,
+			"endpoint %q of %s has no in-cluster address in environment %q, and its ReleaseBinding is in "+
+				"Observe mode, so no Service can be rendered in front of its pods", endpoint, subject, env)
+	}
+	if serviceURL == nil && !hasObservedCurrentEndpoints(rb) {
 		return unresolved(BackendReasonEndpointNotAvailable,
 			"endpoint %q of %s has no in-cluster address in environment %q yet", endpoint, subject, env)
 	}
-	if !isRoutableProtocol(epStatus.Type) {
-		return unresolved(BackendReasonUnsupportedProtocol,
-			"endpoint %q of %s uses protocol %s, which no route can carry", endpoint, subject, epStatus.Type)
-	}
 
-	serviceName, serviceNamespace, ok := splitServiceHost(epStatus.ServiceURL.Host)
-	if !ok {
-		return unresolved(BackendReasonEndpointNotAvailable,
-			"endpoint %q of %s has an unrecognized service host %q", endpoint, subject, epStatus.ServiceURL.Host)
-	}
-	// Routes render into the project's shared data-plane namespace and
-	// reference backend Services without a ReferenceGrant, so the backend must
-	// live in that namespace too.
-	if serviceNamespace != dpNamespace {
-		return unresolved(BackendReasonNamespaceMismatch,
-			"endpoint %q of %s is served from namespace %q, but routes render into %q",
-			endpoint, subject, serviceNamespace, dpNamespace)
+	var serviceName string
+	if serviceURL != nil {
+		var serviceNamespace string
+		var ok bool
+		serviceName, serviceNamespace, ok = splitServiceHost(serviceURL.Host)
+		if !ok {
+			return unresolved(BackendReasonEndpointNotAvailable,
+				"endpoint %q of %s has an unrecognized service host %q", endpoint, subject, serviceURL.Host)
+		}
+		// Routes render into the project's shared data-plane namespace and
+		// reference backend Services without a ReferenceGrant, so the backend
+		// must live in that namespace too.
+		if serviceNamespace != dpNamespace {
+			return unresolved(BackendReasonNamespaceMismatch,
+				"endpoint %q of %s is served from namespace %q, but routes render into %q",
+				endpoint, subject, serviceNamespace, dpNamespace)
+		}
+		serviceURL = serviceURL.DeepCopy()
 	}
 
 	comp := &openchoreov1alpha1.Component{}
@@ -249,14 +271,27 @@ func (r *Reconciler) resolveComponentBackend(
 		}
 		return backendResolution{}, fmt.Errorf("get Component %q: %w", component, err)
 	}
-	port, err := r.releasedPort(ctx, rb, endpoint)
+	wep, err := r.releasedEndpoint(ctx, rb, endpoint)
 	if err != nil {
 		return backendResolution{}, err
 	}
-	if port == 0 {
+	if wep == nil {
 		return unresolved(BackendReasonEndpointNotAvailable,
 			"endpoint %q of %s is not in the release deployed in environment %q", endpoint, subject, env)
 	}
+	protocol := wep.EffectiveProtocol()
+	if serviceURL != nil && serviceProtocol != "" {
+		protocol = serviceProtocol
+	}
+	if !isRoutableProtocol(protocol) {
+		return unresolved(BackendReasonUnsupportedProtocol,
+			"endpoint %q of %s uses protocol %s, which no route can carry", endpoint, subject, protocol)
+	}
+	targetPort := wep.TargetPort
+	if targetPort == 0 {
+		targetPort = wep.Port
+	}
+
 	selectorInput := controller.PodSelectorInput{
 		NamespaceName:   binding.Namespace,
 		ProjectName:     binding.Spec.Owner.ProjectName,
@@ -271,28 +306,57 @@ func (r *Reconciler) resolveComponentBackend(
 		selectorInput.ReleaseLineUID = string(releaseLine.UID)
 	}
 
-	url := epStatus.ServiceURL.DeepCopy()
+	podSelectors := controller.ComponentPodSelectors(selectorInput)
+
+	backend := &endpointpipeline.Backend{
+		Name:          ref.Name,
+		Kind:          string(ref.Kind),
+		ComponentName: component,
+		Endpoint:      endpoint,
+		Protocol:      string(protocol),
+		Namespace:     dpNamespace,
+		Port:          wep.Port,
+		TargetPort:    targetPort,
+		PodSelectors:  podSelectors,
+		BasePath:      basePathOf(wep.BasePath),
+	}
+	if serviceURL != nil {
+		backend.ServiceName = serviceName
+		backend.Port = serviceURL.Port
+		backend.ServiceURL = formatURL(serviceURL)
+		backend.BasePath = basePathOf(serviceURL.Path)
+	}
 	return backendResolution{
-		backend: &endpointpipeline.Backend{
-			Name:          ref.Name,
-			Kind:          string(ref.Kind),
-			ComponentName: component,
-			Endpoint:      endpoint,
-			Protocol:      string(epStatus.Type),
-			ServiceName:   serviceName,
-			Namespace:     serviceNamespace,
-			Port:          url.Port,
-			ServiceURL:    formatURL(url),
-			BasePath:      basePathOf(url),
-		},
-		serviceURL: url,
+		backend:    backend,
+		serviceURL: serviceURL,
 		target: policyTarget{
 			backendName:  ref.Name,
-			podSelectors: controller.ComponentPodSelectors(selectorInput),
-			port:         port,
-			protocol:     epStatus.Type,
+			podSelectors: podSelectors,
+			port:         targetPort,
+			protocol:     protocol,
 		},
 	}, nil
+}
+
+// hasObservedCurrentEndpoints reports whether the ReleaseBinding has computed
+// status.endpoints from the release its current spec deploys. An endpoint
+// without a service address then has no Service from the ComponentType, rather
+// than one not reported yet.
+//
+// The ReleaseBinding records this as soon as the release is rendered, before
+// it waits on its own connections and resource dependencies, so a backend
+// never waits on what the backend component depends on. Waiting on
+// ReleaseSynced instead would, and two components depending on each other
+// through such Endpoints would never resolve.
+//
+// An Observe-mode binding never counts: it renders no release, and its pods
+// are the observed workload's, which do not carry the pod selectors a type
+// would render a Service with.
+func hasObservedCurrentEndpoints(rb *openchoreov1alpha1.ReleaseBinding) bool {
+	if rb.Spec.IsObserve() {
+		return false
+	}
+	return rb.Status.EndpointsObservedGeneration != 0 && rb.Status.EndpointsObservedGeneration == rb.Generation
 }
 
 // getReleaseLine returns the component's release line, or nil when it has
@@ -314,27 +378,29 @@ func (r *Reconciler) getReleaseLine(
 	return rl, nil
 }
 
-// releasedPort returns the container port of the workload endpoint in the
-// release the ReleaseBinding deploys, or 0 when the release or the endpoint is
-// missing. A network policy is enforced at the pod, after the Service has
-// forwarded port to targetPort, so it opens targetPort, which defaults to port
-// as it does for the component's Service.
-func (r *Reconciler) releasedPort(ctx context.Context, rb *openchoreov1alpha1.ReleaseBinding, endpoint string) (int32, error) {
+// releasedEndpoint returns the workload endpoint in the release the
+// ReleaseBinding deploys, or nil when the release or the endpoint is missing.
+// A network policy is enforced at the pod, after a Service has forwarded port
+// to targetPort, so policies open targetPort, which defaults to port as it
+// does for the component's Service.
+func (r *Reconciler) releasedEndpoint(
+	ctx context.Context, rb *openchoreov1alpha1.ReleaseBinding, endpoint string,
+) (*openchoreov1alpha1.WorkloadEndpoint, error) {
 	if rb.Spec.ReleaseName == "" {
-		return 0, nil
+		return nil, nil
 	}
 	cr := &openchoreov1alpha1.ComponentRelease{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: rb.Namespace, Name: rb.Spec.ReleaseName}, cr); err != nil {
 		if apierrors.IsNotFound(err) {
-			return 0, nil
+			return nil, nil
 		}
-		return 0, fmt.Errorf("get ComponentRelease %q: %w", rb.Spec.ReleaseName, err)
+		return nil, fmt.Errorf("get ComponentRelease %q: %w", rb.Spec.ReleaseName, err)
 	}
-	ep := cr.Spec.Workload.Endpoints[endpoint]
-	if ep.TargetPort != 0 {
-		return ep.TargetPort, nil
+	ep, ok := cr.Spec.Workload.Endpoints[endpoint]
+	if !ok || ep.Port == 0 {
+		return nil, nil
 	}
-	return ep.Port, nil
+	return &ep, nil
 }
 
 // isRoutableProtocol reports whether any route kind can carry the protocol.
@@ -361,11 +427,11 @@ func splitServiceHost(host string) (name, namespace string, ok bool) {
 }
 
 // basePathOf returns the path the backend serves under, defaulting to "/".
-func basePathOf(u *openchoreov1alpha1.EndpointURL) string {
-	if u.Path == "" {
+func basePathOf(path string) string {
+	if path == "" {
 		return "/"
 	}
-	return u.Path
+	return path
 }
 
 // formatURL renders an EndpointURL as scheme://host:port/path.

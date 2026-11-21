@@ -113,6 +113,10 @@ func do(t *testing.T, svc service.AlertRuleService, method, url string, body io.
 }
 
 func ruleURL(sourceType, ruleName string) string {
+	return ruleURLNoNamespace(sourceType, ruleName) + "?namespace=" + testNS
+}
+
+func ruleURLNoNamespace(sourceType, ruleName string) string {
 	return "/api/v1alpha1/alerts/sources/" + sourceType + "/rules/" + ruleName
 }
 
@@ -259,7 +263,7 @@ func TestGetAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -271,7 +275,7 @@ func TestGetAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -283,7 +287,7 @@ func TestGetAlertRule_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -296,7 +300,7 @@ func TestGetAlertRule_PassesRuleNameFromPath(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, "my-rule", sourceTypeLog).
+	svc.On("GetAlertRule", mock.Anything, testNS, "my-rule", sourceTypeLog).
 		Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeLog, "my-rule"), nil)
@@ -305,7 +309,64 @@ func TestGetAlertRule_PassesRuleNameFromPath(t *testing.T) {
 	svc.AssertExpectations(t)
 }
 
+// TestAlertRuleByName_MissingNamespace pins that a rule is never looked up by name alone.
+func TestAlertRuleByName_MissingNamespace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		method string
+		body   func(*testing.T) io.Reader
+	}{
+		{method: http.MethodGet},
+		{method: http.MethodPut, body: validAlertRuleBody},
+		{method: http.MethodDelete},
+	}
+	for _, tc := range tests {
+		t.Run(tc.method, func(t *testing.T) {
+			t.Parallel()
+
+			var body io.Reader
+			if tc.body != nil {
+				body = tc.body(t)
+			}
+			rr := do(t, servicemocks.NewMockAlertRuleService(t),
+				tc.method, ruleURLNoNamespace(sourceTypeLog, "r1"), body)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			assert.Contains(t, rr.Body.String(), "namespace")
+		})
+	}
+}
+
+// TestDeleteAlertRule_PassesNamespaceFromQuery proves the namespace binds from the query
+// and reaches the service unchanged.
+func TestDeleteAlertRule_PassesNamespaceFromQuery(t *testing.T) {
+	t.Parallel()
+
+	action := internalgen.AlertingRuleSyncResponseAction("deleted")
+	svc := servicemocks.NewMockAlertRuleService(t)
+	svc.On("DeleteAlertRule", mock.Anything, "tenant-a", "my-rule", sourceTypeMetric).
+		Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
+
+	rr := do(t, svc, http.MethodDelete,
+		ruleURLNoNamespace(sourceTypeMetric, "my-rule")+"?namespace=tenant-a", nil)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	svc.AssertExpectations(t)
+}
+
 // UpdateAlertRule tests ---------------------------------------------------------
+
+func TestUpdateAlertRule_NamespaceMismatch(t *testing.T) {
+	t.Parallel()
+
+	// Query says "other-ns", body has testNS.
+	rr := do(t, servicemocks.NewMockAlertRuleService(t), http.MethodPut,
+		ruleURLNoNamespace(sourceTypeLog, "r1")+"?namespace=other-ns", validAlertRuleBody(t))
+
+	require.Equal(t, http.StatusBadRequest, rr.Code)
+	assert.Contains(t, rr.Body.String(), "NAMESPACE_MISMATCH")
+}
 
 func TestUpdateAlertRule_InvalidSourceType(t *testing.T) {
 	t.Parallel()
@@ -404,7 +465,7 @@ func TestDeleteAlertRule_NotFound(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, service.ErrAlertRuleNotFound)
 
 	rr := do(t, svc, http.MethodDelete, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -416,7 +477,7 @@ func TestDeleteAlertRule_ServiceError(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("backend error"))
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("backend error"))
 
 	rr := do(t, svc, http.MethodDelete, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -429,7 +490,7 @@ func TestDeleteAlertRule_Success(t *testing.T) {
 
 	action := internalgen.AlertingRuleSyncResponseAction("deleted")
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
+	svc.On("DeleteAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertingRuleSyncResponse{Action: &action}, nil)
 
 	rr := do(t, svc, http.MethodDelete, ruleURL(sourceTypeLog, "r1"), nil)
 
@@ -556,7 +617,7 @@ func TestGetAlertRule_Budget_Success(t *testing.T) {
 	t.Parallel()
 
 	svc := servicemocks.NewMockAlertRuleService(t)
-	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
+	svc.On("GetAlertRule", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&internalgen.AlertRuleResponse{}, nil)
 
 	rr := do(t, svc, http.MethodGet, ruleURL(sourceTypeBudget, "r1"), nil)
 
@@ -634,8 +695,10 @@ func TestInternalHandlers_NilServiceResponse(t *testing.T) {
 			t.Parallel()
 
 			svc := servicemocks.NewMockAlertRuleService(t)
-			// Registered at both arities, since the five service methods take
-			// either two or three arguments.
+			// Registered at every arity, since the five service methods take
+			// two, three or four arguments.
+			svc.On(tc.mockCall, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Maybe().Return(nil, nil)
 			svc.On(tc.mockCall, mock.Anything, mock.Anything, mock.Anything).
 				Maybe().Return(nil, nil)
 			svc.On(tc.mockCall, mock.Anything, mock.Anything).

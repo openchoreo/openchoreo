@@ -47,8 +47,8 @@ type ComponentPolicyParams struct {
 // EndpointPolicyParams holds parameters for the policy an Endpoint renders for
 // one of its backends. It admits the Endpoint's visibility to the backend's
 // pods on the backend's port, alongside the backend component's own policy:
-// policies are additive, so the component's policy keeps its project scope and
-// whatever its deprecated workload visibility requests.
+// policies are additive, so the component's policy keeps its implicit project
+// scope and whatever its deprecated workload visibility requests.
 type EndpointPolicyParams struct {
 	Name         string                                  // policy name
 	Namespace    string                                  // data plane namespace name
@@ -159,14 +159,7 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 
 	// Rule 1: intra-namespace (project visibility) — all declared ports
 	if len(projectPorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"from": []any{
-				map[string]any{
-					"podSelector": map[string]any{},
-				},
-			},
-			"ports": projectPorts,
-		})
+		ingressRules = append(ingressRules, projectIngressRule(projectPorts))
 	}
 
 	// Rule 2: cross-project, same CP namespace and same environment (namespace visibility)
@@ -180,6 +173,31 @@ func makeIngressRules(params ComponentPolicyParams) []any {
 	}
 
 	return ingressRules
+}
+
+// projectIngressRule admits every pod of the policy's own data-plane
+// namespace, which holds one project's components in one environment (project
+// visibility).
+func projectIngressRule(ports []any) map[string]any {
+	return map[string]any{
+		"from": []any{
+			map[string]any{
+				"podSelector": map[string]any{},
+			},
+		},
+		"ports": ports,
+	}
+}
+
+// ciliumProjectIngressRule is projectIngressRule for Cilium: an empty
+// endpoint selector matches the endpoints of the policy's own namespace.
+func ciliumProjectIngressRule(entries []ciliumPortEntry) map[string]any {
+	return map[string]any{
+		"fromEndpoints": []any{
+			map[string]any{},
+		},
+		"toPorts": ciliumToPorts(entries),
+	}
 }
 
 // namespaceIngressRule admits pods of other projects in the same control plane
@@ -266,12 +284,7 @@ func makeCiliumComponentPolicies(params ComponentPolicyParams) []map[string]any 
 
 	// Rule 1: intra-namespace (project visibility) — all pods in the data-plane namespace
 	if len(projectPorts) > 0 {
-		ingressRules = append(ingressRules, map[string]any{
-			"fromEndpoints": []any{
-				map[string]any{},
-			},
-			"toPorts": ciliumToPorts(projectPorts),
-		})
+		ingressRules = append(ingressRules, ciliumProjectIngressRule(projectPorts))
 	}
 
 	// Rule 2: cross-project, same CP namespace and environment (namespace visibility)
@@ -358,21 +371,28 @@ func ciliumSystemComponentIngressRule(entries []ciliumPortEntry) map[string]any 
 }
 
 // MakeEndpointPolicy returns the policy admitting an Endpoint's visibility to
-// one backend's pods on the backend's port: namespace visibility admits the
-// other projects of the namespace and environment, internal and external admit
-// the gateways. It returns nil when the visibility admits nothing beyond the
-// project scope the backend component's own policy already admits.
+// one backend's pods on the backend's port: project visibility admits the pods
+// of the data-plane namespace, namespace visibility the other projects of the
+// namespace and environment, internal and external the gateways. It returns
+// nil when the Endpoint lists no visibility.
+//
+// The project rule duplicates the one the backend component's own policy
+// carries while workload endpoints keep their implicit project scope. It is
+// rendered anyway, so an Endpoint keeps admitting its project once the
+// component policy no longer does.
 func MakeEndpointPolicy(params EndpointPolicyParams) map[string]any {
-	var namespaceScope, broadScope bool
+	var projectScope, namespaceScope, broadScope bool
 	for _, vis := range params.Visibility {
 		switch vis {
+		case openchoreov1alpha1.EndpointVisibilityProject:
+			projectScope = true
 		case openchoreov1alpha1.EndpointVisibilityNamespace:
 			namespaceScope = true
 		case openchoreov1alpha1.EndpointVisibilityInternal, openchoreov1alpha1.EndpointVisibilityExternal:
 			broadScope = true
 		}
 	}
-	if !namespaceScope && !broadScope {
+	if !projectScope && !namespaceScope && !broadScope {
 		return nil
 	}
 
@@ -381,6 +401,9 @@ func MakeEndpointPolicy(params EndpointPolicyParams) map[string]any {
 	if params.Provider == ProviderCilium {
 		entries := []ciliumPortEntry{{port: strconv.Itoa(int(params.Port)), proto: proto, isL7: isL7Proxied(params.Protocol)}}
 		var ingressRules []any
+		if projectScope {
+			ingressRules = append(ingressRules, ciliumProjectIngressRule(entries))
+		}
 		if namespaceScope {
 			ingressRules = append(ingressRules, ciliumNamespaceIngressRule(params.CPNamespace, params.Environment, entries))
 		}
@@ -405,6 +428,9 @@ func MakeEndpointPolicy(params EndpointPolicyParams) map[string]any {
 
 	ports := []any{map[string]any{"protocol": proto, "port": int64(params.Port)}}
 	var ingressRules []any
+	if projectScope {
+		ingressRules = append(ingressRules, projectIngressRule(ports))
+	}
 	if namespaceScope {
 		ingressRules = append(ingressRules, namespaceIngressRule(params.CPNamespace, params.Environment, ports))
 	}

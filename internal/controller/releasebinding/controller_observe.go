@@ -297,6 +297,7 @@ func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 // runs, consumers keep resolving its endpoints.
 func clearManagedStatus(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
 	releaseBinding.Status.Endpoints = nil
+	releaseBinding.Status.EndpointsObservedGeneration = 0
 	releaseBinding.Status.ConnectionTargets = nil
 	releaseBinding.Status.ResolvedConnections = nil
 	releaseBinding.Status.PendingConnections = nil

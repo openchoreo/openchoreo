@@ -38,6 +38,10 @@ const (
 	smtpAuthUsernameKey = "smtp.auth.username"
 	smtpAuthPasswordKey = "smtp.auth.password"
 	webhookHeaderKeyFmt = "webhook.header.%s"
+
+	// webhookURLKey holds the webhook URL: in the ConfigMap when it is inline, in the Secret
+	// when it comes from a secret reference.
+	webhookURLKey = "webhook.url"
 )
 
 // secretSource is where a channel's referenced secret values come from.
@@ -110,6 +114,7 @@ func channelSecretRefs(channel *openchoreodevv1alpha1.ObservabilityAlertsNotific
 		}
 	case openchoreodevv1alpha1.NotificationChannelTypeWebhook:
 		if channel.Spec.WebhookConfig != nil {
+			add(webhookURLKey, channel.Spec.WebhookConfig.URLFrom)
 			for name, header := range channel.Spec.WebhookConfig.Headers {
 				add(fmt.Sprintf(webhookHeaderKeyFmt, name), header.ValueFrom)
 			}
@@ -193,8 +198,9 @@ func findRemoteRef(secretRef *openchoreodevv1alpha1.SecretReference, key string)
 
 // validateSecretReferences checks that every SecretReference can be synced into the observability
 // plane for the channel: the plane has a secret store, and the remote key is the channel's
-// namespace's own. Webhook channels send header values to a URL of the user's choosing, so a
-// channel may only read the one key that the secret API writes for the SecretReference:
+// namespace's own. Webhook channels send header values to a URL of the user's choosing, and the
+// URL itself can come from a secret, so a channel may only read the one key that the secret API
+// writes for the SecretReference:
 // "<prefix><sep><namespace><sep><type><sep><name>", built from the channel's namespace and the
 // SecretReference's type and name. Both names are validated Kubernetes names, so this rules out
 // keys of other namespaces or of the platform, and path segments such as "..".

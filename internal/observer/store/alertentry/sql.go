@@ -76,6 +76,9 @@ func (s *sqlStore) Initialize(ctx context.Context) error {
 	if _, err := s.db.ExecContext(initCtx, createAlertRuleCRTimestampIndexQuery); err != nil {
 		return fmt.Errorf("failed to create alert_entries cr index: %w", err)
 	}
+	if err := s.initializeDeliveries(initCtx); err != nil {
+		return err
+	}
 	// Release line columns, for alert_entries tables created before release lines.
 	for _, column := range []string{"release_line_name", "release_line_id"} {
 		if err := sqlschema.AddColumnIfMissing(initCtx, s.db, s.backend == BackendPostgreSQL, "alert_entries", column, "TEXT"); err != nil {
