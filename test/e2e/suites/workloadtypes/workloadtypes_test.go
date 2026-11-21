@@ -33,11 +33,11 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 
 	BeforeAll(func() {
 		By("creating control plane namespace")
-		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML())
+		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML(cpNs))
 		Expect(err).NotTo(HaveOccurred(), "failed to create CP namespace: %s", output)
 
 		By("applying platform resources (pipeline, environment, project)")
-		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML())
+		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML(cpNs))
 		Expect(err).NotTo(HaveOccurred(), "failed to apply platform resources: %s", output)
 
 		// The DP namespace is created by the ProjectReleaseBinding applied
@@ -45,14 +45,14 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 		// then poll for it.
 		By("deploying service component (greeter)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithImageYAML(
-			componentService, "deployment/service", imageService, servicePort,
+			cpNs, componentService, "deployment/service", imageService, servicePort,
 			[]string{"--port", strconv.Itoa(servicePort)},
 		))
 		Expect(err).NotTo(HaveOccurred(), "failed to create service component: %s", output)
 
 		By("deploying web-application component (http-echo stand-in)")
 		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithImageYAML(
-			componentWebApp, "deployment/web-application", imageWebApp, webAppPort,
+			cpNs, componentWebApp, "deployment/web-application", imageWebApp, webAppPort,
 			[]string{"-listen=:" + strconv.Itoa(webAppPort), "-text=react-spa"},
 		))
 		Expect(err).NotTo(HaveOccurred(), "failed to create web-app component: %s", output)
@@ -348,6 +348,68 @@ var _ = Describe("Workload Type Matrix", Ordered, Label("tier1"), func() {
 				g.Expect(cronjobs).To(BeEmpty(), "cronjobs remain in %s: %s", dpNs, cronjobs)
 			}, 5*time.Minute, 5*time.Second).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Control-plane namespace deletion", Label("tier1"), func() {
+	It("fully deletes with a deployed component and chained finalizers", func() {
+		// Use a fresh namespace rather than a Project deleted by the workload-type matrix.
+		deletionCPNs := fmt.Sprintf("e2e-wt-delete-%d", time.Now().UnixNano())
+		var deletionDPNs string
+		DeferCleanup(func() {
+			if os.Getenv("E2E_KEEP_RESOURCES") == "true" {
+				return
+			}
+			_, _ = framework.Kubectl(kubeContext, "delete", "namespace", deletionCPNs, "--ignore-not-found", "--wait=false")
+			if deletionDPNs != "" {
+				_, _ = framework.Kubectl(kubeContext, "delete", "namespace", deletionDPNs, "--ignore-not-found", "--wait=false")
+			}
+		})
+
+		By("creating a project and deployed component with chained finalizers")
+		output, err := framework.KubectlApplyLiteral(kubeContext, cpNamespaceYAML(deletionCPNs))
+		Expect(err).NotTo(HaveOccurred(), "failed to create namespace: %s", output)
+		output, err = framework.KubectlApplyLiteral(kubeContext, platformResourcesYAML(deletionCPNs))
+		Expect(err).NotTo(HaveOccurred(), "failed to create project: %s", output)
+		output, err = framework.KubectlApplyLiteral(kubeContext, componentWithImageYAML(
+			deletionCPNs, componentService, "deployment/service", imageService, servicePort,
+			[]string{"--port", strconv.Itoa(servicePort)},
+		))
+		Expect(err).NotTo(HaveOccurred(), "failed to deploy component: %s", output)
+
+		Eventually(func(g Gomega) {
+			framework.AssertReleaseBindingReady(g, kubeContext, deletionCPNs, componentService+releaseBindingSuffix)
+			var getErr error
+			deletionDPNs, getErr = framework.GetDPNamespace(kubeContext, deletionCPNs, projectName, envDev)
+			g.Expect(getErr).NotTo(HaveOccurred())
+			deployments, getErr := framework.Kubectl(kubeContext, "get", "deployment", "-n", deletionDPNs,
+				"-l", "openchoreo.dev/component="+componentService,
+				"-o", "jsonpath={.items[*].metadata.name}")
+			g.Expect(getErr).NotTo(HaveOccurred())
+			g.Expect(deployments).NotTo(BeEmpty(), "component has no deployed workload")
+			for _, resource := range []struct{ kind, name, finalizer string }{
+				{"project", projectName, "openchoreo.dev/project-cleanup"},
+				{"component", componentService, "openchoreo.dev/component-cleanup"},
+				{"releasebinding", componentService + releaseBindingSuffix, "openchoreo.dev/releasebinding-cleanup"},
+			} {
+				finalizers, getErr := framework.KubectlGetJsonpath(kubeContext, deletionCPNs, resource.kind, resource.name,
+					"{.metadata.finalizers}")
+				g.Expect(getErr).NotTo(HaveOccurred())
+				g.Expect(finalizers).To(ContainSubstring(resource.finalizer))
+			}
+		}, 5*time.Minute, 5*time.Second).Should(Succeed())
+
+		By("deleting the control-plane namespace while the component is deployed")
+		output, err = framework.Kubectl(kubeContext, "delete", "namespace", deletionCPNs, "--wait=false")
+		Expect(err).NotTo(HaveOccurred(), "failed to request namespace deletion: %s", output)
+
+		By("waiting until the namespace is fully gone, not just Terminating")
+		Eventually(func(g Gomega) {
+			remaining, getErr := framework.Kubectl(kubeContext, "get", "namespace", deletionCPNs,
+				"--ignore-not-found", "-o", "name")
+			g.Expect(getErr).NotTo(HaveOccurred())
+			g.Expect(remaining).To(BeEmpty())
+		}, 10*time.Minute, 5*time.Second).Should(Succeed())
 	})
 })
 
