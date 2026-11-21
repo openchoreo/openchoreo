@@ -6,20 +6,27 @@
 // that record must not change after it is created.
 //
 // The CRDs carry a `self == oldSelf` CEL rule on spec, but CEL cannot compare
-// the free-form config objects in a ReleaseBinding spec in full: they are
-// declared `type: object` with preserved unknown fields and no properties, and
-// CEL equality on them misses a key replaced by another key, for example
-// {"replicas":2} becoming {"count":2}. This webhook compares the whole spec.
+// the free-form objects in a binding spec in full: they are declared
+// `type: object` with preserved unknown fields, and CEL equality on them misses
+// a key replaced by another key, for example {"replicas":2} becoming
+// {"count":2}. This webhook compares the whole spec.
+//
+// It compares the specs as the apiserver admitted them, not as Go types:
+// decoding into the typed revision would drop the unknown fields the CRD
+// preserves (for example under bindingSpec.workloadOverrides), and a change to
+// them would go unseen.
 package bindingrevision
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"reflect"
 
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,127 +40,96 @@ import (
 // spec is rejected with. It matches the CRDs' CEL rule.
 const ImmutableSpecMessage = "revision spec is immutable; only status may change"
 
-// SetupReleaseBindingRevisionWebhookWithManager registers the validating
-// webhook for ReleaseBindingRevision in the manager.
-func SetupReleaseBindingRevisionWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &openchoreov1alpha1.ReleaseBindingRevision{}).
-		WithCustomValidator(&ReleaseBindingRevisionValidator{}).
-		Complete()
-}
-
-// SetupResourceReleaseBindingRevisionWebhookWithManager registers the
-// validating webhook for ResourceReleaseBindingRevision in the manager.
-func SetupResourceReleaseBindingRevisionWebhookWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr, &openchoreov1alpha1.ResourceReleaseBindingRevision{}).
-		WithCustomValidator(&ResourceReleaseBindingRevisionValidator{}).
-		Complete()
-}
+// Paths the webhooks are served at. They match the kubebuilder markers below,
+// from which config/webhook/manifests.yaml is generated.
+const (
+	releaseBindingRevisionPath         = "/validate-openchoreo-dev-v1alpha1-releasebindingrevision"
+	resourceReleaseBindingRevisionPath = "/validate-openchoreo-dev-v1alpha1-resourcereleasebindingrevision"
+)
 
 // Only updates can change a spec. Status is written through the status
 // subresource, which these rules do not match.
 
 // +kubebuilder:webhook:path=/validate-openchoreo-dev-v1alpha1-releasebindingrevision,mutating=false,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=releasebindingrevisions,verbs=update,versions=v1alpha1,name=vreleasebindingrevision-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ReleaseBindingRevisionValidator rejects updates that change a
-// ReleaseBindingRevision's spec.
-type ReleaseBindingRevisionValidator struct{}
-
-var _ webhook.CustomValidator = &ReleaseBindingRevisionValidator{}
-
-// ValidateCreate accepts every create; the CRD schema validates the spec.
-func (v *ReleaseBindingRevisionValidator) ValidateCreate(context.Context, runtime.Object) (admission.Warnings, error) {
-	return nil, nil
-}
-
-// ValidateUpdate rejects an update whose spec differs from the stored one.
-func (v *ReleaseBindingRevisionValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldRev, ok := oldObj.(*openchoreov1alpha1.ReleaseBindingRevision)
-	if !ok {
-		return nil, fmt.Errorf("expected a ReleaseBindingRevision but got %T", oldObj)
-	}
-	newRev, ok := newObj.(*openchoreov1alpha1.ReleaseBindingRevision)
-	if !ok {
-		return nil, fmt.Errorf("expected a ReleaseBindingRevision but got %T", newObj)
-	}
-	return nil, rejectSpecChange(oldRev.Spec, newRev.Spec,
-		openchoreov1alpha1.GroupVersion.WithKind("ReleaseBindingRevision").GroupKind(), newRev.Name)
-}
-
-// ValidateDelete accepts every delete.
-func (v *ReleaseBindingRevisionValidator) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+// SetupReleaseBindingRevisionWebhookWithManager registers the validating
+// webhook for ReleaseBindingRevision in the manager.
+func SetupReleaseBindingRevisionWebhookWithManager(mgr ctrl.Manager) error {
+	mgr.GetWebhookServer().Register(releaseBindingRevisionPath, &webhook.Admission{
+		Handler: NewSpecGuard(openchoreov1alpha1.GroupVersion.WithKind("ReleaseBindingRevision").GroupKind()),
+	})
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-openchoreo-dev-v1alpha1-resourcereleasebindingrevision,mutating=false,failurePolicy=fail,sideEffects=None,groups=openchoreo.dev,resources=resourcereleasebindingrevisions,verbs=update,versions=v1alpha1,name=vresourcereleasebindingrevision-v1alpha1.kb.io,admissionReviewVersions=v1
 
-// ResourceReleaseBindingRevisionValidator rejects updates that change a
-// ResourceReleaseBindingRevision's spec.
-type ResourceReleaseBindingRevisionValidator struct{}
-
-var _ webhook.CustomValidator = &ResourceReleaseBindingRevisionValidator{}
-
-// ValidateCreate accepts every create; the CRD schema validates the spec.
-func (v *ResourceReleaseBindingRevisionValidator) ValidateCreate(context.Context, runtime.Object) (admission.Warnings, error) {
-	return nil, nil
+// SetupResourceReleaseBindingRevisionWebhookWithManager registers the
+// validating webhook for ResourceReleaseBindingRevision in the manager.
+func SetupResourceReleaseBindingRevisionWebhookWithManager(mgr ctrl.Manager) error {
+	mgr.GetWebhookServer().Register(resourceReleaseBindingRevisionPath, &webhook.Admission{
+		Handler: NewSpecGuard(openchoreov1alpha1.GroupVersion.WithKind("ResourceReleaseBindingRevision").GroupKind()),
+	})
+	return nil
 }
 
-// ValidateUpdate rejects an update whose spec differs from the stored one.
-func (v *ResourceReleaseBindingRevisionValidator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldRev, ok := oldObj.(*openchoreov1alpha1.ResourceReleaseBindingRevision)
-	if !ok {
-		return nil, fmt.Errorf("expected a ResourceReleaseBindingRevision but got %T", oldObj)
+// SpecGuard rejects an update that changes a revision's spec.
+type SpecGuard struct {
+	kind schema.GroupKind
+}
+
+var _ admission.Handler = &SpecGuard{}
+
+// NewSpecGuard returns a SpecGuard for revisions of the given kind.
+func NewSpecGuard(kind schema.GroupKind) *SpecGuard {
+	return &SpecGuard{kind: kind}
+}
+
+// Handle allows every request except an update whose spec differs from the
+// stored one.
+func (g *SpecGuard) Handle(_ context.Context, req admission.Request) admission.Response {
+	if req.Operation != admissionv1.Update {
+		return admission.Allowed("")
 	}
-	newRev, ok := newObj.(*openchoreov1alpha1.ResourceReleaseBindingRevision)
-	if !ok {
-		return nil, fmt.Errorf("expected a ResourceReleaseBindingRevision but got %T", newObj)
-	}
-	return nil, rejectSpecChange(oldRev.Spec, newRev.Spec,
-		openchoreov1alpha1.GroupVersion.WithKind("ResourceReleaseBindingRevision").GroupKind(), newRev.Name)
-}
-
-// ValidateDelete accepts every delete.
-func (v *ResourceReleaseBindingRevisionValidator) ValidateDelete(context.Context, runtime.Object) (admission.Warnings, error) {
-	return nil, nil
-}
-
-// rejectSpecChange returns an Invalid error when the two specs differ.
-func rejectSpecChange(oldSpec, newSpec any, gk schema.GroupKind, name string) error {
-	same, err := sameJSON(oldSpec, newSpec)
+	same, err := sameSpec(req.OldObject.Raw, req.Object.Raw)
 	if err != nil {
-		return apierrors.NewInternalError(fmt.Errorf("compare revision specs: %w", err))
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("compare revision specs: %w", err))
 	}
 	if same {
-		return nil
+		return admission.Allowed("")
 	}
-	return apierrors.NewInvalid(gk, name, field.ErrorList{
+	invalid := apierrors.NewInvalid(g.kind, req.Name, field.ErrorList{
 		field.Forbidden(field.NewPath("spec"), ImmutableSpecMessage),
 	})
+	return admission.Response{AdmissionResponse: admissionv1.AdmissionResponse{
+		Allowed: false,
+		Result:  &invalid.ErrStatus,
+	}}
 }
 
-// sameJSON reports whether a and b serialize to the same JSON document. Both
-// are decoded into generic values before comparing, so key order and
-// formatting in the free-form fields (raw JSON) do not matter, while any key
+// sameSpec reports whether two serialized objects carry the same spec. Both
+// are decoded into generic values, keeping every field and the exact spelling
+// of every number, so key order and formatting do not matter, while any key
 // added, removed or renamed at any depth does.
-func sameJSON(a, b any) (bool, error) {
-	av, err := toGeneric(a)
+func sameSpec(oldRaw, newRaw []byte) (bool, error) {
+	oldSpec, err := specOf(oldRaw)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("decode old object: %w", err)
 	}
-	bv, err := toGeneric(b)
+	newSpec, err := specOf(newRaw)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("decode new object: %w", err)
 	}
-	return reflect.DeepEqual(av, bv), nil
+	return reflect.DeepEqual(oldSpec, newSpec), nil
 }
 
-func toGeneric(v any) (any, error) {
-	raw, err := json.Marshal(v)
-	if err != nil {
+func specOf(raw []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var obj struct {
+		Spec any `json:"spec"`
+	}
+	if err := dec.Decode(&obj); err != nil {
 		return nil, err
 	}
-	var out any
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
+	return obj.Spec, nil
 }

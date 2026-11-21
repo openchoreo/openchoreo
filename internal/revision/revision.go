@@ -11,7 +11,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 
@@ -53,16 +52,22 @@ func ChangeMessage(annotations map[string]string) string {
 //
 //   - Object keys are sorted. This also covers free-form JSON such as
 //     runtime.RawExtension, whose bytes would otherwise keep their source key order.
-//   - Absent, null, empty arrays and empty objects are all treated as "not set":
-//     an object member whose value is null, [] or {} is dropped. The check runs
-//     bottom-up, so an object left empty after its members are dropped is dropped
-//     too. As a result, a nil slice or map, an empty one, and an omitted field
-//     all hash the same.
+//   - Absent, null and empty objects are treated as "not set": an object member
+//     whose value is null or {} is dropped. The check runs bottom-up, so an
+//     object left empty after its members are dropped is dropped too. As a
+//     result, a nil map, an empty one, and an omitted field all hash the same.
+//   - Empty arrays are values: [] is kept and differs from "not set". A schema
+//     default applies only to an absent field, so {} and {"ports":[]} can render
+//     differently ([] stays empty while an absent field takes a default such as
+//     [80]). Typed slice fields tagged omitempty are still omitted when empty,
+//     by encoding/json.
 //   - Array elements are never dropped, because their position is meaningful. An
-//     element that is null, [] or {} is kept as null so that [{}, x] and [x] stay
+//     element that is null or {} is kept as null so that [{}, x] and [x] stay
 //     different.
-//   - Numbers are compared by value, not spelling: 1, 1.0 and 1e0 hash the same.
-//     Integers that fit in int64 keep full precision.
+//   - Numbers are compared by exact value, not spelling: 1, 1.0, 10e-1 and 1e0
+//     hash the same, and numbers that differ in any digit hash differently
+//     (9007199254740992.0 and 9007199254740993.0 do, though both round to the
+//     same float64).
 //   - Strings, booleans and zero numbers are values: "", false and 0 are kept and
 //     differ from "not set". (Typed struct fields tagged omitempty are already
 //     omitted by encoding/json when zero, before this step runs.)
@@ -117,9 +122,7 @@ func normalize(v any) (any, error) {
 		}
 		return out, nil
 	case []any:
-		if len(t) == 0 {
-			return nil, nil
-		}
+		// make, not nil: an empty array is a value and is kept.
 		out := make([]any, len(t))
 		for i, val := range t {
 			n, err := normalize(val)
@@ -137,21 +140,49 @@ func normalize(v any) (any, error) {
 	}
 }
 
-// normalizeNumber returns a json.Number spelled the same way for equal values.
+// maxPlainDigits is the most digits an integer is written out with in the
+// canonical form; larger integers and all fractions use an exponent.
+const maxPlainDigits = 21
+
+// normalizeNumber returns n spelled canonically: equal values are spelled the
+// same and different values never are. It works on the decimal digits, not
+// through float64, so nothing is rounded. An integer of up to maxPlainDigits
+// digits is written out in full ("100", as strconv.FormatInt would); any other
+// value is written as its significant digits and an exponent ("15e-1", "1e400").
+// n comes from a json.Decoder, so it is a valid JSON number.
 func normalizeNumber(n json.Number) (json.Number, error) {
-	if i, err := n.Int64(); err == nil {
-		return json.Number(strconv.FormatInt(i, 10)), nil
+	s, neg := strings.CutPrefix(n.String(), "-")
+	mantissa, expPart, hasExp := strings.Cut(strings.ToLower(s), "e")
+	var exp int64
+	if hasExp {
+		e, err := strconv.ParseInt(expPart, 10, 32)
+		if err != nil {
+			return "", fmt.Errorf("normalize number %q: exponent out of range", n.String())
+		}
+		exp = e
 	}
-	f, err := n.Float64()
-	if err != nil {
-		return "", fmt.Errorf("normalize number %q: %w", n.String(), err)
+	intPart, frac, _ := strings.Cut(mantissa, ".")
+	if intPart == "" || strings.Trim(intPart+frac, "0123456789") != "" {
+		return "", fmt.Errorf("normalize number %q: not a JSON number", n.String())
 	}
-	// Check the range before converting: float-to-int64 conversion of an
-	// out-of-range value is implementation-defined in Go.
-	if f >= -(1<<63) && f < 1<<63 && f == math.Trunc(f) {
-		return json.Number(strconv.FormatInt(int64(f), 10)), nil
+
+	// value = digits * 10^exp, with no leading or trailing zeros in digits.
+	digits := strings.TrimLeft(intPart+frac, "0")
+	exp -= int64(len(frac))
+	significant := strings.TrimRight(digits, "0")
+	exp += int64(len(digits) - len(significant))
+	if significant == "" {
+		return "0", nil // 0, 0.0, -0 and 0e5 are all zero
 	}
-	return json.Number(strconv.FormatFloat(f, 'g', -1, 64)), nil
+
+	sign := ""
+	if neg {
+		sign = "-"
+	}
+	if exp >= 0 && int64(len(significant))+exp <= maxPlainDigits {
+		return json.Number(sign + significant + strings.Repeat("0", int(exp))), nil
+	}
+	return json.Number(sign + significant + "e" + strconv.FormatInt(exp, 10)), nil
 }
 
 // Name returns the revision object name "{prefix}-r{n}", where prefix is the

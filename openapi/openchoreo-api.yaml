@@ -11649,8 +11649,10 @@ components:
         currentRevision:
           type: string
           description: >-
-            Name of the revision this binding currently applies ({binding}-r{N}). Updated whenever the
-            active revision changes, including when a rollback makes an earlier revision active again.
+            Object name of the revision this binding currently applies. Use it as is rather than
+            building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character
+            limit is shortened and given a hash. Updated whenever the active revision changes,
+            including when a rollback makes an earlier revision active again.
           example: api-service-dev-r3
         observedGeneration:
           type: integer
@@ -12826,8 +12828,10 @@ components:
         currentRevision:
           type: string
           description: >-
-            Name of the revision this binding currently applies ({binding}-r{N}). Updated whenever the
-            active revision changes, including when a rollback makes an earlier revision active again.
+            Object name of the revision this binding currently applies. Use it as is rather than
+            building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character
+            limit is shortened and given a hash. Updated whenever the active revision changes,
+            including when a rollback makes an earlier revision active again.
           example: postgres-dev-r3
         conditions:
           type: array

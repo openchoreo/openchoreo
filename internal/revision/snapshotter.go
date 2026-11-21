@@ -86,6 +86,8 @@ type Adapter[B client.Object, R client.Object] interface {
 	Number(rev R) int64
 	// HighestRevision returns the binding's status.highestRevision.
 	HighestRevision(binding B) int64
+	// CurrentRevision returns the binding's status.currentRevision.
+	CurrentRevision(binding B) string
 	// SnapshotHash returns spec.snapshotHash.
 	SnapshotHash(rev R) string
 	// RecordedCause returns spec.cause.
@@ -125,6 +127,10 @@ type Options struct {
 	Recorder record.EventRecorder
 	// Now returns the current time. Defaults to time.Now.
 	Now func() time.Time
+	// APIReader reads revisions from the apiserver, bypassing the cache, when
+	// the cached list is behind the binding: its status names a current
+	// revision the list does not have yet. Defaults to the Client.
+	APIReader client.Reader
 }
 
 // Result reports what Record did.
@@ -175,14 +181,17 @@ type Snapshotter[B client.Object, R client.Object] struct {
 //
 // Which revision is active only changes for a binding read newer than the
 // generation the current revision was activated at (AnnotationKeyBindingGeneration):
-// an older read is informer cache lag and changes nothing.
+// an older read is informer cache lag and changes nothing. The revisions are
+// read from the apiserver instead of the cache when the cache is behind the
+// binding (see listForRecord), so a revision the cache has not seen yet is
+// never recorded a second time.
 //
 // Removing the annotation patches the binding's metadata. Only the binding's
 // annotations and resourceVersion are refreshed from the response, so status
 // the caller has changed in memory is kept and its later status update does not
 // conflict.
 func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, error) {
-	revs, err := s.list(ctx, binding)
+	revs, err := s.listForRecord(ctx, binding)
 	if err != nil {
 		return Result{}, err
 	}
@@ -244,7 +253,9 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		}
 	}
 
-	errs := []error{s.projectStatus(ctx, revs, result.Number)}
+	// A revision made active again starts a new health window, even if its
+	// status still reads active because deactivating it failed earlier.
+	errs := []error{s.projectStatus(ctx, revs, result.Number, result.Reactivated)}
 	if recorded {
 		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
 	}
@@ -266,7 +277,7 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 // caller to requeue after; nothing here sleeps.
 func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 	health openchoreov1alpha1.RevisionHealth) (time.Duration, error) {
-	revs, err := s.list(ctx, binding)
+	revs, err := s.list(ctx, s.Client, binding)
 	if err != nil {
 		return 0, err
 	}
@@ -321,11 +332,48 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 	return requeueAfter, nil
 }
 
-// list returns the binding's revisions: those carrying its UID label whose
-// controller reference is the binding.
-func (s *Snapshotter[B, R]) list(ctx context.Context, binding B) ([]R, error) {
+// Deactivate marks every revision of the binding inactive, keeping their
+// health as last observed. A binding that stops applying revisions (one that
+// switches to observing resources it does not manage) calls it so that no
+// revision reads active while none is applied. It is safe to call on every
+// reconcile: only revisions still marked active are written.
+func (s *Snapshotter[B, R]) Deactivate(ctx context.Context, binding B) error {
+	revs, err := s.list(ctx, s.Client, binding)
+	if err != nil {
+		return err
+	}
+	return s.projectStatus(ctx, revs, 0, false)
+}
+
+// listForRecord returns the binding's revisions for Record. They are listed
+// from the cache, unless the cache is behind the binding: the binding's status
+// names a current revision the cached list does not have. Revisions and
+// bindings are cached by separate informers, so a binding whose status already
+// counts a new revision can arrive before that revision does; recording from
+// that list would record the same spec again under the next number. The list
+// is then read from the apiserver, which also tells a revision not cached yet
+// from one that was deleted.
+func (s *Snapshotter[B, R]) listForRecord(ctx context.Context, binding B) ([]R, error) {
+	revs, err := s.list(ctx, s.Client, binding)
+	if err != nil {
+		return nil, err
+	}
+	current := s.Adapter.CurrentRevision(binding)
+	if current == "" || slices.ContainsFunc(revs, func(rev R) bool { return rev.GetName() == current }) {
+		return revs, nil
+	}
+	reader := s.APIReader
+	if reader == nil {
+		reader = s.Client
+	}
+	return s.list(ctx, reader, binding)
+}
+
+// list returns the binding's revisions, read through reader: those carrying
+// its UID label whose controller reference is the binding.
+func (s *Snapshotter[B, R]) list(ctx context.Context, reader client.Reader, binding B) ([]R, error) {
 	list := s.Adapter.NewRevisionList()
-	if err := s.Client.List(ctx, list,
+	if err := reader.List(ctx, list,
 		client.InNamespace(binding.GetNamespace()),
 		client.MatchingLabels{LabelKeyBindingUID: string(binding.GetUID())},
 	); err != nil {
@@ -449,7 +497,8 @@ func (s *Snapshotter[B, R]) create(ctx context.Context, binding B, revs []R, cur
 		}
 		// Another attempt recorded this revision number first: a retry after a lost
 		// response, or a reconcile working from a cache that had not yet seen it.
-		// Treated as success; the stored revision is read back, never overwritten.
+		// When it records this spec, that is success; the stored revision is read
+		// back, never overwritten.
 		existing, ok := built.DeepCopyObject().(R)
 		if !ok {
 			return number, rev, false, false, fmt.Errorf("copy revision %q", built.GetName())
@@ -466,6 +515,13 @@ func (s *Snapshotter[B, R]) create(ctx context.Context, binding B, revs []R, cur
 		if ref := metav1.GetControllerOf(existing); ref == nil || ref.UID != binding.GetUID() {
 			return number, rev, false, false, fmt.Errorf(
 				"revision name %q is held by a revision of another binding; waiting for it to be garbage collected", built.GetName())
+		}
+		// A revision of this binding that records another spec: the revisions
+		// this reconcile listed are out of date. It is not this spec's revision;
+		// the retry lists the revisions again and numbers this spec above it.
+		if s.Adapter.SnapshotHash(existing) != hash {
+			return number, rev, false, false, fmt.Errorf(
+				"revision %q already records a different spec; the revision list was out of date", built.GetName())
 		}
 		return number, existing, true, false, nil
 	}
@@ -492,6 +548,11 @@ var changeAnnotations = []string{
 // clearChangeAnnotations removes the cause and change-message annotations from
 // the binding, if it has any. The patch is applied to a copy; only annotations
 // and resourceVersion are carried back to binding.
+//
+// The patch carries the binding's resourceVersion. If the binding changed after
+// it was read -- a new spec and change message written meanwhile -- the patch
+// fails with a conflict instead of removing annotations meant for that newer
+// change; the next reconcile records the newer spec and removes them then.
 func (s *Snapshotter[B, R]) clearChangeAnnotations(ctx context.Context, binding B) error {
 	current := binding.GetAnnotations()
 	found := false
@@ -516,7 +577,7 @@ func (s *Snapshotter[B, R]) clearChangeAnnotations(ctx context.Context, binding 
 	}
 	patched.SetAnnotations(remaining)
 
-	if err := s.Client.Patch(ctx, patched, client.MergeFrom(binding)); err != nil {
+	if err := s.Client.Patch(ctx, patched, client.MergeFromWithOptions(binding, client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("remove revision change annotations: %w", err)
 	}
 	binding.SetAnnotations(patched.GetAnnotations())
@@ -524,21 +585,24 @@ func (s *Snapshotter[B, R]) clearChangeAnnotations(ctx context.Context, binding 
 	return nil
 }
 
-// projectStatus makes the revision numbered active the only active revision.
-// A revision becoming active starts at health Progressing: a new one, and one
-// made active again, since its spec is being applied anew. Its known-good mark
-// is kept. A revision that stops being active keeps its health as last
-// observed. Only revisions whose status changes are written, so this is safe to
-// run on every reconcile.
-func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active int64) error {
+// projectStatus makes the revision numbered active the only active revision;
+// 0 makes none active. A revision becoming active starts at health
+// Progressing: a new one, and one made active again, since its spec is being
+// applied anew. restart starts the active revision over in the same way even
+// when its status already reads active, as it does when deactivating it failed
+// before it was made active again. Its known-good mark is kept. A revision that
+// stops being active keeps its health as last observed. Only revisions whose
+// status changes are written, so this is safe to run on every reconcile.
+func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active int64, restart bool) error {
 	var errs []error
 	for _, rev := range revs {
 		want := s.Adapter.Number(rev) == active
 		err := s.updateStatus(ctx, rev, func(status *openchoreov1alpha1.BindingRevisionStatus) bool {
-			if status.Active == want && (!want || status.Health != "") {
+			start := want && (restart || !status.Active || status.Health == "")
+			if status.Active == want && !start {
 				return false
 			}
-			if want && (!status.Active || status.Health == "") {
+			if start {
 				now := metav1.NewTime(s.now())
 				status.Health = openchoreov1alpha1.RevisionHealthProgressing
 				status.ObservedAt = &now

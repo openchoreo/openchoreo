@@ -4,12 +4,18 @@
 package bindingrevision
 
 import (
+	"encoding/json"
+	"net/http"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
@@ -58,17 +64,57 @@ func expectRejected(err error) {
 	Expect(err.Error()).To(ContainSubstring(ImmutableSpecMessage))
 }
 
+// update returns the admission request for updating oldObj to newObj. Each is
+// a typed revision or a generic map, as the apiserver would serialize it.
+func update(oldObj, newObj any) admission.Request {
+	GinkgoHelper()
+	oldRaw, err := json.Marshal(oldObj)
+	Expect(err).NotTo(HaveOccurred())
+	newRaw, err := json.Marshal(newObj)
+	Expect(err).NotTo(HaveOccurred())
+	return admission.Request{AdmissionRequest: admissionv1.AdmissionRequest{
+		Operation: admissionv1.Update,
+		Name:      "rev",
+		OldObject: runtime.RawExtension{Raw: oldRaw},
+		Object:    runtime.RawExtension{Raw: newRaw},
+	}}
+}
+
+// asMap returns obj as the generic map the apiserver holds for it.
+func asMap(obj any) map[string]any {
+	GinkgoHelper()
+	raw, err := json.Marshal(obj)
+	Expect(err).NotTo(HaveOccurred())
+	out := map[string]any{}
+	Expect(json.Unmarshal(raw, &out)).To(Succeed())
+	return out
+}
+
+// withWorkloadOverrides returns obj with bindingSpec.workloadOverrides set to v.
+func withWorkloadOverrides(obj map[string]any, v map[string]any) map[string]any {
+	obj["spec"].(map[string]any)["bindingSpec"].(map[string]any)["workloadOverrides"] = v
+	return obj
+}
+
+func expectDenied(resp admission.Response) {
+	GinkgoHelper()
+	Expect(resp.Allowed).To(BeFalse())
+	Expect(resp.Result).NotTo(BeNil())
+	Expect(resp.Result.Reason).To(Equal(metav1.StatusReasonInvalid))
+	Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+	Expect(resp.Result.Message).To(ContainSubstring(ImmutableSpecMessage))
+}
+
 var _ = Describe("binding revision webhook", func() {
 	Context("ReleaseBindingRevision updates", func() {
-		v := &ReleaseBindingRevisionValidator{}
+		g := NewSpecGuard(openchoreov1alpha1.GroupVersion.WithKind("ReleaseBindingRevision").GroupKind())
 
 		DescribeTable("rejects any change to the spec",
 			func(mutate func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec)) {
 				oldRev := releaseBindingRevision()
 				newRev := oldRev.DeepCopy()
 				mutate(&newRev.Spec)
-				_, err := v.ValidateUpdate(ctx, oldRev, newRev)
-				expectRejected(err)
+				expectDenied(g.Handle(ctx, update(oldRev, newRev)))
 			},
 			// The case CEL misses: same number of keys, one key replaced.
 			Entry("a config key replaced by another", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) {
@@ -91,42 +137,67 @@ var _ = Describe("binding revision webhook", func() {
 			Entry("the change message", func(s *openchoreov1alpha1.ReleaseBindingRevisionSpec) { s.Message = "edited" }),
 		)
 
+		// Fields the CRD preserves but the Go type does not declare: a typed
+		// decode drops them, so only the admitted object shows the change.
+		It("rejects an unknown workloadOverrides key replaced by another", func() {
+			oldObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"x": 1})
+			newObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"y": 1})
+			expectDenied(g.Handle(ctx, update(oldObj, newObj)))
+		})
+
+		It("rejects an unknown workloadOverrides key removed", func() {
+			oldObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"x": 1})
+			newObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{})
+			expectDenied(g.Handle(ctx, update(oldObj, newObj)))
+		})
+
 		It("accepts the same spec with its configs' keys in another order", func() {
 			oldRev := releaseBindingRevision()
 			newRev := oldRev.DeepCopy()
 			newRev.Spec.BindingSpec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{ "cpu": "100m", "replicas": 2 }`)}
-			_, err := v.ValidateUpdate(ctx, oldRev, newRev)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(g.Handle(ctx, update(oldRev, newRev)).Allowed).To(BeTrue())
 		})
 
-		It("accepts metadata and status changes", func() {
-			oldRev := releaseBindingRevision()
-			newRev := oldRev.DeepCopy()
-			newRev.Labels = map[string]string{"openchoreo.dev/release-binding": "comp-dev"}
-			newRev.Annotations = map[string]string{"openchoreo.dev/binding-generation": "3"}
-			newRev.Status.Active = true
-			_, err := v.ValidateUpdate(ctx, oldRev, newRev)
-			Expect(err).NotTo(HaveOccurred())
+		It("accepts metadata and status changes, keeping unknown fields", func() {
+			oldObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"x": 1})
+			newObj := withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"x": 1})
+			newObj["metadata"].(map[string]any)["labels"] = map[string]any{"openchoreo.dev/release-binding": "comp-dev"}
+			newObj["metadata"].(map[string]any)["annotations"] = map[string]any{"openchoreo.dev/binding-generation": "3"}
+			newObj["status"] = map[string]any{"active": true}
+			Expect(g.Handle(ctx, update(oldObj, newObj)).Allowed).To(BeTrue())
+		})
+
+		It("allows requests other than updates", func() {
+			req := update(releaseBindingRevision(), releaseBindingRevision())
+			req.Operation = admissionv1.Create
+			req.OldObject = runtime.RawExtension{}
+			Expect(g.Handle(ctx, req).Allowed).To(BeTrue())
+		})
+
+		It("refuses an update it cannot decode", func() {
+			req := update(releaseBindingRevision(), releaseBindingRevision())
+			req.Object = runtime.RawExtension{Raw: []byte(`{`)}
+			resp := g.Handle(ctx, req)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusBadRequest)))
 		})
 	})
 
 	Context("ResourceReleaseBindingRevision updates", func() {
-		v := &ResourceReleaseBindingRevisionValidator{}
+		g := NewSpecGuard(openchoreov1alpha1.GroupVersion.WithKind("ResourceReleaseBindingRevision").GroupKind())
 
 		It("rejects a config key replaced by another", func() {
 			oldRev := resourceReleaseBindingRevision()
 			newRev := oldRev.DeepCopy()
 			newRev.Spec.BindingSpec.ResourceTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"tier":"small"}`)}
-			_, err := v.ValidateUpdate(ctx, oldRev, newRev)
-			expectRejected(err)
+			expectDenied(g.Handle(ctx, update(oldRev, newRev)))
 		})
 
 		It("accepts metadata changes", func() {
 			oldRev := resourceReleaseBindingRevision()
 			newRev := oldRev.DeepCopy()
 			newRev.Labels = map[string]string{"openchoreo.dev/resource-release-binding": "db-dev"}
-			_, err := v.ValidateUpdate(ctx, oldRev, newRev)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(g.Handle(ctx, update(oldRev, newRev)).Allowed).To(BeTrue())
 		})
 	})
 
@@ -163,6 +234,24 @@ var _ = Describe("binding revision webhook", func() {
 			rev.Status.Active = true
 			rev.Status.Health = openchoreov1alpha1.RevisionHealthHealthy
 			Expect(k8sClient.Status().Update(ctx, rev)).To(Succeed())
+		})
+
+		It("rejects an unknown workloadOverrides key replacement written through the apiserver", func() {
+			obj := &unstructured.Unstructured{Object: withWorkloadOverrides(asMap(releaseBindingRevision()), map[string]any{"x": int64(1)})}
+			obj.SetAPIVersion(openchoreov1alpha1.GroupVersion.String())
+			obj.SetKind("ReleaseBindingRevision")
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+			DeferCleanup(func() { _ = k8sClient.Delete(ctx, obj) })
+
+			updated := obj.DeepCopy()
+			Expect(unstructured.SetNestedMap(updated.Object, map[string]any{"y": int64(1)}, "spec", "bindingSpec", "workloadOverrides")).To(Succeed())
+			expectRejected(k8sClient.Update(ctx, updated))
+
+			stored := &unstructured.Unstructured{}
+			stored.SetGroupVersionKind(obj.GroupVersionKind())
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), stored)).To(Succeed())
+			overrides, _, _ := unstructured.NestedMap(stored.Object, "spec", "bindingSpec", "workloadOverrides")
+			Expect(overrides).To(Equal(map[string]any{"x": int64(1)}))
 		})
 
 		It("rejects a config key replacement in a ResourceReleaseBindingRevision", func() {

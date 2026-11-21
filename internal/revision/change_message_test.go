@@ -64,7 +64,8 @@ func TestReleaseBindingSnapshotter_ReactivationPutsTheMessageOnTheEvent(t *testi
 	require.NoError(t, err)
 	assert.True(t, res.Reactivated)
 	assert.Equal(t, `Normal RevisionReactivated Revision 1 (frontend-development-r1) is active again: `+
-		`the binding spec matches the one it recorded. Message: "Payments broken in r2"`, <-recorder.Events)
+		`the binding spec matches the one it recorded. Message: "Payments broken in r2"`,
+		receiveEvent(t, recorder, EventReasonRevisionReactivated))
 	assert.Empty(t, getRBR(t, c, "frontend-development-r1").Spec.Message, "an existing revision is never changed")
 	assert.NotContains(t, binding.Annotations, openchoreov1alpha1.AnnotationKeyChangeMessage)
 }

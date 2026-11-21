@@ -69,6 +69,13 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 		return err
 	}
 	clearManagedStatus(releaseBinding)
+	// No revision is applied while the binding observes, so none may read
+	// active. Their health and the binding's highestRevision are kept. A failed
+	// write is returned once the status below is set, so the request is retried.
+	var revErr error
+	if err := r.revisionSnapshotter(nil).Deactivate(ctx, releaseBinding); err != nil {
+		revErr = fmt.Errorf("deactivate revisions: %w", err)
+	}
 
 	var msg string
 	reason := ReasonReleaseSynced
@@ -87,10 +94,10 @@ func (r *Reconciler) reconcileObserve(ctx context.Context, releaseBinding *openc
 	if !renderedrelease.ObservedResourcesCurrent(rr) {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady, ReasonResourcesProgressing,
 			fmt.Sprintf("RenderedRelease %q has not read the current observed resources yet", rr.Name))
-		return nil
+		return revErr
 	}
 	setResourcesReadyFromStatuses(ctx, releaseBinding, rr.Status.ObservedResources, component)
-	return nil
+	return revErr
 }
 
 // observedNamespace returns the namespace the project's ProjectReleaseBinding
@@ -294,7 +301,7 @@ func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 // feed the field indexes that find consumers and SecretReference users, and the
 // delivery markers of the last rollout. It also clears currentRevision: an
 // observed binding applies no revision, and no revision is recorded while it
-// observes. highestRevision is kept so revision numbers are never reused once it
+// observes (reconcileObserve also marks the revisions inactive). highestRevision is kept so revision numbers are never reused once it
 // returns to Manage mode. It runs only once the release is in Observe mode:
 // while a Manage-mode release still runs, consumers keep resolving its
 // endpoints and the binding still applies its current revision.

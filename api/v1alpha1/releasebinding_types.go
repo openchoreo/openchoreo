@@ -361,9 +361,12 @@ type ReleaseBindingStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// CurrentRevision is the name of the revision this binding currently applies,
-	// {binding}-r{N}. The controller updates it whenever the active revision
-	// changes, including when a rollback makes an earlier revision active again.
+	// CurrentRevision is the object name of the revision this binding currently
+	// applies. Read it from here rather than building it: it is usually
+	// {binding}-r{N}, but a name that would exceed the 253-character limit is
+	// shortened and given a hash. The controller updates it whenever the active
+	// revision changes, including when a rollback makes an earlier revision
+	// active again.
 	// +optional
 	CurrentRevision string `json:"currentRevision,omitempty"`
 
