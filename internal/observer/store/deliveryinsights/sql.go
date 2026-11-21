@@ -429,15 +429,56 @@ func (s *sqlStore) createSchemaVersionTable(ctx context.Context) error {
 	return nil
 }
 
+// ErrSchemaNewer reports a store migrated by a newer Observer than this one, as
+// after a downgrade. This Observer cannot know what the newer migrations changed,
+// and its aggregator would write facts and rollups by its own, older rules into
+// tables shaped for the newer ones, so it refuses rather than risk that.
+var ErrSchemaNewer = errors.New("delivery insights schema is newer than this observer supports")
+
+// latestSchemaVersion is the version the last migration brings the store to.
+func latestSchemaVersion() int {
+	return migrations[len(migrations)-1].version
+}
+
+// schemaVersion reads the highest applied migration, invalid when none is.
+func (s *sqlStore) schemaVersion(ctx context.Context) (sql.NullInt64, error) {
+	var current sql.NullInt64
+	row := s.db.QueryRowContext(ctx, "SELECT MAX(version) FROM delivery_insights_schema_version;")
+	if err := row.Scan(&current); err != nil {
+		return current, fmt.Errorf("failed to read delivery insights schema version: %w", err)
+	}
+	return current, nil
+}
+
+func checkSchemaNotNewer(current sql.NullInt64) error {
+	if current.Valid && int(current.Int64) > latestSchemaVersion() {
+		return fmt.Errorf("%w: the store is at version %d, this observer knows up to %d; "+
+			"was the observer downgraded, or is a newer one rolling out?",
+			ErrSchemaNewer, current.Int64, latestSchemaVersion())
+	}
+	return nil
+}
+
+// CheckSchemaVersion implements Store.
+func (s *sqlStore) CheckSchemaVersion(ctx context.Context) error {
+	current, err := s.schemaVersion(ctx)
+	if err != nil {
+		return err
+	}
+	return checkSchemaNotNewer(current)
+}
+
 func (s *sqlStore) applyMigrations(ctx context.Context) error {
 	if err := s.createSchemaVersionTable(ctx); err != nil {
 		return err
 	}
 
-	var current sql.NullInt64
-	row := s.db.QueryRowContext(ctx, "SELECT MAX(version) FROM delivery_insights_schema_version;")
-	if err := row.Scan(&current); err != nil {
-		return fmt.Errorf("failed to read delivery insights schema version: %w", err)
+	current, err := s.schemaVersion(ctx)
+	if err != nil {
+		return err
+	}
+	if err := checkSchemaNotNewer(current); err != nil {
+		return err
 	}
 
 	for _, m := range migrations {
