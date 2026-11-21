@@ -35,7 +35,7 @@ func sampleReleaseBindingRevision(n int64, release string, active, knownGood boo
 			CreationTimestamp: metav1.NewTime(time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)),
 		},
 		Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
-			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy, ComponentReleaseName: release, SnapshotHash: "abc",
+			Revision: n, Cause: openchoreov1alpha1.RevisionCauseDeploy, SnapshotHash: "abc",
 			BindingSpec: openchoreov1alpha1.ReleaseBindingSpec{
 				Owner:       openchoreov1alpha1.ReleaseBindingOwner{ProjectName: testProject, ComponentName: testComponent},
 				Environment: testEnvironmentName, ReleaseName: release, State: openchoreov1alpha1.ReleaseStateActive,
@@ -214,7 +214,7 @@ func sampleResourceReleaseBindingRevision(n int64, release string) openchoreov1a
 	return openchoreov1alpha1.ResourceReleaseBindingRevision{
 		ObjectMeta: metav1.ObjectMeta{Name: testResourceReleaseBindingName + "-r1", Namespace: testNS},
 		Spec: openchoreov1alpha1.ResourceReleaseBindingRevisionSpec{
-			Revision: n, Cause: openchoreov1alpha1.RevisionCausePromote, ResourceReleaseName: release, SnapshotHash: "def",
+			Revision: n, Cause: openchoreov1alpha1.RevisionCausePromote, SnapshotHash: "def",
 			BindingSpec: openchoreov1alpha1.ResourceReleaseBindingSpec{
 				Owner:           openchoreov1alpha1.ResourceReleaseBindingOwner{ProjectName: testProject, ResourceName: testResourceName},
 				Environment:     testResourceEnvironment,

@@ -79,7 +79,7 @@ func releaseBindingRevisionSummary(rev openchoreov1alpha1.ReleaseBindingRevision
 	m := revisionSummary(&rev, rev.Spec.Revision, rev.Spec.Cause, rev.Status)
 	m["componentName"] = rev.Spec.BindingSpec.Owner.ComponentName
 	m["environment"] = rev.Spec.BindingSpec.Environment
-	m["componentRelease"] = rev.Spec.ComponentReleaseName
+	m["componentRelease"] = rev.Spec.BindingSpec.ReleaseName
 	m["displayName"] = revision.DisplayName(rev.Spec.BindingSpec.Owner.ComponentName, rev.Spec.Revision)
 	m["state"] = string(rev.Spec.BindingSpec.State)
 	return m
@@ -148,7 +148,7 @@ func resourceReleaseBindingRevisionSummary(rev openchoreov1alpha1.ResourceReleas
 	m := revisionSummary(&rev, rev.Spec.Revision, rev.Spec.Cause, rev.Status)
 	m["resourceName"] = rev.Spec.BindingSpec.Owner.ResourceName
 	m["environment"] = rev.Spec.BindingSpec.Environment
-	m["resourceRelease"] = rev.Spec.ResourceReleaseName
+	m["resourceRelease"] = rev.Spec.BindingSpec.ResourceRelease
 	m["displayName"] = revision.DisplayName(rev.Spec.BindingSpec.Owner.ResourceName, rev.Spec.Revision)
 	return m
 }
