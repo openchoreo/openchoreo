@@ -1471,7 +1471,7 @@ func TestReleaseBindingSnapshotter_DeactivatesBeforeActivating(t *testing.T) {
 			},
 		}).Build()
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
-	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	_, err := s.Record(ctx, binding)
 	require.NoError(t, err)
