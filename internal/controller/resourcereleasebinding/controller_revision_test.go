@@ -135,7 +135,7 @@ var _ = Describe("ResourceReleaseBinding controller — revisions", func() {
 		wantHash, err := revision.ResourceReleaseBindingSpecHash(&b.Spec)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(current.Spec.SnapshotHash).To(Equal(wantHash), "the active revision must record the current spec")
-		Expect(current.Spec.ResourceReleaseName).To(Equal(b.Spec.ResourceRelease))
+		Expect(current.Spec.BindingSpec.ResourceRelease).To(Equal(b.Spec.ResourceRelease))
 		Expect(b.Status.CurrentRevision).To(Equal(current.Name), "the binding must point at its active revision")
 		return revs
 	}
@@ -210,7 +210,7 @@ var _ = Describe("ResourceReleaseBinding controller — revisions", func() {
 		r1 := revs[0]
 		Expect(r1.Name).To(Equal(bindingName+"-r1"), "revision objects are named {binding}-r{N}")
 		Expect(r1.Spec.Cause).To(Equal(openchoreov1alpha1.RevisionCauseDeploy))
-		Expect(r1.Spec.ResourceReleaseName).To(Equal(releaseA))
+		Expect(r1.Spec.BindingSpec.ResourceRelease).To(Equal(releaseA))
 		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
 
 		By("labeling the revision for kubectl selectors")
