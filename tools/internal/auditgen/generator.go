@@ -153,6 +153,8 @@ func deriveDefinition(method, path, operationID string, cfg Config) (OperationDe
 	switch {
 	case lastRawSegment == "trigger":
 		verb = "trigger"
+	case lastRawSegment == "rollback":
+		verb = "rollback"
 	case method == "PUT" || method == "PATCH":
 		verb = "update"
 	case method == "DELETE":

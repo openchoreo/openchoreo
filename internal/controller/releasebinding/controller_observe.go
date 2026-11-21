@@ -292,10 +292,14 @@ func markNotObserving(releaseBinding *openchoreov1alpha1.ReleaseBinding, reason 
 // clearManagedStatus drops what Manage mode reports and Observe mode does not
 // compute: endpoint URLs, connections and resource dependencies, which also
 // feed the field indexes that find consumers and SecretReference users, and the
-// delivery markers of the last rollout. It runs
-// only once the release is in Observe mode: while a Manage-mode release still
-// runs, consumers keep resolving its endpoints.
+// delivery markers of the last rollout. It also clears currentRevision: an
+// observed binding applies no revision, and no revision is recorded while it
+// observes. highestRevision is kept so revision numbers are never reused once it
+// returns to Manage mode. It runs only once the release is in Observe mode:
+// while a Manage-mode release still runs, consumers keep resolving its
+// endpoints and the binding still applies its current revision.
 func clearManagedStatus(releaseBinding *openchoreov1alpha1.ReleaseBinding) {
+	releaseBinding.Status.CurrentRevision = ""
 	releaseBinding.Status.Endpoints = nil
 	releaseBinding.Status.EndpointsObservedGeneration = 0
 	releaseBinding.Status.ConnectionTargets = nil
