@@ -61,6 +61,10 @@ type ResourceAttribute struct {
 	Workflow string `json:"workflow,omitempty"`
 	// ReleaseLine is the ReleaseLine the resource being acted upon belongs to.
 	ReleaseLine string `json:"releaseLine,omitempty"`
+	// Name is the metadata.name of the resource being acted upon, available for
+	// namespace-scoped kinds (e.g. secrets) where the hierarchy has no finer
+	// sub-scope to restrict access to individual objects.
+	Name string `json:"name,omitempty"`
 }
 
 // Decision represents the authorization decision response

@@ -63,6 +63,15 @@ var AttrResourceWorkflow = AttributeSpec{
 	CELType:     cel.StringType,
 }
 
+// AttrResourceName declares resource.name — the metadata.name of the resource
+// being acted upon, available for namespace-scoped kinds (e.g. secrets) where
+// the hierarchy has no finer sub-scope to restrict access to individual objects.
+var AttrResourceName = AttributeSpec{
+	Key:         "resource.name",
+	Description: "Name of the resource being acted upon",
+	CELType:     cel.StringType,
+}
+
 // conditionRegistry maps concrete action names to the attributes available to CEL
 // expressions scoped to that action. Treat as immutable after init.
 var conditionRegistry = map[string][]AttributeSpec{
@@ -99,6 +108,9 @@ var conditionRegistry = map[string][]AttributeSpec{
 	ActionViewWirelogs:                 {AttrResourceEnvironment},
 	ActionViewMetrics:                  {AttrResourceEnvironment},
 	ActionViewTraces:                   {AttrResourceEnvironment},
+	ActionViewSecret:                   {AttrResourceName},
+	ActionUpdateSecret:                 {AttrResourceName},
+	ActionDeleteSecret:                 {AttrResourceName},
 }
 
 // LookupConditions returns the attribute specs available for a given concrete action.

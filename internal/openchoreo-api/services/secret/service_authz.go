@@ -38,6 +38,7 @@ func (s *secretServiceWithAuthz) CreateSecret(ctx context.Context, namespaceName
 		ResourceType: resourceTypeSecret,
 		ResourceID:   req.SecretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Context:      authz.Context{Resource: authz.ResourceAttribute{Name: req.SecretName}},
 	}); err != nil {
 		return nil, err
 	}
@@ -50,6 +51,7 @@ func (s *secretServiceWithAuthz) UpdateSecret(ctx context.Context, namespaceName
 		ResourceType: resourceTypeSecret,
 		ResourceID:   secretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Context:      authz.Context{Resource: authz.ResourceAttribute{Name: secretName}},
 	}); err != nil {
 		return nil, err
 	}
@@ -64,6 +66,7 @@ func (s *secretServiceWithAuthz) GetSecret(ctx context.Context, namespaceName, s
 		ResourceType: resourceTypeSecret,
 		ResourceID:   secretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Context:      authz.Context{Resource: authz.ResourceAttribute{Name: secretName}},
 	}); err != nil {
 		return nil, err
 	}
@@ -89,6 +92,7 @@ func (s *secretServiceWithAuthz) ListSecrets(ctx context.Context, namespaceName 
 				ResourceType: resourceTypeSecret,
 				ResourceID:   secret.Name,
 				Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+				Context:      authz.Context{Resource: authz.ResourceAttribute{Name: secret.Name}},
 			}
 		},
 	)
@@ -121,6 +125,7 @@ func (s *secretServiceWithAuthz) DeleteSecret(ctx context.Context, namespaceName
 		ResourceType: resourceTypeSecret,
 		ResourceID:   secretName,
 		Hierarchy:    authz.ResourceHierarchy{Namespace: namespaceName},
+		Context:      authz.Context{Resource: authz.ResourceAttribute{Name: secretName}},
 	}); err != nil {
 		return err
 	}

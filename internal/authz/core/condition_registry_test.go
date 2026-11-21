@@ -92,6 +92,44 @@ func TestLookupConditions(t *testing.T) {
 			require.Equal(t, AttrResourceWorkflow.Key, specs[0].Key, "action %q", action)
 		}
 	})
+
+	t.Run("secret view/update/delete actions support resource.name", func(t *testing.T) {
+		for _, action := range []string{
+			ActionViewSecret,
+			ActionUpdateSecret,
+			ActionDeleteSecret,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceName.Key, specs[0].Key, "action %q", action)
+		}
+	})
+
+	t.Run("secret:create has no registered conditions", func(t *testing.T) {
+		require.Nil(t, LookupConditions(ActionCreateSecret))
+	})
+}
+
+func TestIntersectConditionsForActions_SecretActions(t *testing.T) {
+	t.Run("secret view, update, delete overlap on resource.name", func(t *testing.T) {
+		specs := IntersectConditionsForActions([]string{
+			ActionViewSecret,
+			ActionUpdateSecret,
+			ActionDeleteSecret,
+		})
+		require.Len(t, specs, 1)
+		require.Equal(t, AttrResourceName.Key, specs[0].Key)
+	})
+
+	t.Run("secret:* includes secret:create which has no conditions -> empty intersection", func(t *testing.T) {
+		specs := IntersectConditionsForActions([]string{"secret:*"})
+		require.Empty(t, specs)
+	})
+
+	t.Run("disjoint secret and component actions yield empty", func(t *testing.T) {
+		specs := IntersectConditionsForActions([]string{ActionViewSecret, ActionCreateComponent})
+		require.Empty(t, specs)
+	})
 }
 
 func TestIntersectConditionsForActions(t *testing.T) {
@@ -228,6 +266,12 @@ func TestAttributeSpec_RootLeaf(t *testing.T) {
 			spec:     AttrResourceEnvironment,
 			wantRoot: "resource",
 			wantLeaf: "environment",
+		},
+		{
+			name:     "resource.name splits correctly",
+			spec:     AttrResourceName,
+			wantRoot: "resource",
+			wantLeaf: "name",
 		},
 		{
 			name:     "custom dotted path",
