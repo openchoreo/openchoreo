@@ -1609,6 +1609,48 @@ func TestReleaseBindingSnapshotter_RollbackRestartsTheHealthWindowAfterAFailedSt
 	assert.Equal(t, time.Hour, requeue)
 }
 
+func TestReleaseBindingSnapshotter_SuccessorRecordsTheRunningRevisionAfterAFailedActivationWrite(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	failActivation := false
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && failActivation && r.Spec.Revision == 1 {
+					return fmt.Errorf("injected activation failure")
+				}
+				return cl.Patch(ctx, obj, patch, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	bump(binding, newRelease)
+	_, err = s.Record(ctx, binding) // r2
+	require.NoError(t, err)
+
+	// Rolling back to r1 writes the statuses, then fails to record r1's
+	// activation: r1 reads active, r2 still carries the newest activation.
+	failActivation = true
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = firstRelease })
+	_, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected activation failure")
+	require.True(t, getRBR(t, c, "frontend-development-r1").Status.Active)
+	failActivation = false
+
+	// A new spec is recorded before any retry: its predecessor is r1, the
+	// revision that was running.
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = "frontend-third" })
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	require.True(t, res.Created)
+	r3 := getRBR(t, c, "frontend-development-r3")
+	assert.Equal(t, "1", r3.Annotations[AnnotationKeyPreviousRevision], "the undo target is the revision that ran, r1")
+}
+
 func TestReleaseBindingSnapshotter_DeactivateKeepsHealth(t *testing.T) {
 	ctx := context.Background()
 	s, binding, c, _ := reactivationFixture(t)

@@ -31,7 +31,9 @@ func revisionCheckRequest(action, namespaceName string, rev *openchoreov1alpha1.
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, spec.Environment, false)},
+				Environment: services.FormatDualScopedResourceName(namespaceName, spec.Environment, false),
+				ReleaseLine: spec.Owner.ReleaseLine,
+			},
 		},
 	}
 }
@@ -79,7 +81,9 @@ func (s *releaseBindingServiceWithAuthz) RollbackReleaseBinding(ctx context.Cont
 		},
 		Context: authz.Context{
 			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false)},
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+				ReleaseLine: rb.Spec.Owner.ReleaseLine,
+			},
 		},
 	}); err != nil {
 		return nil, err

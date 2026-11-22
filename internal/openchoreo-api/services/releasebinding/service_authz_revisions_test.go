@@ -174,3 +174,10 @@ func TestDeleteReleaseBindingRevision_AuthzCheck(t *testing.T) {
 		mockSvc.AssertNotCalled(t, "DeleteReleaseBindingRevision", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 }
+
+func TestRevisionCheckRequest_CarriesTheReleaseLine(t *testing.T) {
+	rev := testRevision("my-rb-next-r1", "dev")
+	rev.Spec.BindingSpec.Owner.ReleaseLine = "next"
+	req := revisionCheckRequest("releasebinding:rollback", "ns-1", rev)
+	require.Equal(t, "next", req.Context.Resource.ReleaseLine, "audited and authorized with the binding's release line")
+}
