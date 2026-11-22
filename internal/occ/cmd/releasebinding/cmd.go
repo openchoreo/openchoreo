@@ -295,7 +295,7 @@ to the latest release. Turn off auto-deploy for the component or release line fi
 	flags.AddNamespace(cmd)
 	bindingrevision.AddRollbackRevision(cmd)
 	bindingrevision.AddDryRun(cmd, "Show the changes and warnings the rollback would produce without applying it")
-	bindingrevision.AddYes(cmd, "Roll back without asking for confirmation")
+	bindingrevision.AddYes(cmd, "Roll back without a preview or confirmation; the warnings are printed with the result")
 	flags.AddMessage(cmd, "Optional reason for the rollback, shown on the binding's events and in the audit log")
 	return cmd
 }

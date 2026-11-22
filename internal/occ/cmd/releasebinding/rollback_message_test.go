@@ -21,7 +21,7 @@ func TestRollback_MessageIsSentWithTheAppliedRollback(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
 	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding,
 		mock.MatchedBy(func(r gen.RollbackRequest) bool { return *r.DryRun && r.Message == nil })).
-		Return(rollbackResp(true), nil).Once()
+		Return(rollbackResp(true), nil).Twice()
 	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding,
 		mock.MatchedBy(func(r gen.RollbackRequest) bool {
 			return !*r.DryRun && r.Message != nil && *r.Message == "Payments failing since r3"

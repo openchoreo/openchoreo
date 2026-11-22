@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -38,6 +39,26 @@ func apiError(statusCode int, body []byte) error {
 	return fmt.Errorf("unexpected response status: %d", statusCode)
 }
 
+// newHTTPClient returns the HTTP client occ calls the API with.
+func newHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseRevisionDeleteRedirects}
+}
+
+// refuseRevisionDeleteRedirects refuses to follow a redirect of a revision
+// delete. A redirect can drop the dryRun query of a preview, so the redirected
+// request would really delete the revision, or turn the DELETE into a GET whose
+// response reads as a successful delete. occ must be pointed at the API itself.
+func refuseRevisionDeleteRedirects(req *http.Request, via []*http.Request) error {
+	if len(via) > 0 && via[0].Method == http.MethodDelete && strings.Contains(via[0].URL.Path, "bindingrevisions/") {
+		return fmt.Errorf("refusing to follow a redirect of %s %s to %s: set the control plane URL to the API itself",
+			via[0].Method, via[0].URL.Redacted(), req.URL.Redacted())
+	}
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	return nil
+}
+
 // Client wraps the generated OpenAPI client with token refresh functionality
 type Client struct {
 	client gen.ClientWithResponsesInterface
@@ -56,7 +77,7 @@ func NewClient() (*Client, error) {
 		token = credential.Token
 	}
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := newHTTPClient()
 
 	client, err := gen.NewClientWithResponses(
 		controlPlane.URL,

@@ -31,6 +31,7 @@ func NewResourceReleaseBindingRevisionCmd(f client.NewClientFunc) *cobra.Command
 func newListCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
+		Args:  cobra.NoArgs,
 		Short: "List resource release binding revisions",
 		Long: `List revisions, newest first. With --binding, the revisions of that one
 binding. Without it, the revisions of every resource release binding in the namespace, with
@@ -108,6 +109,7 @@ orders-db-development-r3 or the display name shown by list, or r3) or with --rev
 				Namespace: flags.GetNamespace(cmd),
 				Binding:   bindingrevision.GetBinding(cmd),
 				Revision:  revisionNumber,
+				Name:      nameArg(args),
 				Output:    bindingrevision.GetOutput(cmd),
 			})
 		},
@@ -153,6 +155,7 @@ to delete the active revision and the newest known-good revision.`,
 				Namespace: flags.GetNamespace(cmd),
 				Binding:   bindingrevision.GetBinding(cmd),
 				Revision:  revisionNumber,
+				Name:      nameArg(args),
 				DryRun:    bindingrevision.GetDryRun(cmd),
 				Yes:       bindingrevision.GetYes(cmd),
 			})
@@ -164,4 +167,13 @@ to delete the active revision and the newest known-good revision.`,
 	bindingrevision.AddDryRun(cmd, "Check that the revision can be deleted without deleting it")
 	bindingrevision.AddYes(cmd, "Delete without asking for confirmation")
 	return cmd
+}
+
+// nameArg returns the revision name the optional REVISION_NAME argument gives,
+// or "" (see bindingrevision.NameArg).
+func nameArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return bindingrevision.NameArg(args[0])
 }

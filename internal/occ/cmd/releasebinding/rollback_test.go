@@ -52,7 +52,8 @@ func TestRollback_DryRun(t *testing.T) {
 
 func TestRollback_ConfirmedAppliesAfterPreview(t *testing.T) {
 	mc := mocks.NewMockInterface(t)
-	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, isDryRun(true)).Return(rollbackResp(true), nil).Once()
+	// The preview, then the check after the confirmation.
+	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, isDryRun(true)).Return(rollbackResp(true), nil).Twice()
 	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, isDryRun(false)).Return(rollbackResp(false), nil).Once()
 
 	r := New(mc)
@@ -137,6 +138,11 @@ func TestRollback_WithoutRevisionGoesToThePreviouslyActiveRevision(t *testing.T)
 		return r.Revision == nil && r.DryRun != nil && *r.DryRun
 	})
 	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, implicitPreview).Return(rollbackResp(true), nil).Once()
+	// The check after the confirmation names the previewed target.
+	confirmedCheck := mock.MatchedBy(func(r gen.RollbackRequest) bool {
+		return r.Revision != nil && *r.Revision == 1 && r.DryRun != nil && *r.DryRun
+	})
+	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, confirmedCheck).Return(rollbackResp(true), nil).Once()
 	mc.EXPECT().RollbackReleaseBinding(mock.Anything, rollbackNS, rollbackBinding, isDryRun(false)).Return(rollbackResp(false), nil).Once()
 
 	r := New(mc)

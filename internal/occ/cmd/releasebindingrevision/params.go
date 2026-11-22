@@ -22,7 +22,10 @@ type GetParams struct {
 	Namespace string
 	Binding   string
 	Revision  int64
-	Output    string
+	// Name is the revision name given, checked against the revision selected;
+	// empty when the revision was named by number only.
+	Name   string
+	Output string
 }
 
 func (p GetParams) GetNamespace() string { return p.Namespace }
@@ -32,8 +35,11 @@ type DeleteParams struct {
 	Namespace string
 	Binding   string
 	Revision  int64
-	DryRun    bool
-	Yes       bool
+	// Name is the revision name given, checked against the revision selected;
+	// empty when the revision was named by number only.
+	Name   string
+	DryRun bool
+	Yes    bool
 }
 
 func (p DeleteParams) GetNamespace() string { return p.Namespace }

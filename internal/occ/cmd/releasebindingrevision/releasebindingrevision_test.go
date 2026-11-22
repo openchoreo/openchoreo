@@ -312,3 +312,27 @@ func TestDelete_InvalidArgs(t *testing.T) {
 	require.Error(t, New(mc).Delete(DeleteParams{Namespace: testNS, Revision: 2}), "binding is required")
 	require.ErrorContains(t, New(mc).Delete(DeleteParams{Namespace: testNS, Binding: testBinding}), "--revision is required")
 }
+
+func TestDelete_ANameOfAnotherBindingDeletesNothing(t *testing.T) {
+	mc := mocks.NewMockInterface(t)
+	expectHistory(mc)
+	// No DeleteReleaseBindingRevision call is expected: the mock fails the test on one.
+
+	err := New(mc).Delete(DeleteParams{Namespace: testNS, Binding: testBinding, Revision: 2, Name: "api-prod-r2", Yes: true})
+	require.ErrorContains(t, err, `revision "api-prod-r2" is not a revision of this binding`)
+}
+
+func TestDelete_TheRevisionsOwnNamesAreAccepted(t *testing.T) {
+	for _, name := range []string{"api-dev-r2", "api-r2"} {
+		t.Run(name, func(t *testing.T) {
+			mc := mocks.NewMockInterface(t)
+			expectHistory(mc)
+			mc.EXPECT().DeleteReleaseBindingRevision(mock.Anything, testNS, "api-dev-r2", deleteParams(true)).
+				Return(&gen.DeleteBindingRevisionResponse{RevisionName: "api-dev-r2", Revision: 2, DryRun: true}, nil).Once()
+			testutil.CaptureStdout(t, func() {
+				require.NoError(t, New(mc).Delete(DeleteParams{Namespace: testNS, Binding: testBinding, Revision: 2,
+					Name: name, DryRun: true}))
+			})
+		})
+	}
+}

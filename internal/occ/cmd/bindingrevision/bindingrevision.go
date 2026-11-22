@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -86,6 +88,9 @@ func NamespaceOrContext(cmd *cobra.Command) string {
 // "r{N}" or "{N}". Naming the revision both ways is allowed when they agree.
 func RevisionFromArgs(cmd *cobra.Command, args []string) (int64, error) {
 	flag := GetRevision(cmd)
+	if cmd.Flags().Changed("revision") && flag < 1 {
+		return 0, fmt.Errorf("--revision must be at least 1")
+	}
 	if len(args) == 0 {
 		return flag, nil
 	}
@@ -119,6 +124,38 @@ func ParseRevisionName(name string) (int64, error) {
 		return 0, fmt.Errorf("revision name %q: %w", name, err)
 	}
 	return n, nil
+}
+
+// RequireBindingName refuses an empty BINDING_NAME argument, which would
+// otherwise select every binding in the namespace instead of one.
+func RequireBindingName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("BINDING_NAME must not be empty")
+	}
+	return nil
+}
+
+// NameArg returns the revision name a REVISION argument gives, or "" when it
+// names the revision by number only ({N} or r{N}). A name is checked against
+// the revision it selects (CheckRevisionName): its number alone would select a
+// revision of whichever binding the command is pointed at.
+func NameArg(arg string) string {
+	s := strings.TrimSpace(arg)
+	if isRevisionNumber(strings.TrimPrefix(s, "r")) {
+		return ""
+	}
+	return s
+}
+
+// CheckRevisionName refuses a selected revision whose object name and display
+// name both differ from name, the revision name the user gave. An empty name
+// was a number only and passes.
+func CheckRevisionName(name, objectName, displayName string) error {
+	if name == "" || name == objectName || name == displayName {
+		return nil
+	}
+	return fmt.Errorf("revision %q is not a revision of this binding: its revision with that number is %s (%s)",
+		name, objectName, displayName)
 }
 
 // isRevisionNumber reports whether s is a revision number: digits, at least 1,
@@ -231,13 +268,34 @@ const revisionColumns = "NAME\tCAUSE\tHEALTH\tACTIVE\tKNOWN-GOOD\tAGE\tMESSAGE"
 // get -o yaml shows all of it.
 const tableMessageLength = 50
 
-// shortMessage returns msg on one line, cut to tableMessageLength characters.
+// shortMessage returns msg on one line, cut to tableMessageLength characters,
+// with control characters escaped (see literal).
 func shortMessage(msg string) string {
-	msg = strings.Join(strings.Fields(msg), " ")
+	msg = literal(strings.Join(strings.Fields(msg), " "))
 	if runes := []rune(msg); len(runes) > tableMessageLength {
 		return string(runes[:tableMessageLength-1]) + "…"
 	}
 	return msg
+}
+
+// literal returns s with control characters written as escapes (\x1b,
+// \u009b), so a change message, which anyone who can deploy may write, is shown
+// as text and cannot move the cursor, recolour or rewrite the terminal.
+func literal(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n' || r == '\t':
+			b.WriteRune(r)
+		case r < 0x80 && unicode.IsControl(r):
+			fmt.Fprintf(&b, "\\x%02x", r)
+		case unicode.IsControl(r):
+			fmt.Fprintf(&b, "\\u%04x", r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func revisionCells(r Row) string {
@@ -320,7 +378,11 @@ func ConfirmOnTerminal(out io.Writer, question string) (bool, error) {
 func confirm(in io.Reader, out io.Writer, question string) (bool, error) {
 	fmt.Fprintf(out, "%s [y/N]: ", question)
 	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && line == "" {
+	if err != nil && !errors.Is(err, io.EOF) {
+		// An answer that could not be read is no confirmation.
+		return false, fmt.Errorf("read confirmation: %w", err)
+	}
+	if line == "" {
 		return false, nil
 	}
 	switch strings.ToLower(strings.TrimSpace(line)) {
@@ -348,10 +410,15 @@ func CheckMessage(msg string) error {
 // maxLength for spec.message.
 const maxMessageLength = 1024
 
-// WithChangeMessage adds msg to a binding's metadata as its change message, so
-// the revision recording this change carries it. An empty msg adds nothing.
+// WithChangeMessage sets msg as the change message in a binding's metadata, so
+// the revision recording this change carries it. An empty msg removes a change
+// message left by an earlier change the controller has not recorded yet: that
+// message describes the earlier change, not this one.
 func WithChangeMessage(meta *gen.ObjectMeta, msg string) {
 	if msg == "" {
+		if meta.Annotations != nil {
+			delete(*meta.Annotations, openchoreov1alpha1.AnnotationKeyChangeMessage)
+		}
 		return
 	}
 	if meta.Annotations == nil {
@@ -395,9 +462,10 @@ type RollbackOptions struct {
 // by number, so it cannot move to another target if the history changes in
 // between. With --yes the server picks and applies it in one request.
 //
-// The server repeats every check when the rollback is applied, so a binding
-// that changes between the preview and the confirmation is refused, not
-// overwritten.
+// After the confirmation the rollback is previewed again, and it is applied
+// only when the active revision and the warnings are still the ones the user
+// confirmed; otherwise nothing is changed and the user is asked to run it again.
+// The server repeats every check when the rollback is applied.
 func RunRollback(ctx context.Context, opts RollbackOptions, rollback RollbackFunc) error {
 	if opts.Revision < 0 {
 		return fmt.Errorf("--revision must be at least 1, or omitted for the previously active revision")
@@ -429,8 +497,18 @@ func RunRollback(ctx context.Context, opts RollbackOptions, rollback RollbackFun
 			fmt.Fprintln(opts.Out, "Rollback cancelled.")
 			return nil
 		}
-		// Apply exactly the target the user confirmed.
+		// Apply exactly the target the user confirmed, and only to the binding
+		// state they saw: a deploy since the preview, or a warning it did not
+		// show, needs a fresh confirmation.
 		target = &preview.TargetRevision
+		check, err := rollback(ctx, target, true)
+		if err != nil {
+			return err
+		}
+		if reason := changedSincePreview(preview, check); reason != "" {
+			return fmt.Errorf("%s since the preview; nothing was changed. Run the rollback again to see the "+
+				"current state", reason)
+		}
 	}
 
 	result, err := rollback(ctx, target, false)
@@ -450,13 +528,40 @@ func RunRollback(ctx context.Context, opts RollbackOptions, rollback RollbackFun
 			result.TargetRevision)
 	}
 	if hasWarning(result.Warnings, gen.NoSpecChange) {
-		fmt.Fprintf(opts.Out, "Revision %d (%s) of %s %q is already active; nothing changed.\n",
-			result.Revision, displayName(result), opts.Kind, opts.Binding)
+		fmt.Fprintf(opts.Out, "The spec of %s %q already matches revision %d (%s); no spec changed.\n",
+			opts.Kind, opts.Binding, result.Revision, displayName(result))
 		return nil
 	}
 	fmt.Fprintf(opts.Out, "Rolled back %s %q to revision %d: %s is active again.\n",
 		opts.Kind, opts.Binding, result.Revision, displayName(result))
 	return nil
+}
+
+// changedSincePreview returns how check, a second preview taken after the user
+// confirmed, differs from what preview showed them in a way that needs a new
+// confirmation, or "" when it does not.
+func changedSincePreview(preview, check *gen.RollbackResponse) string {
+	if (preview.RevertedFrom == nil) != (check.RevertedFrom == nil) ||
+		(preview.RevertedFrom != nil && *preview.RevertedFrom != *check.RevertedFrom) {
+		from, to := "none", "none"
+		if preview.RevertedFrom != nil {
+			from = strconv.FormatInt(*preview.RevertedFrom, 10)
+		}
+		if check.RevertedFrom != nil {
+			to = strconv.FormatInt(*check.RevertedFrom, 10)
+		}
+		return fmt.Sprintf("the active revision changed from %s to %s", from, to)
+	}
+	shown := map[gen.RollbackWarningCode]bool{}
+	for _, w := range preview.Warnings {
+		shown[w.Code] = true
+	}
+	for _, w := range check.Warnings {
+		if !shown[w.Code] {
+			return fmt.Sprintf("a new warning appeared (%s: %s)", w.Code, literal(w.Message))
+		}
+	}
+	return ""
 }
 
 // printPlan describes what a rollback will do.
@@ -472,7 +577,7 @@ func printPlan(out io.Writer, kind, binding string, plan *gen.RollbackResponse, 
 			displayName(plan))
 	}
 	if hasWarning(plan.Warnings, gen.NoSpecChange) {
-		fmt.Fprintln(out, "That revision is already active, so nothing will change.")
+		fmt.Fprintln(out, "The binding's spec already matches that revision, so the rollback changes no spec.")
 	} else {
 		fmt.Fprintf(out, "No revision is created: %s becomes active again.\n", displayName(plan))
 	}
@@ -480,7 +585,7 @@ func printPlan(out io.Writer, kind, binding string, plan *gen.RollbackResponse, 
 	if len(plan.Changes) > 0 {
 		fmt.Fprintln(out, "\nChanges:")
 		for _, c := range plan.Changes {
-			fmt.Fprintf(out, "  %s: %s -> %s\n", c.Field, formatValue(c.Current), formatValue(c.Target))
+			fmt.Fprintf(out, "  %s: %s -> %s\n", c.Field, literal(formatValue(c.Current)), literal(formatValue(c.Target)))
 		}
 	}
 	printWarnings(out, plan.Warnings)
@@ -508,7 +613,7 @@ func printWarnings(out io.Writer, warnings []gen.RollbackWarning) {
 	}
 	fmt.Fprintln(out, "\nWarnings:")
 	for _, w := range warnings {
-		fmt.Fprintf(out, "  ! %s: %s\n", w.Code, w.Message)
+		fmt.Fprintf(out, "  ! %s: %s\n", w.Code, literal(w.Message))
 	}
 }
 
@@ -579,7 +684,7 @@ func RunDelete(ctx context.Context, opts DeleteOptions, del DeleteFunc) error {
 	fmt.Fprintf(opts.Out, "Known-good:  %t\n", t.KnownGood)
 	fmt.Fprintf(opts.Out, "Cause:       %s\n", t.Cause)
 	if t.Message != "" {
-		fmt.Fprintf(opts.Out, "Message:     %s\n", t.Message)
+		fmt.Fprintf(opts.Out, "Message:     %s\n", literal(t.Message))
 	}
 
 	if _, err := del(ctx, true); err != nil {

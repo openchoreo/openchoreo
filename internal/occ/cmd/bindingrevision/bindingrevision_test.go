@@ -10,12 +10,14 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
@@ -168,7 +170,7 @@ func TestRunRollback_ConfirmedApplies(t *testing.T) {
 
 	out, err := run(t, api, RollbackOptions{Confirm: confirmer})
 	require.NoError(t, err)
-	assert.Equal(t, []bool{true, false}, api.calls, "preview, then apply")
+	assert.Equal(t, []bool{true, true, false}, api.calls, "preview, the check after the confirmation, then apply")
 	assert.Equal(t, 1, *asked)
 	assert.Equal(t, 1, strings.Count(out, "! TargetNotKnownGood"), "warnings are shown once, before the prompt")
 	assert.Contains(t, out, `Rolled back release binding "api-dev" to revision 1: api-dev-r1 is active again.`)
@@ -227,8 +229,8 @@ func TestRunRollback_NoSpecChange(t *testing.T) {
 
 	out, err := run(t, api, RollbackOptions{Revision: 3, Confirm: confirmer})
 	require.NoError(t, err)
-	assert.Contains(t, out, "That revision is already active, so nothing will change.")
-	assert.Contains(t, out, `Revision 3 (api-dev-r3) of release binding "api-dev" is already active; nothing changed.`)
+	assert.Contains(t, out, "The binding's spec already matches that revision, so the rollback changes no spec.")
+	assert.Contains(t, out, `The spec of release binding "api-dev" already matches revision 3 (api-dev-r3); no spec changed.`)
 	assert.NotContains(t, out, "Changes:")
 }
 
@@ -270,11 +272,13 @@ func TestRunRollback_ImplicitPreviewsThenAppliesTheConfirmedTarget(t *testing.T)
 	out, err := runImplicit(t, api, RollbackOptions{Confirm: confirmer})
 	require.NoError(t, err)
 
-	assert.Equal(t, []bool{true, false}, api.calls)
-	require.Len(t, api.targets, 2)
+	assert.Equal(t, []bool{true, true, false}, api.calls)
+	require.Len(t, api.targets, 3)
 	assert.Nil(t, api.targets[0], "the preview asks the server for the previous revision")
 	require.NotNil(t, api.targets[1])
-	assert.Equal(t, int64(1), *api.targets[1], "the rollback is applied to the previewed target by number")
+	assert.Equal(t, int64(1), *api.targets[1], "the check after the confirmation names the previewed target")
+	require.NotNil(t, api.targets[2])
+	assert.Equal(t, int64(1), *api.targets[2], "the rollback is applied to the previewed target by number")
 	assert.Equal(t, 1, *asked)
 	assert.Contains(t, out, `Rolling back release binding "api-dev" from revision 3 to revision 1.`)
 	assert.Contains(t, out, "Target: api-dev-r1, the revision active before the current one (no --revision given).")
@@ -524,4 +528,100 @@ func TestRunDelete_NoTerminalNeedsYes(t *testing.T) {
 	_, err := runDelete(t, api, DeleteOptions{Confirm: confirmer})
 	require.ErrorContains(t, err, "pass --yes")
 	assert.Equal(t, []bool{true}, api.calls, "nothing is deleted")
+}
+
+// sequence returns a RollbackFunc answering dry runs with previews in turn,
+// and recording whether an apply was sent.
+func sequence(previews ...*gen.RollbackResponse) (RollbackFunc, *bool) {
+	applied := false
+	next := 0
+	return func(_ context.Context, _ *int64, dryRun bool) (*gen.RollbackResponse, error) {
+		if !dryRun {
+			applied = true
+			return previews[len(previews)-1], nil
+		}
+		p := previews[min(next, len(previews)-1)]
+		next++
+		return p, nil
+	}, &applied
+}
+
+func TestRunRollback_RefusesWhenTheActiveRevisionChangedAfterThePreview(t *testing.T) {
+	first := newFakeAPI().preview
+	later := *first
+	later.RevertedFrom = ptr(int64(4)) // someone deployed r4 after the preview
+	rollback, applied := sequence(first, &later)
+	confirmer, _ := answer(true, nil)
+
+	var out bytes.Buffer
+	err := RunRollback(context.Background(), RollbackOptions{Kind: testKind, Binding: testBindingName, Revision: 1,
+		Out: &out, Confirm: confirmer}, rollback)
+	require.ErrorContains(t, err, "the active revision changed from 3 to 4 since the preview; nothing was changed")
+	assert.False(t, *applied, "the confirmed rollback is not applied over a deploy the user did not see")
+}
+
+func TestRunRollback_RefusesOnAWarningThePreviewDidNotShow(t *testing.T) {
+	first := newFakeAPI().preview
+	later := *first
+	later.Warnings = append(append([]gen.RollbackWarning{}, first.Warnings...),
+		gen.RollbackWarning{Code: gen.SecretReferenceDrift, Message: "SecretReference \"db\" no longer exists"})
+	rollback, applied := sequence(first, &later)
+	confirmer, _ := answer(true, nil)
+
+	var out bytes.Buffer
+	err := RunRollback(context.Background(), RollbackOptions{Kind: testKind, Binding: testBindingName, Revision: 1,
+		Out: &out, Confirm: confirmer}, rollback)
+	require.ErrorContains(t, err, "a new warning appeared (SecretReferenceDrift")
+	assert.False(t, *applied)
+}
+
+func TestLiteral_EscapesControlCharacters(t *testing.T) {
+	assert.Equal(t, `fix \x1b[31mred\x1b[0m \u009b`, literal("fix \x1b[31mred\x1b[0m \u009b"))
+	assert.Equal(t, "two\nlines\tand tab", literal("two\nlines\tand tab"))
+	assert.Equal(t, `bell\x07`, shortMessage("bell\a"))
+}
+
+func TestCheckRevisionName(t *testing.T) {
+	assert.NoError(t, CheckRevisionName("", "api-dev-r2", "api-r2"), "a number names no binding")
+	assert.NoError(t, CheckRevisionName("api-dev-r2", "api-dev-r2", "api-r2"))
+	assert.NoError(t, CheckRevisionName("api-r2", "api-dev-r2", "api-r2"))
+	assert.ErrorContains(t, CheckRevisionName("api-prod-r2", "api-dev-r2", "api-r2"),
+		`revision "api-prod-r2" is not a revision of this binding`)
+	assert.Equal(t, "", NameArg("2"))
+	assert.Equal(t, "", NameArg("r2"))
+	assert.Equal(t, "api-prod-r2", NameArg(" api-prod-r2 "))
+}
+
+func TestConfirm_ReadErrorIsNoConfirmation(t *testing.T) {
+	ok, err := confirm(iotest.ErrReader(errors.New("broken pipe")), io.Discard, "Delete?")
+	require.Error(t, err)
+	assert.False(t, ok)
+	ok, err = confirm(strings.NewReader("y"), io.Discard, "Delete?")
+	require.NoError(t, err)
+	assert.True(t, ok, "an answer at the end of input still counts")
+}
+
+func TestRevisionFromArgs_RejectsAnExplicitZero(t *testing.T) {
+	cmd := &cobra.Command{Use: "get"}
+	AddRevision(cmd)
+	require.NoError(t, cmd.Flags().Set("revision", "0"))
+	_, err := RevisionFromArgs(cmd, []string{"api-dev-r2"})
+	require.ErrorContains(t, err, "--revision must be at least 1")
+}
+
+func TestWithChangeMessage_WithoutAMessageRemovesALeftoverOne(t *testing.T) {
+	meta := gen.ObjectMeta{Annotations: &map[string]string{
+		openchoreov1alpha1.AnnotationKeyChangeMessage: "fix checkout timeout",
+		"example.com/kept":                            "yes",
+	}}
+	WithChangeMessage(&meta, "")
+	assert.Equal(t, map[string]string{"example.com/kept": "yes"}, *meta.Annotations,
+		"a deploy without --message does not carry the previous deploy's reason")
+
+	WithChangeMessage(&meta, "roll forward")
+	assert.Equal(t, "roll forward", (*meta.Annotations)[openchoreov1alpha1.AnnotationKeyChangeMessage])
+
+	empty := gen.ObjectMeta{}
+	WithChangeMessage(&empty, "")
+	assert.Nil(t, empty.Annotations)
 }

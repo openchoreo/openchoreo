@@ -31,6 +31,9 @@ Short form of "occ releasebindingrevision list --binding BINDING_NAME".`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := bindingrevision.RequireBindingName(args[0]); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -76,6 +79,9 @@ Short form of "occ releasebindingrevision get REVISION --binding BINDING_NAME".`
 		Args:    cobra.ExactArgs(2),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := bindingrevision.RequireBindingName(args[0]); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -88,6 +94,7 @@ Short form of "occ releasebindingrevision get REVISION --binding BINDING_NAME".`
 				Namespace: flags.GetNamespace(cmd),
 				Binding:   args[0],
 				Revision:  revision,
+				Name:      bindingrevision.NameArg(args[1]),
 				Output:    bindingrevision.GetOutput(cmd),
 			})
 		},
@@ -118,6 +125,9 @@ Short form of "occ releasebindingrevision delete REVISION --binding BINDING_NAME
 		Args:    cobra.ExactArgs(2),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := bindingrevision.RequireBindingName(args[0]); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -130,6 +140,7 @@ Short form of "occ releasebindingrevision delete REVISION --binding BINDING_NAME
 				Namespace: flags.GetNamespace(cmd),
 				Binding:   args[0],
 				Revision:  revision,
+				Name:      bindingrevision.NameArg(args[1]),
 				DryRun:    bindingrevision.GetDryRun(cmd),
 				Yes:       bindingrevision.GetYes(cmd),
 			})
@@ -162,6 +173,9 @@ the rollback in full.`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := bindingrevision.RequireBindingName(args[0]); err != nil {
+				return err
+			}
 			cl, err := f()
 			if err != nil {
 				return err
@@ -183,7 +197,7 @@ the rollback in full.`,
 	flags.AddNamespace(cmd)
 	bindingrevision.AddRollbackRevision(cmd)
 	bindingrevision.AddDryRun(cmd, "Show the changes and warnings the rollback would produce without applying it")
-	bindingrevision.AddYes(cmd, "Roll back without asking for confirmation")
+	bindingrevision.AddYes(cmd, "Roll back without a preview or confirmation; the warnings are printed with the result")
 	flags.AddMessage(cmd, "Optional reason for the rollback, shown on the binding's events and in the audit log")
 	return cmd
 }

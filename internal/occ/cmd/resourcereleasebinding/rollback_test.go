@@ -31,7 +31,7 @@ func TestRollback(t *testing.T) {
 
 	t.Run("confirmed", func(t *testing.T) {
 		mc := mocks.NewMockInterface(t)
-		mc.EXPECT().RollbackResourceReleaseBinding(mock.Anything, ns, binding, dry(true)).Return(resp(true), nil).Once()
+		mc.EXPECT().RollbackResourceReleaseBinding(mock.Anything, ns, binding, dry(true)).Return(resp(true), nil).Twice()
 		mc.EXPECT().RollbackResourceReleaseBinding(mock.Anything, ns, binding, dry(false)).Return(resp(false), nil).Once()
 		r := New(mc)
 		r.confirm = func(io.Writer, string) (bool, error) { return true, nil }

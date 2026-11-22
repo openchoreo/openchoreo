@@ -125,6 +125,10 @@ func (r *ResourceReleaseBindingRevision) Get(params GetParams) error {
 		if revs[i].Spec.Revision != params.Revision {
 			continue
 		}
+		if err := bindingrevision.CheckRevisionName(params.Name, revs[i].Metadata.Name,
+			bindingrevision.DisplayName(revs[i].Spec.BindingSpec.Owner.ResourceName, revs[i].Spec.Revision)); err != nil {
+			return err
+		}
 		if params.Output == bindingrevision.OutputYAML {
 			return bindingrevision.PrintYAML(os.Stdout, revs[i])
 		}
@@ -159,6 +163,10 @@ func (r *ResourceReleaseBindingRevision) Delete(params DeleteParams) error {
 	if target == nil || target.Metadata.Name == "" {
 		return fmt.Errorf("revision %d of resource release binding %q not found; it may have been deleted",
 			params.Revision, params.Binding)
+	}
+	if err := bindingrevision.CheckRevisionName(params.Name, target.Metadata.Name,
+		bindingrevision.DisplayName(target.Spec.BindingSpec.Owner.ResourceName, target.Spec.Revision)); err != nil {
+		return err
 	}
 
 	return bindingrevision.RunDelete(ctx, bindingrevision.DeleteOptions{

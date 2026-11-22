@@ -107,9 +107,10 @@ export class RevisionsPO {
   // The revisions as the browser lists them, top to bottom.
   async readTimeline(): Promise<RevisionRow[]> {
     await this.openBrowser();
-    const rows = await this.browser()
-      .locator('[data-testid^="browser-revision-"]')
-      .all();
+    const revisionRows = this.browser().locator('[data-testid^="browser-revision-"]');
+    // all() reads only the rows already rendered: wait for the list to load.
+    await expect(revisionRows.first()).toBeVisible();
+    const rows = await revisionRows.all();
     const labels = await Promise.all(
       rows.map(async r => (await r.getAttribute('aria-label')) ?? ''),
     );
