@@ -429,6 +429,47 @@ func SpecPatch(binding client.Object, spec any, message string) (client.Patch, e
 	return client.RawPatch(types.JSONPatchType, raw), nil
 }
 
+// WriteSpec writes spec to binding with SpecPatch, conditional on the
+// resourceVersion binding was read at; with dryRun the apiserver runs the
+// write without persisting it. A conflict from a change that is not to the
+// spec -- the controller writing the binding's status, say -- is retried
+// against the binding read again, as long as it is the same binding at the
+// same generation. A conflict from a spec change, or a binding replaced by
+// another of the same name, is returned.
+func WriteSpec(ctx context.Context, c client.Client, binding client.Object, spec any, message string, dryRun bool) error {
+	var opts []client.PatchOption
+	if dryRun {
+		opts = append(opts, client.DryRunAll)
+	}
+	read := binding
+	const attempts = 5
+	for attempt := 1; ; attempt++ {
+		patch, err := SpecPatch(read, spec, message)
+		if err != nil {
+			return err
+		}
+		target, ok := read.DeepCopyObject().(client.Object)
+		if !ok {
+			return fmt.Errorf("copy binding %q", binding.GetName())
+		}
+		err = c.Patch(ctx, target, patch, opts...)
+		if err == nil || !apierrors.IsConflict(err) || attempt == attempts {
+			return err
+		}
+		live, ok := binding.DeepCopyObject().(client.Object)
+		if !ok {
+			return fmt.Errorf("copy binding %q", binding.GetName())
+		}
+		if getErr := c.Get(ctx, client.ObjectKeyFromObject(binding), live); getErr != nil {
+			return getErr
+		}
+		if live.GetUID() != binding.GetUID() || live.GetGeneration() != binding.GetGeneration() {
+			return err
+		}
+		read = live
+	}
+}
+
 // CheckBindingUID returns notFound when uid is set and the binding read has
 // another UID: the binding checked for authorization was deleted and another
 // of the same name created since, which the caller was not authorized for.

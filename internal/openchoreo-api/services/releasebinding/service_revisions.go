@@ -255,20 +255,12 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 	return result, nil
 }
 
-// patchBindingSpec writes spec to the binding, conditional on the
-// resourceVersion it was read at (see bindingrevision.SpecPatch). With dryRun
-// the apiserver runs the write without persisting it.
+// patchBindingSpec writes spec to the binding (see bindingrevision.WriteSpec):
+// conditional on the binding's spec being unchanged since it was read, and,
+// with dryRun, run by the apiserver without persisting it.
 func (s *releaseBindingService) patchBindingSpec(ctx context.Context, binding *openchoreov1alpha1.ReleaseBinding,
 	spec openchoreov1alpha1.ReleaseBindingSpec, message, releaseBindingName string, dryRun bool) error {
-	patch, err := bindingrevision.SpecPatch(binding, spec, message)
-	if err != nil {
-		return err
-	}
-	var opts []client.PatchOption
-	if dryRun {
-		opts = append(opts, client.DryRunAll)
-	}
-	err = s.k8sClient.Patch(ctx, binding.DeepCopy(), patch, opts...)
+	err := bindingrevision.WriteSpec(ctx, s.k8sClient, binding, spec, message, dryRun)
 	switch {
 	case err == nil:
 		return nil
