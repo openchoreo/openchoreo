@@ -214,6 +214,26 @@ func TestSerialize_PreservesValueTypes(t *testing.T) {
 	assert.JSONEq(t, string(want), string(got))
 }
 
+func TestSerialize_PreservesNumberLiterals(t *testing.T) {
+	resource := manifestResource(testComponentKind)
+	resource.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{
+		"decimal":  json.Number("1.234567890123456789"),
+		"large":    json.Number("9007199254740993"),
+		"trailing": json.Number("2.5000"),
+		"nested":   []any{map[string]any{"exponent": json.Number("1.2300e-04")}},
+	}
+	canonical, err := Canonicalize(context.Background(), []Resource{resource})
+	require.NoError(t, err)
+	files, err := Serialize(context.Background(), canonical)
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	text := string(files[0].Data)
+	assert.Contains(t, text, "decimal: 1.234567890123456789\n")
+	assert.Contains(t, text, "large: 9007199254740993\n")
+	assert.Contains(t, text, "trailing: 2.5000\n")
+	assert.Contains(t, text, "exponent: 1.2300e-04\n")
+}
+
 func TestSerialize_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

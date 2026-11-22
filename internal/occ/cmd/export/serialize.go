@@ -151,13 +151,52 @@ func serializeResource(resource Resource) (SerializedFile, error) {
 	if err != nil {
 		return SerializedFile{}, err
 	}
-	// JSONToYAML uses the same JSON-tag-aware encoding as yaml.Marshal, without
-	// marshaling the typed object again after reading its identity.
-	encoded, err := yaml.JSONToYAML(data)
+	encoded, err := encodeJSONAsYAML(data)
 	if err != nil {
 		return SerializedFile{}, fmt.Errorf("encode YAML: %w", err)
 	}
 	return SerializedFile{Path: filePath, Data: encoded}, nil
+}
+
+func encodeJSONAsYAML(data []byte) ([]byte, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var document any
+	if err := decoder.Decode(&document); err != nil {
+		return nil, err
+	}
+	var output bytes.Buffer
+	encoder := yamlv3.NewEncoder(&output)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(preserveYAMLNumbers(document)); err != nil {
+		return nil, err
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, err
+	}
+	return output.Bytes(), nil
+}
+
+// Replace numbers in the decoded copy with numeric YAML scalars so their text
+// is emitted verbatim, without conversion through float64 or integer types.
+func preserveYAMLNumbers(value any) any {
+	switch value := value.(type) {
+	case json.Number:
+		tag := "!!int"
+		if strings.ContainsAny(value.String(), ".eE") {
+			tag = "!!float"
+		}
+		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Tag: tag, Value: value.String()}
+	case map[string]any:
+		for key, item := range value {
+			value[key] = preserveYAMLNumbers(item)
+		}
+	case []any:
+		for i, item := range value {
+			value[i] = preserveYAMLNumbers(item)
+		}
+	}
+	return value
 }
 
 // Namespace is the one generated API model without type metadata. Raw messages
