@@ -54,7 +54,8 @@ const (
 	// RevisionCauseUndeploy is the binding being switched to the Undeploy state.
 	RevisionCauseUndeploy RevisionCause = "Undeploy"
 
-	// RevisionCauseRedeploy is a redeployment of an unchanged binding spec.
+	// RevisionCauseRedeploy records a binding leaving the Undeploy state: its
+	// resources are deployed again.
 	RevisionCauseRedeploy RevisionCause = "Redeploy"
 )
 

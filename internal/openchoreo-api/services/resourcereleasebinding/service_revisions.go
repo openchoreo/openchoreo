@@ -201,30 +201,46 @@ func (s *resourceReleaseBindingService) RollbackResourceReleaseBinding(ctx conte
 		result.Warnings = append(result.Warnings, *cellDrift)
 	}
 
+	// A dry run sends the same write with Kubernetes dry-run, so admission and
+	// validation run on it too, and nothing is persisted.
+	if err := s.patchBindingSpec(ctx, binding, restored, req.Message, bindingName, req.DryRun); err != nil {
+		return nil, err
+	}
 	if req.DryRun {
 		return result, nil
 	}
-
-	patch, err := bindingrevision.SpecPatch(binding, restored, req.Message)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.k8sClient.Patch(ctx, binding, patch); err != nil {
-		switch {
-		case apierrors.IsConflict(err):
-			return nil, fmt.Errorf("%w: resource release binding %q", bindingrevision.ErrConcurrentModification, bindingName)
-		case apierrors.IsNotFound(err):
-			return nil, ErrResourceReleaseBindingNotFound
-		}
-		if vErr := services.ExtractValidationError(err); vErr != nil {
-			return nil, vErr
-		}
-		return nil, fmt.Errorf("failed to roll back resource release binding: %w", err)
-	}
-
 	s.logger.Info("Rolled back resource release binding", "namespace", namespaceName, "resourceReleaseBinding", bindingName,
 		"targetRevision", targetRevision, "revertedFrom", revertedFrom)
 	return result, nil
+}
+
+// patchBindingSpec writes spec to the binding, conditional on the
+// resourceVersion it was read at (see bindingrevision.SpecPatch). With dryRun
+// the apiserver runs the write without persisting it.
+func (s *resourceReleaseBindingService) patchBindingSpec(ctx context.Context,
+	binding *openchoreov1alpha1.ResourceReleaseBinding, spec openchoreov1alpha1.ResourceReleaseBindingSpec,
+	message, bindingName string, dryRun bool) error {
+	patch, err := bindingrevision.SpecPatch(binding, spec, message)
+	if err != nil {
+		return err
+	}
+	var opts []client.PatchOption
+	if dryRun {
+		opts = append(opts, client.DryRunAll)
+	}
+	err = s.k8sClient.Patch(ctx, binding.DeepCopy(), patch, opts...)
+	switch {
+	case err == nil:
+		return nil
+	case apierrors.IsConflict(err):
+		return fmt.Errorf("%w: resource release binding %q", bindingrevision.ErrConcurrentModification, bindingName)
+	case apierrors.IsNotFound(err):
+		return ErrResourceReleaseBindingNotFound
+	}
+	if vErr := services.ExtractValidationError(err); vErr != nil {
+		return vErr
+	}
+	return fmt.Errorf("failed to roll back resource release binding: %w", err)
 }
 
 // DeleteResourceReleaseBindingRevision deletes one revision of a resource release binding, unless it is

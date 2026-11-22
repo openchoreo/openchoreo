@@ -436,7 +436,15 @@ func (r *Reconciler) observeRevisionHealth(
 		return 0, fmt.Errorf("get RenderedRelease: %w", err)
 	}
 
-	return snapshotter.ObserveHealth(ctx, binding, observation.Health())
+	// This reconcile returned before rendering, so it did not evaluate
+	// readiness: ResourcesReady can describe an earlier RenderedRelease than the
+	// one read here. It records a failure or a rollout in progress, but never
+	// Healthy, which only a reconcile that rendered can report.
+	health := observation.Health()
+	if health == openchoreov1alpha1.RevisionHealthHealthy {
+		return 0, nil
+	}
+	return snapshotter.ObserveHealth(ctx, binding, health)
 }
 
 // makeRenderedReleaseName returns the RenderedRelease name for a binding.

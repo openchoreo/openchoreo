@@ -187,10 +187,12 @@ spec:
             properties:
               active:
                 description: |-
-                  Active is true when this revision records the binding's current spec: the
-                  revision the binding is rolling out or running. It is set when the spec is
+                  Active is true for the revision recording the spec the binding last
+                  recorded: the one it is rolling out or running. It is set when the spec is
                   recorded, before the rollout, so Health reports whether the rollout
-                  succeeded.
+                  succeeded. A spec the controller cannot record yet, such as one pinning a
+                  release that does not exist, leaves the previous revision active, so Active
+                  does not guarantee that the revision matches the binding's latest spec.
                 type: boolean
               conditions:
                 description: Conditions represent the latest available observations

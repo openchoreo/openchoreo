@@ -96,7 +96,7 @@ func TestRollbackReleaseBinding_GitOpsTrackingMetadata(t *testing.T) {
 		{name: "Flux HelmRelease labels: refused", labels: map[string]string{"helm.toolkit.fluxcd.io/name": "platform"}, refused: true},
 		{
 			name:        "Argo CD tracking annotation: refused",
-			annotations: map[string]string{"argocd.argoproj.io/tracking-id": "apps:openchoreo.dev/ReleaseBinding:default/x"},
+			annotations: map[string]string{"argocd.argoproj.io/tracking-id": "apps:openchoreo.dev/ReleaseBinding:" + testNamespace + "/" + testRBName},
 			refused:     true,
 		},
 		{
