@@ -148,7 +148,7 @@ func TestExportCommand_RejectsArguments(t *testing.T) {
 }
 
 func TestExportCommand_RequiresOutputBeforeClientCreation(t *testing.T) {
-	for _, args := range [][]string{nil, {"-o", ""}, {"--output", "   "}} {
+	for _, args := range [][]string{{}, {"-o", ""}, {"--output", "   "}} {
 		cmd := NewExportCmd(func() (client.Interface, error) {
 			t.Fatal("must not create a client without an output directory")
 			return nil, nil
