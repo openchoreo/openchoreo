@@ -489,26 +489,52 @@ func TestReleaseBindingSnapshotter_StaleBindingRecordsNothing(t *testing.T) {
 func TestReleaseBindingSnapshotter_AlreadyExistsIsSuccess(t *testing.T) {
 	ctx := context.Background()
 	binding := newBinding("frontend-development")
+	binding.Annotations = map[string]string{openchoreov1alpha1.AnnotationKeyChangeMessage: "from the earlier attempt"}
+	c0 := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c0.Get(ctx, client.ObjectKeyFromObject(binding), binding))
 
-	// r1 was created for this spec by an earlier attempt whose response was
-	// lost, and the cache has not seen it yet: it is invisible to List but
-	// occupies the name.
-	existing := earlierRevision(binding, binding.UID)
-	hash, err := ReleaseBindingSpecHash(&binding.Spec)
+	// An earlier attempt stored r1 for this spec, with everything a first write
+	// stores, but its response was lost before the status was written.
+	_, err := NewReleaseBindingSnapshotter(c0, newTestScheme(t), Options{}).Record(ctx, binding.DeepCopy())
 	require.NoError(t, err)
-	existing.Spec.SnapshotHash = hash
-	existing.Spec.Message = "from the earlier attempt"
-	c := newTestClient(t, existing)
+	r1 := getRBR(t, c0, "frontend-development-r1")
+	r1.Status = openchoreov1alpha1.BindingRevisionStatus{}
+	require.NoError(t, c0.Status().Update(ctx, r1))
+	require.NoError(t, c0.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+
+	// The list this reconcile works from has not seen r1 yet.
+	hidden := true
+	c := interceptor.NewClient(c0.(client.WithWatch), interceptor.Funcs{
+		List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := cl.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if l, ok := list.(*openchoreov1alpha1.ReleaseBindingRevisionList); ok && hidden {
+				l.Items = nil
+			}
+			return nil
+		},
+	})
 	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
 
 	res, err := s.Record(ctx, binding)
 	require.NoError(t, err)
-	assert.Equal(t, Result{Number: 1, Name: getRBR(t, c, "frontend-development-r1").Name, Created: false, Cause: openchoreov1alpha1.RevisionCauseDeploy, Highest: 1}, res)
-
-	rev := getRBR(t, c, "frontend-development-r1")
+	assert.Equal(t, Result{Number: 1, Name: "frontend-development-r1", Created: false,
+		Cause: openchoreov1alpha1.RevisionCauseDeploy, Highest: 1}, res)
+	rev := getRBR(t, c0, "frontend-development-r1")
 	assert.Equal(t, "from the earlier attempt", rev.Spec.Message, "the stored revision must not be overwritten")
 	assert.True(t, rev.Status.Active)
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, rev.Status.Health)
+
+	// Once the list includes r1, the retry is a no-op.
+	hidden = false
+	before := getRBR(t, c0, "frontend-development-r1").ResourceVersion
+	res, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.False(t, res.Created)
+	assert.Equal(t, int64(1), res.Number)
+	assert.Len(t, listRBRs(t, c0), 1)
+	assert.Equal(t, before, getRBR(t, c0, "frontend-development-r1").ResourceVersion, "nothing is written again")
 }
 
 func TestReleaseBindingSnapshotter_NameHeldByRevisionOfAnotherSpec(t *testing.T) {
