@@ -83,8 +83,16 @@ func TestControllerManager_ComponentRevisionHistoryLimit(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			args := renderControllerManagerArgs(t, tt.extraArgs...)
-			if !slices.Contains(args, tt.want) {
-				t.Errorf("manager args do not contain %q: %v", tt.want, args)
+			// The controller uses the last occurrence of a flag, so exactly one
+			// must render, with the expected value.
+			var limits []string
+			for _, arg := range args {
+				if strings.HasPrefix(arg, "--component-revision-history-limit") {
+					limits = append(limits, arg)
+				}
+			}
+			if !slices.Equal(limits, []string{tt.want}) {
+				t.Errorf("want exactly %q among the manager args, got %v: %v", tt.want, limits, args)
 			}
 			for _, arg := range args {
 				if strings.HasPrefix(arg, "--revision-history-limit") {
@@ -92,5 +100,30 @@ func TestControllerManager_ComponentRevisionHistoryLimit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The chart schema bounds the history limit to what an Environment or binding
+// can set, so a larger value fails chart validation instead of rendering.
+func TestControllerManager_ComponentRevisionHistoryLimitIsBounded(t *testing.T) {
+	helm, err := exec.LookPath("helm")
+	if err != nil {
+		t.Skip("helm is not installed; skipping the chart schema check")
+	}
+	args := append([]string{
+		"template", "openchoreo", controlPlaneChart,
+		"--namespace", "openchoreo-control-plane",
+		"--show-only", "templates/controller-manager/deployment.yaml",
+	}, backstageGuardOverrides...)
+	args = append(args, "--set", "controllerManager.manager.componentRevisionHistoryLimit=2147483648")
+
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(t.Context(), helm, args...)
+	cmd.Stderr = &stderr
+	if _, err := cmd.Output(); err == nil {
+		t.Fatal("a history limit above 2147483647 rendered; want a chart validation error")
+	}
+	if !strings.Contains(stderr.String(), "componentRevisionHistoryLimit") {
+		t.Errorf("the validation error does not name componentRevisionHistoryLimit: %s", stderr.String())
 	}
 }
