@@ -428,7 +428,16 @@ func (r *Reconciler) observeRevisionHealth(
 		}
 	}
 
-	return snapshotter.ObserveHealth(ctx, releaseBinding, observation.Health())
+	// This reconcile did not render, so it did not evaluate readiness:
+	// ResourcesReady can describe an earlier RenderedRelease than the one read
+	// here. It records a failure or a rollout in progress, but never Healthy,
+	// which only a reconcile that rendered can report -- an undeploy aside,
+	// whose health is whether its releases are gone.
+	health := observation.Health()
+	if health == openchoreov1alpha1.RevisionHealthHealthy && !observation.Undeploy {
+		return 0, nil
+	}
+	return snapshotter.ObserveHealth(ctx, releaseBinding, health)
 }
 
 // withRequeueAfter returns result with RequeueAfter set to after when that is
