@@ -800,7 +800,7 @@ type AuthzScope struct {
 
 // BindingRevisionStatus Observed state of a binding revision. Only the active revision follows the binding's health; a revision that stops being active keeps the health it last had.
 type BindingRevisionStatus struct {
-	// Active True for the one revision the binding currently applies
+	// Active True for the revision recording the binding's current spec, the one it is rolling out or running. Set before the rollout; health reports whether the rollout succeeded.
 	Active     *bool                        `json:"active,omitempty"`
 	Conditions *[]Condition                 `json:"conditions,omitempty"`
 	Health     *BindingRevisionStatusHealth `json:"health,omitempty"`
@@ -808,10 +808,10 @@ type BindingRevisionStatus struct {
 	// HealthySince When the revision last became Healthy; unset while it is not Healthy
 	HealthySince *time.Time `json:"healthySince,omitempty"`
 
-	// KnownGood True once the revision stayed Healthy for the controller's known-good window. Never reverts.
+	// KnownGood True once the revision stayed Healthy for the controller's known-good window. Never reverts. Never true for a revision that undeploys its component.
 	KnownGood *bool `json:"knownGood,omitempty"`
 
-	// ObservedAt When health last changed
+	// ObservedAt When health was last set, on activation or when it changed
 	ObservedAt *time.Time `json:"observedAt,omitempty"`
 }
 
