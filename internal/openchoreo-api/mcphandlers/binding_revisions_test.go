@@ -5,6 +5,7 @@ package mcphandlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services"
@@ -50,7 +52,7 @@ func sampleReleaseBindingRevision(n int64, release string, active, knownGood boo
 func sampleRollbackResult(dryRun bool) *bindingrevision.RollbackResult {
 	from := int64(3)
 	return &bindingrevision.RollbackResult{
-		RevisionName: testReleaseBindingName + "-r4", Revision: 4, TargetRevision: 1, RevertedFrom: &from, DryRun: dryRun,
+		RevisionName: testReleaseBindingName + "-r1", Revision: 1, TargetRevision: 1, RevertedFrom: &from, DryRun: dryRun,
 		Changes:  []bindingrevision.SpecChange{{Field: "releaseName", Current: "rel-c", Target: "rel-a"}},
 		Warnings: []bindingrevision.Warning{{Code: bindingrevision.WarningProjectCellDrift, Message: "the cell moved"}},
 	}
@@ -155,7 +157,10 @@ func TestRollbackReleaseBinding(t *testing.T) {
 		assert.Equal(t, false, m["applied"])
 		assert.Equal(t, int64(1), m["targetRevision"])
 		assert.Equal(t, int64(3), m["revertedFrom"])
-		assert.Equal(t, testReleaseBindingName+"-r4", m["revisionName"])
+		assert.Equal(t, testReleaseBindingName+"-r1", m["revisionName"], "the target, r1")
+		assert.Equal(t, int64(1), m["revision"])
+		assert.Equal(t, int64(1), m["targetRevision"])
+		assert.Equal(t, int64(3), m["revertedFrom"], "the revision active before, reported separately")
 		assert.Equal(t, []map[string]any{{"field": "releaseName", "current": "rel-c", "target": "rel-a"}}, m["changes"])
 		assert.Equal(t, []map[string]any{{"code": "ProjectCellDrift", "message": "the cell moved"}}, m["warnings"])
 		assert.Contains(t, m["nextStep"], "dry_run=false", "the dry run tells the agent how to proceed")
@@ -318,5 +323,40 @@ func TestRollbackAuditRecordsDryRun(t *testing.T) {
 				assert.Equal(t, map[string]any{"dryRun": dryRun}, data.Resource.Metadata)
 			})
 		}
+	}
+}
+
+func TestGetReleaseBindingRevision_KeepsLargeIntegersExact(t *testing.T) {
+	rev := sampleReleaseBindingRevision(1, "rel-a", true, true)
+	rev.Spec.BindingSpec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"id":9007199254740993}`)}
+	svc := releasebindingmocks.NewMockService(t)
+	svc.EXPECT().GetReleaseBindingRevision(mock.Anything, testNS, rev.Name).Return(&rev, nil)
+
+	result, err := newTestHandler(withReleaseBindingService(svc)).GetReleaseBindingRevision(context.Background(), testNS, rev.Name)
+	require.NoError(t, err)
+	out, err := json.Marshal(result)
+	require.NoError(t, err)
+	assert.Contains(t, string(out), `"id":9007199254740993`, "the recorded config is returned as written")
+}
+
+func TestRollbackReleaseBinding_AuditsARejectedCall(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		revision int64
+		message  string
+	}{
+		{name: "invalid revision", revision: 0},
+		{name: "message too long", revision: 1, message: strings.Repeat("x", 2000)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newTestHandler(withReleaseBindingService(releasebindingmocks.NewMockService(t)))
+			actx, data := audit.NewAuditContext(context.Background(),
+				&audit.Resource{Namespace: testNS, Name: testReleaseBindingName}, audit.RequestInfo{})
+			_, err := h.RollbackReleaseBinding(actx, testNS, testReleaseBindingName, tt.revision, true, tt.message)
+			require.Error(t, err)
+			require.NotNil(t, data.Resource)
+			assert.Equal(t, map[string]any{"dryRun": true}, data.Resource.Metadata,
+				"a rejected call is marked with its dryRun; an invalid message is not recorded")
+		})
 	}
 }

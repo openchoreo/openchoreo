@@ -4,7 +4,9 @@
 package mcphandlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -42,7 +44,7 @@ func (h *MCPHandler) GetReleaseBindingRevision(
 	}
 	m := releaseBindingRevisionSummary(*rev)
 	m["snapshotHash"] = rev.Spec.SnapshotHash
-	m["bindingSpec"] = specToMap(rev.Spec.BindingSpec)
+	m["bindingSpec"] = exactSpecToMap(rev.Spec.BindingSpec)
 	if conds := conditionsSummary(rev.Status.Conditions); conds != nil {
 		m["conditions"] = conds
 	}
@@ -54,7 +56,11 @@ func (h *MCPHandler) RollbackReleaseBinding(
 ) (any, error) {
 	// Every call is audited, dry runs (the default) included: dryRun tells a
 	// preview, which changes nothing, from an applied rollback. Set before the
-	// rollback runs so that a failed or denied call is marked too.
+	// call is validated or run, so that a rejected, failed or denied call is
+	// marked too; the message is added once it is valid.
+	audit.SetResource(ctx, &audit.Resource{
+		Namespace: namespaceName, Name: bindingName, Metadata: rollbackAuditMetadata(dryRun, ""),
+	})
 	// The tools always name a revision: an implicit target (revision 0, the
 	// previously active revision) is not offered to agents.
 	if revision < 1 {
@@ -111,7 +117,7 @@ func (h *MCPHandler) GetResourceReleaseBindingRevision(
 	}
 	m := resourceReleaseBindingRevisionSummary(*rev)
 	m["snapshotHash"] = rev.Spec.SnapshotHash
-	m["bindingSpec"] = specToMap(rev.Spec.BindingSpec)
+	m["bindingSpec"] = exactSpecToMap(rev.Spec.BindingSpec)
 	if conds := conditionsSummary(rev.Status.Conditions); conds != nil {
 		m["conditions"] = conds
 	}
@@ -123,7 +129,11 @@ func (h *MCPHandler) RollbackResourceReleaseBinding(
 ) (any, error) {
 	// Every call is audited, dry runs (the default) included: dryRun tells a
 	// preview, which changes nothing, from an applied rollback. Set before the
-	// rollback runs so that a failed or denied call is marked too.
+	// call is validated or run, so that a rejected, failed or denied call is
+	// marked too; the message is added once it is valid.
+	audit.SetResource(ctx, &audit.Resource{
+		Namespace: namespaceName, Name: bindingName, Metadata: rollbackAuditMetadata(dryRun, ""),
+	})
 	// The tools always name a revision: an implicit target (revision 0, the
 	// previously active revision) is not offered to agents.
 	if revision < 1 {
@@ -212,6 +222,23 @@ func rollbackResult(bindingName string, result *bindingrevision.RollbackResult) 
 	if result.DryRun {
 		m["nextStep"] = "Nothing was changed. Show the user the changes and every warning, ask them to confirm, " +
 			"and only then call again with dry_run=false."
+	}
+	return m
+}
+
+// exactSpecToMap converts a recorded binding spec to a map as specToMap does,
+// but keeps numbers as written (json.Number): a config value above 2^53 would
+// otherwise be rounded.
+func exactSpecToMap(spec any) map[string]any {
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return nil
 	}
 	return m
 }

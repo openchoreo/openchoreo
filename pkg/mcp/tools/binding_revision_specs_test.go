@@ -22,17 +22,19 @@ func deploymentBindingRevisionSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"revision", "knownGood", "rollback_release_binding"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "component_name"},
-			optionalParams:      []string{"environment", "limit", "cursor"},
+			optionalParams:      []string{"environment", "binding_name", "limit", "cursor"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"component_name": testComponentName,
 				"environment":    "development",
+				"binding_name":   testReleaseBindingName,
 			},
 			expectedMethod: "ListReleaseBindingRevisions",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != "development" {
-					t.Errorf("Expected (%s, %s, development), got (%v, %v, %v)",
-						testNamespaceName, testComponentName, args[0], args[1], args[2])
+				if args[0] != testNamespaceName || args[1] != testComponentName || args[2] != "development" ||
+					args[3] != testReleaseBindingName {
+					t.Errorf("Expected (%s, %s, development, %s), got (%v, %v, %v, %v)",
+						testNamespaceName, testComponentName, testReleaseBindingName, args[0], args[1], args[2], args[3])
 				}
 			},
 		},
@@ -84,15 +86,17 @@ func deploymentBindingRevisionSpecs() []toolTestSpec {
 			descriptionKeywords: []string{"revision", "knownGood", "rollback_resource_release_binding"},
 			descriptionMinLen:   10,
 			requiredParams:      []string{"namespace_name", "resource_name"},
-			optionalParams:      []string{"environment", "limit", "cursor"},
+			optionalParams:      []string{"environment", "binding_name", "limit", "cursor"},
 			testArgs: map[string]any{
 				"namespace_name": testNamespaceName,
 				"resource_name":  "my-db",
+				"binding_name":   "my-db-development",
 			},
 			expectedMethod: "ListResourceReleaseBindingRevisions",
 			validateCall: func(t *testing.T, args []interface{}) {
-				if args[0] != testNamespaceName || args[1] != "my-db" || args[2] != "" {
-					t.Errorf("Expected (%s, my-db, \"\"), got (%v, %v, %v)", testNamespaceName, args[0], args[1], args[2])
+				if args[0] != testNamespaceName || args[1] != "my-db" || args[2] != "" || args[3] != "my-db-development" {
+					t.Errorf("Expected (%s, my-db, \"\", my-db-development), got (%v, %v, %v, %v)",
+						testNamespaceName, args[0], args[1], args[2], args[3])
 				}
 			},
 		},

@@ -15,17 +15,21 @@ import (
 // The descriptions spell out the rollback procedure an agent must follow, since
 // a rollback changes what runs in an environment.
 
-const revisionFieldsDescription = "Each revision records one distinct spec of the binding. Its object name is " +
-	"{binding}-r{N} and it is shown to people as displayName {component}-r{N}, or {resource}-r{N} for a " +
+const revisionFieldsDescription = "Each revision records one distinct spec of the binding. Its object name, " +
+	"the name field, is usually {binding}-r{N} but is shortened and hashed when long, so use it as returned " +
+	"rather than building it. It is shown to people as displayName {component}-r{N}, or {resource}-r{N} for a " +
 	"resource binding (e.g. frontend-r1); N counts " +
 	"from 1 per binding: " +
 	"revision number, cause (Deploy, Promote, Override, Undeploy, Redeploy), the release it bound, health " +
-	"(Progressing, Healthy, Degraded, Failed, Unknown), active (the one the binding applies now) and " +
+	"(Progressing, Healthy, Degraded, Failed, Unknown), active (the revision recording the spec the binding " +
+	"last recorded, set before its rollout: health tells whether the rollout succeeded) and " +
 	"knownGood (stayed Healthy for the controller's known-good window; never reverts). "
 
 const rollbackProcedure = "Procedure — follow it every time: " +
-	"(1) Pick the target: prefer the newest revision with knownGood=true that is not the active one; " +
-	"use the list tool to find it. Only pick a revision that is not known-good if the user asks for it explicitly. " +
+	"(1) Pick the target from this binding's own history: list it with the list tool's binding_name set to " +
+	"this binding (a component's other bindings, in other environments or release lines, number their own " +
+	"revisions from r1 too). Prefer the newest revision with knownGood=true that is not the active one. " +
+	"Only pick a revision that is not known-good if the user asks for it explicitly. " +
 	"(2) Call this tool with dry_run=true (the default). Nothing is changed. " +
 	"(3) Report to the user: the target revision, the fields in 'changes', and every entry in 'warnings' " +
 	"verbatim, then ask the user to confirm. " +
@@ -83,8 +87,8 @@ func (t *Toolsets) RegisterGetReleaseBindingRevision(s *mcp.Server, perms map[st
 			"(release, overrides, state). " + revisionFieldsDescription,
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name": stringProperty("Revision object name ({binding}-r{N}, e.g. frontend-development-r3). " +
-				"Use list_release_binding_revisions to discover names."),
+			"name": stringProperty("Revision object name, as list_release_binding_revisions returns it " +
+				"(usually {binding}-r{N}, e.g. frontend-development-r3)."),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
@@ -151,8 +155,8 @@ func (t *Toolsets) RegisterGetResourceReleaseBindingRevision(s *mcp.Server, perm
 			"recorded (pinned ResourceRelease, environment configs, retain policy). " + revisionFieldsDescription,
 		InputSchema: createSchema(map[string]any{
 			"namespace_name": defaultStringProperty(),
-			"name": stringProperty("Revision object name ({binding}-r{N}, e.g. frontend-development-r3). " +
-				"Use list_resource_release_binding_revisions to discover names."),
+			"name": stringProperty("Revision object name, as list_resource_release_binding_revisions returns it " +
+				"(usually {binding}-r{N}, e.g. db-development-r3)."),
 		}, []string{"namespace_name", "name"}),
 	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct {
 		NamespaceName string `json:"namespace_name"`
