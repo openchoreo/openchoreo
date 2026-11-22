@@ -5,6 +5,7 @@ package bindingrevision
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -57,11 +58,23 @@ func resourceReleaseBindingRevision() *openchoreov1alpha1.ResourceReleaseBinding
 	}
 }
 
-func expectRejected(err error) {
+// releaseBindingRevisionWebhook is the ReleaseBindingRevision validating
+// webhook's name, as config/webhook/manifests.yaml registers it. The apiserver
+// names the webhook that denied a request in its error.
+const (
+	releaseBindingRevisionWebhook = "vreleasebindingrevision-v1alpha1.kb.io"
+)
+
+// expectRejected asserts that err is the named webhook's denial of a spec
+// change. The CRDs' CEL rule rejects with the same message, but as a
+// different error that names no webhook, so this fails if the webhook did not
+// run.
+func expectRejected(err error, webhookName string) {
 	GinkgoHelper()
 	Expect(err).To(HaveOccurred())
 	Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
-	Expect(err.Error()).To(ContainSubstring(ImmutableSpecMessage))
+	Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("admission webhook %q denied the request", webhookName)))
+	Expect(err.Error()).To(ContainSubstring("spec: Forbidden: " + ImmutableSpecMessage))
 }
 
 // update returns the admission request for updating oldObj to newObj. Each is
@@ -217,7 +230,7 @@ var _ = Describe("binding revision webhook", func() {
 
 			updated := rev.DeepCopy()
 			updated.Spec.BindingSpec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"count":2,"cpu":"100m"}`)}
-			expectRejected(k8sClient.Update(ctx, updated))
+			expectRejected(k8sClient.Update(ctx, updated), releaseBindingRevisionWebhook)
 
 			stored := &openchoreov1alpha1.ReleaseBindingRevision{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), stored)).To(Succeed())
@@ -245,7 +258,7 @@ var _ = Describe("binding revision webhook", func() {
 
 			updated := obj.DeepCopy()
 			Expect(unstructured.SetNestedMap(updated.Object, map[string]any{"y": int64(1)}, "spec", "bindingSpec", "workloadOverrides")).To(Succeed())
-			expectRejected(k8sClient.Update(ctx, updated))
+			expectRejected(k8sClient.Update(ctx, updated), releaseBindingRevisionWebhook)
 
 			stored := &unstructured.Unstructured{}
 			stored.SetGroupVersionKind(obj.GroupVersionKind())
@@ -254,14 +267,26 @@ var _ = Describe("binding revision webhook", func() {
 			Expect(overrides).To(Equal(map[string]any{"x": int64(1)}))
 		})
 
-		It("rejects a config key replacement in a ResourceReleaseBindingRevision", func() {
+		// resourceTypeEnvironmentConfigs is an untyped field, which CEL compares
+		// in full, so here the CEL rule rejects the key replacement. The apiserver
+		// runs CEL before validating webhooks, so the update never reaches the
+		// webhook; the webhook's own decision is covered by the SpecGuard cases
+		// above.
+		It("rejects a config key replacement in a ResourceReleaseBindingRevision by its CEL rule", func() {
 			rev := resourceReleaseBindingRevision()
 			Expect(k8sClient.Create(ctx, rev)).To(Succeed())
 			DeferCleanup(func() { _ = k8sClient.Delete(ctx, rev) })
 
 			updated := rev.DeepCopy()
 			updated.Spec.BindingSpec.ResourceTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"tier":"small"}`)}
-			Expect(k8sClient.Update(ctx, updated)).NotTo(Succeed())
+			err := k8sClient.Update(ctx, updated)
+			Expect(apierrors.IsInvalid(err)).To(BeTrue(), "expected an Invalid error, got %v", err)
+			Expect(err.Error()).To(ContainSubstring("spec: Invalid value: " + ImmutableSpecMessage))
+			Expect(err.Error()).NotTo(ContainSubstring("admission webhook"))
+
+			stored := &openchoreov1alpha1.ResourceReleaseBindingRevision{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), stored)).To(Succeed())
+			Expect(string(stored.Spec.BindingSpec.ResourceTypeEnvironmentConfigs.Raw)).To(MatchJSON(`{"size":"small"}`))
 		})
 	})
 })
