@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -288,13 +289,13 @@ func TestDeleteResourceReleaseBindingRevision(t *testing.T) {
 	})
 
 	t.Run("refuses the newest known-good revision", func(t *testing.T) {
-		c := testutil.NewFakeClient(rrbObjects(t, true)...)
-		binding := getRRB(t, c)
-		binding.Status.HighestRevision = 2
-		require.NoError(t, c.Status().Update(ctx, binding))
+		objs := rrbObjects(t, true)
+		objs[0].(*openchoreov1alpha1.ResourceReleaseBinding).Status.HighestRevision = 2
+		c := testutil.NewFakeClient(objs...)
 		_, err := NewService(c, testutil.TestLogger()).DeleteResourceReleaseBindingRevision(ctx, testNamespace, r1,
 			bindingrevision.DeleteRequest{})
 		require.ErrorIs(t, err, bindingrevision.ErrRevisionProtected)
+		assert.EqualError(t, err, "cannot delete revision 1 because "+string(revision.ProtectionNewestKnownGood))
 	})
 
 	t.Run("a revision of another binding is not found", func(t *testing.T) {
@@ -376,4 +377,33 @@ func TestRollbackResourceReleaseBinding_WithoutRevision(t *testing.T) {
 		require.ErrorIs(t, err, bindingrevision.ErrNoPreviousRevision)
 		assert.Equal(t, rrReleaseB, getRRB(t, c).Spec.ResourceRelease, "the binding is unchanged")
 	})
+}
+
+func TestRollbackResourceReleaseBinding_KeepsExplicitNulls(t *testing.T) {
+	ctx := context.Background()
+	objs := rrbObjects(t, true)
+	spec := rrbSpec(rrReleaseA)
+	spec.ResourceTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"tier":null,"size":"small"}`)}
+	objs[1] = rrbRevision(t, 1, spec, rrbT0)
+	objs[0].(*openchoreov1alpha1.ResourceReleaseBinding).Spec.ResourceTypeEnvironmentConfigs =
+		&runtime.RawExtension{Raw: []byte(`{"tier":"gold","size":"large"}`)}
+	c := testutil.NewFakeClient(objs...)
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackResourceReleaseBinding(ctx, testNamespace, testBindingName,
+		bindingrevision.RollbackRequest{Revision: 1})
+	require.NoError(t, err)
+	b := getRRB(t, c)
+	assert.JSONEq(t, `{"tier":null,"size":"small"}`, string(b.Spec.ResourceTypeEnvironmentConfigs.Raw),
+		"the restored config keeps r1's explicit null")
+	assert.Equal(t, rrReleaseA, b.Spec.ResourceRelease)
+}
+
+func TestRollbackResourceReleaseBinding_RefusesABindingReplacedSinceAuthorization(t *testing.T) {
+	ctx := context.Background()
+	c := testutil.NewFakeClient(rrbObjects(t, true)...)
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackResourceReleaseBinding(ctx, testNamespace, testBindingName,
+		bindingrevision.RollbackRequest{Revision: 1, BindingUID: "uid-of-the-deleted-binding"})
+	require.ErrorIs(t, err, ErrResourceReleaseBindingNotFound)
+	assert.Equal(t, rrReleaseB, getRRB(t, c).Spec.ResourceRelease, "the binding of the same name is left unchanged")
 }

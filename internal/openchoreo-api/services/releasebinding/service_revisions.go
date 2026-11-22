@@ -61,15 +61,13 @@ func (s *releaseBindingService) ListReleaseBindingRevisions(ctx context.Context,
 		rev.TypeMeta = releaseBindingRevisionTypeMeta
 		items = append(items, rev)
 	}
-	sort.Slice(items, func(i, j int) bool {
-		ei, ej := items[i].Spec.BindingSpec.Environment, items[j].Spec.BindingSpec.Environment
-		if ei != ej {
-			return ei < ej
-		}
-		return items[i].Spec.Revision > items[j].Spec.Revision
-	})
+	bindingrevision.SortRevisions(items, releaseBindingRevisionSortKey)
+	return bindingrevision.Paginate(items, releaseBindingRevisionSortKey, opts)
+}
 
-	return bindingrevision.Paginate(items, opts)
+// releaseBindingRevisionSortKey is rev's place in a list of revisions.
+func releaseBindingRevisionSortKey(rev openchoreov1alpha1.ReleaseBindingRevision) bindingrevision.SortKey {
+	return bindingrevision.SortKey{Environment: rev.Spec.BindingSpec.Environment, Revision: rev.Spec.Revision, Name: rev.Name}
 }
 
 // GetReleaseBindingRevision returns one revision by name.
@@ -117,6 +115,9 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 			return nil, ErrReleaseBindingNotFound
 		}
 		return nil, fmt.Errorf("failed to get release binding: %w", err)
+	}
+	if err := bindingrevision.CheckBindingUID(binding, req.BindingUID, ErrReleaseBindingNotFound); err != nil {
+		return nil, err
 	}
 
 	// A binding applied from Git would be restored from Git on the next sync:
@@ -254,13 +255,14 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 }
 
 // patchBindingSpec writes spec to the binding, conditional on the
-// resourceVersion it was read at.
+// resourceVersion it was read at (see bindingrevision.SpecPatch).
 func (s *releaseBindingService) patchBindingSpec(ctx context.Context, binding *openchoreov1alpha1.ReleaseBinding,
 	spec openchoreov1alpha1.ReleaseBindingSpec, message, releaseBindingName string) error {
-	base := binding.DeepCopy()
-	binding.Spec = spec
-	bindingrevision.SetChangeMessage(binding, message)
-	err := s.k8sClient.Patch(ctx, binding, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
+	patch, err := bindingrevision.SpecPatch(binding, spec, message)
+	if err != nil {
+		return err
+	}
+	err = s.k8sClient.Patch(ctx, binding, patch)
 	switch {
 	case err == nil:
 		return nil
@@ -358,7 +360,8 @@ func (s *releaseBindingService) bindingRevisions(ctx context.Context,
 }
 
 // secretReferenceDrift warns about each SecretReference the restored spec uses --
-// through the ComponentRelease's workload or the binding's workload overrides --
+// through the binding's workload overrides, or the ComponentRelease's workload
+// entries they do not replace --
 // that no longer exists, lacks a referenced key, or was recreated after the
 // target revision was recorded.
 func (s *releaseBindingService) secretReferenceDrift(ctx context.Context, namespaceName string,
@@ -376,22 +379,35 @@ func (s *releaseBindingService) secretReferenceDrift(ctx context.Context, namesp
 		}
 		keys[ref.Name][ref.Key] = struct{}{}
 	}
-	addContainer := func(env []openchoreov1alpha1.EnvVar, files []openchoreov1alpha1.FileVar) {
+	// The workload's env and file entries the overrides replace, by key, as the
+	// controller resolves them: an overridden entry's reference is not used.
+	overriddenEnv, overriddenFiles := map[string]struct{}{}, map[string]struct{}{}
+	addContainer := func(env []openchoreov1alpha1.EnvVar, files []openchoreov1alpha1.FileVar, override bool) {
 		for i := range env {
+			if override {
+				overriddenEnv[env[i].Key] = struct{}{}
+			} else if _, replaced := overriddenEnv[env[i].Key]; replaced {
+				continue
+			}
 			if env[i].ValueFrom != nil {
 				add(env[i].ValueFrom.SecretKeyRef)
 			}
 		}
 		for i := range files {
+			if override {
+				overriddenFiles[files[i].Key] = struct{}{}
+			} else if _, replaced := overriddenFiles[files[i].Key]; replaced {
+				continue
+			}
 			if files[i].ValueFrom != nil {
 				add(files[i].ValueFrom.SecretKeyRef)
 			}
 		}
 	}
-	addContainer(componentRelease.Spec.Workload.Container.Env, componentRelease.Spec.Workload.Container.Files)
 	if overrides := restored.WorkloadOverrides; overrides != nil && overrides.Container != nil {
-		addContainer(overrides.Container.Env, overrides.Container.Files)
+		addContainer(overrides.Container.Env, overrides.Container.Files, true)
 	}
+	addContainer(componentRelease.Spec.Workload.Container.Env, componentRelease.Spec.Workload.Container.Files, false)
 
 	var warnings []bindingrevision.Warning
 	for _, name := range names {
