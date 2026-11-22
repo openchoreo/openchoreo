@@ -430,8 +430,8 @@ func main() {
 			"release sets spec.progressingInterval. 20% jitter is added. Must be greater than 0. Defaults to "+
 			"the RENDEREDRELEASE_PROGRESSING_INTERVAL environment variable when set.")
 	flag.DurationVar(&revisions.knownGoodWindow, "revision-known-good-window", revision.DefaultKnownGoodWindow,
-		"How long a binding revision must stay Healthy before it is marked known-good. "+
-			"0 marks it on its first Healthy observation.")
+		"How long a binding revision must stay Healthy, while active, before it is marked known-good. "+
+			"0 marks it on its first Healthy observation. A revision that undeploys is never marked known-good.")
 	flag.IntVar(&revisions.historyLimit, "component-revision-history-limit", revision.DefaultHistoryLimit,
 		"Number of old revisions kept per ReleaseBinding, and per ResourceReleaseBinding too, to allow rollback; "+
 			"the oldest are deleted first. The active revision is always kept and does not count. 0 keeps no old "+
