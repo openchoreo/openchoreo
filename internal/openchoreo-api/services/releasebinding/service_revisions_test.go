@@ -5,6 +5,7 @@ package releasebinding
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"testing"
@@ -253,7 +254,8 @@ func TestRollbackReleaseBinding_DryRunChangesNothing(t *testing.T) {
 	assert.Len(t, result.Changes, 2, "releaseName and the override change: %+v", result.Changes)
 	assert.Equal(t, releaseC, fields["releaseName"].Current)
 	assert.Equal(t, releaseA, fields["releaseName"].Target)
-	assert.Equal(t, map[string]any{"replicas": float64(3)}, fields["componentTypeEnvironmentConfigs"].Current)
+	assert.Equal(t, map[string]any{"replicas": json.Number("3")}, fields["componentTypeEnvironmentConfigs"].Current,
+		"numbers are reported as written")
 	assert.Nil(t, fields["componentTypeEnvironmentConfigs"].Target, "the rollback unsets the override")
 
 	after := getRB(t, c)
