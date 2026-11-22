@@ -217,6 +217,13 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 		Expect(revs[0].Status.Active).To(BeTrue())
 	})
 
+	// r2Spec is read's spec with the config r2 records.
+	r2Spec := func(read *openchoreov1alpha1.ReleaseBinding) openchoreov1alpha1.ReleaseBindingSpec {
+		spec := *read.Spec.DeepCopy()
+		spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"replicas":2,"setting":"x"}`)}
+		return spec
+	}
+
 	It("restores a recorded config exactly, and refuses a stale rollback write", func() {
 		rb := fetchRB(rbName)
 		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"replicas":1,"setting":null}`)}
@@ -242,14 +249,20 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 			"the apiserver stores r1's config as r1 recorded it")
 		Expect(rb.Annotations).To(HaveKeyWithValue(openchoreov1alpha1.AnnotationKeyChangeMessage, "back"))
 
-		By("a rollback patch built from a read the binding has moved past")
+		By("a write from a read the binding's status has moved past is retried")
+		read := fetchRB(rbName)
+		statusOnly := read.DeepCopy()
+		statusOnly.Status.HighestRevision++
+		Expect(k8sClient.Status().Update(ctx, statusOnly)).To(Succeed())
+		Expect(bindingrevision.WriteSpec(ctx, k8sClient, read, r2Spec(read), "", false)).To(Succeed())
+		Expect(string(fetchRB(rbName).Spec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(`{"replicas":2,"setting":"x"}`))
+
+		By("a write from a read the binding's spec has moved past is refused")
 		stale := fetchRB(rbName)
 		moved := stale.DeepCopy()
 		moved.Spec.ComponentTypeEnvironmentConfigs = replicasOverride("7")
 		Expect(k8sClient.Update(ctx, moved)).To(Succeed())
-		patch, err := bindingrevision.SpecPatch(stale, stale.Spec, "")
-		Expect(err).NotTo(HaveOccurred())
-		err = k8sClient.Patch(ctx, stale.DeepCopy(), patch)
+		err = bindingrevision.WriteSpec(ctx, k8sClient, stale, stale.Spec, "", false)
 		Expect(apierrors.IsConflict(err)).To(BeTrue(), "expected a conflict, got %v", err)
 		Expect(string(fetchRB(rbName).Spec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(`{"replicas":7}`))
 	})
