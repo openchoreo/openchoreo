@@ -218,6 +218,40 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
 	})
 
+	It("deactivates a revision left active once observing stops, with no release running", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, "")
+		makeComponent("obs-stale-active")
+		rb := makeBinding("obs-stale-active", deployment)
+
+		// A revision still reading active: deactivating it failed when the
+		// binding switched to Observe, and observing has stopped since.
+		rev := &openchoreov1alpha1.ReleaseBindingRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      rb.Name + "-r1",
+				Namespace: ns,
+				Labels:    map[string]string{revision.LabelKeyBindingUID: string(rb.UID)},
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
+				Revision: 1, Cause: openchoreov1alpha1.RevisionCauseDeploy, SnapshotHash: "managed",
+				BindingSpec: openchoreov1alpha1.ReleaseBindingSpec{
+					Owner: rb.Spec.Owner, Environment: rb.Spec.Environment, ReleaseName: "obs-stale-active-release",
+				},
+			},
+		}
+		Expect(controllerutil.SetControllerReference(rb, rev, k8sClient.Scheme())).To(Succeed())
+		Expect(k8sClient.Create(ctx, rev)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, rev) })
+		rev.Status = openchoreov1alpha1.BindingRevisionStatus{Active: true, Health: openchoreov1alpha1.RevisionHealthHealthy}
+		Expect(k8sClient.Status().Update(ctx, rev)).To(Succeed())
+
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		storedRev := &openchoreov1alpha1.ReleaseBindingRevision{}
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), storedRev)).To(Succeed())
+		Expect(storedRev.Status.Active).To(BeFalse(), "nothing runs the revision")
+		Expect(storedRev.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy), "its health is kept")
+	})
+
 	It("reports nothing observed without claims", func() {
 		makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
 		makeComponent("obs-empty")

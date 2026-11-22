@@ -511,6 +511,12 @@ func (s *Snapshotter[B, R]) create(ctx context.Context, binding B, revs []R, cur
 	if hasCurrent {
 		previous = s.Adapter.Number(current)
 	}
+	// The revision it replaces is the one running: the one whose status reads
+	// active. It is the current one unless a reactivation wrote its status but
+	// not yet its activation annotations.
+	if running, ok := s.statusActive(revs); ok {
+		previous = s.Adapter.Number(running)
+	}
 	built.SetAnnotations(map[string]string{
 		AnnotationKeyBindingGeneration: strconv.FormatInt(binding.GetGeneration(), 10),
 		AnnotationKeyPreviousRevision:  strconv.FormatInt(previous, 10),
@@ -683,6 +689,20 @@ func (s *Snapshotter[B, R]) updateStatus(ctx context.Context, rev R,
 		}
 		return s.Client.Status().Update(ctx, rev)
 	})
+}
+
+// statusActive returns the revision whose status reads active, when exactly
+// one does.
+func (s *Snapshotter[B, R]) statusActive(revs []R) (R, bool) {
+	var found R
+	n := 0
+	for _, rev := range revs {
+		if s.Adapter.Status(rev).Active {
+			found = rev
+			n++
+		}
+	}
+	return found, n == 1
 }
 
 // ceilSecond returns t rounded up to a whole second.
