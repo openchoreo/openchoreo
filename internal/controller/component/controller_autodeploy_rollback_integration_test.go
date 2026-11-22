@@ -41,6 +41,16 @@ var _ = Describe("Component Controller — autoDeploy and a rolled-back binding"
 		return rb
 	}
 
+	// waitForCachedPin waits until the cached client reads the binding pinned to
+	// release, so the reconciles that follow act on the rollback rather than on
+	// a cache that has not seen it.
+	waitForCachedPin := func(release string) {
+		GinkgoHelper()
+		Eventually(func(g Gomega) {
+			g.Expect(fetchBinding(g).Spec.ReleaseName).To(Equal(release))
+		}, itTimeout, itInterval).Should(Succeed())
+	}
+
 	// rollBackTo writes release into the binding, as a rollback does, retrying on
 	// the conflicts a lagging cached client can produce.
 	rollBackTo := func(release string) {
@@ -158,6 +168,7 @@ var _ = Describe("Component Controller — autoDeploy and a rolled-back binding"
 
 		By("rolling the binding back to the first release")
 		rollBackTo(first)
+		waitForCachedPin(first)
 		Eventually(func(g Gomega) {
 			reconcileComponent(g)
 			g.Expect(fetchBinding(g).Spec.ReleaseName).To(Equal(latest), "auto-deploy moved it back")
@@ -171,9 +182,15 @@ var _ = Describe("Component Controller — autoDeploy and a rolled-back binding"
 		By("turning autoDeploy off, then rolling back to the first release")
 		setAutoDeploy(false)
 		rollBackTo(first)
+		waitForCachedPin(first)
 
 		By("a new build changes the workload")
 		changeWorkload("nginx:1.25")
+		Eventually(func(g Gomega) {
+			w := &openchoreov1alpha1.Workload{}
+			g.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: wlName, Namespace: itNamespace}, w)).To(Succeed())
+			g.Expect(w.Spec.Container.Image).To(Equal("nginx:1.25"), "the cache has seen the new build")
+		}, itTimeout, itInterval).Should(Succeed())
 
 		Consistently(func(g Gomega) {
 			reconcileComponent(g)
