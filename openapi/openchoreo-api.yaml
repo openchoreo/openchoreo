@@ -6683,6 +6683,84 @@ paths:
   # Deployment Pipeline Endpoints
   # =============================================================================
 
+  /api/v1/namespaces/{namespaceName}/endpointreleasebindings/{endpointReleaseBindingName}/k8sresources/tree:
+    get:
+      operationId: getEndpointReleaseBindingK8sResourceTree
+      summary: Get K8s resource tree for an endpoint release binding
+      description: Returns a hierarchical view of the live Kubernetes resources deployed by the releases owned by this endpoint release binding, such as the routes and policies its EndpointType renders.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseBindingNameParam'
+      responses:
+        '200':
+          description: K8s resource tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/K8sResourceTreeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/namespaces/{namespaceName}/endpointreleasebindings/{endpointReleaseBindingName}/k8sresources/events:
+    get:
+      operationId: getEndpointReleaseBindingK8sResourceEvents
+      summary: Get K8s resource events for an endpoint release binding
+      description: Returns Kubernetes events for a specific resource in the endpoint release binding's resource tree.
+      tags: [EndpointReleaseBindings]
+      parameters:
+        - $ref: '#/components/parameters/NamespaceNameParam'
+        - $ref: '#/components/parameters/EndpointReleaseBindingNameParam'
+        - name: group
+          in: query
+          required: false
+          description: API group of the resource (empty string or omitted for core resources)
+          schema:
+            type: string
+        - name: version
+          in: query
+          required: true
+          description: API version of the resource (e.g. v1)
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: true
+          description: Kind of the resource
+          schema:
+            type: string
+        - name: name
+          in: query
+          required: true
+          description: Name of the resource
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceEventsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/namespaces/{namespaceName}/deploymentpipelines:
     get:
       operationId: listDeploymentPipelines

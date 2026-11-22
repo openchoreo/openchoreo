@@ -6,11 +6,14 @@ package k8sresources
 import "errors"
 
 var (
-	ErrReleaseBindingNotFound   = errors.New("release binding not found")
-	ErrRenderedReleaseNotFound  = errors.New("rendered release not found")
-	ErrComponentReleaseNotFound = errors.New("component release not found")
-	ErrEnvironmentNotFound      = errors.New("environment not found")
-	ErrResourceNotFound         = errors.New("resource not found in rendered release")
+	ErrReleaseBindingNotFound = errors.New("release binding not found")
+	// ErrEndpointReleaseBindingNotFound is ErrReleaseBindingNotFound for an
+	// EndpointReleaseBinding.
+	ErrEndpointReleaseBindingNotFound = errors.New("endpoint release binding not found")
+	ErrRenderedReleaseNotFound        = errors.New("rendered release not found")
+	ErrComponentReleaseNotFound       = errors.New("component release not found")
+	ErrEnvironmentNotFound            = errors.New("environment not found")
+	ErrResourceNotFound               = errors.New("resource not found in rendered release")
 	// ErrResourceTreeIncomplete means the live tree walk that would prove or
 	// disprove membership did not complete (an agent/gateway error, a forbidden
 	// edge, or truncation), so absence of the target is not authoritative. It must

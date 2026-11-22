@@ -6072,6 +6072,21 @@ type ListEndpointReleaseBindingsParams struct {
 	Cursor *CursorParam `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// GetEndpointReleaseBindingK8sResourceEventsParams defines parameters for GetEndpointReleaseBindingK8sResourceEvents.
+type GetEndpointReleaseBindingK8sResourceEventsParams struct {
+	// Group API group of the resource (empty string or omitted for core resources)
+	Group *string `form:"group,omitempty" json:"group,omitempty"`
+
+	// Version API version of the resource (e.g. v1)
+	Version string `form:"version" json:"version"`
+
+	// Kind Kind of the resource
+	Kind string `form:"kind" json:"kind"`
+
+	// Name Name of the resource
+	Name string `form:"name" json:"name"`
+}
+
 // ListEndpointReleasesParams defines parameters for ListEndpointReleases.
 type ListEndpointReleasesParams struct {
 	// Endpoint Filter by endpoint name (matches spec.owner.endpointName)

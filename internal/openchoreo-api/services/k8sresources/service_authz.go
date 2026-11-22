@@ -20,7 +20,8 @@ import (
 )
 
 const (
-	resourceTypeReleaseBinding = "releasebinding"
+	resourceTypeReleaseBinding         = "releasebinding"
+	resourceTypeEndpointReleaseBinding = "endpointreleasebinding"
 )
 
 // k8sResourcesServiceWithAuthz wraps a Service and adds authorization checks.
@@ -82,6 +83,45 @@ func (s *k8sResourcesServiceWithAuthz) TriggerCronJob(ctx context.Context, names
 		return nil, err
 	}
 	return s.internal.TriggerCronJob(ctx, namespaceName, releaseBindingName, overrides)
+}
+
+func (s *k8sResourcesServiceWithAuthz) GetEndpointResourceTree(ctx context.Context, namespaceName, bindingName string) (*K8sResourceTreeResult, error) {
+	if err := s.checkEndpointReleaseBindingAuthz(ctx, namespaceName, bindingName); err != nil {
+		return nil, err
+	}
+	return s.internal.GetEndpointResourceTree(ctx, namespaceName, bindingName)
+}
+
+func (s *k8sResourcesServiceWithAuthz) GetEndpointResourceEvents(ctx context.Context, namespaceName, bindingName, group, version, kind, name string) (*models.ResourceEventsResponse, error) {
+	if err := s.checkEndpointReleaseBindingAuthz(ctx, namespaceName, bindingName); err != nil {
+		return nil, err
+	}
+	return s.internal.GetEndpointResourceEvents(ctx, namespaceName, bindingName, group, version, kind, name)
+}
+
+// checkEndpointReleaseBindingAuthz fetches the endpoint release binding and
+// checks view authorization, as the endpoint release binding service does.
+func (s *k8sResourcesServiceWithAuthz) checkEndpointReleaseBindingAuthz(ctx context.Context, namespaceName, bindingName string) error {
+	var b openchoreov1alpha1.EndpointReleaseBinding
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: bindingName}, &b); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return ErrEndpointReleaseBindingNotFound
+		}
+		return fmt.Errorf("failed to get endpoint release binding: %w", err)
+	}
+
+	return s.authz.Check(ctx, services.CheckRequest{
+		Action:       authz.ActionViewEndpointReleaseBinding,
+		ResourceType: resourceTypeEndpointReleaseBinding,
+		ResourceID:   bindingName,
+		Hierarchy: authz.ResourceHierarchy{
+			Namespace: namespaceName,
+			Project:   b.Spec.Owner.ProjectName,
+		},
+		Context: authz.Context{
+			Resource: authz.ResourceAttribute{Environment: services.FormatDualScopedResourceName(namespaceName, b.Spec.Environment, false)},
+		},
+	})
 }
 
 // checkReleaseBindingAuthz fetches the release binding and checks view authorization.
