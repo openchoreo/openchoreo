@@ -57,7 +57,9 @@ var _ = BeforeSuite(func() {
 	// passes silently while the CRD contract goes untested. `make test` sets
 	// KUBEBUILDER_ASSETS; for a plain `go test`, install them with
 	// `make envtest && bin/tools/setup-envtest use 1.36.0 --bin-dir bin/tools`.
-	if _, err := os.Stat(binaryAssetsDir); err != nil && os.Getenv("KUBEBUILDER_ASSETS") == "" {
+	// envtest also takes each binary's path from TEST_ASSET_* variables.
+	assetOverrides := os.Getenv("TEST_ASSET_KUBE_APISERVER") != "" && os.Getenv("TEST_ASSET_ETCD") != ""
+	if _, err := os.Stat(binaryAssetsDir); err != nil && os.Getenv("KUBEBUILDER_ASSETS") == "" && !assetOverrides {
 		Fail(fmt.Sprintf("envtest binaries not found at %s and KUBEBUILDER_ASSETS is unset; "+
 			"run `make test`, or install them with `make envtest` and "+
 			"`bin/tools/setup-envtest use 1.36.0 --bin-dir bin/tools`", binaryAssetsDir))
