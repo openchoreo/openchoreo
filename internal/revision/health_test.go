@@ -864,11 +864,44 @@ func TestRecord_FailedDeactivationTrimsNothing(t *testing.T) {
 	require.ErrorContains(t, err, "injected deactivation failure")
 	binding.Status.HighestRevision = res.Highest
 	assert.Equal(t, []int64{1, 2}, revisionNumbers(t, c), "r1 still reads active and is kept")
+	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.Active)
+	assert.False(t, getRBR(t, c, "frontend-development-r2").Status.Active, "r2 is not marked active beside r1")
 
 	failDeactivate = false
 	_, err = s.Record(ctx, binding)
 	require.NoError(t, err)
+	assert.True(t, getRBR(t, c, "frontend-development-r2").Status.Active, "the retry activates r2")
 	assert.Equal(t, []int64{2}, revisionNumbers(t, c), "once r2 is active, a limit of 0 deletes r1")
+}
+
+// The limit a binding was read with is used only while that read is current:
+// a binding changed since, here with a raised limit, is trimmed by the
+// reconcile the change triggers, not with the old limit.
+func TestRecord_TrimsNothingWithALimitTheBindingNoLongerHas(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	binding.Status.HighestRevision = res.Highest
+	recordRevisions(t, s, binding, 1) // r2
+	binding.Status.HighestRevision = 2
+
+	// The reconcile read the binding with a limit of 0; another writer then
+	// raised it to 10.
+	read := binding.DeepCopy()
+	read.Spec.RevisionHistoryLimit = ptr.To(int32(0))
+	stored := &openchoreov1alpha1.ReleaseBinding{}
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), stored))
+	stored.Spec.RevisionHistoryLimit = ptr.To(int32(10))
+	require.NoError(t, c.Update(ctx, stored))
+
+	_, err = s.Record(ctx, read)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 2}, revisionNumbers(t, c), "r1 is not deleted with the limit of 0 the binding no longer has")
 }
 
 func TestRecord_KeepAnnotationDoesNotProtect(t *testing.T) {

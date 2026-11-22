@@ -287,15 +287,18 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Number, result.Name = previous, previousName
 	}
 	errs := []error{statusErr}
+	var cleanupErr error
 	if recorded {
-		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
+		cleanupErr = s.clearChangeAnnotations(ctx, binding)
+		errs = append(errs, cleanupErr)
 	}
 	// Trimmed on every call, not only after a new revision: lowering a limit
 	// on the binding or its Environment creates no revision. Not trimmed from
 	// a binding read older than the current revision's activation, whose limit
 	// may be one the binding no longer has, nor while a revision other than the
-	// active one may still be marked active.
-	if !stale && statusErr == nil {
+	// active one may still be marked active, nor when the cleanup above found
+	// the binding changed since it was read.
+	if !stale && statusErr == nil && cleanupErr == nil {
 		errs = append(errs, s.evict(ctx, binding, revs, result.Number))
 	}
 	return result, kerrors.NewAggregate(errs)
@@ -741,7 +744,17 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 		highestListed = max(highestListed, c.Number)
 	}
 	persisted := s.Adapter.HighestRevision(binding)
-	for _, c := range SelectEvictions(candidates, s.historyLimit(binding)) {
+	evictions := SelectEvictions(candidates, s.historyLimit(binding))
+	if len(evictions) > 0 {
+		// The limit is the one binding was read with. Deleting is not undone, so
+		// trim only while that read is current: a binding changed since, for
+		// example with a raised limit, is trimmed by the reconcile that change
+		// triggers.
+		if current, err := s.bindingIsCurrent(ctx, binding); err != nil || !current {
+			return err
+		}
+	}
+	for _, c := range evictions {
 		if c.Number == highestListed && c.Number > persisted {
 			continue
 		}
@@ -753,6 +766,32 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+// bindingIsCurrent reports whether binding, as read, is still the stored
+// binding: it reads it again through the API reader, past the cache, and
+// compares resourceVersions. A binding already deleted is not current. One
+// that carries no resourceVersion was not read from the API, so there is
+// nothing to compare.
+func (s *Snapshotter[B, R]) bindingIsCurrent(ctx context.Context, binding B) (bool, error) {
+	if binding.GetResourceVersion() == "" {
+		return true, nil
+	}
+	reader := s.APIReader
+	if reader == nil {
+		reader = s.Client
+	}
+	live, ok := binding.DeepCopyObject().(B)
+	if !ok {
+		return false, fmt.Errorf("copy binding %q", binding.GetName())
+	}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(binding), live); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read binding %q before trimming its revisions: %w", binding.GetName(), err)
+	}
+	return live.GetResourceVersion() == binding.GetResourceVersion(), nil
 }
 
 // historyLimit returns the number of old revisions kept for binding: its
