@@ -215,3 +215,17 @@ func TestRollbackReleaseBinding_GitOpsManagedThroughAuthz(t *testing.T) {
 		require.ErrorIs(t, err, services.ErrForbidden)
 	})
 }
+
+func TestRollbackReleaseBinding_GitOpsWithAutoDeployNamesBothSteps(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.binding.Labels = fluxLabels
+	c := testutil.NewFakeClient(autoDeployObjects(f, true)...)
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+		bindingrevision.RollbackRequest{Revision: 1, DryRun: true})
+	require.ErrorIs(t, err, bindingrevision.ErrGitOpsManaged)
+	assert.ErrorContains(t, err, "Revert the binding's configuration in Git")
+	assert.ErrorContains(t, err, "turn off auto-deploy for the component too",
+		"reverting in Git alone would be undone by auto-deploy")
+}
