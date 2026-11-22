@@ -84,6 +84,9 @@ func (s *releaseBindingServiceWithAuthz) RollbackReleaseBinding(ctx context.Cont
 	}); err != nil {
 		return nil, err
 	}
+	// The rollback acts only on the binding checked here, not on another
+	// created under its name since.
+	req.BindingUID = rb.UID
 	return s.internal.RollbackReleaseBinding(ctx, namespaceName, releaseBindingName, req)
 }
 

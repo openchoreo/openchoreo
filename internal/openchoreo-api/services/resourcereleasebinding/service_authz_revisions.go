@@ -83,6 +83,9 @@ func (s *resourceReleaseBindingServiceWithAuthz) RollbackResourceReleaseBinding(
 	}); err != nil {
 		return nil, err
 	}
+	// The rollback acts only on the binding checked here, not on another
+	// created under its name since.
+	req.BindingUID = rb.UID
 	return s.internal.RollbackResourceReleaseBinding(ctx, namespaceName, bindingName, req)
 }
 

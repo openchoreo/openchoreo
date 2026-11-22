@@ -14,12 +14,12 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -205,6 +205,9 @@ type RollbackRequest struct {
 	// binding's change-message annotation with the restored spec; the
 	// controller puts it on the RevisionReactivated event.
 	Message string
+	// BindingUID, when set, is the UID of the binding the caller authorized.
+	// The rollback refuses a binding of the same name with another UID.
+	BindingUID types.UID
 }
 
 // NormalizeMessage returns a rollback message without surrounding whitespace,
@@ -216,20 +219,6 @@ func NormalizeMessage(message string) (string, error) {
 			Msg: fmt.Sprintf("message must be at most %d characters", revision.MaxChangeMessageLength)}
 	}
 	return message, nil
-}
-
-// SetChangeMessage sets the binding's change-message annotation to message, in
-// the write that carries the change it describes. An empty message sets nothing.
-func SetChangeMessage(binding client.Object, message string) {
-	if message == "" {
-		return
-	}
-	annotations := binding.GetAnnotations()
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
-	annotations[openchoreov1alpha1.AnnotationKeyChangeMessage] = message
-	binding.SetAnnotations(annotations)
 }
 
 // RollbackResult describes a rollback, applied or dry-run.
@@ -340,36 +329,102 @@ func asFields(spec any) (map[string]any, error) {
 	return fields, nil
 }
 
-// Paginate returns one page of an already sorted slice. The cursor is an opaque
-// offset into the slice, so pages stay in the slice's order -- which a
-// Kubernetes continue token, returning objects in name order, cannot give.
-func Paginate[T any](items []T, opts services.ListOptions) (*services.ListResult[T], error) {
-	offset := 0
+// SortKey orders a list of revisions: by environment, then newest revision
+// first, then by object name, which makes the key unique to one revision.
+type SortKey struct {
+	Environment string `json:"e"`
+	Revision    int64  `json:"r"`
+	Name        string `json:"n"`
+}
+
+// Before reports whether a revision with key k is listed before one with key o.
+func (k SortKey) Before(o SortKey) bool {
+	switch {
+	case k.Environment != o.Environment:
+		return k.Environment < o.Environment
+	case k.Revision != o.Revision:
+		return k.Revision > o.Revision
+	}
+	return k.Name < o.Name
+}
+
+// SortRevisions sorts items in list order (see SortKey).
+func SortRevisions[T any](items []T, key func(T) SortKey) {
+	sort.Slice(items, func(i, j int) bool { return key(items[i]).Before(key(items[j])) })
+}
+
+// Paginate returns one page of items, sorted with SortRevisions. The cursor is
+// opaque and holds the key of the last revision returned, so the next page
+// resumes after that revision even when revisions are recorded or deleted in
+// between -- an offset would repeat or skip revisions then. A Kubernetes
+// continue token cannot give this order: it returns objects in name order,
+// where r10 sorts before r2.
+func Paginate[T any](items []T, key func(T) SortKey, opts services.ListOptions) (*services.ListResult[T], error) {
+	start := 0
 	if opts.Cursor != "" {
+		var after SortKey
 		raw, err := base64.RawURLEncoding.DecodeString(opts.Cursor)
 		if err == nil {
-			offset, err = strconv.Atoi(string(raw))
+			err = json.Unmarshal(raw, &after)
 		}
-		if err != nil || offset < 0 {
+		if err != nil {
 			return nil, &services.ValidationError{Msg: "invalid cursor"}
 		}
-	}
-	if offset > len(items) {
-		offset = len(items)
+		start = sort.Search(len(items), func(i int) bool { return after.Before(key(items[i])) })
 	}
 
 	end := len(items)
-	if opts.Limit > 0 && offset+opts.Limit < end {
-		end = offset + opts.Limit
+	if opts.Limit > 0 && start+opts.Limit < end {
+		end = start + opts.Limit
 	}
 
-	result := &services.ListResult[T]{Items: items[offset:end]}
+	result := &services.ListResult[T]{Items: items[start:end]}
 	if end < len(items) {
-		result.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(strconv.Itoa(end)))
+		raw, err := json.Marshal(key(items[end-1]))
+		if err != nil {
+			return nil, fmt.Errorf("encode cursor: %w", err)
+		}
+		result.NextCursor = base64.RawURLEncoding.EncodeToString(raw)
 		remaining := int64(len(items) - end)
 		result.RemainingCount = &remaining
 	}
 	return result, nil
+}
+
+// SpecPatch returns the patch a rollback writes: one JSON Patch that replaces
+// the binding's spec whole with spec -- keeping explicit nulls in its free-form
+// configs, which a merge patch would delete -- and, when message is set, the
+// change-message annotation. It carries the resourceVersion binding was read
+// at, so the write fails with a conflict if the binding changed since, or was
+// replaced by another of the same name.
+func SpecPatch(binding client.Object, spec any, message string) (client.Patch, error) {
+	ops := []map[string]any{
+		{"op": "replace", "path": "/metadata/resourceVersion", "value": binding.GetResourceVersion()},
+		{"op": "replace", "path": "/spec", "value": spec},
+	}
+	if message != "" {
+		annotations := make(map[string]string, len(binding.GetAnnotations())+1)
+		for k, v := range binding.GetAnnotations() {
+			annotations[k] = v
+		}
+		annotations[openchoreov1alpha1.AnnotationKeyChangeMessage] = message
+		ops = append(ops, map[string]any{"op": "add", "path": "/metadata/annotations", "value": annotations})
+	}
+	raw, err := json.Marshal(ops)
+	if err != nil {
+		return nil, fmt.Errorf("encode rollback patch: %w", err)
+	}
+	return client.RawPatch(types.JSONPatchType, raw), nil
+}
+
+// CheckBindingUID returns notFound when uid is set and the binding read has
+// another UID: the binding checked for authorization was deleted and another
+// of the same name created since, which the caller was not authorized for.
+func CheckBindingUID(binding metav1.Object, uid types.UID, notFound error) error {
+	if uid != "" && binding.GetUID() != uid {
+		return notFound
+	}
+	return nil
 }
 
 // CommonWarnings returns the pre-flight warnings every binding kind shares,

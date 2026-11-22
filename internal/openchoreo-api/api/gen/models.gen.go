@@ -3867,7 +3867,7 @@ type ReleaseBindingStatus struct {
 	// Conditions Latest available observations of the ReleaseBinding's current state
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
-	// CurrentRevision Object name of the revision this binding currently applies. Use it as is rather than building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character limit is shortened and given a hash. Updated whenever the active revision changes, including when a rollback makes an earlier revision active again.
+	// CurrentRevision Object name of the binding's active revision, the one recording its current spec. Set before the rollout, so it does not confirm that a deploy or rollback succeeded; the revision's health reports that. Use it as is rather than building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character limit is shortened and given a hash. Updated whenever the active revision changes, including when a rollback makes an earlier revision active again.
 	CurrentRevision *string `json:"currentRevision,omitempty"`
 
 	// Endpoints Resolved invoke URLs for each named workload endpoint
@@ -4532,7 +4532,7 @@ type ResourceReleaseBindingStatus struct {
 	// Conditions Latest available observations of the binding's state. Includes Synced, ResourcesReady, OutputsResolved, Ready (aggregate), and Finalizing.
 	Conditions *[]Condition `json:"conditions,omitempty"`
 
-	// CurrentRevision Object name of the revision this binding currently applies. Use it as is rather than building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character limit is shortened and given a hash. Updated whenever the active revision changes, including when a rollback makes an earlier revision active again.
+	// CurrentRevision Object name of the binding's active revision, the one recording its current spec. Set before the rollout, so it does not confirm that a deploy or rollback succeeded; the revision's health reports that. Use it as is rather than building it: it is usually {binding}-r{N}, but a name that would exceed the 253-character limit is shortened and given a hash. Updated whenever the active revision changes, including when a rollback makes an earlier revision active again.
 	CurrentRevision *string `json:"currentRevision,omitempty"`
 
 	// Outputs Resolved outputs for this environment, populated from the underlying RenderedRelease.status by the binding controller.
