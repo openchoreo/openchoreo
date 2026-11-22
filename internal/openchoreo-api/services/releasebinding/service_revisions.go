@@ -120,25 +120,8 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 		return nil, err
 	}
 
-	// A binding applied from Git would be restored from Git on the next sync:
-	// refuse, dry runs included, and change nothing.
-	if err := bindingrevision.RejectGitOpsManaged(binding, "release binding"); err != nil {
+	if err := s.refuseUnrollable(ctx, namespaceName, releaseBindingName, binding); err != nil {
 		return nil, err
-	}
-
-	// Auto-deploy keeps the first environment's binding on the latest release of
-	// its component or release line, so it would undo the rollback within
-	// seconds: refuse it, dry runs included, and change nothing.
-	deployer, err := bindingrevision.AutoDeployBlocksRollback(ctx, s.k8sClient, namespaceName,
-		binding.Spec.Owner.ComponentName, binding.Spec.Owner.ReleaseLine, binding.Spec.Environment)
-	if err != nil {
-		return nil, err
-	}
-	if deployer != "" {
-		return nil, fmt.Errorf("%w for %s, and %q is the first environment of its deployment pipeline, "+
-			"so auto-deploy would move release binding %q back to the latest release right after the rollback. "+
-			"Turn off auto-deploy for the %s, then roll back again", bindingrevision.ErrAutoDeployEnabled,
-			deployer, binding.Spec.Environment, releaseBindingName, autoDeployScope(binding.Spec.Owner.ReleaseLine))
 	}
 
 	revs, err := s.bindingRevisions(ctx, binding)
@@ -253,6 +236,40 @@ func (s *releaseBindingService) RollbackReleaseBinding(ctx context.Context, name
 	s.logger.Info("Rolled back release binding", "namespace", namespaceName, "releaseBinding", releaseBindingName,
 		"targetRevision", targetRevision, "revertedFrom", revertedFrom)
 	return result, nil
+}
+
+// refuseUnrollable refuses a rollback that would not hold, dry runs included,
+// and changes nothing.
+//
+// Auto-deploy keeps the first environment's binding on the latest release of
+// its component or release line, so it would undo the rollback within
+// seconds. A binding applied from Git would be restored from Git on the next
+// sync; when auto-deploy also applies, reverting in Git is not enough on its
+// own, and the refusal says so.
+func (s *releaseBindingService) refuseUnrollable(ctx context.Context, namespaceName, releaseBindingName string,
+	binding *openchoreov1alpha1.ReleaseBinding) error {
+	deployer, err := bindingrevision.AutoDeployBlocksRollback(ctx, s.k8sClient, namespaceName,
+		binding.Spec.Owner.ComponentName, binding.Spec.Owner.ReleaseLine, binding.Spec.Environment)
+	if err != nil {
+		return err
+	}
+
+	if err := bindingrevision.RejectGitOpsManaged(binding, "release binding"); err != nil {
+		if deployer != "" {
+			return fmt.Errorf("%w. Auto-deploy is also enabled for %s and %q is the first environment of its "+
+				"deployment pipeline, so it would move the binding back to the latest release after the revert: "+
+				"turn off auto-deploy for the %s too", err, deployer, binding.Spec.Environment,
+				autoDeployScope(binding.Spec.Owner.ReleaseLine))
+		}
+		return err
+	}
+	if deployer != "" {
+		return fmt.Errorf("%w for %s, and %q is the first environment of its deployment pipeline, "+
+			"so auto-deploy would move release binding %q back to the latest release right after the rollback. "+
+			"Turn off auto-deploy for the %s, then roll back again", bindingrevision.ErrAutoDeployEnabled,
+			deployer, binding.Spec.Environment, releaseBindingName, autoDeployScope(binding.Spec.Owner.ReleaseLine))
+	}
+	return nil
 }
 
 // patchBindingSpec writes spec to the binding (see bindingrevision.WriteSpec):

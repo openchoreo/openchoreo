@@ -7830,7 +7830,10 @@ components:
       name: releaseBindingRevisionName
       in: path
       required: true
-      description: Release binding revision name ({releaseBinding}-r{N})
+      description: >-
+        Release binding revision object name, as metadata.name in a list or get response. Usually
+        {releaseBinding}-r{N}, but a long name is shortened and given a hash, so use the returned
+        name rather than building it.
       schema:
         type: string
         example: api-service-dev-r3
@@ -7947,7 +7950,10 @@ components:
       name: resourceReleaseBindingRevisionName
       in: path
       required: true
-      description: Resource release binding revision name ({resourceReleaseBinding}-r{N})
+      description: >-
+        Resource release binding revision object name, as metadata.name in a list or get response.
+        Usually {resourceReleaseBinding}-r{N}, but a long name is shortened and given a hash, so use
+        the returned name rather than building it.
       schema:
         type: string
         example: analytics-shared-db-dev-r2
