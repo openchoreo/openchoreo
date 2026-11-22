@@ -305,18 +305,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 	// open: a revision error never blocks the rollout; it is returned after
 	// reconcileRelease so the request is retried with backoff.
 	snapshotter := r.revisionSnapshotter(environment)
-	revErr := r.recordRevision(ctx, snapshotter, releaseBinding)
+	active, revErr := r.recordRevision(ctx, snapshotter, releaseBinding)
 
 	var rendered renderedReleaseRead
 	res, err := r.reconcileRelease(ctx, releaseBinding, componentRelease, environment, dataPlaneResult, component, project, releaseLineUID, &rendered)
 
 	// The active revision follows the binding's health as this reconcile left it,
-	// on every return path of reconcileRelease, including errors.
-	if revErr == nil {
+	// on every return path of reconcileRelease, including errors -- and even when
+	// recording failed after the binding had an active revision, so a write that
+	// keeps failing does not leave its health stale.
+	if active {
 		requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, releaseBinding, componentRelease, rendered.release)
 		if healthErr != nil {
 			logger.Error(healthErr, "Failed to update ReleaseBinding revision health")
-			revErr = healthErr
+			revErr = kerrors.NewAggregate([]error{revErr, healthErr})
 		} else {
 			res = withRequeueAfter(res, requeueAfter)
 		}
@@ -332,11 +334,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 // revision.Snapshotter.Record), logs what changed, and points the binding's
 // status at its active revision and the highest revision number it has used.
 // The status is persisted with the rest by the deferred update in Reconcile.
+// active reports whether the binding has an active revision, even when
+// recording returned an error.
 func (r *Reconciler) recordRevision(
 	ctx context.Context,
 	snapshotter *revision.Snapshotter[*openchoreov1alpha1.ReleaseBinding, *openchoreov1alpha1.ReleaseBindingRevision],
 	releaseBinding *openchoreov1alpha1.ReleaseBinding,
-) error {
+) (active bool, err error) {
 	logger := log.FromContext(ctx)
 	revResult, revErr := snapshotter.Record(ctx, releaseBinding)
 	if revErr != nil {
@@ -354,7 +358,7 @@ func (r *Reconciler) recordRevision(
 		releaseBinding.Status.CurrentRevision = revResult.Name
 	}
 	releaseBinding.Status.HighestRevision = max(releaseBinding.Status.HighestRevision, revResult.Highest)
-	return revErr
+	return revResult.Name != "", revErr
 }
 
 // revisionSnapshotter returns the Snapshotter recording this controller's
@@ -399,6 +403,7 @@ func (r *Reconciler) observeRevisionHealth(
 		Generation:      releaseBinding.Generation,
 		Conditions:      releaseBinding.Status.Conditions,
 		SyncedCondition: string(ConditionReleaseSynced),
+		HoldConditions:  []string{string(ConditionConnectionsResolved), string(ConditionResourceDependenciesReady)},
 		Undeploy:        releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy,
 	}
 
@@ -416,6 +421,20 @@ func (r *Reconciler) observeRevisionHealth(
 		observation.RenderedRelease = renderedRelease
 	case !apierrors.IsNotFound(err):
 		return 0, fmt.Errorf("get dataplane RenderedRelease: %w", err)
+	case observation.Undeploy:
+		// An undeploy is done once the observability RenderedRelease is gone
+		// too: until then it stands for the release still being removed.
+		observabilityRelease := &openchoreov1alpha1.RenderedRelease{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      makeObservabilityReleaseName(componentRelease, releaseBinding),
+			Namespace: releaseBinding.Namespace,
+		}, observabilityRelease)
+		switch {
+		case err == nil:
+			observation.RenderedRelease = observabilityRelease
+		case !apierrors.IsNotFound(err):
+			return 0, fmt.Errorf("get observability RenderedRelease: %w", err)
+		}
 	}
 
 	return snapshotter.ObserveHealth(ctx, releaseBinding, observation.Health())
