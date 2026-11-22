@@ -117,7 +117,32 @@ var _ = BeforeSuite(func() {
 		}
 		return conn.Close()
 	}).Should(Succeed())
+
+	// The listener being up does not mean the apiserver calls the webhook yet:
+	// it applies a webhook configuration some time after the object exists.
+	waitForWebhook()
 })
+
+// waitForWebhook returns once the apiserver sends ReleaseBindingRevision
+// updates through the validating webhook: a spec change only the webhook
+// catches, a config key replaced by another, which the CRD's CEL rule lets
+// through, is denied by it.
+func waitForWebhook() {
+	GinkgoHelper()
+	rev := releaseBindingRevision()
+	Expect(k8sClient.Create(ctx, rev)).To(Succeed())
+	attempt := 0
+	Eventually(func(g Gomega) {
+		// Each attempt renames the key anew: an attempt that got through before
+		// the webhook was active changed the stored spec.
+		attempt++
+		g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), rev)).To(Succeed())
+		rev.Spec.BindingSpec.ComponentTypeEnvironmentConfigs.Raw = fmt.Appendf(nil, `{"probe%d":2,"cpu":"100m"}`, attempt)
+		g.Expect(k8sClient.Update(ctx, rev)).To(MatchError(ContainSubstring(
+			fmt.Sprintf("admission webhook %q denied the request", releaseBindingRevisionWebhook))))
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+	Expect(k8sClient.Delete(ctx, rev)).To(Succeed())
+}
 
 var _ = AfterSuite(func() {
 	cancel()
