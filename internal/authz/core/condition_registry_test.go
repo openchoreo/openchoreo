@@ -57,6 +57,19 @@ func TestLookupConditions(t *testing.T) {
 		}
 	})
 
+	t.Run("rollback and revision deletion support resource.environment", func(t *testing.T) {
+		for _, action := range []string{
+			ActionRollbackReleaseBinding,
+			ActionDeleteReleaseBindingRevision,
+			ActionRollbackResourceReleaseBinding,
+			ActionDeleteResourceReleaseBindingRevision,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key, "action %q", action)
+		}
+	})
+
 	t.Run("component mutating actions support resource.componentType", func(t *testing.T) {
 		for _, action := range []string{
 			ActionCreateComponent,
