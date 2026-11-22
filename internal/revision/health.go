@@ -41,26 +41,35 @@ type Observation struct {
 	// RenderedRelease could be produced: "ReleaseSynced" for a ReleaseBinding,
 	// "Synced" for a ResourceReleaseBinding.
 	SyncedCondition string
+	// HoldConditions are the condition types a binding sets False, for its
+	// current generation, while it holds its rollout -- for a ReleaseBinding, a
+	// connection or resource dependency not yet resolved. A held binding does
+	// not evaluate its resources, so ResourcesReady may still describe what it
+	// last evaluated.
+	HoldConditions []string
 	// Undeploy is true when the binding asks for its resources to be removed.
 	Undeploy bool
 	// RenderedRelease is the binding's data-plane RenderedRelease, or nil when
-	// it does not exist.
+	// it does not exist. For an undeploy it is any of the binding's
+	// RenderedReleases that still exists, nil once all are gone.
 	RenderedRelease *openchoreov1alpha1.RenderedRelease
 }
 
 // Health maps an observation to the health of the revision recording the
 // binding's current spec:
 //
-//   - Undeploy: Progressing while the RenderedRelease still exists, Healthy once
-//     it is gone (removal is what the revision asked for).
+//   - Undeploy: Progressing while a RenderedRelease still exists, Healthy once
+//     all are gone (removal is what the revision asked for).
 //   - Failed when the spec could not be rendered or written (Synced False with a
 //     rendering or release-write reason), when the RenderedRelease reports an
 //     apply failure for its current generation, or when ResourcesReady reports
 //     an apply failure, a failed Job, or not-ready resources.
 //   - Progressing while the RenderedRelease does not exist yet, while its
 //     resource health still describes an earlier generation (old pods can be
-//     serving and healthy), and while ResourcesReady has not been evaluated for
-//     this spec -- or reports progressing resources or a running Job.
+//     serving and healthy), while the binding holds its rollout (a
+//     HoldConditions condition is False), and while ResourcesReady has not been
+//     evaluated for this spec -- or reports progressing resources or a running
+//     Job.
 //   - Healthy when ResourcesReady is True for this spec and the RenderedRelease
 //     health is current.
 //   - Degraded when ResourcesReady reports degraded resources.
@@ -91,6 +100,15 @@ func (o Observation) Health() openchoreov1alpha1.RevisionHealth {
 	}
 	if applied.Status == metav1.ConditionFalse {
 		return openchoreov1alpha1.RevisionHealthFailed
+	}
+
+	for _, hold := range o.HoldConditions {
+		if c := o.current(hold); c != nil && c.Status == metav1.ConditionFalse {
+			// The binding returned before evaluating its resources, so a
+			// ResourcesReady from an earlier reconcile can describe another
+			// RenderedRelease.
+			return openchoreov1alpha1.RevisionHealthProgressing
+		}
 	}
 
 	ready := apimeta.FindStatusCondition(o.Conditions, conditionResourcesReady)

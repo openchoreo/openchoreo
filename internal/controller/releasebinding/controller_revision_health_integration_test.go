@@ -204,6 +204,74 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
 	})
 
+	It("stays Progressing while a connection holds the rollout, whatever ResourcesReady still says", func() {
+		r.RevisionKnownGoodWindow = 0
+		reconcileRB()
+		markApplied()
+		setResourcesReady(metav1.ConditionTrue, ReasonReady)
+
+		// The connections guard returned before ResourcesReady was evaluated
+		// again, so the True above can describe an earlier RenderedRelease.
+		rb := fetchRB(rbName)
+		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
+			Type:               string(ConditionConnectionsResolved),
+			Status:             metav1.ConditionFalse,
+			Reason:             "ConnectionsPending",
+			Message:            "set by test",
+			ObservedGeneration: rb.Generation,
+		})
+		Expect(k8sClient.Status().Update(ctx, rb)).To(Succeed())
+
+		observe()
+		r1 := revisionNamed(1)
+		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
+		Expect(r1.Status.KnownGood).To(BeFalse())
+
+		By("once the connections resolve, ResourcesReady decides")
+		rb = fetchRB(rbName)
+		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
+			Type:               string(ConditionConnectionsResolved),
+			Status:             metav1.ConditionTrue,
+			Reason:             "AllConnectionsResolved",
+			ObservedGeneration: rb.Generation,
+		})
+		Expect(k8sClient.Status().Update(ctx, rb)).To(Succeed())
+		observe()
+		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
+	})
+
+	It("keeps an undeploy Progressing until the observability RenderedRelease is gone too", func() {
+		reconcileRB()
+
+		// An observability RenderedRelease that stays while it is deleted.
+		obsName := rrName + "-observability"
+		dp := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rrName}, dp)).To(Succeed())
+		obs := &openchoreov1alpha1.RenderedRelease{ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns, Name: obsName, Finalizers: []string{"openchoreo.dev/test-hold"}}}
+		obs.Spec = dp.Spec
+		Expect(k8sClient.Create(ctx, obs)).To(Succeed())
+		DeferCleanup(func() { forceDeleteRelease(obsName) })
+
+		rb := fetchRB(rbName)
+		rb.Spec.State = openchoreov1alpha1.ReleaseStateUndeploy
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+		reconcileRB()
+		forceDeleteRelease(rrName) // the data-plane release is gone
+
+		observe()
+		Expect(revisionNamed(2).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing),
+			"the observability RenderedRelease is still being removed")
+
+		forceDeleteRelease(obsName)
+		Eventually(func() bool {
+			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: obsName}, &openchoreov1alpha1.RenderedRelease{})
+			return err != nil
+		}, timeout, interval).Should(BeTrue())
+		observe()
+		Expect(revisionNamed(2).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
+	})
+
 	It("stays not known-good when Ready turns Degraded within the window", func() {
 		reconcileRB()
 		markApplied()

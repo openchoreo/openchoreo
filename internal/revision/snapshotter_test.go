@@ -1390,6 +1390,102 @@ func TestReleaseBindingSnapshotter_RollbackRestartsTheHealthWindowAfterAFailedDe
 	assert.Equal(t, now, r1.Status.HealthySince.Time.UTC())
 }
 
+func TestReleaseBindingSnapshotter_FailedDeactivationLeavesTheNewRevisionInactive(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	failDeactivate := false
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && failDeactivate && r.Spec.Revision == 1 && !r.Status.Active {
+					return fmt.Errorf("injected deactivation failure")
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+
+	failDeactivate = true
+	bump(binding, newRelease)
+	_, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected deactivation failure")
+	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.Active, "r1 still reads active")
+	assert.False(t, getRBR(t, c, "frontend-development-r2").Status.Active, "r2 is not marked active beside r1")
+
+	failDeactivate = false
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.False(t, getRBR(t, c, "frontend-development-r1").Status.Active)
+	assert.True(t, getRBR(t, c, "frontend-development-r2").Status.Active, "the retry deactivates r1, then activates r2")
+}
+
+func TestReleaseBindingSnapshotter_RollbackRestartsTheHealthWindowAfterAFailedStatusWrite(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	binding := newBinding("frontend-development")
+	failDeactivate, failActivate := false, false
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && r.Spec.Revision == 1 {
+					if failDeactivate && !r.Status.Active {
+						return fmt.Errorf("injected deactivation failure")
+					}
+					if failActivate && r.Status.Active {
+						return fmt.Errorf("injected activation failure")
+					}
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{
+		KnownGoodWindow: time.Hour, Now: func() time.Time { return now }})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+
+	// r2 is recorded, but r1 cannot be marked inactive: it still reads active
+	// and Healthy.
+	now = now.Add(50 * time.Minute)
+	failDeactivate = true
+	bump(binding, newRelease)
+	_, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected deactivation failure")
+	failDeactivate = false
+
+	// Rolling back to r1 fails to write r1's restarted status.
+	now = now.Add(11 * time.Minute)
+	failActivate = true
+	bump(binding, func(spec *openchoreov1alpha1.ReleaseBindingSpec) { spec.ReleaseName = firstRelease })
+	_, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected activation failure")
+	failActivate = false
+
+	// The retry still restarts r1's health window.
+	now = now.Add(time.Minute)
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.True(t, res.Reactivated, "r1 is not yet the current revision after the failed write")
+	r1 := getRBR(t, c, "frontend-development-r1")
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r1.Status.Health)
+	assert.Nil(t, r1.Status.HealthySince)
+
+	requeue, err := s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	r1 = getRBR(t, c, "frontend-development-r1")
+	assert.False(t, r1.Status.KnownGood, "Healthy before the rollback does not count toward the window")
+	assert.Equal(t, time.Hour, requeue)
+}
+
 func TestReleaseBindingSnapshotter_DeactivateKeepsHealth(t *testing.T) {
 	ctx := context.Background()
 	s, binding, c, _ := reactivationFixture(t)
