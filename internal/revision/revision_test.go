@@ -108,6 +108,17 @@ func TestCanonicalHash_KeyOrderDoesNotChangeHash(t *testing.T) {
 	}
 }
 
+// Env vars are a list: the same entries in another order are another spec.
+func TestCanonicalHash_EnvVarOrderChangesHash(t *testing.T) {
+	withEnv := func(env ...openchoreov1alpha1.EnvVar) openchoreov1alpha1.ReleaseBindingSpec {
+		s := baseSpec()
+		s.WorkloadOverrides.Container.Env = env
+		return s
+	}
+	a, b := openchoreov1alpha1.EnvVar{Key: "A", Value: "1"}, openchoreov1alpha1.EnvVar{Key: "B", Value: "2"}
+	assert.NotEqual(t, mustHash(t, withEnv(a, b)), mustHash(t, withEnv(b, a)))
+}
+
 func TestCanonicalHash_ChangedFieldChangesHash(t *testing.T) {
 	base := mustHash(t, baseSpec())
 
@@ -150,7 +161,7 @@ func TestCanonicalHash_ChangedFieldChangesHash(t *testing.T) {
 			},
 		},
 		{
-			name: "env var order",
+			name: "env var added",
 			mutate: func(s *openchoreov1alpha1.ReleaseBindingSpec) {
 				s.WorkloadOverrides.Container.Env = []openchoreov1alpha1.EnvVar{
 					{Key: "B", Value: "2"}, {Key: "LOG_LEVEL", Value: "info"},
