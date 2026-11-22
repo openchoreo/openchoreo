@@ -81,6 +81,19 @@ func TestGitOpsManager(t *testing.T) {
 			want:        `Argo CD application "guestbook"`,
 		},
 		{
+			name:        "an Argo CD tracking ID of another object, kept by a copy",
+			annotations: map[string]string{annotationKeyArgoCDTrackingID: "guestbook:openchoreo.dev/ReleaseBinding:default/api-staging"},
+		},
+		{
+			name:        "an Argo CD tracking ID of a binding of the same name in another namespace",
+			annotations: map[string]string{annotationKeyArgoCDTrackingID: "guestbook:openchoreo.dev/ReleaseBinding:other/api-development"},
+		},
+		{
+			name:        "an Argo CD tracking ID without an object",
+			annotations: map[string]string{annotationKeyArgoCDTrackingID: "guestbook:openchoreo.dev/ReleaseBinding"},
+			want:        `Argo CD application "guestbook"`,
+		},
+		{
 			name:        "malformed Argo CD tracking annotation",
 			annotations: map[string]string{annotationKeyArgoCDTrackingID: "not-a-tracking-id"},
 			want:        "Argo CD",

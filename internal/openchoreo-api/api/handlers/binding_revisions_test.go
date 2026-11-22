@@ -142,6 +142,36 @@ func TestRollbackAuditRecordsDryRun(t *testing.T) {
 	}
 }
 
+func TestRollback_AuditsAnInvalidRequestWithItsDryRun(t *testing.T) {
+	const ns, binding = "default", "api-development"
+	body := &gen.RollbackRequest{Revision: ptr.To(int64(0)), DryRun: ptr.To(true), Message: ptr.To("too short a revision")}
+
+	t.Run("ReleaseBinding", func(t *testing.T) {
+		h := &Handler{services: &handlerservices.Services{ReleaseBindingService: releasebindingmocks.NewMockService(t)},
+			logger: slog.Default()}
+		ctx, data := audit.NewAuditContext(context.Background(), &audit.Resource{Namespace: ns, Name: binding}, audit.RequestInfo{})
+		resp, err := h.RollbackReleaseBinding(ctx, gen.RollbackReleaseBindingRequestObject{
+			NamespaceName: ns, ReleaseBindingName: binding, Body: body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.RollbackReleaseBinding400JSONResponse{}, resp)
+		require.NotNil(t, data.Resource)
+		assert.Equal(t, map[string]any{"dryRun": true}, data.Resource.Metadata,
+			"a rejected call is marked with its dryRun; the message is not read past the invalid revision")
+	})
+
+	t.Run("ResourceReleaseBinding", func(t *testing.T) {
+		h := &Handler{services: &handlerservices.Services{ResourceReleaseBindingService: resourcereleasebindingmocks.NewMockService(t)},
+			logger: slog.Default()}
+		ctx, data := audit.NewAuditContext(context.Background(), &audit.Resource{Namespace: ns, Name: binding}, audit.RequestInfo{})
+		resp, err := h.RollbackResourceReleaseBinding(ctx, gen.RollbackResourceReleaseBindingRequestObject{
+			NamespaceName: ns, ResourceReleaseBindingName: binding, Body: body})
+		require.NoError(t, err)
+		assert.IsType(t, gen.RollbackResourceReleaseBinding400JSONResponse{}, resp)
+		require.NotNil(t, data.Resource)
+		assert.Equal(t, map[string]any{"dryRun": true}, data.Resource.Metadata)
+	})
+}
+
 func TestClassifyDeleteRevisionError(t *testing.T) {
 	bindingNotFound := errors.New("binding not found")
 

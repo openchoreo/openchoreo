@@ -207,9 +207,11 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Number = s.Adapter.Number(current)
 		result.Name = current.GetName()
 	}
-	// previous is the number of the revision this call replaces, if it makes
-	// another one active.
-	previous := result.Number
+	// previous and previousName are the revision this call replaces, if it
+	// makes another one active. The result names it until the other one is
+	// confirmed active, so the binding's status.currentRevision never points at
+	// a revision whose status does not read active.
+	previous, previousName := result.Number, result.Name
 	// fresh reports whether this binding read may change the active revision;
 	// stale, whether it is older than the current revision's activation.
 	fresh := !hasCurrent || binding.GetGeneration() > recordedGeneration(current)
@@ -240,12 +242,16 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Created = created
 		result.Highest = max(result.Highest, number)
 		// A revision found already created is only projected when this client can
-		// read it; otherwise the next reconcile lists it and projects it then.
-		if found {
-			result.Cause = s.Adapter.RecordedCause(rev)
-			revs = append(revs, rev)
-			recorded = s.Adapter.SnapshotHash(rev) == hash
+		// read it. Otherwise nothing is projected or trimmed now -- the revision
+		// is not among revs, so projecting would leave none active -- and the
+		// reconcile its creation triggers lists it and projects it then.
+		if !found {
+			result.Number, result.Name = previous, previousName
+			return result, nil
 		}
+		result.Cause = s.Adapter.RecordedCause(rev)
+		revs = append(revs, rev)
+		recorded = s.Adapter.SnapshotHash(rev) == hash
 	}
 
 	// A revision made active again starts a new health window, even if its
@@ -258,9 +264,11 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		// and restarts its health window, instead of finding it current with a
 		// window carried over from before.
 		if statusErr != nil {
+			result.Number, result.Name = previous, previousName
 			return result, statusErr
 		}
 		if err := s.markActivated(ctx, reactivate, binding.GetGeneration(), previous); err != nil {
+			result.Number, result.Name = previous, previousName
 			return result, err
 		}
 		if s.Recorder != nil {
@@ -274,16 +282,23 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 				result.Number, result.Name, note)
 		}
 	}
+	if statusErr != nil {
+		// The new revision is recorded but not confirmed active.
+		result.Number, result.Name = previous, previousName
+	}
 	errs := []error{statusErr}
+	var cleanupErr error
 	if recorded {
-		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
+		cleanupErr = s.clearChangeAnnotations(ctx, binding)
+		errs = append(errs, cleanupErr)
 	}
 	// Trimmed on every call, not only after a new revision: lowering a limit
 	// on the binding or its Environment creates no revision. Not trimmed from
 	// a binding read older than the current revision's activation, whose limit
 	// may be one the binding no longer has, nor while a revision other than the
-	// active one may still be marked active.
-	if !stale && statusErr == nil {
+	// active one may still be marked active, nor when the cleanup above found
+	// the binding changed since it was read.
+	if !stale && statusErr == nil && cleanupErr == nil {
 		errs = append(errs, s.evict(ctx, binding, revs, result.Number))
 	}
 	return result, kerrors.NewAggregate(errs)
@@ -294,8 +309,9 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 // keeps the health it last had when it stopped being active.
 //
 // Health and observedAt change together, and only when the health changes.
-// healthySince is set when the revision becomes Healthy and cleared when it
-// leaves Healthy. Once the revision has been Healthy for KnownGoodWindow it is
+// healthySince is set when the revision becomes Healthy, rounded up to a whole
+// second as the API stores it, and cleared when it leaves Healthy. Once the
+// revision has been Healthy for KnownGoodWindow it is
 // marked known-good, and stays known-good whatever happens next. While that
 // window is still running, ObserveHealth returns how long is left, for the
 // caller to requeue after; nothing here sleeps.
@@ -328,6 +344,10 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 	var requeueAfter time.Duration
 	err = s.updateStatus(ctx, active, func(status *openchoreov1alpha1.BindingRevisionStatus) bool {
 		requeueAfter = 0
+		if !status.Active {
+			// Read again after a conflict, the revision is no longer active.
+			return false
+		}
 		now := metav1.NewTime(s.now())
 		changed := false
 
@@ -338,7 +358,11 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 		}
 		switch {
 		case health == openchoreov1alpha1.RevisionHealthHealthy && status.HealthySince == nil:
-			status.HealthySince = &now
+			// Stored with whole seconds, so rounded up: a start read back from
+			// the API never precedes the observation, and the window never ends
+			// early.
+			since := metav1.NewTime(ceilSecond(now.Time))
+			status.HealthySince = &since
 			changed = true
 		case health != openchoreov1alpha1.RevisionHealthHealthy && status.HealthySince != nil:
 			status.HealthySince = nil
@@ -346,7 +370,7 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 		}
 
 		if !status.KnownGood && eligible && health == openchoreov1alpha1.RevisionHealthHealthy {
-			if remaining := s.KnownGoodWindow - now.Sub(status.HealthySince.Time); remaining <= 0 {
+			if remaining := s.KnownGoodWindow - now.Sub(status.HealthySince.Time); s.KnownGoodWindow <= 0 || remaining <= 0 {
 				status.KnownGood = true
 				changed = true
 			} else {
@@ -720,7 +744,17 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 		highestListed = max(highestListed, c.Number)
 	}
 	persisted := s.Adapter.HighestRevision(binding)
-	for _, c := range SelectEvictions(candidates, s.historyLimit(binding)) {
+	evictions := SelectEvictions(candidates, s.historyLimit(binding))
+	if len(evictions) > 0 {
+		// The limit is the one binding was read with. Deleting is not undone, so
+		// trim only while that read is current: a binding changed since, for
+		// example with a raised limit, is trimmed by the reconcile that change
+		// triggers.
+		if current, err := s.bindingIsCurrent(ctx, binding); err != nil || !current {
+			return err
+		}
+	}
+	for _, c := range evictions {
 		if c.Number == highestListed && c.Number > persisted {
 			continue
 		}
@@ -734,6 +768,32 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 	return kerrors.NewAggregate(errs)
 }
 
+// bindingIsCurrent reports whether binding, as read, is still the stored
+// binding: it reads it again through the API reader, past the cache, and
+// compares resourceVersions. A binding already deleted is not current. One
+// that carries no resourceVersion was not read from the API, so there is
+// nothing to compare.
+func (s *Snapshotter[B, R]) bindingIsCurrent(ctx context.Context, binding B) (bool, error) {
+	if binding.GetResourceVersion() == "" {
+		return true, nil
+	}
+	reader := s.APIReader
+	if reader == nil {
+		reader = s.Client
+	}
+	live, ok := binding.DeepCopyObject().(B)
+	if !ok {
+		return false, fmt.Errorf("copy binding %q", binding.GetName())
+	}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(binding), live); err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("read binding %q before trimming its revisions: %w", binding.GetName(), err)
+	}
+	return live.GetResourceVersion() == binding.GetResourceVersion(), nil
+}
+
 // historyLimit returns the number of old revisions kept for binding: its
 // spec.revisionHistoryLimit when set, otherwise HistoryLimit. Never negative.
 func (s *Snapshotter[B, R]) historyLimit(binding B) int {
@@ -741,6 +801,14 @@ func (s *Snapshotter[B, R]) historyLimit(binding B) int {
 		return max(int(*limit), 0)
 	}
 	return max(s.HistoryLimit, 0)
+}
+
+// ceilSecond returns t rounded up to a whole second.
+func ceilSecond(t time.Time) time.Time {
+	if r := t.Truncate(time.Second); !r.Equal(t) {
+		return r.Add(time.Second)
+	}
+	return t
 }
 
 // now returns the current time from Options.Now, or time.Now.

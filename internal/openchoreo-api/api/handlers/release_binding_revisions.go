@@ -95,10 +95,11 @@ func (h *Handler) RollbackReleaseBinding(
 		"releaseBindingName", request.ReleaseBindingName)
 
 	req, invalid := toRollbackRequest(request.Body)
+	// Audited before validation, so a rejected call is marked with its dryRun too.
+	setRollbackAuditResource(ctx, request.NamespaceName, request.ReleaseBindingName, req)
 	if invalid != "" {
 		return gen.RollbackReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(invalid)}, nil
 	}
-	setRollbackAuditResource(ctx, request.NamespaceName, request.ReleaseBindingName, req)
 
 	result, err := h.services.ReleaseBindingService.RollbackReleaseBinding(ctx, request.NamespaceName,
 		request.ReleaseBindingName, req)

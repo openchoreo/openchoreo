@@ -230,7 +230,12 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 		reconcileRB() // r2
 
 		svc := releasebindingsvc.NewService(k8sClient, testutil.TestLogger())
-		_, err := svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1, Message: "back"})
+		before := fetchRB(rbName)
+		_, err := svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1, DryRun: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fetchRB(rbName).ResourceVersion).To(Equal(before.ResourceVersion), "the apiserver's dry run persists nothing")
+
+		_, err = svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1, Message: "back"})
 		Expect(err).NotTo(HaveOccurred())
 		rb = fetchRB(rbName)
 		Expect(string(rb.Spec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(r1Config),

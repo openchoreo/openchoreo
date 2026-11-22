@@ -107,9 +107,13 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return requeueAfter
 	}
+	// observe runs it as a reconcile that rendered would: judging health from
+	// the stored RenderedRelease it read or wrote.
 	observe := func() time.Duration {
 		GinkgoHelper()
-		return observeWith(nil)
+		stored := &openchoreov1alpha1.RenderedRelease{}
+		Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: rrName}, stored)).To(Succeed())
+		return observeWith(stored)
 	}
 
 	override := func(replicas int) {
@@ -160,7 +164,8 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		healthyAt := time.Now()
 		requeue := observe()
 		Expect(requeue).To(BeNumerically(">", 0))
-		Expect(requeue).To(BeNumerically("<=", window), "requeue for the rest of the window instead of sleeping")
+		// The window counts from healthySince, stored rounded up to a whole second.
+		Expect(requeue).To(BeNumerically("<=", window+time.Second), "requeue for the rest of the window instead of sleeping")
 
 		r1 = revisionNamed(1)
 		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
@@ -202,6 +207,25 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		By("the stored RenderedRelease alone would have passed it as Healthy")
 		observe()
 		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
+	})
+
+	It("does not report Healthy from a reconcile that did not render", func() {
+		r.RevisionKnownGoodWindow = 0
+		reconcileRB()
+		markApplied()
+		setResourcesReady(metav1.ConditionTrue, ReasonReady)
+
+		// The reconcile returned before rendering, so its ResourcesReady was not
+		// evaluated against the RenderedRelease it would read now.
+		observeWith(nil)
+		r1 := revisionNamed(1)
+		Expect(r1.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing))
+		Expect(r1.Status.KnownGood).To(BeFalse())
+
+		By("a failure is still recorded without rendering")
+		setResourcesReady(metav1.ConditionFalse, ReasonResourcesNotReady)
+		observeWith(nil)
+		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthFailed))
 	})
 
 	It("stays Progressing while a connection holds the rollout, whatever ResourcesReady still says", func() {
@@ -259,7 +283,7 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		reconcileRB()
 		forceDeleteRelease(rrName) // the data-plane release is gone
 
-		observe()
+		observeWith(nil) // an undeploy does not render
 		Expect(revisionNamed(2).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthProgressing),
 			"the observability RenderedRelease is still being removed")
 
@@ -268,7 +292,7 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: obsName}, &openchoreov1alpha1.RenderedRelease{})
 			return err != nil
 		}, timeout, interval).Should(BeTrue())
-		observe()
+		observeWith(nil) // an undeploy does not render
 		Expect(revisionNamed(2).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
 	})
 
@@ -392,7 +416,7 @@ var _ = Describe("ReleaseBinding Controller — revision health", func() {
 		Expect(conditionFor(fetchRB(rbName), string(ConditionResourcesReady)).Status).To(Equal(metav1.ConditionTrue))
 		Expect(revisionNamed(1).Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy))
 		Expect(result.RequeueAfter).To(BeNumerically(">", 0))
-		Expect(result.RequeueAfter).To(BeNumerically("<=", window))
+		Expect(result.RequeueAfter).To(BeNumerically("<=", window+time.Second))
 
 		By("reconciling again once the window has passed")
 		time.Sleep(result.RequeueAfter) // the test stands in for the workqueue's delayed requeue

@@ -800,7 +800,7 @@ type AuthzScope struct {
 
 // BindingRevisionStatus Observed state of a binding revision. Only the active revision follows the binding's health; a revision that stops being active keeps the health it last had.
 type BindingRevisionStatus struct {
-	// Active True for the revision recording the binding's current spec, the one it is rolling out or running. Set before the rollout; health reports whether the rollout succeeded.
+	// Active True for the revision recording the spec the binding last recorded, the one it is rolling out or running. Set before the rollout; health reports whether the rollout succeeded. A spec the controller cannot record yet, such as one pinning a release that does not exist, leaves the previous revision active.
 	Active     *bool                        `json:"active,omitempty"`
 	Conditions *[]Condition                 `json:"conditions,omitempty"`
 	Health     *BindingRevisionStatusHealth `json:"health,omitempty"`
@@ -2129,7 +2129,7 @@ type DeleteBindingRevisionResponse struct {
 	// RevisionDisplayName How the revision is shown to people, {component or resource name}-r{N}
 	RevisionDisplayName *string `json:"revisionDisplayName,omitempty"`
 
-	// RevisionName The deleted revision's object name, {binding}-r{N}
+	// RevisionName The deleted revision's object name. Usually {binding}-r{N}, but a long name is shortened and given a hash: use it as returned rather than building it.
 	RevisionName string `json:"revisionName"`
 }
 
@@ -4696,7 +4696,7 @@ type RollbackRequest struct {
 	// Message Optional reason for the rollback. It is written to the binding's openchoreo.dev/change-message annotation with the restored spec, shown on the binding's RevisionReactivated event, and recorded in the audit log. A rollback creates no revision, so it is not stored on one.
 	Message *string `json:"message,omitempty"`
 
-	// Revision Number of the revision to roll back to. When omitted, the revision that was active immediately before the current one, by activation history rather than revision number (like kubectl rollout undo). If that revision was deleted, or the history cannot say which it was, the rollback is refused with 409 NO_PREVIOUS_REVISION and nothing is changed.
+	// Revision Number of the revision to roll back to. When omitted, the revision that was active immediately before the current one, by activation history rather than revision number (like kubectl rollout undo). If the current revision records that revision and it was deleted, or the history cannot say which it was, the rollback is refused with 409 NO_PREVIOUS_REVISION and nothing is changed. A current revision recorded before activation history existed is followed by activation order instead: the rollback then goes ahead and returns the PreviousRevisionInferred warning, naming the inferred target.
 	Revision *int64 `json:"revision,omitempty"`
 }
 
@@ -4717,7 +4717,7 @@ type RollbackResponse struct {
 	// RevisionDisplayName How the target revision is shown to people, {component or resource name}-r{N}
 	RevisionDisplayName *string `json:"revisionDisplayName,omitempty"`
 
-	// RevisionName Object name of the revision active after the rollback ({binding}-r{N}). A rollback creates no revision, so this is always the target revision.
+	// RevisionName Object name of the target revision: the one active after the rollback, or, for a dry run, the one that would be. A rollback creates no revision. Usually {binding}-r{N}, but a long name is shortened and given a hash: use it as returned rather than building it.
 	RevisionName string `json:"revisionName"`
 
 	// TargetRevision The revision whose spec is restored

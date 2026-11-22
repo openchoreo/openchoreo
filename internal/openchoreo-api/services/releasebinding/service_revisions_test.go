@@ -13,9 +13,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1252,4 +1255,49 @@ func TestListReleaseBindingRevisions_CursorResumesAfterTheLastRevision(t *testin
 	require.NoError(t, err)
 	require.Len(t, page2.Items, 1)
 	assert.Equal(t, "test-rb-r2", page2.Items[0].Name, "the page after r3 is r2, not r3 again")
+}
+
+func TestRollbackReleaseBinding_DryRunSubmitsTheWriteWithKubernetesDryRun(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	dryRunWrites := 0
+	c := fake.NewClientBuilder().WithScheme(testutil.NewScheme()).WithObjects(f.objects()...).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBinding{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Patch: func(ctx context.Context, cl client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				po := &client.PatchOptions{}
+				po.ApplyOptions(opts)
+				if _, ok := obj.(*openchoreov1alpha1.ReleaseBinding); ok && len(po.DryRun) > 0 {
+					dryRunWrites++
+					// An admission policy rejects the restored spec.
+					return apierrors.NewInvalid(schema.GroupKind{Group: "openchoreo.dev", Kind: "ReleaseBinding"}, testRBName,
+						field.ErrorList{field.Forbidden(field.NewPath("spec", "releaseName"), "denied by policy")})
+				}
+				return cl.Patch(ctx, obj, patch, opts...)
+			},
+		}).Build()
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+		bindingrevision.RollbackRequest{Revision: 1, DryRun: true})
+	require.Error(t, err, "the preview reports what the apply would hit")
+	assert.Contains(t, err.Error(), "denied by policy")
+	assert.Equal(t, 1, dryRunWrites)
+	assert.Equal(t, releaseC, getRB(t, c).Spec.ReleaseName, "nothing is changed")
+}
+
+func TestRollbackReleaseBinding_WithoutAMessageClearsALeftoverOne(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.binding.Annotations = map[string]string{
+		openchoreov1alpha1.AnnotationKeyChangeMessage: "a change the rollback discards",
+		"example.com/kept":                            "yes",
+	}
+	c := f.client()
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+		bindingrevision.RollbackRequest{Revision: 1})
+	require.NoError(t, err)
+	rb := getRB(t, c)
+	assert.NotContains(t, rb.Annotations, openchoreov1alpha1.AnnotationKeyChangeMessage)
+	assert.Equal(t, "yes", rb.Annotations["example.com/kept"])
 }

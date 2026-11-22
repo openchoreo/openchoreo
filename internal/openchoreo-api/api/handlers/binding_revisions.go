@@ -63,14 +63,15 @@ func toRollbackRequest(body *gen.RollbackRequest) (bindingrevision.RollbackReque
 		return bindingrevision.RollbackRequest{}, "Request body is required"
 	}
 	var req bindingrevision.RollbackRequest
+	// dryRun is read first, so an invalid request is still audited with it.
+	if body.DryRun != nil {
+		req.DryRun = *body.DryRun
+	}
 	if body.Revision != nil {
 		if *body.Revision < 1 {
 			return req, "revision must be at least 1, or omitted for the previously active revision"
 		}
 		req.Revision = *body.Revision
-	}
-	if body.DryRun != nil {
-		req.DryRun = *body.DryRun
 	}
 	if body.Message != nil {
 		msg, err := bindingrevision.NormalizeMessage(*body.Message)
