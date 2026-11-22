@@ -8,7 +8,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -213,6 +215,38 @@ var _ = Describe("ReleaseBinding Controller — revision history limit", func() 
 		revs := listRevisions(fetchRB(rbName))
 		Expect(revs).To(HaveLen(2), "no revision is created: r1 becomes active again")
 		Expect(revs[0].Status.Active).To(BeTrue())
+	})
+
+	It("restores a recorded config exactly, and refuses a stale rollback write", func() {
+		rb := fetchRB(rbName)
+		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"replicas":1,"setting":null}`)}
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+		reconcileRB() // r1
+		r1Config := string(listRevisions(fetchRB(rbName))[0].Spec.BindingSpec.ComponentTypeEnvironmentConfigs.Raw)
+
+		rb = fetchRB(rbName)
+		rb.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"replicas":2,"setting":"x"}`)}
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+		reconcileRB() // r2
+
+		svc := releasebindingsvc.NewService(k8sClient, testutil.TestLogger())
+		_, err := svc.RollbackReleaseBinding(ctx, ns, rbName, bindingrevision.RollbackRequest{Revision: 1, Message: "back"})
+		Expect(err).NotTo(HaveOccurred())
+		rb = fetchRB(rbName)
+		Expect(string(rb.Spec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(r1Config),
+			"the apiserver stores r1's config as r1 recorded it")
+		Expect(rb.Annotations).To(HaveKeyWithValue(openchoreov1alpha1.AnnotationKeyChangeMessage, "back"))
+
+		By("a rollback patch built from a read the binding has moved past")
+		stale := fetchRB(rbName)
+		moved := stale.DeepCopy()
+		moved.Spec.ComponentTypeEnvironmentConfigs = replicasOverride("7")
+		Expect(k8sClient.Update(ctx, moved)).To(Succeed())
+		patch, err := bindingrevision.SpecPatch(stale, stale.Spec, "")
+		Expect(err).NotTo(HaveOccurred())
+		err = k8sClient.Patch(ctx, stale.DeepCopy(), patch)
+		Expect(apierrors.IsConflict(err)).To(BeTrue(), "expected a conflict, got %v", err)
+		Expect(string(fetchRB(rbName).Spec.ComponentTypeEnvironmentConfigs.Raw)).To(MatchJSON(`{"replicas":7}`))
 	})
 
 	It("rejects a negative limit on a binding and on an Environment", func() {
