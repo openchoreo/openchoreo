@@ -207,6 +207,9 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Number = s.Adapter.Number(current)
 		result.Name = current.GetName()
 	}
+	// previous is the number of the revision this call replaces, if it makes
+	// another one active.
+	previous := result.Number
 	// fresh reports whether this binding read may change the active revision.
 	fresh := !hasCurrent || binding.GetGeneration() > recordedGeneration(current)
 
@@ -215,25 +218,15 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 	// purpose. A stale binding read whose spec is not recorded keeps them for the
 	// reconcile that records it.
 	recorded := false
+	// reactivate is the existing revision this call makes active again, if any.
+	var reactivate R
 	if match, ok := s.matching(revs, hash); ok {
 		recorded = true
 		if s.Adapter.Number(match) != result.Number && fresh {
-			if err := s.markActivated(ctx, match, binding.GetGeneration(), result.Number); err != nil {
-				return result, err
-			}
+			reactivate = match
 			result.Number = s.Adapter.Number(match)
 			result.Name = match.GetName()
 			result.Reactivated = true
-			if s.Recorder != nil {
-				// No revision records this change, so its message goes on the event.
-				note := ""
-				if msg := ChangeMessage(binding.GetAnnotations()); msg != "" {
-					note = fmt.Sprintf(". Message: %q", msg)
-				}
-				s.Recorder.Eventf(binding, corev1.EventTypeNormal, EventReasonRevisionReactivated,
-					"Revision %d (%s) is active again: the binding spec matches the one it recorded%s",
-					result.Number, result.Name, note)
-			}
 		}
 	} else if fresh {
 		number, rev, found, created, err := s.create(ctx, binding, revs, current, hasCurrent, hash)
@@ -255,7 +248,31 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 
 	// A revision made active again starts a new health window, even if its
 	// status still reads active because deactivating it failed earlier.
-	errs := []error{s.projectStatus(ctx, revs, result.Number, result.Reactivated)}
+	statusErr := s.projectStatus(ctx, revs, result.Number, result.Reactivated)
+	if result.Reactivated {
+		// The revision is marked as the binding's current one only once its
+		// status is written. Until then, the binding still reads as moving to
+		// it, so a reconcile after a failed status write reactivates it again
+		// and restarts its health window, instead of finding it current with a
+		// window carried over from before.
+		if statusErr != nil {
+			return result, statusErr
+		}
+		if err := s.markActivated(ctx, reactivate, binding.GetGeneration(), previous); err != nil {
+			return result, err
+		}
+		if s.Recorder != nil {
+			// No revision records this change, so its message goes on the event.
+			note := ""
+			if msg := ChangeMessage(binding.GetAnnotations()); msg != "" {
+				note = fmt.Sprintf(". Message: %q", msg)
+			}
+			s.Recorder.Eventf(binding, corev1.EventTypeNormal, EventReasonRevisionReactivated,
+				"Revision %d (%s) is active again: the binding spec matches the one it recorded%s",
+				result.Number, result.Name, note)
+		}
+	}
+	errs := []error{statusErr}
 	if recorded {
 		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
 	}
@@ -292,6 +309,11 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 	if s.Adapter.SnapshotHash(active) != hash {
 		// The current spec has no revision yet; the health describes a spec the
 		// active revision does not record.
+		return 0, nil
+	}
+	if !s.Adapter.Status(active).Active {
+		// Its status is not yet marked active, as when a write failed: its
+		// health window starts once it is.
 		return 0, nil
 	}
 
@@ -596,8 +618,9 @@ func (s *Snapshotter[B, R]) clearChangeAnnotations(ctx context.Context, binding 
 //
 // The other revisions are marked inactive before the active one is marked
 // active, so a client reading between the writes sees at most one active
-// revision, never the old and the new together. The active one is still
-// written when a deactivation fails; the error is returned for a retry.
+// revision, never the old and the new together. When a deactivation fails, the
+// active one is not written and the error is returned, so a retry completes the
+// deactivation first.
 func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active int64, restart bool) error {
 	var errs []error
 	project := func(rev R, want bool) {
@@ -623,6 +646,9 @@ func (s *Snapshotter[B, R]) projectStatus(ctx context.Context, revs []R, active 
 		if s.Adapter.Number(rev) != active {
 			project(rev, false)
 		}
+	}
+	if len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
 	}
 	for _, rev := range revs {
 		if s.Adapter.Number(rev) == active {

@@ -133,6 +133,32 @@ func TestObservationHealth(t *testing.T) {
 			want: openchoreov1alpha1.RevisionHealthHealthy,
 		},
 
+		// A binding holding its rollout has not evaluated its resources.
+		{
+			name: "a held rollout is Progressing, whatever ResourcesReady still says",
+			obs: Observation{RenderedRelease: current, HoldConditions: []string{"ConnectionsResolved", "ResourceDependenciesReady"},
+				Conditions: []metav1.Condition{
+					cond("ConnectionsResolved", metav1.ConditionTrue, "AllConnectionsResolved", observedGen),
+					cond("ResourceDependenciesReady", metav1.ConditionFalse, "ResourceDependenciesPending", observedGen),
+					cond("ResourcesReady", metav1.ConditionTrue, "Ready", observedGen)}},
+			want: openchoreov1alpha1.RevisionHealthProgressing,
+		},
+		{
+			name: "a rollout no longer held is judged by ResourcesReady",
+			obs: Observation{RenderedRelease: current, HoldConditions: []string{"ConnectionsResolved"},
+				Conditions: []metav1.Condition{
+					cond("ConnectionsResolved", metav1.ConditionFalse, "ConnectionsPending", observedGen-1),
+					cond("ResourcesReady", metav1.ConditionTrue, "Ready", observedGen)}},
+			want: openchoreov1alpha1.RevisionHealthHealthy,
+		},
+		{
+			name: "a held rollout still reports an apply failure",
+			obs: Observation{RenderedRelease: renderedRelease(3, metav1.ConditionFalse), HoldConditions: []string{"ConnectionsResolved"},
+				Conditions: []metav1.Condition{
+					cond("ConnectionsResolved", metav1.ConditionFalse, "ConnectionsPending", observedGen)}},
+			want: openchoreov1alpha1.RevisionHealthFailed,
+		},
+
 		// Undeploy.
 		{
 			name: "Undeploy with resources still present is Progressing",
@@ -316,6 +342,24 @@ func TestObserveHealth_UnrecordedSpecIsIgnored(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, getRBR(t, c, "frontend-development-r1").Status.Health,
 		"health of an unrecorded spec must not land on the previous revision")
+}
+
+func TestObserveHealth_RevisionNotYetMarkedActiveIsSkipped(t *testing.T) {
+	ctx := context.Background()
+	s, binding, c, _ := observeHealthFixture(t, 0)
+
+	// The revision records the binding's spec, but writing its active status
+	// failed: its health window has not started.
+	r1 := getRBR(t, c, "frontend-development-r1")
+	r1.Status.Active = false
+	require.NoError(t, c.Status().Update(ctx, r1))
+
+	_, err := s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	r1 = getRBR(t, c, "frontend-development-r1")
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r1.Status.Health)
+	assert.False(t, r1.Status.KnownGood)
+	assert.Nil(t, r1.Status.HealthySince)
 }
 
 func TestObserveHealth_RetriesOnConflict(t *testing.T) {
