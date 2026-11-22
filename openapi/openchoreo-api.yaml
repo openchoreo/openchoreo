@@ -4571,8 +4571,9 @@ paths:
 
 
         Without a revision, the target is the revision that was active immediately before the
-        current one. With dryRun, every check runs and the response is the same, but nothing is
-        written. Requires the releasebinding:rollback permission on the binding's component.
+        current one. With dryRun, the same checks run and the restored binding is submitted with
+        Kubernetes dry-run, so admission and validation run on it too; the response is the same,
+        but nothing is written. Requires the releasebinding:rollback permission on the binding's component.
       tags: [ReleaseBindings]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -4610,6 +4611,10 @@ paths:
       description: >-
         Returns the revision history of a component's release bindings, optionally for one
         environment, ordered by environment and then by revision number, newest first.
+        Pagination: the cursor is not a Kubernetes continue token. It records the last revision
+        returned, and the next page resumes after it, so revisions recorded or deleted between
+        pages are neither repeated nor skipped; a revision recorded meanwhile that sorts before
+        the cursor is not returned until the list is read again from the start.
         Requires the releasebinding:view permission.
       tags: [ReleaseBindings]
       parameters:
@@ -6337,8 +6342,9 @@ paths:
 
 
         Without a revision, the target is the revision that was active immediately before the
-        current one. With dryRun, every check runs and the response is the same, but nothing is
-        written. Requires the resourcereleasebinding:rollback permission on the binding's resource.
+        current one. With dryRun, the same checks run and the restored binding is submitted with
+        Kubernetes dry-run, so admission and validation run on it too; the response is the same,
+        but nothing is written. Requires the resourcereleasebinding:rollback permission on the binding's resource.
       tags: [ResourceReleaseBindings]
       parameters:
         - $ref: '#/components/parameters/NamespaceNameParam'
@@ -6376,6 +6382,10 @@ paths:
       description: >-
         Returns the revision history of a resource's release bindings, optionally for one
         environment, ordered by environment and then by revision number, newest first.
+        Pagination: the cursor is not a Kubernetes continue token. It records the last revision
+        returned, and the next page resumes after it, so revisions recorded or deleted between
+        pages are neither repeated nor skipped; a revision recorded meanwhile that sorts before
+        the cursor is not returned until the list is read again from the start.
         Requires the resourcereleasebinding:view permission.
       tags: [ResourceReleaseBindings]
       parameters:
@@ -14052,8 +14062,10 @@ components:
         active:
           type: boolean
           description: >-
-            True for the revision recording the binding's current spec, the one it is rolling out or
-            running. Set before the rollout; health reports whether the rollout succeeded.
+            True for the revision recording the spec the binding last recorded, the one it is rolling
+            out or running. Set before the rollout; health reports whether the rollout succeeded. A
+            spec the controller cannot record yet, such as one pinning a release that does not
+            exist, leaves the previous revision active.
         knownGood:
           type: boolean
           description: >-
@@ -14083,9 +14095,12 @@ components:
           description: >-
             Number of the revision to roll back to. When omitted, the revision that was active
             immediately before the current one, by activation history rather than revision
-            number (like kubectl rollout undo). If that revision was deleted, or the history
-            cannot say which it was, the rollback is refused with 409 NO_PREVIOUS_REVISION
-            and nothing is changed.
+            number (like kubectl rollout undo). If the current revision records that revision
+            and it was deleted, or the history cannot say which it was, the rollback is refused
+            with 409 NO_PREVIOUS_REVISION and nothing is changed. A current revision recorded
+            before activation history existed is followed by activation order instead: the
+            rollback then goes ahead and returns the PreviousRevisionInferred warning, naming
+            the inferred target.
           example: 3
         dryRun:
           type: boolean
@@ -14108,7 +14123,9 @@ components:
       properties:
         revisionName:
           type: string
-          description: The deleted revision's object name, {binding}-r{N}
+          description: >-
+            The deleted revision's object name. Usually {binding}-r{N}, but a long name is shortened
+            and given a hash: use it as returned rather than building it.
           example: api-service-dev-r2
         revisionDisplayName:
           type: string
@@ -14144,8 +14161,9 @@ components:
         revisionName:
           type: string
           description: >-
-            Object name of the revision active after the rollback ({binding}-r{N}). A rollback
-            creates no revision, so this is always the target revision.
+            Object name of the target revision: the one active after the rollback, or, for a dry
+            run, the one that would be. A rollback creates no revision. Usually {binding}-r{N}, but a
+            long name is shortened and given a hash: use it as returned rather than building it.
           example: api-service-dev-r3
         revisionDisplayName:
           type: string
