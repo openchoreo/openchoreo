@@ -15,8 +15,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/record"
@@ -535,6 +537,58 @@ func TestReleaseBindingSnapshotter_AlreadyExistsIsSuccess(t *testing.T) {
 	assert.Equal(t, int64(1), res.Number)
 	assert.Len(t, listRBRs(t, c0), 1)
 	assert.Equal(t, before, getRBR(t, c0, "frontend-development-r1").ResourceVersion, "nothing is written again")
+}
+
+func TestReleaseBindingSnapshotter_UnreadableNewRevisionIsNotProjected(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c0 := newTestClient(t, binding.DeepCopy())
+	require.NoError(t, c0.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	_, err := NewReleaseBindingSnapshotter(c0, newTestScheme(t), Options{HistoryLimit: testHistoryLimit}).Record(ctx, binding)
+	require.NoError(t, err)
+
+	// r2 for the next spec exists, stored by an earlier attempt, but neither
+	// the list nor a read can see it yet.
+	bump(binding, newRelease)
+	_, err = NewReleaseBindingSnapshotter(c0, newTestScheme(t), Options{HistoryLimit: testHistoryLimit}).Record(ctx, binding.DeepCopy())
+	require.NoError(t, err)
+	r1 := getRBR(t, c0, "frontend-development-r1")
+	r1.Status.Active = true
+	require.NoError(t, c0.Status().Update(ctx, r1))
+	r2 := getRBR(t, c0, "frontend-development-r2")
+	r2.Status = openchoreov1alpha1.BindingRevisionStatus{}
+	require.NoError(t, c0.Status().Update(ctx, r2))
+
+	hidden := func(name string) bool { return name == "frontend-development-r2" }
+	c := interceptor.NewClient(c0.(client.WithWatch), interceptor.Funcs{
+		List: func(ctx context.Context, cl client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if err := cl.List(ctx, list, opts...); err != nil {
+				return err
+			}
+			if l, ok := list.(*openchoreov1alpha1.ReleaseBindingRevisionList); ok {
+				kept := l.Items[:0]
+				for _, item := range l.Items {
+					if !hidden(item.Name) {
+						kept = append(kept, item)
+					}
+				}
+				l.Items = kept
+			}
+			return nil
+		},
+		Get: func(ctx context.Context, cl client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && hidden(key.Name) {
+				return apierrors.NewNotFound(schema.GroupResource{Group: "openchoreo.dev", Resource: "releasebindingrevisions"}, key.Name)
+			}
+			return cl.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	res, err := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit}).Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, "frontend-development-r1", res.Name, "r2 cannot be read, so the binding keeps pointing at r1")
+	assert.True(t, getRBR(t, c0, "frontend-development-r1").Status.Active, "r1 is not deactivated for an unseen r2")
+	assert.False(t, getRBR(t, c0, "frontend-development-r2").Status.Active)
 }
 
 func TestReleaseBindingSnapshotter_NameHeldByRevisionOfAnotherSpec(t *testing.T) {
@@ -1479,10 +1533,12 @@ func TestReleaseBindingSnapshotter_FailedDeactivationLeavesTheNewRevisionInactiv
 
 	failDeactivate = true
 	bump(binding, newRelease)
-	_, err = s.Record(ctx, binding)
+	res, err := s.Record(ctx, binding)
 	require.ErrorContains(t, err, "injected deactivation failure")
 	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.Active, "r1 still reads active")
 	assert.False(t, getRBR(t, c, "frontend-development-r2").Status.Active, "r2 is not marked active beside r1")
+	assert.Equal(t, "frontend-development-r1", res.Name, "the binding keeps pointing at r1 until r2 is active")
+	assert.Equal(t, int64(2), res.Highest, "r2's number is still reported as used")
 
 	failDeactivate = false
 	_, err = s.Record(ctx, binding)

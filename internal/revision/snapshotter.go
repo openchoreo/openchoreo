@@ -207,9 +207,11 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Number = s.Adapter.Number(current)
 		result.Name = current.GetName()
 	}
-	// previous is the number of the revision this call replaces, if it makes
-	// another one active.
-	previous := result.Number
+	// previous and previousName are the revision this call replaces, if it
+	// makes another one active. The result names it until the other one is
+	// confirmed active, so the binding's status.currentRevision never points at
+	// a revision whose status does not read active.
+	previous, previousName := result.Number, result.Name
 	// fresh reports whether this binding read may change the active revision;
 	// stale, whether it is older than the current revision's activation.
 	fresh := !hasCurrent || binding.GetGeneration() > recordedGeneration(current)
@@ -240,12 +242,16 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		result.Created = created
 		result.Highest = max(result.Highest, number)
 		// A revision found already created is only projected when this client can
-		// read it; otherwise the next reconcile lists it and projects it then.
-		if found {
-			result.Cause = s.Adapter.RecordedCause(rev)
-			revs = append(revs, rev)
-			recorded = s.Adapter.SnapshotHash(rev) == hash
+		// read it. Otherwise nothing is projected or trimmed now -- the revision
+		// is not among revs, so projecting would leave none active -- and the
+		// reconcile its creation triggers lists it and projects it then.
+		if !found {
+			result.Number, result.Name = previous, previousName
+			return result, nil
 		}
+		result.Cause = s.Adapter.RecordedCause(rev)
+		revs = append(revs, rev)
+		recorded = s.Adapter.SnapshotHash(rev) == hash
 	}
 
 	// A revision made active again starts a new health window, even if its
@@ -258,9 +264,11 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		// and restarts its health window, instead of finding it current with a
 		// window carried over from before.
 		if statusErr != nil {
+			result.Number, result.Name = previous, previousName
 			return result, statusErr
 		}
 		if err := s.markActivated(ctx, reactivate, binding.GetGeneration(), previous); err != nil {
+			result.Number, result.Name = previous, previousName
 			return result, err
 		}
 		if s.Recorder != nil {
@@ -273,6 +281,10 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 				"Revision %d (%s) is active again: the binding spec matches the one it recorded%s",
 				result.Number, result.Name, note)
 		}
+	}
+	if statusErr != nil {
+		// The new revision is recorded but not confirmed active.
+		result.Number, result.Name = previous, previousName
 	}
 	errs := []error{statusErr}
 	if recorded {
@@ -294,8 +306,9 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 // keeps the health it last had when it stopped being active.
 //
 // Health and observedAt change together, and only when the health changes.
-// healthySince is set when the revision becomes Healthy and cleared when it
-// leaves Healthy. Once the revision has been Healthy for KnownGoodWindow it is
+// healthySince is set when the revision becomes Healthy, rounded up to a whole
+// second as the API stores it, and cleared when it leaves Healthy. Once the
+// revision has been Healthy for KnownGoodWindow it is
 // marked known-good, and stays known-good whatever happens next. While that
 // window is still running, ObserveHealth returns how long is left, for the
 // caller to requeue after; nothing here sleeps.
@@ -328,6 +341,10 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 	var requeueAfter time.Duration
 	err = s.updateStatus(ctx, active, func(status *openchoreov1alpha1.BindingRevisionStatus) bool {
 		requeueAfter = 0
+		if !status.Active {
+			// Read again after a conflict, the revision is no longer active.
+			return false
+		}
 		now := metav1.NewTime(s.now())
 		changed := false
 
@@ -338,7 +355,11 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 		}
 		switch {
 		case health == openchoreov1alpha1.RevisionHealthHealthy && status.HealthySince == nil:
-			status.HealthySince = &now
+			// Stored with whole seconds, so rounded up: a start read back from
+			// the API never precedes the observation, and the window never ends
+			// early.
+			since := metav1.NewTime(ceilSecond(now.Time))
+			status.HealthySince = &since
 			changed = true
 		case health != openchoreov1alpha1.RevisionHealthHealthy && status.HealthySince != nil:
 			status.HealthySince = nil
@@ -346,7 +367,7 @@ func (s *Snapshotter[B, R]) ObserveHealth(ctx context.Context, binding B,
 		}
 
 		if !status.KnownGood && eligible && health == openchoreov1alpha1.RevisionHealthHealthy {
-			if remaining := s.KnownGoodWindow - now.Sub(status.HealthySince.Time); remaining <= 0 {
+			if remaining := s.KnownGoodWindow - now.Sub(status.HealthySince.Time); s.KnownGoodWindow <= 0 || remaining <= 0 {
 				status.KnownGood = true
 				changed = true
 			} else {
@@ -741,6 +762,14 @@ func (s *Snapshotter[B, R]) historyLimit(binding B) int {
 		return max(int(*limit), 0)
 	}
 	return max(s.HistoryLimit, 0)
+}
+
+// ceilSecond returns t rounded up to a whole second.
+func ceilSecond(t time.Time) time.Time {
+	if r := t.Truncate(time.Second); !r.Equal(t) {
+		return r.Add(time.Second)
+	}
+	return t
 }
 
 // now returns the current time from Options.Now, or time.Now.

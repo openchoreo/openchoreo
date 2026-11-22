@@ -362,6 +362,82 @@ func TestObserveHealth_RevisionNotYetMarkedActiveIsSkipped(t *testing.T) {
 	assert.Nil(t, r1.Status.HealthySince)
 }
 
+func TestObserveHealth_WindowCountsFromTheStoredStart(t *testing.T) {
+	ctx := context.Background()
+	s, binding, c, clock := observeHealthFixture(t, 500*time.Millisecond)
+
+	// Healthy first at .800: the start is stored, with whole seconds, as the
+	// next second, never as the second before.
+	clock.now = clock.now.Add(800 * time.Millisecond)
+	_, err := s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	r1 := getRBR(t, c, "frontend-development-r1")
+	require.NotNil(t, r1.Status.HealthySince)
+	assert.Equal(t, clock.now.Truncate(time.Second).Add(time.Second), r1.Status.HealthySince.Time.UTC())
+
+	clock.Advance(100 * time.Millisecond) // .900: 100ms Healthy, or 900ms counted from the second before
+	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	assert.False(t, getRBR(t, c, "frontend-development-r1").Status.KnownGood, "the 500ms window has not passed")
+
+	clock.Advance(600 * time.Millisecond) // 1.500, 500ms after the stored start
+	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.KnownGood)
+}
+
+func TestObserveHealth_ZeroWindowMarksTheFirstHealthyObservation(t *testing.T) {
+	ctx := context.Background()
+	s, binding, c, clock := observeHealthFixture(t, 0)
+	clock.now = clock.now.Add(800 * time.Millisecond)
+	_, err := s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	assert.True(t, getRBR(t, c, "frontend-development-r1").Status.KnownGood)
+}
+
+func TestObserveHealth_ConflictRetrySkipsARevisionNoLongerActive(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	conflicts := 0
+	c := fake.NewClientBuilder().
+		WithScheme(newTestScheme(t)).
+		WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, c client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				rev, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision)
+				if ok && rev.Status.Health == openchoreov1alpha1.RevisionHealthHealthy && conflicts == 0 {
+					conflicts++
+					// Another writer makes the revision inactive first.
+					other := &openchoreov1alpha1.ReleaseBindingRevision{}
+					if err := c.Get(ctx, client.ObjectKeyFromObject(rev), other); err != nil {
+						return err
+					}
+					other.Status.Active = false
+					if err := c.SubResource(sub).Update(ctx, other); err != nil {
+						return err
+					}
+					return apierrors.NewConflict(schema.GroupResource{Group: "openchoreo.dev", Resource: "releasebindingrevisions"},
+						rev.Name, fmt.Errorf("the object has been modified"))
+				}
+				return c.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+
+	_, err = s.ObserveHealth(ctx, binding, openchoreov1alpha1.RevisionHealthHealthy)
+	require.NoError(t, err)
+	require.Equal(t, 1, conflicts)
+	r1 := getRBR(t, c, "frontend-development-r1")
+	assert.False(t, r1.Status.Active)
+	assert.Equal(t, openchoreov1alpha1.RevisionHealthProgressing, r1.Status.Health,
+		"the retry does not record health on a revision that is no longer active")
+}
+
 func TestObserveHealth_RetriesOnConflict(t *testing.T) {
 	ctx := context.Background()
 	clock := newClock()
