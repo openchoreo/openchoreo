@@ -215,6 +215,11 @@ var ErrLeaseNotHeld = errors.New("delivery insights aggregation lease not held")
 // Store persists delivery facts and metric rollups behind a pluggable SQL backend.
 type Store interface {
 	Initialize(ctx context.Context) error
+	// CheckSchemaVersion returns ErrSchemaNewer once a newer Observer has migrated
+	// the store past what this one knows. Initialize checks the same at startup;
+	// this is for a process already running when that happens, as in a rolling
+	// upgrade, so it stops writing by older rules.
+	CheckSchemaVersion(ctx context.Context) error
 	UpsertDeploymentFacts(ctx context.Context, facts []DeploymentFact) error
 	UpsertRecoveryFacts(ctx context.Context, facts []RecoveryFact) error
 	UpsertRollups(ctx context.Context, rollups []MetricRollup) error

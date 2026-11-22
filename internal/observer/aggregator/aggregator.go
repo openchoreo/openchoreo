@@ -117,6 +117,10 @@ type Aggregator struct {
 	// rather than a warning every tick. An install with no logs adapter fails every
 	// sweep, indefinitely.
 	eventsFailing atomic.Bool
+	// schemaNewer latches once the store has been migrated past what this
+	// Observer knows, so the stop is logged once. It does not unlatch: only a
+	// newer Observer can aggregate into that store, and this process is not one.
+	schemaNewer atomic.Bool
 	// events is the sweep source, and the events path is skipped while it is nil.
 	// Production always supplies one: whether the deployed adapter can actually serve
 	// the sweep is answered by the adapter itself (501, recorded in
@@ -232,6 +236,9 @@ func (a *Aggregator) tick(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
+	if !a.schemaSupported(ctx) {
+		return
+	}
 	held, err := a.store.AcquireLease(
 		ctx, aggregationLease, a.holder, a.leaseTTL().Milliseconds(),
 	)
@@ -275,6 +282,38 @@ func (a *Aggregator) tick(ctx context.Context) {
 		a.logger.Warn("DORA aggregation tick abandoned after losing the lease", "holder", a.holder)
 	default:
 		a.logger.Error("DORA aggregation tick failed", "error", err)
+	}
+}
+
+// schemaSupported reports whether this Observer may still write to the store.
+// Startup refuses a store a newer Observer has migrated; this covers one migrated
+// while this process was already running, as in a rolling upgrade, so an older
+// replica stops writing facts and rollups by its own rules into tables shaped for
+// the newer ones. On the first tick that finds it, the lease is released so a
+// newer replica takes over at once rather than after the TTL.
+//
+// A failure to read the version skips the tick: it is the store failing, which
+// the tick's own reads and writes would meet anyway.
+func (a *Aggregator) schemaSupported(ctx context.Context) bool {
+	if a.schemaNewer.Load() {
+		return false
+	}
+	err := a.store.CheckSchemaVersion(ctx)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, deliveryinsights.ErrSchemaNewer):
+		a.schemaNewer.Store(true)
+		a.logger.Error("Delivery insights store was migrated by a newer Observer; this one stops "+
+			"aggregating and leaves it to the newer replicas. Reads are still served.",
+			"holder", a.holder, "error", err)
+		a.releaseLease()
+		return false
+	default:
+		if ctx.Err() == nil {
+			a.logger.Error("Failed to read the delivery insights schema version, skipping tick", "error", err)
+		}
+		return false
 	}
 }
 
