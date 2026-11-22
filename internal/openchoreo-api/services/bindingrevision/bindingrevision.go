@@ -8,6 +8,7 @@
 package bindingrevision
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -316,14 +317,18 @@ func SpecChanges(current, target any) ([]SpecChange, error) {
 	return changes, nil
 }
 
-// asFields decodes a spec into its top-level JSON fields.
+// asFields decodes a spec into its top-level JSON fields. Numbers are kept as
+// written (json.Number), so a large integer in a config is neither rounded in
+// the comparison nor in the values a change reports.
 func asFields(spec any) (map[string]any, error) {
 	raw, err := json.Marshal(spec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal spec: %w", err)
 	}
 	fields := map[string]any{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	if err := dec.Decode(&fields); err != nil {
 		return nil, fmt.Errorf("decode spec: %w", err)
 	}
 	return fields, nil
