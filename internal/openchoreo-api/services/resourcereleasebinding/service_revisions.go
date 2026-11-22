@@ -6,7 +6,6 @@ package resourcereleasebinding
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,15 +55,13 @@ func (s *resourceReleaseBindingService) ListResourceReleaseBindingRevisions(ctx 
 		rev.TypeMeta = resourceReleaseBindingRevisionTypeMeta
 		items = append(items, rev)
 	}
-	sort.Slice(items, func(i, j int) bool {
-		ei, ej := items[i].Spec.BindingSpec.Environment, items[j].Spec.BindingSpec.Environment
-		if ei != ej {
-			return ei < ej
-		}
-		return items[i].Spec.Revision > items[j].Spec.Revision
-	})
+	bindingrevision.SortRevisions(items, resourceReleaseBindingRevisionSortKey)
+	return bindingrevision.Paginate(items, resourceReleaseBindingRevisionSortKey, opts)
+}
 
-	return bindingrevision.Paginate(items, opts)
+// resourceReleaseBindingRevisionSortKey is rev's place in a list of revisions.
+func resourceReleaseBindingRevisionSortKey(rev openchoreov1alpha1.ResourceReleaseBindingRevision) bindingrevision.SortKey {
+	return bindingrevision.SortKey{Environment: rev.Spec.BindingSpec.Environment, Revision: rev.Spec.Revision, Name: rev.Name}
 }
 
 // GetResourceReleaseBindingRevision returns one revision by name.
@@ -103,6 +100,9 @@ func (s *resourceReleaseBindingService) RollbackResourceReleaseBinding(ctx conte
 			return nil, ErrResourceReleaseBindingNotFound
 		}
 		return nil, fmt.Errorf("failed to get resource release binding: %w", err)
+	}
+	if err := bindingrevision.CheckBindingUID(binding, req.BindingUID, ErrResourceReleaseBindingNotFound); err != nil {
+		return nil, err
 	}
 
 	// A binding applied from Git would be restored from Git on the next sync:
@@ -205,12 +205,11 @@ func (s *resourceReleaseBindingService) RollbackResourceReleaseBinding(ctx conte
 		return result, nil
 	}
 
-	base := binding.DeepCopy()
-	binding.Spec = restored
-	bindingrevision.SetChangeMessage(binding, req.Message)
-
-	if err := s.k8sClient.Patch(ctx, binding,
-		client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+	patch, err := bindingrevision.SpecPatch(binding, restored, req.Message)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.k8sClient.Patch(ctx, binding, patch); err != nil {
 		switch {
 		case apierrors.IsConflict(err):
 			return nil, fmt.Errorf("%w: resource release binding %q", bindingrevision.ErrConcurrentModification, bindingName)

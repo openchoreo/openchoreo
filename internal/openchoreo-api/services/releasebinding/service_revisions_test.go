@@ -1078,8 +1078,16 @@ func TestRollbackReleaseBinding_AutoDeploy(t *testing.T) {
 // releaseLineObjects is autoDeployObjects with the binding on release line
 // "next" and, when withLine is true, that line's ReleaseLine with the given
 // spec.autoDeploy (nil inherits the component's).
-func releaseLineObjects(f *fixture, componentAutoDeploy bool, withLine bool, lineAutoDeploy *bool) []client.Object {
+func releaseLineObjects(t *testing.T, f *fixture, componentAutoDeploy bool, withLine bool, lineAutoDeploy *bool) []client.Object {
+	t.Helper()
+	// The binding and every revision it recorded are on the line.
 	f.binding.Spec.Owner.ReleaseLine = testReleaseLine
+	for _, rev := range f.revs {
+		rev.Spec.BindingSpec.Owner.ReleaseLine = testReleaseLine
+		hash, err := revision.ReleaseBindingSpecHash(&rev.Spec.BindingSpec)
+		require.NoError(t, err)
+		rev.Spec.SnapshotHash = hash
+	}
 	objs := autoDeployObjects(f, componentAutoDeploy)
 	if withLine {
 		objs = append(objs, &openchoreov1alpha1.ReleaseLine{
@@ -1103,27 +1111,37 @@ func TestRollbackReleaseBinding_ReleaseLineAutoDeploy(t *testing.T) {
 	on, off := true, false
 
 	t.Run("the line's auto-deploy on, component's off: refused, naming the line", func(t *testing.T) {
-		err := dryRun(testutil.NewFakeClient(releaseLineObjects(newFixture(t), false, true, &on)...))
+		err := dryRun(testutil.NewFakeClient(releaseLineObjects(t, newFixture(t), false, true, &on)...))
 		require.ErrorIs(t, err, bindingrevision.ErrAutoDeployEnabled)
 		assert.ErrorContains(t, err, `auto-deploy is enabled for release line "next" of component "`+testComponentName+`"`)
 		assert.ErrorContains(t, err, "Turn off auto-deploy for the release line, then roll back again")
 	})
 
 	t.Run("the line inherits the component's auto-deploy: refused", func(t *testing.T) {
-		err := dryRun(testutil.NewFakeClient(releaseLineObjects(newFixture(t), true, true, nil)...))
+		err := dryRun(testutil.NewFakeClient(releaseLineObjects(t, newFixture(t), true, true, nil)...))
 		require.ErrorIs(t, err, bindingrevision.ErrAutoDeployEnabled)
 	})
 
 	t.Run("the line turns off the component's auto-deploy: allowed", func(t *testing.T) {
-		require.NoError(t, dryRun(testutil.NewFakeClient(releaseLineObjects(newFixture(t), true, true, &off)...)))
+		require.NoError(t, dryRun(testutil.NewFakeClient(releaseLineObjects(t, newFixture(t), true, true, &off)...)))
+	})
+
+	t.Run("an allowed rollback restores the release and keeps the binding on its line", func(t *testing.T) {
+		c := testutil.NewFakeClient(releaseLineObjects(t, newFixture(t), true, true, &off)...)
+		_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+			bindingrevision.RollbackRequest{Revision: 1})
+		require.NoError(t, err)
+		rb := getRB(t, c)
+		assert.Equal(t, releaseA, rb.Spec.ReleaseName)
+		assert.Equal(t, testReleaseLine, rb.Spec.Owner.ReleaseLine)
 	})
 
 	t.Run("the line does not exist, so nothing auto-deploys it: allowed", func(t *testing.T) {
-		require.NoError(t, dryRun(testutil.NewFakeClient(releaseLineObjects(newFixture(t), true, false, nil)...)))
+		require.NoError(t, dryRun(testutil.NewFakeClient(releaseLineObjects(t, newFixture(t), true, false, nil)...)))
 	})
 
 	t.Run("a ReleaseLine of the same name owned by another component does not count: allowed", func(t *testing.T) {
-		objs := releaseLineObjects(newFixture(t), false, true, &on)
+		objs := releaseLineObjects(t, newFixture(t), false, true, &on)
 		for _, o := range objs {
 			if rl, ok := o.(*openchoreov1alpha1.ReleaseLine); ok {
 				rl.Spec.Owner.ComponentName = "other"
@@ -1134,8 +1152,102 @@ func TestRollbackReleaseBinding_ReleaseLineAutoDeploy(t *testing.T) {
 
 	t.Run("a main-line binding ignores release lines: the component's auto-deploy decides", func(t *testing.T) {
 		f := newFixture(t)
-		objs := releaseLineObjects(f, false, true, &on)
+		objs := releaseLineObjects(t, f, false, true, &on)
 		f.binding.Spec.Owner.ReleaseLine = ""
+		for _, rev := range f.revs {
+			rev.Spec.BindingSpec.Owner.ReleaseLine = ""
+			hash, err := revision.ReleaseBindingSpecHash(&rev.Spec.BindingSpec)
+			require.NoError(t, err)
+			rev.Spec.SnapshotHash = hash
+		}
 		require.NoError(t, dryRun(testutil.NewFakeClient(objs...)))
 	})
+}
+
+// ─────────────────────────────────────────────────────────────
+// Review fixes
+// ─────────────────────────────────────────────────────────────
+
+func TestRollbackReleaseBinding_SecretReferencesOfTheEffectiveWorkload(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	// r1 overrides DB_PASSWORD with a literal; the release sources it, and
+	// DB_USER, from SecretReferences that are gone.
+	spec := specFor(releaseA, "")
+	spec.WorkloadOverrides = &openchoreov1alpha1.WorkloadOverrideTemplateSpec{
+		Container: &openchoreov1alpha1.ContainerOverride{Env: []openchoreov1alpha1.EnvVar{{Key: "DB_PASSWORD", Value: "literal"}}},
+	}
+	f.revs[0] = newRevision(t, testRBName, rbUID, 1, spec, t0)
+	objs := f.objects()
+	for _, o := range objs {
+		if cr, ok := o.(*openchoreov1alpha1.ComponentRelease); ok && cr.Name == releaseA {
+			cr.Spec.Workload.Container.Env = []openchoreov1alpha1.EnvVar{
+				{Key: "DB_PASSWORD", ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "old-password", Key: "password"}}},
+				{Key: "DB_USER", ValueFrom: &openchoreov1alpha1.EnvVarValueFrom{
+					SecretKeyRef: &openchoreov1alpha1.SecretKeyRef{Name: "old-user", Key: "user"}}},
+			}
+		}
+	}
+
+	result, err := NewService(testutil.NewFakeClient(objs...), testutil.TestLogger()).RollbackReleaseBinding(ctx,
+		testNamespace, testRBName, bindingrevision.RollbackRequest{Revision: 1, DryRun: true})
+	require.NoError(t, err)
+	var msgs []string
+	for _, w := range result.Warnings {
+		if w.Code == bindingrevision.WarningSecretReferenceDrift {
+			msgs = append(msgs, w.Message)
+		}
+	}
+	assert.Equal(t, []string{`SecretReference "old-user" used by revision 1 no longer exists`}, msgs,
+		"the overridden DB_PASSWORD does not use old-password")
+}
+
+func TestRollbackReleaseBinding_KeepsExplicitNulls(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	spec := specFor(releaseA, "")
+	spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"setting":null,"other":1}`)}
+	f.revs[0] = newRevision(t, testRBName, rbUID, 1, spec, t0)
+	f.binding.Spec.ComponentTypeEnvironmentConfigs = &runtime.RawExtension{Raw: []byte(`{"setting":"x","other":2}`)}
+	c := f.client()
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+		bindingrevision.RollbackRequest{Revision: 1, Message: "back to r1"})
+	require.NoError(t, err)
+	rb := getRB(t, c)
+	assert.JSONEq(t, `{"setting":null,"other":1}`, string(rb.Spec.ComponentTypeEnvironmentConfigs.Raw),
+		"the restored config keeps r1's explicit null")
+	assert.Equal(t, releaseA, rb.Spec.ReleaseName)
+	assert.Equal(t, "back to r1", rb.Annotations[openchoreov1alpha1.AnnotationKeyChangeMessage])
+}
+
+func TestRollbackReleaseBinding_RefusesABindingReplacedSinceAuthorization(t *testing.T) {
+	ctx := context.Background()
+	c := newFixture(t).client()
+
+	_, err := NewService(c, testutil.TestLogger()).RollbackReleaseBinding(ctx, testNamespace, testRBName,
+		bindingrevision.RollbackRequest{Revision: 1, BindingUID: "uid-of-the-deleted-binding"})
+	require.ErrorIs(t, err, ErrReleaseBindingNotFound)
+	assert.Equal(t, releaseC, getRB(t, c).Spec.ReleaseName, "the binding of the same name is left unchanged")
+}
+
+func TestListReleaseBindingRevisions_CursorResumesAfterTheLastRevision(t *testing.T) {
+	ctx := context.Background()
+	c := newFixture(t).client()
+	svc := NewService(c, testutil.TestLogger())
+
+	page1, err := svc.ListReleaseBindingRevisions(ctx, testNamespace, testComponentName, "", "", services.ListOptions{Limit: 1})
+	require.NoError(t, err)
+	require.Len(t, page1.Items, 1)
+	assert.Equal(t, "test-rb-r3", page1.Items[0].Name)
+
+	// r4 is recorded before the next page is read.
+	require.NoError(t, c.Create(ctx, newRevision(t, testRBName, rbUID, 4, specFor(releaseA, "4"), t0.Add(3*time.Hour))))
+
+	page2, err := svc.ListReleaseBindingRevisions(ctx, testNamespace, testComponentName, "", "",
+		services.ListOptions{Limit: 1, Cursor: page1.NextCursor})
+	require.NoError(t, err)
+	require.Len(t, page2.Items, 1)
+	assert.Equal(t, "test-rb-r2", page2.Items[0].Name, "the page after r3 is r2, not r3 again")
 }

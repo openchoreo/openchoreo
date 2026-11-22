@@ -124,9 +124,10 @@ func TestRollbackHTTP_GitOpsManaged(t *testing.T) {
 		kind, path, name string
 		get              func(c client.Client) (string, string) // resourceVersion, release
 		wantMessage      string
+		wantRelease      string // the release r1 binds
 	}{
 		{
-			kind: "ReleaseBinding", name: gitOpsRB,
+			kind: "ReleaseBinding", name: gitOpsRB, wantRelease: "api-a",
 			path: "/api/v1/namespaces/" + gitOpsNS + "/releasebindings/" + gitOpsRB + "/rollback",
 			get: func(c client.Client) (string, string) {
 				b := &openchoreov1alpha1.ReleaseBinding{}
@@ -139,7 +140,7 @@ func TestRollbackHTTP_GitOpsManaged(t *testing.T) {
 				`in Git on its next sync. Revert the binding's configuration in Git and let GitOps reconcile the change`,
 		},
 		{
-			kind: "ResourceReleaseBinding", name: gitOpsRRB,
+			kind: "ResourceReleaseBinding", name: gitOpsRRB, wantRelease: "db-a",
 			path: "/api/v1/namespaces/" + gitOpsNS + "/resourcereleasebindings/" + gitOpsRRB + "/rollback",
 			get: func(c client.Client) (string, string) {
 				b := &openchoreov1alpha1.ResourceReleaseBinding{}
@@ -194,7 +195,7 @@ func TestRollbackHTTP_GitOpsManaged(t *testing.T) {
 			assert.Equal(t, int64(1), resp.TargetRevision)
 			assert.Equal(t, revision.Name(k.name, 1), resp.RevisionName)
 			_, release := k.get(c)
-			assert.Contains(t, []string{"api-a", "db-a"}, release, "r1's release is restored")
+			assert.Equal(t, k.wantRelease, release, "r1's release is restored")
 		})
 	}
 }
