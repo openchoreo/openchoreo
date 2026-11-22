@@ -228,7 +228,9 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 	flags.AddTo(cmd)
 	flags.AddSet(cmd)
 	flags.AddReleaseLine(cmd)
-	flags.AddMessage(cmd, "Optional reason for the deployment, recorded on the binding's new revision")
+	flags.AddMessage(cmd, "Optional reason for the deployment, recorded on the binding's new revision; "+
+		"when the binding's spec matches an existing revision, which becomes active again instead, it goes on "+
+		"the binding's RevisionReactivated event")
 	return cmd
 }
 

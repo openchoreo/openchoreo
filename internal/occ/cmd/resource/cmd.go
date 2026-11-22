@@ -132,6 +132,8 @@ func newPromoteCmd(f client.NewClientFunc) *cobra.Command {
 	}
 	flags.AddNamespace(cmd)
 	flags.AddEnvironment(cmd)
-	flags.AddMessage(cmd, "Optional reason for the promotion, recorded on the binding's new revision")
+	flags.AddMessage(cmd, "Optional reason for the promotion, recorded on the binding's new revision; "+
+		"when the binding's spec matches an existing revision, which becomes active again instead, it goes on "+
+		"the binding's RevisionReactivated event")
 	return cmd
 }
