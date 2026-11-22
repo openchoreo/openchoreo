@@ -398,21 +398,28 @@ func Paginate[T any](items []T, key func(T) SortKey, opts services.ListOptions) 
 
 // SpecPatch returns the patch a rollback writes: one JSON Patch that replaces
 // the binding's spec whole with spec -- keeping explicit nulls in its free-form
-// configs, which a merge patch would delete -- and, when message is set, the
-// change-message annotation. It carries the resourceVersion binding was read
-// at, so the write fails with a conflict if the binding changed since, or was
-// replaced by another of the same name.
+// configs, which a merge patch would delete -- and sets the change-message
+// annotation to message. Without a message it removes the annotation: a message
+// left by a change the rollback discards does not describe the rollback. It
+// carries the resourceVersion binding was read at, so the write fails with a
+// conflict if the binding changed since, or was replaced by another of the same
+// name.
 func SpecPatch(binding client.Object, spec any, message string) (client.Patch, error) {
 	ops := []map[string]any{
 		{"op": "replace", "path": "/metadata/resourceVersion", "value": binding.GetResourceVersion()},
 		{"op": "replace", "path": "/spec", "value": spec},
 	}
-	if message != "" {
+	_, hadMessage := binding.GetAnnotations()[openchoreov1alpha1.AnnotationKeyChangeMessage]
+	if message != "" || hadMessage {
 		annotations := make(map[string]string, len(binding.GetAnnotations())+1)
 		for k, v := range binding.GetAnnotations() {
 			annotations[k] = v
 		}
-		annotations[openchoreov1alpha1.AnnotationKeyChangeMessage] = message
+		if message != "" {
+			annotations[openchoreov1alpha1.AnnotationKeyChangeMessage] = message
+		} else {
+			delete(annotations, openchoreov1alpha1.AnnotationKeyChangeMessage)
+		}
 		ops = append(ops, map[string]any{"op": "add", "path": "/metadata/annotations", "value": annotations})
 	}
 	raw, err := json.Marshal(ops)
@@ -533,6 +540,7 @@ func AutoDeployBlocksRollback(ctx context.Context, c client.Client, namespace, c
 // carries no GitOps tracking metadata. Any one of a tool's keys is enough,
 // whatever its value: partial or malformed tracking metadata was still written
 // by a tool, so it is never taken to mean the binding is not managed from Git.
+// The exception is a complete Argo CD tracking ID naming another object.
 func GitOpsManager(obj metav1.Object) string {
 	objLabels := obj.GetLabels()
 	if m := fluxManager(objLabels, "Kustomization", labelKeyFluxKustomizationName,
@@ -544,12 +552,37 @@ func GitOpsManager(obj metav1.Object) string {
 		return m
 	}
 	if id, ok := obj.GetAnnotations()[annotationKeyArgoCDTrackingID]; ok {
-		if app, _, found := strings.Cut(id, ":"); found && app != "" {
+		app, namespace, name, complete := parseArgoCDTrackingID(id)
+		if complete && (namespace != obj.GetNamespace() || name != obj.GetName()) {
+			// The ID tracks another object: a copy that kept the original's
+			// annotation is not synced by Argo CD through it.
+			return ""
+		}
+		if app != "" {
 			return fmt.Sprintf("Argo CD application %q", app)
 		}
 		return "Argo CD"
 	}
 	return ""
+}
+
+// parseArgoCDTrackingID splits an Argo CD tracking ID,
+// {app}:{group}/{kind}:{namespace}/{name}. complete is false when the ID does
+// not have that form; app is then still returned when it can be read.
+func parseArgoCDTrackingID(id string) (app, namespace, name string, complete bool) {
+	app, rest, found := strings.Cut(id, ":")
+	if !found {
+		return "", "", "", false
+	}
+	groupKind, object, found := strings.Cut(rest, ":")
+	if !found || !strings.Contains(groupKind, "/") {
+		return app, "", "", false
+	}
+	namespace, name, found = strings.Cut(object, "/")
+	if !found || name == "" {
+		return app, "", "", false
+	}
+	return app, namespace, name, app != ""
 }
 
 // fluxManager describes the Flux object named by the nameKey and nsKey labels,

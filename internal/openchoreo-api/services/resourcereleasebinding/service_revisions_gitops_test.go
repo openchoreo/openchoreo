@@ -102,7 +102,7 @@ func TestRollbackResourceReleaseBinding_GitOpsTrackingMetadata(t *testing.T) {
 		{name: "Flux HelmRelease label: refused",
 			labels: map[string]string{"helm.toolkit.fluxcd.io/namespace": "flux-system"}, refused: true},
 		{name: "Argo CD tracking annotation: refused",
-			annotations: map[string]string{"argocd.argoproj.io/tracking-id": "data:openchoreo.dev/ResourceReleaseBinding:default/x"},
+			annotations: map[string]string{"argocd.argoproj.io/tracking-id": "data:openchoreo.dev/ResourceReleaseBinding:" + testNamespace + "/" + testBindingName},
 			refused:     true},
 	}
 	for _, tt := range tests {

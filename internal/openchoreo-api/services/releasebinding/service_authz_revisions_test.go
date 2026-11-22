@@ -120,6 +120,12 @@ func TestListReleaseBindingRevisions_AuthzCheck(t *testing.T) {
 		result, err := svc.ListReleaseBindingRevisions(testutil.AuthzContext(), "ns-1", "my-comp", "", "", services.ListOptions{Limit: 10})
 		require.NoError(t, err)
 		require.Len(t, result.Items, 2)
+		environments := map[string]string{}
+		for _, req := range pdp.Captured {
+			environments[req.Resource.ID] = req.Context.Resource.Environment
+		}
+		require.Equal(t, map[string]string{"my-rb-dev-r1": "ns-1/dev", "my-rb-prod-r1": "ns-1/prod"}, environments,
+			"each revision is checked against the environment it records")
 	})
 
 	t.Run("denied revisions are filtered out", func(t *testing.T) {
