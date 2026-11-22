@@ -697,9 +697,102 @@ func TestEnvironmentHistoryLimitChanged(t *testing.T) {
 			assert.Equal(t, tt.want, p.Update(event.UpdateEvent{ObjectOld: env(tt.old), ObjectNew: env(tt.new)}))
 		})
 	}
-	assert.False(t, p.Create(event.CreateEvent{Object: env(ptr.To(int32(3)))}))
+	assert.True(t, p.Create(event.CreateEvent{Object: env(ptr.To(int32(3)))}),
+		"an Environment created again can set a limit its bindings have not applied")
 	assert.False(t, p.Delete(event.DeleteEvent{Object: env(ptr.To(int32(3)))}))
 	assert.False(t, p.Update(event.UpdateEvent{ObjectOld: &openchoreov1alpha1.ReleaseBinding{}, ObjectNew: env(nil)}))
+}
+
+// A revision whose number is not yet persisted in status.highestRevision is the
+// only record that the number was used: it is kept, whatever the limit, until
+// the status is written.
+func TestRecord_KeepsTheHighestRevisionUntilItsNumberIsPersisted(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c := newTestClient(t, binding.DeepCopy())
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	binding.Status.HighestRevision = res.Highest
+	recordRevisions(t, s, binding, 1) // r2; writing highestRevision 2 fails
+	rollbackTo(t, c, binding, 1)
+	binding.Spec.RevisionHistoryLimit = ptr.To(int32(0))
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 2}, revisionNumbers(t, c), "r2 is kept under a limit of 0 while only 1 is persisted")
+
+	binding.Status.HighestRevision = 2
+	binding.Generation++
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1}, revisionNumbers(t, c), "r2 goes once its number is persisted")
+
+	recordRevisions(t, s, binding, 1)
+	assert.Equal(t, []int64{3}, revisionNumbers(t, c), "the next revision is r3, not a second r2")
+}
+
+// A binding read older than the current revision's activation carries a limit
+// the binding may no longer have; it trims nothing.
+func TestRecord_StaleBindingTrimsNothing(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	c := newTestClient(t, binding.DeepCopy())
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{HistoryLimit: testHistoryLimit})
+
+	_, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	stale := binding.DeepCopy()
+	recordRevisions(t, s, binding, 1) // r2, active from the binding's next generation
+	binding.Status.HighestRevision = 2
+
+	stale.Status.HighestRevision = 2
+	stale.Spec.RevisionHistoryLimit = ptr.To(int32(0))
+	_, err = s.Record(ctx, stale)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 2}, revisionNumbers(t, c), "the stale read's limit of 0 deletes nothing")
+
+	binding.Spec.RevisionHistoryLimit = ptr.To(int32(0))
+	binding.Generation++
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{2}, revisionNumbers(t, c), "a current read with the same limit trims")
+}
+
+// While marking the old revision inactive fails, it still reads active: it is
+// not deleted, whatever the limit.
+func TestRecord_FailedDeactivationTrimsNothing(t *testing.T) {
+	ctx := context.Background()
+	binding := newBinding("frontend-development")
+	failDeactivate := false
+	c := fake.NewClientBuilder().WithScheme(newTestScheme(t)).WithObjects(binding.DeepCopy()).
+		WithStatusSubresource(&openchoreov1alpha1.ReleaseBindingRevision{}).
+		WithInterceptorFuncs(interceptor.Funcs{
+			SubResourceUpdate: func(ctx context.Context, cl client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+				if r, ok := obj.(*openchoreov1alpha1.ReleaseBindingRevision); ok && failDeactivate && r.Spec.Revision == 1 && !r.Status.Active {
+					return fmt.Errorf("injected deactivation failure")
+				}
+				return cl.SubResource(sub).Update(ctx, obj, opts...)
+			},
+		}).Build()
+	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(binding), binding))
+	s := NewReleaseBindingSnapshotter(c, newTestScheme(t), Options{})
+
+	res, err := s.Record(ctx, binding)
+	require.NoError(t, err)
+	binding.Status.HighestRevision = res.Highest
+
+	failDeactivate = true
+	bump(binding, newRelease)
+	res, err = s.Record(ctx, binding)
+	require.ErrorContains(t, err, "injected deactivation failure")
+	binding.Status.HighestRevision = res.Highest
+	assert.Equal(t, []int64{1, 2}, revisionNumbers(t, c), "r1 still reads active and is kept")
+
+	failDeactivate = false
+	_, err = s.Record(ctx, binding)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{2}, revisionNumbers(t, c), "once r2 is active, a limit of 0 deletes r1")
 }
 
 func TestRecord_KeepAnnotationDoesNotProtect(t *testing.T) {
@@ -764,8 +857,9 @@ func TestRecord_LimitCountsOnlyExistingRevisions(t *testing.T) {
 		t.Helper()
 		binding.Spec.RevisionHistoryLimit = ptr.To(limit)
 		binding.Generation++
-		_, err := s.Record(ctx, binding)
+		res, err := s.Record(ctx, binding)
 		require.NoError(t, err)
+		binding.Status.HighestRevision = res.Highest // as the controller persists it
 	}
 
 	setLimit(2)

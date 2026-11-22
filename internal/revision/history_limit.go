@@ -24,12 +24,15 @@ func EnvironmentHistoryLimit(environment *openchoreov1alpha1.Environment, contro
 }
 
 // EnvironmentHistoryLimitChanged passes the Environment updates that change
-// spec.componentRevisionHistoryLimit, and nothing else: the binding controllers watch
-// Environments only to trim the history of an environment's bindings when its
-// limit changes.
+// spec.componentRevisionHistoryLimit, and Environment creates -- one deleted and
+// created again can change the limit with no update -- and nothing else: the
+// binding controllers watch Environments only to trim the history of an
+// environment's bindings when its limit changes.
 func EnvironmentHistoryLimitChanged() predicate.Predicate {
 	return predicate.Funcs{
-		CreateFunc:  func(event.CreateEvent) bool { return false },
+		// An Environment created, or deleted and created again, can set a
+		// limit its bindings have not applied yet.
+		CreateFunc:  func(event.CreateEvent) bool { return true },
 		DeleteFunc:  func(event.DeleteEvent) bool { return false },
 		GenericFunc: func(event.GenericEvent) bool { return false },
 		UpdateFunc: func(e event.UpdateEvent) bool {

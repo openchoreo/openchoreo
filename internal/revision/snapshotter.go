@@ -210,8 +210,10 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 	// previous is the number of the revision this call replaces, if it makes
 	// another one active.
 	previous := result.Number
-	// fresh reports whether this binding read may change the active revision.
+	// fresh reports whether this binding read may change the active revision;
+	// stale, whether it is older than the current revision's activation.
 	fresh := !hasCurrent || binding.GetGeneration() > recordedGeneration(current)
+	stale := hasCurrent && binding.GetGeneration() < recordedGeneration(current)
 
 	// recorded reports whether a revision of the binding's current spec exists,
 	// which is when the cause and change-message annotations have served their
@@ -277,8 +279,13 @@ func (s *Snapshotter[B, R]) Record(ctx context.Context, binding B) (Result, erro
 		errs = append(errs, s.clearChangeAnnotations(ctx, binding))
 	}
 	// Trimmed on every call, not only after a new revision: lowering a limit
-	// on the binding or its Environment creates no revision.
-	errs = append(errs, s.evict(ctx, binding, revs, result.Number))
+	// on the binding or its Environment creates no revision. Not trimmed from
+	// a binding read older than the current revision's activation, whose limit
+	// may be one the binding no longer has, nor while a revision other than the
+	// active one may still be marked active.
+	if !stale && statusErr == nil {
+		errs = append(errs, s.evict(ctx, binding, revs, result.Number))
+	}
 	return result, kerrors.NewAggregate(errs)
 }
 
@@ -683,6 +690,12 @@ func (s *Snapshotter[B, R]) updateStatus(ctx context.Context, rev R,
 // historyLimit and SelectEvictions), keeping the active revision -- the one
 // numbered active, as Record found it -- and the newest limit others.
 //
+// The highest-numbered revision is kept even when selected while its number is
+// above the binding's status.highestRevision: until that number is persisted,
+// the revision is the only record that it was used, and deleting it would let
+// a later revision take the same number. It goes on a later call, once the
+// status is written.
+//
 // revs is the binding's revisions as listed for this call, so a revision deleted
 // earlier does not count. Each delete is conditional on the revision's UID and
 // resourceVersion as listed: a revision that changed since, such as one made
@@ -702,7 +715,15 @@ func (s *Snapshotter[B, R]) evict(ctx context.Context, binding B, revs []R, acti
 	}
 
 	var errs []error
+	highestListed := int64(0)
+	for _, c := range candidates {
+		highestListed = max(highestListed, c.Number)
+	}
+	persisted := s.Adapter.HighestRevision(binding)
 	for _, c := range SelectEvictions(candidates, s.historyLimit(binding)) {
+		if c.Number == highestListed && c.Number > persisted {
+			continue
+		}
 		rev := byName[c.Name]
 		uid, resourceVersion := rev.GetUID(), rev.GetResourceVersion()
 		err := s.Client.Delete(ctx, rev, client.Preconditions{UID: &uid, ResourceVersion: &resourceVersion})
