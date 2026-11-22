@@ -46,18 +46,24 @@ type BindingRevisionStatus struct {
 	// +optional
 	Health RevisionHealth `json:"health,omitempty"`
 
-	// Active is true when this revision is the one currently applied by its binding.
+	// Active is true when this revision records the binding's current spec: the
+	// revision the binding is rolling out or running. It is set when the spec is
+	// recorded, before the rollout, so Health reports whether the rollout
+	// succeeded.
 	// +optional
 	Active bool `json:"active,omitempty"`
 
 	// KnownGood is true once this revision has stayed Healthy, while active, for
 	// the controller's known-good window (--revision-known-good-window, 60s by
 	// default; with a zero window the first Healthy observation is enough).
-	// Once set it stays set, whatever the revision's health later.
+	// Once set it stays set, whatever the revision's health later. A revision
+	// that undeploys its component never becomes known-good.
 	// +optional
 	KnownGood bool `json:"knownGood,omitempty"`
 
-	// ObservedAt is when the controller last observed this revision's health.
+	// ObservedAt is when the controller set this revision's health to its
+	// current value: when the revision became active or its health last
+	// changed. A later observation of the same health leaves it unchanged.
 	// +optional
 	ObservedAt *metav1.Time `json:"observedAt,omitempty"`
 

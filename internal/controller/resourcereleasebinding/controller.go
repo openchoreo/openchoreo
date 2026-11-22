@@ -261,8 +261,12 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		case revResult.Reactivated:
 			logger.Info("Reactivated ResourceReleaseBinding revision", "revision", revResult.Number)
 		}
+	}
+	if revResult.Name != "" {
 		// The active revision follows the binding's health as this reconcile
-		// leaves it, on every return path below, including errors.
+		// leaves it, on every return path below, including errors -- and even
+		// when recording failed after the binding had an active revision, so a
+		// write that keeps failing does not leave its health stale.
 		defer func() {
 			requeueAfter, healthErr := r.observeRevisionHealth(ctx, snapshotter, binding, rendered)
 			if healthErr != nil {
