@@ -149,6 +149,29 @@ spec:
             - releasebinding:create
             - releasebinding:update
           expression: resource.environment == "default/production"
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterAuthzRole
+metadata:
+  name: ${BINDING_NAME}-cct-role
+spec:
+  description: cluster-level ComponentType read, which the namespace-scoped binding above can't grant
+  actions:
+    - clustercomponenttype:view
+---
+apiVersion: openchoreo.dev/v1alpha1
+kind: ClusterAuthzRoleBinding
+metadata:
+  name: ${BINDING_NAME}-cct
+spec:
+  entitlement:
+    claim: groups
+    value: abac-developers
+  effect: allow
+  roleMappings:
+    - roleRef:
+        kind: ClusterAuthzRole
+        name: ${BINDING_NAME}-cct-role
 `;
 
 // Skip the entire suite when the ABAC identity isn't seeded. Fresh installs
@@ -178,6 +201,8 @@ test.describe('abac-ui: env-restricted bindings, promote deny, cache eviction on
     kDelete('clusterauthzrolebinding', BINDING_NAME, '');
     kDelete('clusterauthzrolebinding', `${BINDING_NAME}-deny`, '');
     kDelete('clusterauthzrole', `${BINDING_NAME}-rb-role`, '');
+    kDelete('clusterauthzrolebinding', `${BINDING_NAME}-cct`, '');
+    kDelete('clusterauthzrole', `${BINDING_NAME}-cct-role`, '');
   });
 
   test.use({ storageState: ABAC_STATE });
