@@ -111,6 +111,101 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 	}
 }
 
+func TestPortablePathPart(t *testing.T) {
+	reserved := make([]string, 0, 30)
+	reserved = append(reserved, "con", "PRN", "aux", "NuL", "CONIN$", "conout$")
+	for _, prefix := range []string{"com", "LPT"} {
+		for _, digit := range "123456789¹²³" {
+			reserved = append(reserved, prefix+string(digit))
+		}
+	}
+	for _, name := range reserved {
+		for _, suffix := range []string{"", ".txt"} {
+			assert.Equal(t, "~"+name+suffix, portablePathPart(name+suffix))
+		}
+	}
+	for _, name := range []string{"normal", "null", "console", "com", "com0", "com10", "lpt", "lpt0", "lpt10"} {
+		assert.Equal(t, name, portablePathPart(name))
+	}
+	assert.Equal(t, "~~nul", portablePathPart("~nul"))
+	assert.Equal(t, "~~~~nul", portablePathPart("~~nul"))
+	assert.Equal(t, "name~~suffix", portablePathPart("name~suffix"))
+}
+
+func TestSerialize_PortableNames(t *testing.T) {
+	for _, tc := range []struct{ kind, name, namespace, path string }{
+		{testComponentKind, "nul", "acme", "namespaces/acme/projects/~con/components/~nul/component.yaml"},
+		{testComponentKind, "~nul", "acme", "namespaces/acme/projects/~con/components/~~nul/component.yaml"},
+		{testWorkloadKind, "LPT9", "nul", "namespaces/~nul/projects/~con/components/~aux/workloads/~LPT9.yaml"},
+		{testNamespaceKind, "aux", "", "namespaces/~aux/namespace.yaml"},
+		{"Project", "prn", "acme", "namespaces/acme/projects/~prn/project.yaml"},
+		{"Resource", "con", "acme", "namespaces/acme/projects/~con/resources/~con/resource.yaml"},
+		{"ResourceRelease", "nul.txt", "acme", "namespaces/acme/projects/~con/resources/~prn/releases/~nul.txt.yaml"},
+		{"ProjectRelease", "lpt1", "acme", "namespaces/acme/projects/~con/releases/~lpt1.yaml"},
+		{"ClusterTrait", "aux", "", "platform-shared/traits/~aux.yaml"},
+	} {
+		t.Run(tc.kind+"/"+tc.name, func(t *testing.T) {
+			resource := manifestResource(tc.kind)
+			resource.Name, resource.Namespace = tc.name, tc.namespace
+			object := resource.Object.(map[string]any)
+			metadata := object["metadata"].(map[string]any)
+			metadata["name"] = tc.name
+			if tc.namespace != "" {
+				metadata["namespace"] = tc.namespace
+			}
+			object["spec"].(map[string]any)["owner"] = map[string]any{
+				"projectName": "con", "componentName": "aux", "resourceName": "prn",
+			}
+			before, err := json.Marshal(object)
+			require.NoError(t, err)
+			files := serializedResources(t, resource)
+			require.Len(t, files, 1)
+			assert.Equal(t, tc.path, files[0].Path)
+			encoded, err := yaml.YAMLToJSONStrict(files[0].Data)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(before), string(encoded), "manifest names must remain unchanged")
+			assert.True(t, isManagedManifest(tc.path, files[0].Data))
+		})
+	}
+}
+
+func TestWriteFiles_SynchronizesPortableNames(t *testing.T) {
+	const componentName = "nul"
+	component := manifestResource(testComponentKind)
+	component.Name = componentName
+	component.Object.(map[string]any)["metadata"].(map[string]any)["name"] = componentName
+	collision := manifestResource(testComponentKind)
+	collision.Name = "~nul"
+	collision.Object.(map[string]any)["metadata"].(map[string]any)["name"] = "~nul"
+	workload := manifestResource(testWorkloadKind)
+	workload.Name = "aux"
+	workload.Object.(map[string]any)["metadata"].(map[string]any)["name"] = "aux"
+	workload.Object.(map[string]any)["spec"].(map[string]any)["owner"].(map[string]any)["componentName"] = componentName
+	directory := t.TempDir()
+	files := serializedResources(t, component, collision, workload)
+	counts, err := writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Created: 3}, counts)
+	base := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components")
+	assert.FileExists(t, filepath.Join(base, "~nul", "component.yaml"))
+	assert.FileExists(t, filepath.Join(base, "~~nul", "component.yaml"))
+	assert.FileExists(t, filepath.Join(base, "~nul", "workloads", "~aux.yaml"))
+	counts, err = writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: 3}, counts)
+	component.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 2}
+	files = serializedResources(t, component, collision)
+	counts, err = writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Updated: 1, Unchanged: 1, Deleted: 1}, counts)
+	assert.NoDirExists(t, filepath.Join(base, "~nul", "workloads"))
+	counts, err = writeFiles(context.Background(), directory, serializedResources(t, collision), writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: 1, Deleted: 1}, counts)
+	assert.NoDirExists(t, filepath.Join(base, "~nul"))
+	assert.FileExists(t, filepath.Join(base, "~~nul", "component.yaml"))
+}
+
 func TestSerialize_RejectsInvalidResources(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
