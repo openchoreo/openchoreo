@@ -27,6 +27,12 @@ import (
 // for explicitly, with its classification removed. Every answer that is not
 // simply "the environment you named" says what it covers in notes, because an
 // agent passes a note on and cannot see what the numbers leave out.
+//
+// The environment list is read with the Observer's own credentials, so the
+// caller is authorized for the scope before it is read. The authz check covers
+// namespace, project and component but not environment, so a caller allowed the
+// scope sees every environment's name in a per-environment answer -- including,
+// for a project or component viewer, environments their project does not use.
 
 // EnvironmentLister lists the environments of a namespace. The UID resolver
 // implements it; nil leaves the DORA tools combining environments as REST does.
@@ -40,6 +46,17 @@ func (h *MCPHandler) WithEnvironmentLister(l EnvironmentLister) *MCPHandler {
 	h.environments = l
 	return h
 }
+
+// scopeAuthorizer checks deliveryinsights:view for a scope without querying. The
+// authz-wrapped service implements it; a service without it is not checking
+// access, so there is nothing to ask first.
+type scopeAuthorizer interface {
+	AuthorizeScope(ctx context.Context, scope gen.ComponentSearchScope) error
+}
+
+// doraByEnvironmentMax bounds a per-environment answer: each row is its own
+// authz check and store query, run one after another.
+const doraByEnvironmentMax = 50
 
 // doraMetricsResult is the REST response with notes alongside it. The response
 // is embedded so its fields stay where existing callers read them.
@@ -78,6 +95,10 @@ const (
 		"are omitted here. Environments served by another observability plane are not included."
 	noteNoData = "No delivery data on this observer for %s. It may be served by another " +
 		"observability plane's observer, or nothing was deployed there in this window."
+	noteProductionClassifications = "Classifications are given for production environments only: " +
+		"DORA defines its Elite/High/Medium/Low bands for production."
+	noteTruncated = "The namespace has %d environments; only the first %d are reported. Pass " +
+		"environment for any other."
 )
 
 // doraMetricsForEnvironments answers a query that named no environment.
@@ -90,6 +111,11 @@ func (h *MCPHandler) doraMetricsForEnvironments(
 	if h.environments == nil {
 		return h.combinedDoraMetrics(ctx, req)
 	}
+	if a, ok := h.deliveryInsightsService.(scopeAuthorizer); ok {
+		if err := a.AuthorizeScope(ctx, req.SearchScope); err != nil {
+			return nil, err
+		}
+	}
 	envs, err := h.environments.ListEnvironments(ctx, req.SearchScope.Namespace)
 	if err != nil {
 		h.logger.Warn("Could not list environments for a DORA query; combining them instead",
@@ -98,8 +124,12 @@ func (h *MCPHandler) doraMetricsForEnvironments(
 		if combineErr != nil {
 			return nil, combineErr
 		}
-		result.Notes = append([]string{"The namespace's environments could not be listed, " +
-			"so no production environment could be chosen."}, result.Notes...)
+		why := "so no production environment could be chosen."
+		if byEnvironment {
+			why = "so this is every environment combined, not one summary per environment."
+		}
+		result.Notes = append([]string{"The namespace's environments could not be listed, " + why},
+			result.Notes...)
 		return result, nil
 	}
 	if len(envs) == 0 {
@@ -173,13 +203,21 @@ func (h *MCPHandler) combinedDoraMetrics(
 }
 
 // doraMetricsByEnvironment queries each environment in turn. An environment that
-// fails is reported in its row rather than failing the answer, unless the caller
-// is not allowed the namespace at all, which every row would say.
+// fails is reported in its row rather than failing the answer. A failure every
+// row would share fails the call: not signed in, authz unreachable, or refused
+// for every environment -- an answer of nothing but "not permitted" rows would
+// still list the environments to a caller allowed none of them.
 func (h *MCPHandler) doraMetricsByEnvironment(
 	ctx context.Context, req gen.DoraMetricsQueryRequest, envs []service.Environment, notes []string,
 ) (any, error) {
+	if len(envs) > doraByEnvironmentMax {
+		notes = append(notes, fmt.Sprintf(noteTruncated, len(envs), doraByEnvironmentMax))
+		envs = envs[:doraByEnvironmentMax]
+	}
 	rows := make([]doraEnvironmentSummary, 0, len(envs))
 	var empty []string
+	forbidden, stripped := 0, false
+	var forbiddenErr error
 	for _, e := range envs {
 		name := e.Name
 		envReq := req
@@ -193,6 +231,8 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 			errors.Is(err, observerAuthz.ErrAuthzTimeout):
 			return nil, err
 		case errors.Is(err, observerAuthz.ErrAuthzForbidden):
+			forbidden++
+			forbiddenErr = err
 			row.Error = "not permitted"
 		case err != nil:
 			// The error itself stays in the observer's log: what it says is
@@ -200,6 +240,10 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 			h.logger.Warn("Per-environment DORA query failed", "environment", name, "error", err)
 			row.Error = "could not be queried"
 		default:
+			if !e.IsProduction {
+				stripClassifications(resp)
+				stripped = true
+			}
 			row.HasData = doraHasData(resp)
 			row.Summary = resp.Summary
 			row.DataAvailability = resp.DataAvailability
@@ -210,18 +254,23 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 		rows = append(rows, row)
 	}
 
+	if forbidden == len(rows) && forbidden > 0 {
+		return nil, forbiddenErr
+	}
+
 	notes = append(notes, noteSeriesOmitted)
+	if stripped {
+		notes = append(notes, noteProductionClassifications)
+	}
 	if len(empty) > 0 {
 		notes = append(notes, fmt.Sprintf(noteNoData, strings.Join(empty, ", ")))
 	}
 	return doraMetricsByEnvironmentResult{Environments: rows, Notes: notes}, nil
 }
 
-// doraHasData reports whether any metric in the summary counted anything. A
-// query may ask for only some metrics, so each is checked. Lead time has no
-// count; its median is set exactly when there was at least one sample, which a
-// nil check on the summary would not tell -- it is present whenever lead time is
-// asked for.
+// doraHasData reports whether any requested metric counted anything. Lead time
+// has no count, so it is judged by its median, which is set only when there was
+// a sample.
 func doraHasData(resp *gen.DoraMetricsQueryResponse) bool {
 	if resp == nil || resp.Summary == nil {
 		return false

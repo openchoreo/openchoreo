@@ -268,7 +268,7 @@ func (r *ResourceUIDResolver) ListEnvironments(ctx context.Context, namespaceNam
 		if next == "" {
 			return out, nil
 		}
-		if next == cursor || seen[next] {
+		if seen[next] {
 			return nil, fmt.Errorf("failed to list environments of namespace %q: the API returned cursor %q again",
 				namespaceName, next)
 		}

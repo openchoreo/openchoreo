@@ -133,8 +133,9 @@ func allEnvironmentsProperty() map[string]any {
 func byEnvironmentProperty() map[string]any {
 	return map[string]any{
 		"type": "boolean",
-		"description": "Report one summary per environment of the namespace, each marked whether it is " +
-			"production. Can't be combined with environment or all_environments",
+		"description": "Report one summary per environment of the namespace (up to 50), each marked whether it " +
+			"is production. Lists every environment of the namespace, not only the project's. " +
+			"Can't be combined with environment or all_environments",
 	}
 }
 

@@ -37,6 +37,14 @@ type perEnvDoraService struct {
 	deploys  map[string]int
 	errs     map[string]error
 	requests []string
+	// authzErr is what AuthorizeScope answers, as the authz wrapper would.
+	authzErr   error
+	authorized int
+}
+
+func (s *perEnvDoraService) AuthorizeScope(context.Context, gen.ComponentSearchScope) error {
+	s.authorized++
+	return s.authzErr
 }
 
 func (s *perEnvDoraService) QueryDoraMetrics(
