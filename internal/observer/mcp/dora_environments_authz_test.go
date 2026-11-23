@@ -34,7 +34,9 @@ func TestTheAuthzWrapperTurnsTheEnvironmentLookupOn(t *testing.T) {
 func TestWithoutAnAuthorizerEnvironmentsAreNeverListed(t *testing.T) {
 	svc := &perEnvDoraService{deploys: map[string]int{"": 40}}
 	// Embedding the interface hides AuthorizeScope.
-	unchecked := struct{ service.DeliveryInsightsService }{svc}
+	unchecked := struct {
+		service.DeliveryInsightsService
+	}{svc}
 	lister := &fakeEnvLister{envs: threeEnvironments}
 	h := newTestMCPHandler(t, withDeliveryInsightsService(unchecked)).WithEnvironmentLister(lister)
 
