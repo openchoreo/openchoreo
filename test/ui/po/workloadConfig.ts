@@ -46,6 +46,22 @@ export class WorkloadConfigPO {
       .toBe(true);
   }
 
+  // ── Endpoint operations ─────────────────────────────────────────────
+
+  // Needs a legacy-endpoints ComponentType; returns to the Container tab.
+  async addHttpEndpoint(port = 8080): Promise<void> {
+    await this.page.getByRole('tab', { name: /^Endpoints/ }).click();
+    await this.page
+      .getByRole('button', { name: 'Add Endpoint', exact: true })
+      .click();
+    await this.page.getByRole('spinbutton').first().fill(String(port));
+    // The button reads "Save" but its accessible name is "Save changes".
+    await this.page
+      .getByRole('button', { name: 'Save changes', exact: true })
+      .click();
+    await this.page.getByRole('tab', { name: 'Container' }).click();
+  }
+
   // ── Env var operations ──────────────────────────────────────────────
 
   async addPlainEnv(input: EnvVarInput): Promise<void> {

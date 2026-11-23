@@ -139,7 +139,6 @@ test.describe('pe-ops: trait attach / detach via workload-config Component tab',
       project: PROJECT_NAME,
       template: 'Web Application',
       image: PRE_BUILT_IMAGE,
-      endpointPort: ENDPOINT_PORT,
       description: 'UI trait-attach e2e test component',
     });
 
@@ -159,6 +158,7 @@ test.describe('pe-ops: trait attach / detach via workload-config Component tab',
 
     const wc = new WorkloadConfigPO(page);
     await wc.open(COMPONENT_NAME);
+    await wc.addHttpEndpoint(ENDPOINT_PORT);
     await wc.openComponentTab();
 
     await wc.addTrait(TRAIT_OPTION_LABEL, TRAIT_INSTANCE_NAME);

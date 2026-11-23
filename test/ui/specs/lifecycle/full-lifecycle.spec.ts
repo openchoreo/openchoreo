@@ -82,7 +82,6 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
       project: PROJECT_NAME,
       template: 'Web Application',
       image: PRE_BUILT_IMAGE,
-      endpointPort: ENDPOINT_PORT,
       description: 'pre-built greeter sample',
     });
 
@@ -101,6 +100,7 @@ test.describe('lifecycle: full kubectl-equivalent flow through Backstage UI', ()
     // create wizard has no args field, so it's set on the release workload.
     await component.deployTo(COMPONENT_NAME, 'development', {
       args: ['--port', String(ENDPOINT_PORT)],
+      endpointPort: ENDPOINT_PORT,
     });
     await release.expectActive(COMPONENT_NAME, 'development', 120_000);
 
