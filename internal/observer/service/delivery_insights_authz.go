@@ -48,6 +48,14 @@ func (s *deliveryInsightsServiceWithAuthz) QueryDoraDeployments(
 	return s.internal.QueryDoraDeployments(ctx, req)
 }
 
+// AuthorizeScope checks deliveryinsights:view for scope without running a query.
+// The MCP DORA tools call it before listing a namespace's environments, which
+// they do with the Observer's own credentials: refusing the caller after that
+// list was built would already have spent it, and could hand back its names.
+func (s *deliveryInsightsServiceWithAuthz) AuthorizeScope(ctx context.Context, scope gen.ComponentSearchScope) error {
+	return s.checkScope(ctx, scope)
+}
+
 func (s *deliveryInsightsServiceWithAuthz) checkScope(ctx context.Context, scope gen.ComponentSearchScope) error {
 	project := ""
 	if scope.Project != nil {

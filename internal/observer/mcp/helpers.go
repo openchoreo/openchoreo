@@ -122,6 +122,23 @@ func allReleaseLinesProperty() map[string]any {
 	}
 }
 
+func allEnvironmentsProperty() map[string]any {
+	return map[string]any{
+		"type": "boolean",
+		"description": "Combine every environment into one figure instead of reporting production. " +
+			"Can't be combined with environment or by_environment",
+	}
+}
+
+func byEnvironmentProperty() map[string]any {
+	return map[string]any{
+		"type": "boolean",
+		"description": "Report one summary per environment of the namespace (up to 50), each marked whether it " +
+			"is production. Lists every environment of the namespace, not only the project's. " +
+			"Can't be combined with environment or all_environments",
+	}
+}
+
 // validateFinOpsScope validates the scope fields for FinOps queries, which
 // additionally require an environment.
 func validateFinOpsScope(namespace, environment, project, component string) error {

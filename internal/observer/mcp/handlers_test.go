@@ -535,7 +535,7 @@ func TestQueryDoraMetrics(t *testing.T) {
 			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withDeliveryInsightsService(deliveryInsightsSvc))
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment, "", false,
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, testProject, testComponent, testEnvironment, "", false, false, false,
 			"weekly", testStartTime, testEndTime, []string{"leadTime"})
 		require.NoError(t, err)
 	})
@@ -553,14 +553,14 @@ func TestQueryDoraMetrics(t *testing.T) {
 			Return(&obsgen.DoraMetricsQueryResponse{}, nil)
 
 		h := newTestMCPHandler(t, withDeliveryInsightsService(deliveryInsightsSvc))
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false,
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false, false, false,
 			"", testStartTime, testEndTime, nil)
 		require.NoError(t, err)
 	})
 
 	t.Run("invalid start_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false,
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false, false, false,
 			"", "not-a-time", testEndTime, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid start_time")
@@ -568,7 +568,7 @@ func TestQueryDoraMetrics(t *testing.T) {
 
 	t.Run("invalid end_time", func(t *testing.T) {
 		h := newTestMCPHandler(t)
-		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false,
+		_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false, false, false,
 			"", testStartTime, "not-a-time", nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid end_time")
@@ -621,7 +621,7 @@ func TestQueryDoraMetricsEnforcesHTTPValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newTestMCPHandler(t, withDeliveryInsightsService(mocks.NewMockDeliveryInsightsService(t)))
-			_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false,
+			_, err := h.QueryDoraMetrics(ctx, testNamespace, "", "", "", "", false, false, false,
 				tc.granularity, tc.start, tc.end, tc.metrics)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.wantErr)
