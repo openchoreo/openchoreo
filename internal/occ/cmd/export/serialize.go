@@ -168,7 +168,7 @@ func encodeJSONAsYAML(data []byte) ([]byte, error) {
 	var output bytes.Buffer
 	encoder := yamlv3.NewEncoder(&output)
 	encoder.SetIndent(2)
-	if err := encoder.Encode(preserveYAMLNumbers(document)); err != nil {
+	if err := encoder.Encode(prepareYAMLValues(document)); err != nil {
 		return nil, err
 	}
 	if err := encoder.Close(); err != nil {
@@ -177,24 +177,35 @@ func encodeJSONAsYAML(data []byte) ([]byte, error) {
 	return output.Bytes(), nil
 }
 
-// Replace numbers in the decoded copy with numeric YAML scalars so their text
-// is emitted verbatim, without conversion through float64 or integer types.
-func preserveYAMLNumbers(value any) any {
+// Preserve numeric text and literal map keys in the decoded JSON document.
+func prepareYAMLValues(value any) any {
 	switch value := value.(type) {
 	case json.Number:
 		// Let readers resolve the plain literal: an explicit integer tag can
 		// reject numbers beyond their supported integer range.
 		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Value: value.String()}
 	case map[string]any:
+		mapping := make(map[yamlMapKey]any, len(value))
 		for key, item := range value {
-			value[key] = preserveYAMLNumbers(item)
+			mapping[yamlMapKey(key)] = prepareYAMLValues(item)
 		}
+		return mapping
 	case []any:
 		for i, item := range value {
-			value[i] = preserveYAMLNumbers(item)
+			value[i] = prepareYAMLValues(item)
 		}
 	}
 	return value
+}
+
+type yamlMapKey string
+
+func (key yamlMapKey) MarshalYAML() (any, error) {
+	if key == "<<" {
+		// An unquoted << key would be interpreted as a YAML merge operation.
+		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Tag: "!!str", Value: string(key), Style: yamlv3.DoubleQuotedStyle}, nil
+	}
+	return string(key), nil
 }
 
 // Namespace is the one generated API model without type metadata. Raw messages

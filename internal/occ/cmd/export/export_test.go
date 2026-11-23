@@ -102,6 +102,54 @@ func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
 	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
 }
 
+func TestRun_PreservesLiteralMergeKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value any
+	}{
+		{"scalar", "example"},
+		{"mapping", map[string]any{"injected": "value"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			parameters := map[string]any{
+				"<<": tc.value, "ordinary": "value",
+				"nested": map[string]any{"<<": tc.value},
+				"items":  []any{map[string]any{"<<": tc.value}},
+			}
+			f := newFetchFixture(t, false)
+			f.override = func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path != testComponentsPath {
+					return nil, nil
+				}
+				object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+				object["spec"].(map[string]any)["parameters"] = parameters
+				return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
+			}
+			directory := t.TempDir()
+			_, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.NoError(t, err)
+			name := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml")
+			data, err := os.ReadFile(name)
+			require.NoError(t, err)
+			assert.Contains(t, string(data), `"<<":`)
+			decoded, err := yaml.YAMLToJSONStrict(data)
+			require.NoError(t, err)
+			var document struct {
+				Spec struct {
+					Parameters json.RawMessage `json:"parameters"`
+				} `json:"spec"`
+			}
+			require.NoError(t, json.Unmarshal(decoded, &document))
+			want, err := json.Marshal(parameters)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(want), string(document.Spec.Parameters))
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.NoError(t, err)
+			assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
+		})
+	}
+}
+
 func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
