@@ -13,6 +13,7 @@ kind: ClusterComponentType
 metadata:
   name: http-openapi-service
   annotations:
+    openchoreo.dev/legacy-endpoints: "true"
     openchoreo.dev/description: "An HTTP service whose Gateway API HTTPRoute is generated from the endpoint's OpenAPI schema"
 spec:
   workloadType: deployment

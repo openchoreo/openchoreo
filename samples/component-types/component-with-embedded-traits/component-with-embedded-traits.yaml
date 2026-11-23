@@ -160,6 +160,8 @@ apiVersion: openchoreo.dev/v1alpha1
 kind: ClusterComponentType
 metadata:
   name: service-with-autoscaling
+  annotations:
+    openchoreo.dev/legacy-endpoints: "true"
 spec:
   workloadType: deployment
 

@@ -11,6 +11,7 @@ kind: ClusterComponentType
 metadata:
   name: grpc-service
   annotations:
+    openchoreo.dev/legacy-endpoints: "true"
     openchoreo.dev/description: "A long-running gRPC service exposed via Gateway API GRPCRoute"
 spec:
   workloadType: deployment
