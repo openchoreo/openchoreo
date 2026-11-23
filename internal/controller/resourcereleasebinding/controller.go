@@ -36,6 +36,12 @@ import (
 
 const ownershipConflictMarker = "RenderedRelease exists but is not owned by this binding"
 
+// dependencyNotFoundRequeue is how soon a binding blocked on a missing dependency
+// checks again. The ResourceRelease, Environment and data plane watches usually
+// wake it sooner, but a mapper that fails to list drops the event, and the
+// Resource and Project are not watched at all, so poll as a backstop.
+const dependencyNotFoundRequeue = time.Minute
+
 // Reconciler reconciles a ResourceReleaseBinding object.
 type Reconciler struct {
 	client.Client
@@ -127,7 +133,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		if apierrors.IsNotFound(err) {
 			markSyncedFalse(binding, ReasonResourceReleaseNotFound,
 				fmt.Sprintf("ResourceRelease %q not found", binding.Spec.ResourceRelease))
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get ResourceRelease", "resourceRelease", binding.Spec.ResourceRelease)
 		return ctrl.Result{}, err
@@ -146,7 +152,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		if apierrors.IsNotFound(err) {
 			markSyncedFalse(binding, ReasonEnvironmentNotFound,
 				fmt.Sprintf("Environment %q not found", binding.Spec.Environment))
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Environment", "environment", binding.Spec.Environment)
 		return ctrl.Result{}, err
@@ -157,7 +163,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		if apierrors.IsNotFound(err) {
 			markSyncedFalse(binding, ReasonDataPlaneNotFound,
 				fmt.Sprintf("DataPlane not found for environment %q", environment.Name))
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to resolve DataPlane", "environment", environment.Name)
 		return ctrl.Result{}, err
@@ -175,7 +181,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		if apierrors.IsNotFound(err) {
 			markSyncedFalse(binding, ReasonResourceNotFound,
 				fmt.Sprintf("Resource %q not found", binding.Spec.Owner.ResourceName))
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Resource", "resource", binding.Spec.Owner.ResourceName)
 		return ctrl.Result{}, err
@@ -189,7 +195,7 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		if apierrors.IsNotFound(err) {
 			markSyncedFalse(binding, ReasonProjectNotFound,
 				fmt.Sprintf("Project %q not found", binding.Spec.Owner.ProjectName))
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Project", "project", binding.Spec.Owner.ProjectName)
 		return ctrl.Result{}, err
@@ -480,8 +486,11 @@ func validateReleaseOwner(release *openchoreov1alpha1.ResourceRelease, binding *
 //   - Watches: Environment, DataPlane, ClusterDataPlane — wakes bindings
 //     stuck on EnvironmentNotFound / DataPlaneNotFound when the missing
 //     object lands, and re-renders when environment or data plane spec
-//     (gateway, secret store) changes. Data plane watches ignore status-only
-//     updates.
+//     (gateway, secret store) changes. All three ignore updates that leave
+//     the spec unchanged (status, finalizers).
+//
+// Every *NotFound exit also requeues after dependencyNotFoundRequeue, as a
+// backstop for a dropped watch event and for the unwatched Resource and Project.
 //
 // (Cluster)ResourceType is intentionally not watched. Rendering reads from
 // the immutable ResourceRelease.spec.resourceType.spec snapshot, so live
@@ -509,12 +518,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.ResourceRelease{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForResourceRelease)).
+		// The Environment and plane controllers write status and finalizers that
+		// rendering never reads, and plane status is rewritten every
+		// StatusUpdateInterval. Only create/delete and spec changes (generation
+		// bumps) can affect rendering or unstick a *NotFound binding, so skip
+		// the rest.
 		Watches(&openchoreov1alpha1.Environment{},
-			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForEnvironment)).
-		// Plane controllers rewrite agent-connection status every
-		// StatusUpdateInterval; only spec changes (generation bumps) and
-		// create/delete can affect rendering or unstick a DataPlaneNotFound
-		// binding, so skip status-only updates.
+			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForEnvironment),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&openchoreov1alpha1.DataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.listResourceReleaseBindingsForDataPlane),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
