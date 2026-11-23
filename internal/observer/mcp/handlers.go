@@ -28,7 +28,10 @@ type MCPHandler struct {
 	// environments lets the DORA tools default to production; see
 	// dora_environments.go. Optional, set through WithEnvironmentLister.
 	environments EnvironmentLister
-	logger       *slog.Logger
+	// authorizer checks the caller before environments are listed. It is set
+	// whenever environments is.
+	authorizer scopeAuthorizer
+	logger     *slog.Logger
 }
 
 func NewMCPHandler(

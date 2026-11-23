@@ -41,15 +41,24 @@ type EnvironmentLister interface {
 }
 
 // WithEnvironmentLister lets the DORA tools default to the production
-// environment and report per environment.
+// environment and report per environment. The environments are listed with the
+// Observer's own credentials, so this needs a delivery insights service that can
+// authorize the caller first. Without one it fails closed: it logs why and leaves
+// the tools combining environments, which never lists them.
 func (h *MCPHandler) WithEnvironmentLister(l EnvironmentLister) *MCPHandler {
-	h.environments = l
+	a, ok := h.deliveryInsightsService.(scopeAuthorizer)
+	if !ok {
+		h.logger.Error("The delivery insights service can't authorize a scope on its own, so the DORA "+
+			"tools will combine environments instead of defaulting to production",
+			"service", fmt.Sprintf("%T", h.deliveryInsightsService))
+		return h
+	}
+	h.environments, h.authorizer = l, a
 	return h
 }
 
 // scopeAuthorizer checks deliveryinsights:view for a scope without querying. The
-// authz-wrapped service implements it; a service without it is not checking
-// access, so there is nothing to ask first.
+// authz-wrapped service implements it.
 type scopeAuthorizer interface {
 	AuthorizeScope(ctx context.Context, scope gen.ComponentSearchScope) error
 }
@@ -97,8 +106,8 @@ const (
 		"observability plane's observer, or nothing was deployed there in this window."
 	noteProductionClassifications = "Classifications are given for production environments only: " +
 		"DORA defines its Elite/High/Medium/Low bands for production."
-	noteTruncated = "The namespace has %d environments; only the first %d are reported. Pass " +
-		"environment for any other."
+	noteTruncated = "The namespace has %d environments; only %d are reported, production " +
+		"environments first. Pass environment for any other."
 )
 
 // doraMetricsForEnvironments answers a query that named no environment.
@@ -111,10 +120,8 @@ func (h *MCPHandler) doraMetricsForEnvironments(
 	if h.environments == nil {
 		return h.combinedDoraMetrics(ctx, req)
 	}
-	if a, ok := h.deliveryInsightsService.(scopeAuthorizer); ok {
-		if err := a.AuthorizeScope(ctx, req.SearchScope); err != nil {
-			return nil, err
-		}
+	if err := h.authorizer.AuthorizeScope(ctx, req.SearchScope); err != nil {
+		return nil, err
 	}
 	envs, err := h.environments.ListEnvironments(ctx, req.SearchScope.Namespace)
 	if err != nil {
@@ -212,7 +219,7 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 ) (any, error) {
 	if len(envs) > doraByEnvironmentMax {
 		notes = append(notes, fmt.Sprintf(noteTruncated, len(envs), doraByEnvironmentMax))
-		envs = envs[:doraByEnvironmentMax]
+		envs = capEnvironments(envs, doraByEnvironmentMax)
 	}
 	rows := make([]doraEnvironmentSummary, 0, len(envs))
 	var empty []string
@@ -266,6 +273,29 @@ func (h *MCPHandler) doraMetricsByEnvironment(
 		notes = append(notes, fmt.Sprintf(noteNoData, strings.Join(empty, ", ")))
 	}
 	return doraMetricsByEnvironmentResult{Environments: rows, Notes: notes}, nil
+}
+
+// capEnvironments keeps max environments, production ones first so a cut never
+// drops production for a development environment that sorted earlier. Those kept
+// stay in listing order.
+func capEnvironments(envs []service.Environment, maxEnvs int) []service.Environment {
+	keep := make([]bool, len(envs))
+	kept := 0
+	for _, production := range []bool{true, false} {
+		for i, e := range envs {
+			if kept < maxEnvs && !keep[i] && e.IsProduction == production {
+				keep[i] = true
+				kept++
+			}
+		}
+	}
+	out := make([]service.Environment, 0, kept)
+	for i, e := range envs {
+		if keep[i] {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // doraHasData reports whether any requested metric counted anything. Lead time

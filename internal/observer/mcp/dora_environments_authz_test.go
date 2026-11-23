@@ -17,13 +17,33 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 )
 
-// TestTheAuthzWrapperCanBeAskedFirst pins that the service main.go hands the MCP
-// handler can authorize a scope on its own. Without it the environment list
-// would be read before the caller was checked.
-func TestTheAuthzWrapperCanBeAskedFirst(t *testing.T) {
+// TestTheAuthzWrapperTurnsTheEnvironmentLookupOn pins that the service main.go
+// hands the MCP handler can authorize a scope on its own, so wiring the lister
+// takes effect.
+func TestTheAuthzWrapperTurnsTheEnvironmentLookupOn(t *testing.T) {
 	svc := service.NewDeliveryInsightsServiceWithAuthz(&perEnvDoraService{}, nil, slog.Default())
-	_, ok := svc.(scopeAuthorizer)
-	assert.True(t, ok, "%T does not implement AuthorizeScope", svc)
+	h := newTestMCPHandler(t, withDeliveryInsightsService(svc)).
+		WithEnvironmentLister(&fakeEnvLister{envs: threeEnvironments})
+	assert.NotNil(t, h.environments, "%T can't authorize a scope, so the lister was not wired", svc)
+}
+
+// TestWithoutAnAuthorizerEnvironmentsAreNeverListed pins that the lookup fails
+// closed: a service that can't check the caller first leaves the tools
+// combining environments, which never lists them, instead of listing them for
+// whoever asks.
+func TestWithoutAnAuthorizerEnvironmentsAreNeverListed(t *testing.T) {
+	svc := &perEnvDoraService{deploys: map[string]int{"": 40}}
+	// Embedding the interface hides AuthorizeScope.
+	unchecked := struct{ service.DeliveryInsightsService }{svc}
+	lister := &fakeEnvLister{envs: threeEnvironments}
+	h := newTestMCPHandler(t, withDeliveryInsightsService(unchecked)).WithEnvironmentLister(lister)
+
+	for _, byEnvironment := range []bool{false, true} {
+		_, decoded := queryDora(t, h, "", false, byEnvironment)
+		assert.Equal(t, noneClassified, classificationsOf(decoded))
+	}
+	assert.Equal(t, 0, lister.calls)
+	assert.Equal(t, []string{"", ""}, svc.requests, "only combined queries")
 }
 
 // TestACallerRefusedTheScopeIsRefusedBeforeListing pins that a caller without
@@ -102,20 +122,27 @@ func TestNonProductionRowsCarryNoClassification(t *testing.T) {
 }
 
 // TestAPerEnvironmentAnswerIsCapped pins that a namespace with very many
-// environments does not turn one tool call into as many queries, and that the
-// answer says what it left out.
+// environments does not turn one tool call into as many queries, that the
+// answer says what it left out, and that the cut keeps production: here it
+// sorts last, after every environment the cap would otherwise take.
 func TestAPerEnvironmentAnswerIsCapped(t *testing.T) {
 	envs := make([]service.Environment, doraByEnvironmentMax+10)
 	for i := range envs {
 		envs[i] = service.Environment{Name: fmt.Sprintf("env-%02d", i)}
 	}
+	envs[len(envs)-1] = service.Environment{Name: "zz-production", IsProduction: true}
 	svc := &perEnvDoraService{}
 	result, decoded := queryDora(t, doraHandler(t, svc, &fakeEnvLister{envs: envs}), "", false, true)
 
-	assert.Len(t, result.(doraMetricsByEnvironmentResult).Environments, doraByEnvironmentMax)
+	rows := result.(doraMetricsByEnvironmentResult).Environments
+	require.Len(t, rows, doraByEnvironmentMax)
 	assert.Len(t, svc.requests, doraByEnvironmentMax)
+	assert.Equal(t, "env-00", rows[0].Environment, "the kept environments stay in listing order")
+	assert.Equal(t, "env-48", rows[len(rows)-2].Environment)
+	assert.Equal(t, "zz-production", rows[len(rows)-1].Environment, "production was cut")
 	assert.Contains(t, notesOf(t, decoded),
-		fmt.Sprintf("has %d environments; only the first %d", len(envs), doraByEnvironmentMax))
+		fmt.Sprintf("has %d environments; only %d are reported, production environments first",
+			len(envs), doraByEnvironmentMax))
 }
 
 // TestAFailedListingSaysWhatByEnvironmentGotInstead pins that a caller who asked
