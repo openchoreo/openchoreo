@@ -25,6 +25,12 @@ updates:
           - "*"
         update-types:
           - "patch"
+      # Security updates in one PR. The repo's "Grouped security updates"
+      # setting doesn't apply to directories configured in this file.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   # Go modules: licenser tool
   - package-ecosystem: "gomod"
@@ -71,3 +77,9 @@ updates:
       - "/agents/*"
     schedule:
       interval: "weekly"
+    groups:
+      # Security updates in one PR per agent instead of one per package.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
