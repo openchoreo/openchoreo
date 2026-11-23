@@ -112,6 +112,8 @@ case "$_ver" in
     latest)                         _ref="main" ;;
     latest-dev|0.0.0-latest-dev)    OPENCHOREO_CHART_VERSION="0.0.0-latest-dev"; _ref="main" ;;
     0.0.0-*)                        OPENCHOREO_CHART_VERSION="$_ver"; _ref="${_ver#0.0.0-}" ;;
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+                                    OPENCHOREO_CHART_VERSION="0.0.0-$_ver"; _ref="$_ver" ;;
     [0-9]*.[0-9]*.[0-9]*)           OPENCHOREO_CHART_VERSION="$_ver"; _ref="v$_ver" ;;
     *)                              OPENCHOREO_CHART_VERSION="$_ver"; _ref="$_ver" ;;
 esac
