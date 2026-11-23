@@ -1,7 +1,13 @@
 name: Trivy Image Scan
+run-name: Trivy Image Scan (${{ inputs.image_tag || github.ref_name }})
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Release tag to scan (e.g. v1.3.3). Empty scans the images built from the selected ref.'
+        required: false
+        type: string
 
 permissions: {}
 
@@ -10,27 +16,106 @@ env:
   IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
 
 jobs:
+  images:
+    name: List images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      images: ${{ steps.list.outputs.images }}
+      tag: ${{ steps.list.outputs.tag }}
+      upload_ref: ${{ steps.upload-ref.outputs.ref }}
+      upload_sha: ${{ steps.upload-ref.outputs.sha }}
+    steps:
+      - name: Validate inputs
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ -n "$IMAGE_TAG" && ! "$IMAGE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::image_tag must be a release tag like v1.3.3, got '$IMAGE_TAG'" && exit 1
+          fi
+
+      # The image list comes from the release being scanned, since lines ship different images.
+      - name: Checkout make/docker.mk
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.image_tag || github.sha }}
+          sparse-checkout: make/docker.mk
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # quick-start is skipped: most of its findings come from the third-party
+      # tools it bundles (kubectl, helm, k3d, docker-cli).
+      - name: List images from DOCKER_BUILD_IMAGES
+        id: list
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          SHA: ${{ github.sha }}
+        run: |
+          images=$(awk '/^DOCKER_BUILD_IMAGES/ {p=1; next} p && /^[[:space:]]*$/ {exit} p' make/docker.mk \
+            | grep -oE '^[[:space:]]+[a-z0-9-]+:' | tr -d ' \t:' | grep -vxF quick-start | jq -R . | jq -cs .)
+          if [[ "$images" == "[]" ]]; then
+            echo "::error::No images found in DOCKER_BUILD_IMAGES in make/docker.mk" && exit 1
+          fi
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "tag=${IMAGE_TAG:-${SHA:0:8}}" >> "$GITHUB_OUTPUT"
+
+      # Release results are filed under the branch the release was cut from, so
+      # code scanning tracks them per branch and main's alerts keep main's state.
+      # Same outcome as release-orchestrator.yml: a stable release lives on
+      # release-vX.Y; a pre-release on its own release-<tag> branch, or on
+      # release-vX.Y when that branch already existed when it was cut. Falls back
+      # to the tag itself when neither branch exists.
+      - name: Resolve where to file release results
+        id: upload-ref
+        if: inputs.image_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          minor_branch="release-$(grep -oE '^v[0-9]+\.[0-9]+' <<< "$IMAGE_TAG")"
+          if [[ "$IMAGE_TAG" == *-* ]]; then
+            candidates=("release-$IMAGE_TAG" "$minor_branch")
+          else
+            candidates=("$minor_branch")
+          fi
+          ref="" sha=""
+          for branch in "${candidates[@]}"; do
+            if out=$(gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --jq .commit.sha 2>&1); then
+              ref="refs/heads/$branch" sha="$out"
+              break
+            elif [[ "$out" != *"HTTP 404"* ]]; then
+              # Only a missing branch moves on; any other API error must not misfile results.
+              echo "::error::Looking up branch $branch failed: $out"
+              exit 1
+            fi
+          done
+          if [[ -z "$ref" ]]; then
+            echo "::warning::No release branch found for $IMAGE_TAG (tried ${candidates[*]}); filing results under the tag"
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$IMAGE_TAG" --jq .sha)
+            ref="refs/tags/$IMAGE_TAG"
+          fi
+          # Without both, upload-sarif would fall back to main and replace main's results.
+          if [[ -z "$ref" || ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not work out where to file results for $IMAGE_TAG (ref='$ref', sha='$sha')"
+            exit 1
+          fi
+          echo "Filing results under $ref ($sha)"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
   scan:
     name: Scan (${{ matrix.image }})
+    needs: images
     runs-on: ubuntu-latest
     permissions:
       packages: read
       security-events: write
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
-        image:
-          - controller
-          - openchoreo-api
-          - observer
-          - event-forwarder
-          - cluster-gateway
-          - cluster-agent
-          - remote-agent
-          - remote-agent-router
-          - sre-agent
-          - finops-agent
-          - portal-assistant
+        image: ${{ fromJSON(needs.images.outputs.images) }}
     steps:
       - name: Login to container registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -39,25 +124,38 @@ jobs:
           username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
           password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
 
-      - name: Set image tag
-        id: tag
-        run: echo "sha=$(echo '${{ github.sha }}' | cut -c1-8)" >> "$GITHUB_OUTPUT"
-
       - name: Verify image exists
+        env:
+          IMAGE: ${{ env.IMAGE_REPO_PREFIX }}/${{ matrix.image }}:${{ needs.images.outputs.tag }}
         run: |
-          docker manifest inspect "${IMAGE_REPO_PREFIX}/${{ matrix.image }}:${{ steps.tag.outputs.sha }}" > /dev/null 2>&1 || \
-            (echo "::error::Image ${IMAGE_REPO_PREFIX}/${{ matrix.image }}:${{ steps.tag.outputs.sha }} not found. Ensure the build workflow has completed." && exit 1)
+          docker manifest inspect "$IMAGE" > /dev/null 2>&1 || \
+            (echo "::error::Image $IMAGE not found. Ensure the build workflow has completed." && exit 1)
 
+      # Release scans keep only fixable critical and high findings, which is what
+      # decides whether a line needs a patch. Main keeps every severity.
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.IMAGE_REPO_PREFIX }}/${{ matrix.image }}:${{ steps.tag.outputs.sha }}
+          image-ref: ${{ env.IMAGE_REPO_PREFIX }}/${{ matrix.image }}:${{ needs.images.outputs.tag }}
           format: sarif
           output: ${{ matrix.image }}.sarif
+          severity: ${{ inputs.image_tag && 'CRITICAL,HIGH' || 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL' }}
+          ignore-unfixed: ${{ inputs.image_tag != '' }}
+          limit-severities-for-sarif: ${{ inputs.image_tag != '' }}
 
       - name: Upload results to GitHub Security tab
+        if: inputs.image_tag == ''
         uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
         with:
           sarif_file: ${{ matrix.image }}.sarif
           category: ${{ matrix.image }}
+
+      - name: Upload release results to GitHub Security tab
+        if: inputs.image_tag != ''
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
+        with:
+          sarif_file: ${{ matrix.image }}.sarif
+          category: ${{ matrix.image }}
+          ref: ${{ needs.images.outputs.upload_ref }}
+          sha: ${{ needs.images.outputs.upload_sha }}

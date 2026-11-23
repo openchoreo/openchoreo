@@ -9,23 +9,67 @@ on:
 permissions: {}
 
 jobs:
-  trigger-scan:
-    name: Trigger scan (${{ matrix.branch }})
+  scan-ref:
+    name: Trigger scan (${{ github.ref_name }})
     runs-on: ubuntu-latest
     permissions:
       actions: write
-    strategy:
-      fail-fast: false
-      matrix:
-        # Add release branches here as they are created (e.g., release-v1.1).
-        # The branch must contain the trivy-image-scan.yaml workflow.
-        branch:
-          - main
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Trigger Trivy image scan
         run: |
           gh workflow run trivy-image-scan.yaml \
-            --repo ${{ github.repository }} \
-            --ref ${{ matrix.branch }}
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$GITHUB_REF_NAME"
+
+  targets:
+    name: Pick release targets
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      targets: ${{ steps.pick.outputs.targets }}
+    steps:
+      - name: Checkout the selection script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: .github/scripts/trivy_scan_targets.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # The newest image of each supported release line and the newest
+      # pre-release of the next minor (see the script).
+      - name: Pick targets
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          targets=$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 200 --json tagName,publishedAt \
+            | python3 .github/scripts/trivy_scan_targets.py)
+          jq . <<< "$targets"
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  scan-releases:
+    name: Trigger scan (${{ matrix.tag }})
+    needs: targets
+    if: needs.targets.outputs.targets != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.targets.outputs.targets) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      IMAGE_TAG: ${{ matrix.tag }}
+    steps:
+      # Every scan runs this ref's trivy-image-scan.yaml; release targets pass the tag to scan.
+      - name: Trigger Trivy image scan
+        run: |
+          gh workflow run trivy-image-scan.yaml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$GITHUB_REF_NAME" \
+            -f image_tag="$IMAGE_TAG"
