@@ -5,7 +5,11 @@ package export
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"sort"
 	"time"
 
@@ -25,8 +29,8 @@ type resourcePage[T any] struct {
 
 type resourceFetcher func(context.Context, string) ([]Resource, error)
 
-// Fetch collects configuration and selected releases using existing OCC list
-// methods. The default window is three calendar months, plus every release
+// Fetch collects configuration and selected releases using the authenticated
+// API client. The default window is three calendar months, plus every release
 // referenced by an exported binding. AllReleases bypasses the date cutoff.
 // Calls and pages are sequential. On failure it returns no partial collection.
 // The API controls namespace discovery, authorization, and field visibility;
@@ -262,6 +266,39 @@ func fetchNamespaces(ctx context.Context, c client.Interface) ([]gen.Namespace, 
 		response, err := c.ListNamespaces(ctx, &gen.ListNamespacesParams{Limit: pageLimit, Cursor: pageCursor})
 		return (*resourcePage[gen.Namespace])(response), err
 	})
+}
+
+// Decode component responses locally to preserve numbers in free-form maps.
+// This preserves digits received from the API, not digits already lost server-side.
+func fetchComponentPage(ctx context.Context, c client.Interface, namespace string, limit int, cursor string) (*resourcePage[gen.Component], error) {
+	provider, ok := c.(generatedClientProvider)
+	if !ok || provider.GetClient() == nil {
+		return nil, fmt.Errorf("generated API client is required to preserve component numbers")
+	}
+	pageLimit, pageCursor := pageParams(limit, cursor)
+	response, err := provider.GetClient().ListComponents(ctx, namespace, &gen.ListComponentsParams{Limit: pageLimit, Cursor: pageCursor})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = response.Body.Close() }()
+	decoder := json.NewDecoder(response.Body)
+	decoder.UseNumber()
+	if response.StatusCode != http.StatusOK {
+		var problem gen.ErrorResponse
+		if err := decoder.Decode(&problem); err == nil && problem.Error != "" {
+			return nil, fmt.Errorf("component list request failed (HTTP %d): %s", response.StatusCode, problem.Error)
+		}
+		return nil, fmt.Errorf("component list request failed (HTTP %d)", response.StatusCode)
+	}
+	var page resourcePage[gen.Component]
+	if err := decoder.Decode(&page); err != nil {
+		return nil, fmt.Errorf("decode component list: %w", err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("component list response contains trailing data")
+	}
+	return &page, nil
 }
 
 // fetchAll keeps the shared pagination behavior while propagating cancellation
@@ -537,9 +574,7 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 		),
 		newFetcher("Component",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Component], error) {
-				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListComponents(ctx, namespace, "", &gen.ListComponentsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Component])(response), err
+				return fetchComponentPage(ctx, c, namespace, limit, cursor)
 			},
 			func(item gen.Component) string { return item.Metadata.Name },
 		),

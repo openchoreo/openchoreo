@@ -292,6 +292,7 @@ func TestFetch_AllRequiredResourcesAndPages(t *testing.T) {
 		require.NoError(t, err)
 		var expected gen.Component
 		require.NoError(t, json.Unmarshal(body, &expected))
+		(*expected.Spec.Parameters)["replicas"] = json.Number("3")
 		assert.Equal(t, expected, component, "fetch must preserve spec, status, metadata, and nested parameters")
 	}
 	assert.Equal(t, 2, counts["Namespace/"])
@@ -346,6 +347,8 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 		{name: "cluster collection", path: "/api/v1/clustertraits", kind: "ClusterTrait", status: http.StatusForbidden},
 		{name: "namespace discovery", path: "/api/v1/namespaces", kind: testNamespaceKind, status: http.StatusForbidden},
 		{name: "namespaced collection", path: "/api/v1/namespaces/acme/resources", kind: "Resource", namespace: "acme", status: http.StatusInternalServerError},
+		{name: "component collection", path: testComponentsPath, kind: testComponentKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "later component page", path: testComponentsPath, kind: testComponentKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 		{name: "component release lines", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
 			namespace: "acme", status: http.StatusForbidden},
 		{name: "later release line page", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
@@ -384,18 +387,29 @@ func TestFetch_TransportError(t *testing.T) {
 }
 
 func TestFetch_MalformedResponse(t *testing.T) {
-	f := newFetchFixture(t, false)
-	f.override = func(_ *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader("{invalid-json")),
-		}, nil
+	for _, tc := range []struct{ name, path, kind, body string }{
+		{"cluster collection", "/api/v1/clustertraits", "ClusterTrait", "{invalid-json"},
+		{"component collection", testComponentsPath, testComponentKind, "{invalid-json"},
+		{"trailing component data", testComponentsPath, testComponentKind, `{"items":[],"pagination":{}} {}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			f.override = func(req *http.Request) (*http.Response, error) {
+				if req.URL.Path != tc.path {
+					return nil, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(tc.body)),
+				}, nil
+			}
+			resources, err := fetchAllTestResources(context.Background(), f.client)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.kind)
+			assert.Nil(t, resources)
+		})
 	}
-	resources, err := fetchAllTestResources(context.Background(), f.client)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ClusterProjectType")
-	assert.Nil(t, resources)
 }
 
 func TestFetch_CanceledBeforeRequest(t *testing.T) {

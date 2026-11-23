@@ -74,6 +74,34 @@ func TestRun_ExportsFilteredObjects(t *testing.T) {
 	assert.Equal(t, testNamespaceKind, namespace.Kind)
 }
 
+func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
+	f := newFetchFixture(t, false)
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != testComponentsPath {
+			return nil, nil
+		}
+		object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+		object["spec"].(map[string]any)["parameters"] = map[string]any{
+			"decimal": json.Number("1.234567890123456789"),
+			"large":   json.Number("9007199254740993"),
+			"nested":  []any{map[string]any{"value": json.Number("2.5000")}},
+		}
+		return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
+	}
+	directory := t.TempDir()
+	_, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	name := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml")
+	data, err := os.ReadFile(name)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "decimal: 1.234567890123456789\n")
+	assert.Contains(t, string(data), "large: 9007199254740993\n")
+	assert.Contains(t, string(data), "value: 2.5000\n")
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
+}
+
 func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
