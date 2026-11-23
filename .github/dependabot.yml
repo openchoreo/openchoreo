@@ -78,7 +78,8 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      # Security updates in one PR per agent instead of one per package.
+      # Security updates in one PR instead of one per package. It can span
+      # agents, which mostly share the same dependencies.
       security:
         applies-to: security-updates
         patterns:
