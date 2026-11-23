@@ -335,12 +335,13 @@ type fileSnapshot struct {
 }
 
 type fileChange struct {
-	path      string
-	before    *fileSnapshot
-	after     []byte
-	remove    bool
-	backedUp  bool
-	installed bool
+	path          string
+	before        *fileSnapshot
+	after         []byte
+	remove        bool
+	backedUp      bool
+	installed     bool
+	installedInfo fs.FileInfo
 }
 
 type directorySnapshot struct {
@@ -361,7 +362,8 @@ type fileTransaction struct {
 
 // writeFiles computes the complete change set before touching manifests. Only
 // supported objects at their exact layout paths are managed. Returned operation
-// errors roll back file changes; abrupt process termination is not recoverable.
+// errors roll back unchanged files; conflicts retain backups for recovery.
+// Abrupt process termination is not recoverable.
 func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, options writeOptions) (counts FileCounts, resultErr error) {
 	if err := validateExportFiles(ctx, files); err != nil {
 		return FileCounts{}, err
@@ -677,10 +679,15 @@ func (t *fileTransaction) applyChange(index int) error {
 	if err := t.makeParents(change.path); err != nil {
 		return err
 	}
+	installedInfo, err := t.root.Lstat(t.stagedName("new", index))
+	if err != nil {
+		return err
+	}
 	if err := t.root.Rename(t.stagedName("new", index), filepath.FromSlash(change.path)); err != nil {
 		return err
 	}
 	change.installed = true
+	change.installedInfo = installedInfo
 	return nil
 }
 
@@ -788,11 +795,21 @@ func (t *fileTransaction) rollback() error {
 	var rollbackErr error
 	for i := len(t.removedDirs) - 1; i >= 0; i-- {
 		directory := t.removedDirs[i]
-		rollbackErr = errors.Join(rollbackErr, t.root.Mkdir(filepath.FromSlash(directory.path), directory.mode))
+		if err := t.root.Mkdir(filepath.FromSlash(directory.path), directory.mode); err != nil {
+			rollbackErr = errors.Join(rollbackErr, err)
+			continue
+		}
 		rollbackErr = errors.Join(rollbackErr, t.root.Chmod(filepath.FromSlash(directory.path), directory.mode))
 	}
 	for i := len(t.changes) - 1; i >= 0; i-- {
 		change := t.changes[i]
+		if !change.installed && !change.backedUp {
+			continue
+		}
+		if err := t.checkRollbackChange(i); err != nil {
+			rollbackErr = errors.Join(rollbackErr, fmt.Errorf("rollback conflict at %q: %w", change.path, err))
+			continue
+		}
 		if change.installed && !change.backedUp {
 			rollbackErr = errors.Join(rollbackErr, t.root.Remove(filepath.FromSlash(change.path)))
 		}
@@ -800,8 +817,59 @@ func (t *fileTransaction) rollback() error {
 			rollbackErr = errors.Join(rollbackErr, t.root.Rename(t.stagedName("old", i), filepath.FromSlash(change.path)))
 		}
 	}
+	if rollbackErr != nil {
+		// Preserve directory paths too: an ancestor may have been replaced by
+		// another writer, and recovery still needs the conflicted paths.
+		return rollbackErr
+	}
 	for i := len(t.createdDirs) - 1; i >= 0; i-- {
 		rollbackErr = errors.Join(rollbackErr, t.root.Remove(t.createdDirs[i]))
 	}
 	return rollbackErr
+}
+
+// Only undo paths that still match the state left by this transaction. Failed
+// checks leave both the current path and its recovery backup untouched.
+func (t *fileTransaction) checkRollbackChange(index int) error {
+	change := t.changes[index]
+	for directory := path.Dir(change.path); directory != "."; directory = path.Dir(directory) {
+		info, err := t.root.Lstat(filepath.FromSlash(directory))
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("parent %q is no longer a regular directory", directory)
+		}
+	}
+	expected := fileChange{path: change.path, before: change.before}
+	var expectedInfo fs.FileInfo
+	switch {
+	case change.installed:
+		expectedInfo = change.installedInfo
+		expected.before = &fileSnapshot{data: change.after, mode: expectedInfo.Mode().Perm()}
+	case change.remove:
+		// A deleted path must still be absent before restoring its backup.
+		expected.before = nil
+	default:
+		// If installation failed after linking the backup, the original file
+		// must still be present at the destination.
+		var err error
+		expectedInfo, err = t.root.Lstat(t.stagedName("old", index))
+		if err != nil {
+			return err
+		}
+	}
+	if err := t.checkUnchanged(&expected); err != nil {
+		return err
+	}
+	if expectedInfo != nil {
+		info, err := t.root.Lstat(filepath.FromSlash(change.path))
+		if err != nil {
+			return err
+		}
+		if !os.SameFile(expectedInfo, info) || !expectedInfo.ModTime().Equal(info.ModTime()) {
+			return fmt.Errorf("destination changed since export")
+		}
+	}
+	return nil
 }

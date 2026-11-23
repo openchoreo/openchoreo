@@ -600,6 +600,103 @@ func TestFileTransaction_RollsBackMidApplyFailure(t *testing.T) {
 	assert.Equal(t, before, snapshotTree(t, directory))
 }
 
+func TestFileTransaction_RollbackPreservesConcurrentChanges(t *testing.T) {
+	const (
+		createOperation = "create"
+		deleteOperation = "delete"
+	)
+	for _, operation := range []string{createOperation, "update", deleteOperation} {
+		for _, mutation := range []string{"content", "replacement", "permissions", "symlink", "parent"} {
+			t.Run(operation+"/"+mutation, func(t *testing.T) {
+				directory := t.TempDir()
+				const before = "previous content\n"
+				const installed = "exported content\n"
+				change := fileChange{path: "managed/affected.yaml", after: []byte(installed)}
+				if operation != createOperation {
+					seedFiles(t, directory, []SerializedFile{{Path: change.path, Data: []byte(before)}})
+				}
+				change.remove = operation == deleteOperation
+				seedFiles(t, directory, []SerializedFile{{Path: "other.yaml", Data: []byte(before)}})
+				root, err := os.OpenRoot(directory)
+				require.NoError(t, err)
+				defer root.Close()
+				previousInfo, err := root.Lstat("other.yaml")
+				require.NoError(t, err)
+				previous := &fileSnapshot{data: []byte(before), mode: previousInfo.Mode().Perm()}
+				if operation != createOperation {
+					change.before = previous
+				}
+				tx := &fileTransaction{root: root, changes: []fileChange{
+					change,
+					{path: "other.yaml", before: previous, after: []byte(installed)},
+					{path: "failure.yaml", after: []byte(installed)},
+				}}
+				require.NoError(t, tx.stage(context.Background()))
+				require.NoError(t, tx.applyChange(0))
+				require.NoError(t, tx.applyChange(1))
+				name := filepath.Join(directory, change.path)
+				switch mutation {
+				case "content":
+					require.NoError(t, os.WriteFile(name, []byte("another writer's content\n"), 0o600))
+				case "replacement":
+					replacement := filepath.Join(directory, "replacement.tmp")
+					require.NoError(t, os.WriteFile(replacement, []byte(installed), 0o600))
+					require.NoError(t, os.Rename(replacement, name))
+				case "permissions":
+					require.NoError(t, os.WriteFile(name, []byte(installed), 0o600))
+					require.NoError(t, os.Chmod(name, 0o444))
+					defer func() { _ = os.Chmod(name, 0o600) }()
+				case "symlink":
+					if operation != deleteOperation {
+						require.NoError(t, os.Remove(name))
+					}
+					require.NoError(t, os.WriteFile(filepath.Join(directory, "target.yaml"), []byte(installed), 0o600))
+					if err := os.Symlink("../target.yaml", name); err != nil {
+						t.Skipf("symlinks unavailable: %v", err)
+					}
+				case "parent":
+					if operation == deleteOperation {
+						require.NoError(t, os.WriteFile(name, []byte(installed), 0o600))
+					}
+					require.NoError(t, os.Rename(filepath.Dir(name), filepath.Join(directory, "moved")))
+					if err := os.Symlink("moved", filepath.Dir(name)); err != nil {
+						t.Skipf("symlinks unavailable: %v", err)
+					}
+				}
+				current, err := os.Lstat(name)
+				require.NoError(t, err)
+				currentData, err := os.ReadFile(name)
+				require.NoError(t, err)
+				require.NoError(t, root.Remove(tx.stagedName("new", 2)))
+				cause := tx.applyChange(2)
+				require.Error(t, cause)
+				err = tx.abort(cause, directory)
+				require.ErrorIs(t, err, cause)
+				require.ErrorContains(t, err, "rollback conflict")
+				assert.Contains(t, err.Error(), change.path)
+				assert.NotContains(t, err.Error(), "previous files restored")
+				assert.True(t, tx.keepBackups)
+				require.DirExists(t, filepath.Join(directory, tx.scratch))
+				after, err := os.Lstat(name)
+				require.NoError(t, err)
+				assert.True(t, os.SameFile(current, after), "concurrent replacement must remain untouched")
+				assert.Equal(t, current.Mode(), after.Mode())
+				data, err := os.ReadFile(name)
+				require.NoError(t, err)
+				assert.Equal(t, currentData, data)
+				data, err = root.ReadFile("other.yaml")
+				require.NoError(t, err)
+				assert.Equal(t, before, string(data), "unconflicted changes must still be restored")
+				if operation != createOperation {
+					data, err = root.ReadFile(tx.stagedName("old", 0))
+					require.NoError(t, err)
+					assert.Equal(t, before, string(data), "backup must remain available for recovery")
+				}
+			})
+		}
+	}
+}
+
 func TestWriteFiles_EmptyExportDeletesManagedManifests(t *testing.T) {
 	directory := t.TempDir()
 	seedFiles(t, directory, serializedResources(t, manifestResource("Project")))
