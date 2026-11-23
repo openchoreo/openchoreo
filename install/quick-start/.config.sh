@@ -34,8 +34,8 @@ THUNDER_VERSION="1.0.1"
 
 # Observability module versions (community-modules): 0.0.0-latest-dev on main,
 # pinned on release branches by hack/pin-observability-modules.sh
-LOGS_OPENSEARCH_VERSION="0.0.0-latest-dev"
-TRACES_OPENSEARCH_VERSION="0.0.0-latest-dev"
-METRICS_PROMETHEUS_VERSION="0.0.0-latest-dev"
-EVENTS_OTEL_COLLECTOR_VERSION="0.0.0-latest-dev"
-FINOPS_OPENCOST_VERSION="0.0.0-latest-dev"
+LOGS_OPENSEARCH_VERSION="0.8.3"
+TRACES_OPENSEARCH_VERSION="0.10.0"
+METRICS_PROMETHEUS_VERSION="0.9.4"
+EVENTS_OTEL_COLLECTOR_VERSION="0.3.0"
+FINOPS_OPENCOST_VERSION="0.3.0"
