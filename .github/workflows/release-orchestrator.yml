@@ -61,6 +61,8 @@ on:
         type: boolean
         default: false
 
+permissions: {}
+
 concurrency:
   group: release-orchestrator-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
   cancel-in-progress: false

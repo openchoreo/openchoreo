@@ -7,6 +7,8 @@ on:
       OCI_REGISTRY_PASSWORD:
         required: true
 
+permissions: {}
+
 env:
   OCI_REGISTRY_HOST: ${{ vars.OCI_REGISTRY_HOST || 'ghcr.io' }}
   IMAGE_REPO_PREFIX: ${{ vars.IMAGE_REPO_PREFIX || 'ghcr.io/openchoreo' }}
@@ -17,6 +19,10 @@ jobs:
   publish:
     name: Publish
     runs-on: ubuntu-24.04
+    # Same as the caller grants (build-and-test.yml); a called workflow can't widen them.
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Clone the code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

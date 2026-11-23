@@ -24,6 +24,8 @@ on:
         required: false
         type: string
 
+permissions: {}
+
 concurrency:
   group: prepare-next-version-${{ github.event.inputs.major }}-${{ github.event.inputs.minor }}
   cancel-in-progress: false
