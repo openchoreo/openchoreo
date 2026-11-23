@@ -182,11 +182,9 @@ func encodeJSONAsYAML(data []byte) ([]byte, error) {
 func preserveYAMLNumbers(value any) any {
 	switch value := value.(type) {
 	case json.Number:
-		tag := "!!int"
-		if strings.ContainsAny(value.String(), ".eE") {
-			tag = "!!float"
-		}
-		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Tag: tag, Value: value.String()}
+		// Let readers resolve the plain literal: an explicit integer tag can
+		// reject numbers beyond their supported integer range.
+		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Value: value.String()}
 	case map[string]any:
 		for key, item := range value {
 			value[key] = preserveYAMLNumbers(item)

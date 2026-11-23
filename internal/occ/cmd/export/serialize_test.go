@@ -314,6 +314,7 @@ func TestSerialize_PreservesNumberLiterals(t *testing.T) {
 	resource.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{
 		"decimal":  json.Number("1.234567890123456789"),
 		"large":    json.Number("9007199254740993"),
+		"overflow": json.Number("18446744073709551616"),
 		"trailing": json.Number("2.5000"),
 		"nested":   []any{map[string]any{"exponent": json.Number("1.2300e-04")}},
 	}
@@ -325,8 +326,22 @@ func TestSerialize_PreservesNumberLiterals(t *testing.T) {
 	text := string(files[0].Data)
 	assert.Contains(t, text, "decimal: 1.234567890123456789\n")
 	assert.Contains(t, text, "large: 9007199254740993\n")
+	assert.Contains(t, text, "overflow: 18446744073709551616\n")
 	assert.Contains(t, text, "trailing: 2.5000\n")
 	assert.Contains(t, text, "exponent: 1.2300e-04\n")
+	_, err = yaml.YAMLToJSONStrict(files[0].Data)
+	require.NoError(t, err)
+	assert.True(t, isManagedManifest(files[0].Path, files[0].Data))
+	directory := t.TempDir()
+	counts, err := writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Created: 1}, counts)
+	counts, err = writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: 1}, counts)
+	data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(files[0].Path)))
+	require.NoError(t, err)
+	assert.Equal(t, files[0].Data, data)
 }
 
 func TestSerialize_Cancellation(t *testing.T) {
