@@ -11,6 +11,7 @@ kind: ClusterComponentType
 metadata:
   name: tls-service
   annotations:
+    openchoreo.dev/legacy-endpoints: "true"
     openchoreo.dev/description: "A long-running service exposed via Gateway API TLSRoute (SNI passthrough; the workload terminates TLS)"
 spec:
   workloadType: deployment

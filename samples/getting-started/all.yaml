@@ -391,6 +391,7 @@ kind: ClusterComponentType
 metadata:
   name: service
   annotations:
+    openchoreo.dev/legacy-endpoints: "true"
     openchoreo.dev/description: "A long-running request-serving component with one or more endpoints"
 spec:
   workloadType: deployment
@@ -691,6 +692,7 @@ kind: ClusterComponentType
 metadata:
   name: web-application
   annotations:
+    openchoreo.dev/legacy-endpoints: "true"
     openchoreo.dev/description: "A long-running component that serves web requests and exposes at least one HTTP endpoint"
 spec:
   workloadType: deployment
