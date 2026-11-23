@@ -197,12 +197,12 @@ test.describe('abac-ui: env-restricted bindings, promote deny, cache eviction on
       project: PROJECT_NAME,
       template: 'Web Application',
       image: PRE_BUILT_IMAGE,
-      endpointPort: 9090,
     });
 
     // Development: allowed by the binding's condition.
     await component.deployTo(COMPONENT_NAME, 'development', {
       args: ['--port', '9090'],
+      endpointPort: 9090,
     });
     await release.expectActive(COMPONENT_NAME, 'development', 120_000);
 

@@ -69,7 +69,6 @@ test.describe('dev-ops: Dev CRUD inside a PE-seeded project', () => {
       project: PROJECT_NAME,
       template: 'Web Application',
       image: PRE_BUILT_IMAGE,
-      endpointPort: 9090,
     });
 
     await expect
