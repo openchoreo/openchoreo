@@ -11,6 +11,7 @@ import (
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/openchoreo/openchoreo/internal/observer/api/gen"
 	"github.com/openchoreo/openchoreo/internal/observer/api/internalgen"
@@ -81,7 +82,12 @@ func ValidateLogsQueryRequest(req *types.LogsQueryRequest) error {
 	if err := ValidateLogLevels(req.LogLevels); err != nil {
 		return err
 	}
-
+	// Validate container name if provided
+	if req.ContainerName != "" {
+		if errs := validation.IsDNS1123Label(req.ContainerName); len(errs) > 0 {
+			return fmt.Errorf("containerName must be a valid DNS-1123 label: %s", strings.Join(errs, ", "))
+		}
+	}
 	return nil
 }
 
