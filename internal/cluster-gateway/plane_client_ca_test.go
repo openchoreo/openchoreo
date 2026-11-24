@@ -425,7 +425,7 @@ func TestGetAllPlaneClientCAs_DataPlane(t *testing.T) {
 	}
 
 	// Test getAllPlaneClientCAs
-	result, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "shared-plane")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "shared-plane")
 	require.NoError(t, err)
 
 	// Should find both namespace-scoped and cluster-scoped CRs
@@ -478,7 +478,7 @@ func TestGetAllPlaneClientCAs_OnlyNamespaceScoped(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "prod-cluster")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "prod-cluster")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 1)
@@ -527,7 +527,7 @@ func TestGetAllPlaneClientCAs_OnlyClusterScoped(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "global-plane")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "global-plane")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 1)
@@ -568,7 +568,7 @@ func TestGetAllPlaneClientCAs_NoMatchingPlaneID(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "non-existent-plane")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "non-existent-plane")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 0)
@@ -644,7 +644,7 @@ func TestGetAllPlaneClientCAs_WorkflowPlane(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeWorkflowPlane, "ci-cluster")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeWorkflowPlane, "ci-cluster")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 2)
@@ -722,7 +722,7 @@ func TestGetAllPlaneClientCAs_ObservabilityPlane(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeObservabilityPlane, "monitoring-cluster")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeObservabilityPlane, "monitoring-cluster")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 2)
@@ -743,7 +743,7 @@ func TestGetAllPlaneClientCAs_UnsupportedPlaneType(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	_, err := server.getAllPlaneClientCAs("unknownplane", "some-id")
+	_, _, err := server.getAllPlaneClientCAs("unknownplane", "some-id")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported plane type")
 }
@@ -791,7 +791,7 @@ func TestGetAllPlaneClientCAs_WithInlineCA(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	result, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "inline-plane")
+	result, _, err := server.getAllPlaneClientCAs(planeTypeDataPlane, "inline-plane")
 	require.NoError(t, err)
 
 	assert.Len(t, result, 2)
@@ -857,7 +857,7 @@ func TestExtractPlaneClientCAs(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	result, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "target-plane",
+	result, _, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "target-plane",
 		&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
 
 	require.NoError(t, err)
@@ -979,7 +979,7 @@ func TestExtractCAFromPlane_NilAgent(t *testing.T) {
 		logger:    testLogger(),
 	}
 
-	data, err := server.extractCAFromPlane(nil, "test-ns")
+	data, err := server.extractCAFromPlane(context.Background(), nil, "test-ns")
 	assert.NoError(t, err)
 	assert.Nil(t, data)
 }
@@ -996,7 +996,7 @@ func TestExtractCADataWithNamespace_NoValueNoSecret(t *testing.T) {
 		// Neither Value nor SecretKeyRef set
 	}
 
-	_, err := server.extractCADataWithNamespace(valueFrom, "test-ns")
+	_, err := server.extractCADataWithNamespace(context.Background(), valueFrom, "test-ns")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no valid CA data found")
 }
@@ -1014,7 +1014,7 @@ func TestExtractCAFromSecret_EmptyName(t *testing.T) {
 		Key:  "ca.crt",
 	}
 
-	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	_, err := server.extractCAFromSecret(context.Background(), secretRef, "test-ns")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "secret name is required")
 }
@@ -1030,7 +1030,7 @@ func TestExtractCAFromSecret_EmptyKey(t *testing.T) {
 		Key:  "",
 	}
 
-	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	_, err := server.extractCAFromSecret(context.Background(), secretRef, "test-ns")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "secret key is required")
 }
@@ -1054,7 +1054,7 @@ func TestExtractCAFromSecret_MissingKeyInSecret(t *testing.T) {
 		Key:  "ca.crt",
 	}
 
-	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	_, err := server.extractCAFromSecret(context.Background(), secretRef, "test-ns")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "key ca.crt not found")
 }
@@ -1078,7 +1078,7 @@ func TestExtractCAFromSecret_EmptyCAData(t *testing.T) {
 		Key:  "ca.crt",
 	}
 
-	_, err := server.extractCAFromSecret(secretRef, "test-ns")
+	_, err := server.extractCAFromSecret(context.Background(), secretRef, "test-ns")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "CA data is empty")
 }
@@ -1108,7 +1108,7 @@ func TestExtractPlaneClientCAs_CAExtractionError(t *testing.T) {
 	server := &Server{k8sClient: fakeClient, logger: testLogger()}
 
 	ctx := context.Background()
-	result, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "target-plane",
+	result, _, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "target-plane",
 		&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
 
 	// Should not error — just skips the bad CR
@@ -1154,7 +1154,7 @@ func TestExtractPlaneClientCAs_MixedGoodAndBadCRs(t *testing.T) {
 	server := &Server{k8sClient: fakeClient, logger: testLogger()}
 
 	ctx := context.Background()
-	result, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "shared",
+	result, _, err := server.extractPlaneClientCAs(ctx, planeTypeDataPlane, "shared",
 		&openchoreov1alpha1.DataPlaneList{}, dataPlaneInfo)
 
 	require.NoError(t, err)
@@ -1170,7 +1170,7 @@ func TestGetAllPlaneClientCAs_EmptyResult(t *testing.T) {
 
 	// No CRs exist for any plane type
 	for _, pt := range []string{planeTypeDataPlane, planeTypeWorkflowPlane, planeTypeObservabilityPlane} {
-		result, err := server.getAllPlaneClientCAs(pt, "nonexistent")
+		result, _, err := server.getAllPlaneClientCAs(pt, "nonexistent")
 		require.NoError(t, err)
 		assert.Len(t, result, 0)
 	}

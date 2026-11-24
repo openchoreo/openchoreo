@@ -33,6 +33,40 @@ const weightedRouteTemplate = `{
   "spec": {"rules": [{"backendRefs": "${backends.map(b, {\"name\": b.serviceName, \"port\": b.port, \"weight\": b.weight})}"}]}
 }`
 
+// projectServiceTemplate renders, for project visibility, a Service in front
+// of the first backend's pods: what an EndpointType serving the project scope
+// renders in place of the component's own Service.
+const projectServiceTemplate = `{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {"name": "${metadata.name}", "namespace": "${metadata.namespace}", "labels": "${metadata.labels}"},
+  "spec": {
+    "selector": "${backends[0].podSelectors}",
+    "ports": [{"name": "http", "port": "${backends[0].port}", "targetPort": "${backends[0].targetPort}"}]
+  }
+}`
+
+// withProjectService makes the release's type render projectServiceTemplate
+// for project visibility, and resolve urls.project to that Service only when
+// the Endpoint lists project.
+func withProjectService(release *openchoreov1alpha1.EndpointRelease) *openchoreov1alpha1.EndpointRelease {
+	spec := &release.Spec.EndpointType.Spec
+	spec.Resources = append(spec.Resources, openchoreov1alpha1.ResourceTemplate{
+		ID:          "service",
+		IncludeWhen: `${"project" in visibility}`,
+		Template:    &runtime.RawExtension{Raw: []byte(projectServiceTemplate)},
+	})
+	spec.URLs = &openchoreov1alpha1.EndpointTypeURLs{
+		Project: &openchoreov1alpha1.EndpointURLTemplate{
+			IncludeWhen: `${"project" in visibility}`,
+			Scheme:      "http",
+			Host:        "${metadata.name}.${metadata.namespace}.svc.cluster.local",
+			Port:        "${backends[0].port}",
+		},
+	}
+	return release
+}
+
 func newBinding(name, release string) *openchoreov1alpha1.EndpointReleaseBinding {
 	return &openchoreov1alpha1.EndpointReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
@@ -137,6 +171,18 @@ func deployedComponent(component, serviceNamespace string) *openchoreov1alpha1.R
 			}},
 		},
 	}
+}
+
+// renderedWithoutService returns a ReleaseBinding of the "greeter" component
+// that has computed its endpoints for its current spec without reporting a
+// Service for its "http" endpoint, as for a ComponentType that leaves Services
+// to Endpoints. It carries no conditions: whether it is synced does not matter.
+func renderedWithoutService() *openchoreov1alpha1.ReleaseBinding {
+	rb := deployedComponent("greeter", "")
+	rb.Generation = 1
+	rb.Status.Endpoints = nil
+	rb.Status.EndpointsObservedGeneration = 1
+	return rb
 }
 
 // lineBackend returns a Component backend, named after testLine, routing to

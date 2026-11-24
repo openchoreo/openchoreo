@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -125,7 +126,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Requeue to refresh agent connection status
-		return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+		return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 	}
 
 	// Set the observed generation
@@ -171,7 +172,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	r.Recorder.Event(dataPlane, corev1.EventTypeNormal, "ReconcileComplete", fmt.Sprintf("Successfully created %s", dataPlane.Name))
 
 	// Requeue to refresh agent connection status
-	return ctrl.Result{RequeueAfter: controller.StatusUpdateInterval}, nil
+	return ctrl.Result{RequeueAfter: controller.StatusRequeueAfter()}, nil
 }
 
 func (r *Reconciler) shouldIgnoreReconcile(dataPlane *openchoreov1alpha1.DataPlane) bool {
@@ -264,6 +265,18 @@ func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, dataPlan
 		return err
 	}
 
+	// Agents are connected to the plane but none is authorized for this CR: the
+	// gateway missed its grant. It grants only when notified, so notify it again.
+	if status.GrantMissing() {
+		logger.Info("plane has connected agents but none is authorized for this DataPlane, re-notifying gateway",
+			"planeID", effectivePlaneID,
+			"planeConnectedAgents", status.PlaneConnectedAgents,
+		)
+		if err := r.notifyGateway(ctx, dataPlane, "updated"); err != nil {
+			logger.Error(err, "failed to re-notify gateway", "planeID", effectivePlaneID)
+		}
+	}
+
 	// Populate DataPlane status fields (caller will persist to API server)
 	now := metav1.Now()
 	if dataPlane.Status.AgentConnection == nil {
@@ -318,7 +331,7 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&openchoreov1alpha1.DataPlane{}).
+		For(&openchoreov1alpha1.DataPlane{}, builder.WithPredicates(controller.PlaneChangedPredicate())).
 		Named("dataplane").
 		// Watch for Environment changes to reconcile the dataplane
 		Watches(

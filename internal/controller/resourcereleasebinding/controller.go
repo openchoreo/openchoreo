@@ -24,6 +24,7 @@ import (
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
+	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	dpkubernetes "github.com/openchoreo/openchoreo/internal/dataplane/kubernetes"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/localdevaddresses"
@@ -292,6 +293,7 @@ func (r *Reconciler) renderAndEmit(
 			},
 			EnvironmentName: binding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            renderedrelease.ManageMode(rr.Spec.Mode),
 			Resources:       manifests,
 		}
 		return controllerutil.SetControllerReference(binding, rr, r.Scheme)

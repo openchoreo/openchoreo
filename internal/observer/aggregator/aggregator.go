@@ -112,6 +112,15 @@ type Aggregator struct {
 	// long after the adapter that can serve the sweep was in place. Zero means
 	// available.
 	eventsUnavailableUntilMs atomic.Int64
+	// eventsFailing is set while the sweep is failing for any reason other than a
+	// 501, so an outage logs one warning when it starts and one line when it ends
+	// rather than a warning every tick. An install with no logs adapter fails every
+	// sweep, indefinitely.
+	eventsFailing atomic.Bool
+	// schemaNewer latches once the store has been migrated past what this
+	// Observer knows, so the stop is logged once. It does not unlatch: only a
+	// newer Observer can aggregate into that store, and this process is not one.
+	schemaNewer atomic.Bool
 	// events is the sweep source, and the events path is skipped while it is nil.
 	// Production always supplies one: whether the deployed adapter can actually serve
 	// the sweep is answered by the adapter itself (501, recorded in
@@ -227,6 +236,9 @@ func (a *Aggregator) tick(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
+	if !a.schemaSupported(ctx) {
+		return
+	}
 	held, err := a.store.AcquireLease(
 		ctx, aggregationLease, a.holder, a.leaseTTL().Milliseconds(),
 	)
@@ -270,6 +282,38 @@ func (a *Aggregator) tick(ctx context.Context) {
 		a.logger.Warn("DORA aggregation tick abandoned after losing the lease", "holder", a.holder)
 	default:
 		a.logger.Error("DORA aggregation tick failed", "error", err)
+	}
+}
+
+// schemaSupported reports whether this Observer may still write to the store.
+// Startup refuses a store a newer Observer has migrated; this covers one migrated
+// while this process was already running, as in a rolling upgrade, so an older
+// replica stops writing facts and rollups by its own rules into tables shaped for
+// the newer ones. On the first tick that finds it, the lease is released so a
+// newer replica takes over at once rather than after the TTL.
+//
+// A failure to read the version skips the tick: it is the store failing, which
+// the tick's own reads and writes would meet anyway.
+func (a *Aggregator) schemaSupported(ctx context.Context) bool {
+	if a.schemaNewer.Load() {
+		return false
+	}
+	err := a.store.CheckSchemaVersion(ctx)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, deliveryinsights.ErrSchemaNewer):
+		a.schemaNewer.Store(true)
+		a.logger.Error("Delivery insights store was migrated by a newer Observer; this one stops "+
+			"aggregating and leaves it to the newer replicas. Reads are still served.",
+			"holder", a.holder, "error", err)
+		a.releaseLease()
+		return false
+	default:
+		if ctx.Err() == nil {
+			a.logger.Error("Failed to read the delivery insights schema version, skipping tick", "error", err)
+		}
+		return false
 	}
 }
 
@@ -338,30 +382,35 @@ func (a *Aggregator) releaseLease() {
 }
 
 // RunOnce executes a single aggregation tick.
+//
+// Events are folded before incidents. An incident is attributed to the deployment
+// live when it fired, and an attribution is never undone, so the deployment facts
+// have to be as current as this tick can make them first. Folding incidents first
+// attributed an incident that arrived alongside the rollout causing it to the
+// rollout before -- and the next tick's rescan, finding the newer fact, to that
+// one as well.
 func (a *Aggregator) RunOnce(ctx context.Context) error {
 	tickStart := a.now().UTC()
 	var touched []int64
-
-	incidentTouched, incidentResumeMs, err := a.processIncidents(ctx, tickStart)
-	if err != nil {
-		return fmt.Errorf("incidents: %w", err)
-	}
-	touched = append(touched, incidentTouched...)
 
 	// eventsProgress records how far the events sweep got, which is short of tickStart
 	// when the page cap cut it off.
 	eventsProg := eventsProgress{watermarkMs: tickStart.UnixMilli()}
 	eventsActive := a.EventsActive()
+	// attribute is false when this tick's sweep failed: the rollout an incident
+	// should be attributed to may be in the window the sweep could not read.
+	attribute := true
 	if eventsActive {
 		eventTouched, progress, eventsErr := a.processEvents(ctx, tickStart)
 		switch {
 		case errors.Is(eventsErr, ErrEventsSourceUnavailable):
 			// The adapter cannot serve the sweep at all. Retrying every tick would
-			// fail every tick, and since rollups are recomputed after both sources,
-			// that would stop Mean Time to Recovery too -- which needs no adapter
-			// support. Stand the sweep down for a while and carry on with incidents;
-			// it is retried later so that deploying an adapter which can serve it is
-			// enough, without also restarting the observer.
+			// fail every tick. Stand the sweep down for a while and carry on with
+			// incidents; it is retried later so that deploying an adapter which can
+			// serve it is enough, without also restarting the observer.
+			//
+			// Attribution carries on: an adapter that has never served the sweep left
+			// no deployment facts for it to get wrong.
 			a.eventsUnavailableUntilMs.Store(
 				a.now().Add(eventsUnavailableRetryAfter).UnixMilli())
 			eventsActive = false
@@ -370,13 +419,33 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 				"change failure rate will have no input until an adapter that serves "+
 				"unscoped, reason-filtered event queries is deployed.",
 				"error", eventsErr)
+		case errors.Is(eventsErr, errEventsFetchFailed) && ctx.Err() == nil:
+			// The adapter is unreachable, or answered with something other than
+			// events or a 501: a build older than the sweep (404), one that still
+			// requires a search scope (400), or a backend error. Failing the tick
+			// here took Mean Time to Recovery down with it, though MTTR needs no
+			// adapter. Carry on with incidents instead, and hold the events
+			// watermark so the next tick re-reads the window this one could not.
+			//
+			// Not stood down like a 501: a failure says nothing about what the
+			// adapter can do, and the next tick may well succeed.
+			eventsActive = false
+			attribute = false
+			a.reportEventsFailure(eventsErr)
 		case eventsErr != nil:
 			return fmt.Errorf("events: %w", eventsErr)
 		default:
+			a.reportEventsRecovered()
 			touched = append(touched, eventTouched...)
 			eventsProg = progress
 		}
 	}
+
+	incidentTouched, incidentResumeMs, err := a.processIncidents(ctx, tickStart, attribute)
+	if err != nil {
+		return fmt.Errorf("incidents: %w", err)
+	}
+	touched = append(touched, incidentTouched...)
 
 	if len(touched) > 0 {
 		if err := a.recomputeRollups(ctx, touched, tickStart); err != nil {
@@ -424,13 +493,38 @@ func (a *Aggregator) RunOnce(ctx context.Context) error {
 	return nil
 }
 
+// reportEventsFailure logs a failing sweep at Warn when the failure starts and at
+// Debug while it continues.
+func (a *Aggregator) reportEventsFailure(err error) {
+	if a.eventsFailing.Swap(true) {
+		a.logger.Debug("Delivery events sweep still failing", "error", err)
+		return
+	}
+	a.logger.Warn("Delivery events sweep failed; continuing with incidents alone. "+
+		"Mean time to recovery stays current. Deployment frequency, lead time and "+
+		"change failure rate catch up once the logs adapter answers again, from where "+
+		"the last successful sweep stopped.",
+		"error", err)
+}
+
+// reportEventsRecovered announces the end of an outage reportEventsFailure began.
+func (a *Aggregator) reportEventsRecovered() {
+	if a.eventsFailing.Swap(false) {
+		a.logger.Info("Delivery events sweep recovered; reading the events missed while it was failing")
+	}
+}
+
 // processIncidents scans the incident lookback window, attributes incidents to
 // the deployment live at trigger time, and upserts incident-sourced recovery
 // facts. Returns the epoch-ms moments whose rollup buckets were touched — only
 // for incidents that are new or changed since the last tick, so an unchanged
 // window recomputes nothing.
+//
+// With attribute false the recovery facts are still written but no deployment is
+// marked failed. Nothing is lost by waiting: the whole lookback window is rescanned
+// every tick, so the first tick that attributes reaches every incident still in it.
 func (a *Aggregator) processIncidents(
-	ctx context.Context, tickStart time.Time,
+	ctx context.Context, tickStart time.Time, attribute bool,
 ) (touchedOut []int64, resumeMs int64, err error) {
 	watermark, err := a.store.Watermark(ctx, watermarkSourceIncidents)
 	if err != nil {
@@ -484,7 +578,7 @@ func (a *Aggregator) processIncidents(
 		}
 
 		pageTouched, count, lastIngestedMs, foldErr := a.foldIncidentPage(
-			ctx, entries, seen, changedSinceMs, tickStart)
+			ctx, entries, seen, changedSinceMs, tickStart, attribute)
 		if foldErr != nil {
 			return nil, 0, foldErr
 		}
@@ -522,16 +616,17 @@ func (a *Aggregator) processIncidents(
 	return touched, stoppedAtMs, nil
 }
 
-// foldIncidentPage attributes one page of incidents and upserts their recovery facts.
-// It returns the moments whose rollup buckets were touched, how many entries it
-// folded, and the newest ingestion time in the page, which becomes the next
-// page's cursor.
+// foldIncidentPage attributes one page of incidents, unless attribute is false, and
+// upserts their recovery facts. It returns the moments whose rollup buckets were
+// touched, how many entries it folded, and the newest ingestion time in the page,
+// which becomes the next page's cursor.
 func (a *Aggregator) foldIncidentPage(
 	ctx context.Context,
 	entries []incidententry.IncidentEntry,
 	seen map[string]struct{},
 	changedSinceMs int64,
 	tickStart time.Time,
+	attribute bool,
 ) (touched []int64, processed int, lastIngestedMs int64, err error) {
 	var recoveries []deliveryinsights.RecoveryFact
 	attributedCount := 0
@@ -561,11 +656,18 @@ func (a *Aggregator) foldIncidentPage(
 		seen[entry.ID] = struct{}{}
 		processed++
 
-		attribution, attrErr := a.store.AttributeIncident(ctx,
-			entry.ComponentID, entry.EnvironmentID, entry.ReleaseLineID, entry.ID,
-			triggeredMs, a.cfg.AttributionWindow.Milliseconds())
-		if attrErr != nil {
-			return nil, 0, 0, attrErr
+		// Left zero when not attributing. The recovery fact below is then written
+		// without a ReleaseUID, which its upsert treats as "keep what is there", so a
+		// rollout an earlier tick linked it to is not cleared.
+		var attribution deliveryinsights.AttributionResult
+		if attribute {
+			var attrErr error
+			attribution, attrErr = a.store.AttributeIncident(ctx,
+				entry.ComponentID, entry.EnvironmentID, entry.ReleaseLineID, entry.ID,
+				triggeredMs, a.cfg.AttributionWindow.Milliseconds())
+			if attrErr != nil {
+				return nil, 0, 0, attrErr
+			}
 		}
 		if attribution.Attributed {
 			attributedCount++

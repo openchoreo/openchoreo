@@ -150,7 +150,8 @@ var _ = Describe("ClusterDataPlane plane namespace cleanup", func() {
 
 			result, err := reconcilerFor(plane).Reconcile(ctx, reconcile.Request{NamespacedName: nn})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.RequeueAfter).To(Equal(controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically(">=", controller.StatusUpdateInterval))
+			Expect(result.RequeueAfter).To(BeNumerically("<", controller.StatusUpdateInterval+controller.StatusUpdateJitter))
 
 			Expect(exists(plane, planenamespace.KV.Name(goneNamespace))).To(BeFalse())
 			Expect(exists(plane, planenamespace.KV.Name(liveNamespace))).To(BeTrue())

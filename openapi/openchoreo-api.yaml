@@ -12466,12 +12466,12 @@ components:
           $ref: '#/components/schemas/EndpointTypeRef'
         visibility:
           type: array
-          description: Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+          description: Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service. Reachability comes from what the types render; without project listed, callers in the project reach a backend only through the Service its ComponentType renders, when it renders one.
           minItems: 1
           uniqueItems: true
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Backends this Endpoint routes traffic to, with relative weights. Names must be unique.
@@ -12679,7 +12679,7 @@ components:
           description: Snapshot of the visibilities requested by the Endpoint.
           items:
             type: string
-            enum: [namespace, internal, external]
+            enum: [project, namespace, internal, external]
         backendRefs:
           type: array
           description: Snapshot of the backend references and weights from the Endpoint.
@@ -12805,7 +12805,9 @@ components:
       type: object
       description: |
         Template for one URL and the security clients must satisfy to call it. Resolved only when the
-        Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+        Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+        Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+        with includeWhen: ${"project" in visibility}.
       required:
         - scheme
         - host
@@ -12958,7 +12960,7 @@ components:
           $ref: '#/components/schemas/EndpointURL'
         reason:
           type: string
-          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+          description: Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
           example: NotDeployed
         message:
           type: string
@@ -14761,7 +14763,9 @@ components:
           example: dev
         isEnvDefault:
           type: boolean
-          description: Whether this is the default notification channel for the environment
+          description: >-
+            Marks this channel as the default notification channel for the environment. If several channels
+            of an environment are marked, the most recently created one is used.
           default: false
         type:
           type: string
@@ -14910,15 +14914,19 @@ components:
 
     NotificationWebhookConfig:
       type: object
-      description: Configuration for webhook notification channels
-      required:
-        - url
+      description: |
+        Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
       properties:
         url:
           type: string
           format: uri
-          description: Webhook endpoint URL where alerts will be sent
-          example: https://hooks.slack.com/services/example
+          minLength: 1
+          description: |
+            Inline webhook endpoint URL where alerts will be sent. It is stored in plain text, so use
+            urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+          example: https://webhook.example.com/alerts
+        urlFrom:
+          $ref: '#/components/schemas/NotificationWebhookURLFrom'
         headers:
           type: object
           description: Optional HTTP headers to include in the webhook request
@@ -14927,6 +14935,20 @@ components:
         payloadTemplate:
           type: string
           description: Optional JSON payload template using CEL expressions
+      oneOf:
+        - required:
+            - url
+        - required:
+            - urlFrom
+
+    NotificationWebhookURLFrom:
+      type: object
+      description: Secret reference to the webhook endpoint URL, as an alternative to url
+      required:
+        - secretKeyRef
+      properties:
+        secretKeyRef:
+          $ref: '#/components/schemas/NotificationSecretKeyRef'
 
     NotificationWebhookHeaderValue:
       type: object
@@ -14952,13 +14974,18 @@ components:
         such as one created with the secrets API targeting the channel's observability plane, and the key
         to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
         name and key is used instead; referencing Kubernetes Secrets is deprecated.
+      required:
+        - name
+        - key
       properties:
         name:
           type: string
+          minLength: 1
           description: Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
           example: smtp-credentials
         key:
           type: string
+          minLength: 1
           description: Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
           example: password
 

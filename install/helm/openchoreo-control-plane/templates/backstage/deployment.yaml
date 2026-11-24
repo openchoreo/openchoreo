@@ -139,7 +139,7 @@ spec:
         - name: OPENCHOREO_FEATURES_AUTH_REDIRECT_FLOW_ENABLED
           value: {{ .Values.backstage.features.auth.redirectFlow.enabled | quote }}
         - name: OPENCHOREO_FEATURES_DELIVERY_INSIGHTS_ENABLED
-          value: {{ .Values.backstage.features.deliveryInsights.enabled | default false | quote }}
+          value: {{ .Values.backstage.features.deliveryInsights.enabled | quote }}
         - name: OPENCHOREO_FEATURES_ASSISTANT_ENABLED
           value: {{ .Values.backstage.features.assistant.enabled | quote }}
         # Upstream URL the Backstage forwarder plugin posts /chat and /warmup to.
@@ -180,21 +180,23 @@ spec:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
               key: jenkins-api-key
-        # GitHub Actions: requires github.com/project-slug annotation on entity.
-        # Only injected when the integration is enabled, so a disabled provider
-        # leaves no GitHub footprint in the Backstage config. GITHUB_TOKEN is
-        # optional so the pod still boots if the operator enabled the integration
-        # but has not yet populated the github-actions-token Secret key.
-        {{- if .Values.backstage.externalCI.githubActions.enabled }}
+        # GitHub integration, used by the GitHub Actions card (which needs the
+        # github.com/project-slug annotation on entity) and the Scorecards GitHub
+        # fact collector. Only injected when backstage.integrations.github or
+        # externalCI.githubActions is enabled, so otherwise the Backstage config
+        # has no GitHub footprint. GITHUB_TOKEN is optional so the pod still
+        # boots before the operator populates the token's Secret key.
+        {{- $github := include "openchoreo-control-plane.backstage.githubIntegration" . | fromJson }}
+        {{- if $github }}
         - name: GITHUB_HOST
-          value: {{ .Values.backstage.externalCI.githubActions.host | quote }}
+          value: {{ $github.host | quote }}
         - name: GITHUB_API_BASE_URL
-          value: {{ .Values.backstage.externalCI.githubActions.apiBaseUrl | quote }}
+          value: {{ $github.apiBaseUrl | quote }}
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
               name: {{ .Values.backstage.secretName }}
-              key: github-actions-token
+              key: {{ $github.tokenSecretKey | quote }}
               optional: true
         {{- end }}
         # GitHub OAuth App for per-user sign-in (powers the GitHub Actions card's

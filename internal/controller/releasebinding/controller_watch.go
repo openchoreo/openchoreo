@@ -347,6 +347,54 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 	return requests
 }
 
+// findReleaseBindingsForComponentRelease maps a ComponentRelease to the ReleaseBindings
+// of its owning component that reference it by name.
+//
+// A binding can be reconciled before the informer cache has observed a ComponentRelease
+// created moments earlier (the Component controller creates both in the same reconcile).
+// That reconcile records ComponentReleaseNotFound and returns without requeueing, so
+// without this watch the binding stays stuck until an unrelated event or the periodic
+// resync fires.
+func (r *Reconciler) findReleaseBindingsForComponentRelease(ctx context.Context, obj client.Object) []ctrl.Request {
+	componentRelease := obj.(*openchoreov1alpha1.ComponentRelease)
+	if componentRelease.Spec.Owner.ComponentName == "" {
+		return nil
+	}
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(componentRelease.Namespace),
+		client.MatchingFields{
+			controller.IndexKeyReleaseBindingOwnerComponentName: componentRelease.Spec.Owner.ComponentName,
+		}); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for ComponentRelease",
+			"componentRelease", componentRelease.Name)
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, binding := range bindings.Items {
+		if binding.Spec.ReleaseName != componentRelease.Name {
+			continue
+		}
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+		})
+	}
+	return requests
+}
+
+// componentReleaseCreatedPredicate passes only create events. A ComponentRelease's spec is
+// immutable, so the only transition a binding has to react to is the release appearing.
+func componentReleaseCreatedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(_ event.CreateEvent) bool { return true },
+		UpdateFunc:  func(_ event.UpdateEvent) bool { return false },
+		DeleteFunc:  func(_ event.DeleteEvent) bool { return false },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+	}
+}
+
 // dataPlaneRenderInputsChangedPredicate passes when a (Cluster)DataPlane's spec or its
 // openchoreo.dev/-prefixed annotations change. Render reads inputs from both: the spec
 // (gateway, secretStore) and the annotations (surfaced to CEL as dataplane.annotations).
@@ -505,4 +553,102 @@ func collectSecretReferenceNames(workload *openchoreov1alpha1.Workload, releaseB
 		}
 	}
 	return names
+}
+
+// findReleaseBindingsForProjectReleaseBinding enqueues the ReleaseBindings of
+// the ProjectReleaseBinding's project and environment. Observe-mode bindings
+// take their namespace from it, and a binding switched to Manage may still have
+// an Observe-mode release that must stop when the namespace is revoked.
+func (r *Reconciler) findReleaseBindingsForProjectReleaseBinding(ctx context.Context, obj client.Object) []reconcile.Request {
+	prb, ok := obj.(*openchoreov1alpha1.ProjectReleaseBinding)
+	if !ok {
+		return nil
+	}
+	bindings := &openchoreov1alpha1.ReleaseBindingList{}
+	if err := r.List(ctx, bindings, client.InNamespace(prb.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for ProjectReleaseBinding",
+			"projectReleaseBinding", prb.Name)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Owner.ProjectName == prb.Spec.Owner.ProjectName &&
+			rb.Spec.Environment == prb.Spec.Environment {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+			})
+		}
+	}
+	return requests
+}
+
+// projectReleaseBindingObserveChangedPredicate passes creates, deletes, and
+// updates that change what an observed ReleaseBinding reads from its
+// ProjectReleaseBinding: the mode and the namespace in status.
+func projectReleaseBindingObserveChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldPRB, okOld := e.ObjectOld.(*openchoreov1alpha1.ProjectReleaseBinding)
+			newPRB, okNew := e.ObjectNew.(*openchoreov1alpha1.ProjectReleaseBinding)
+			if !okOld || !okNew {
+				return false
+			}
+			return oldPRB.Spec.Mode != newPRB.Spec.Mode || oldPRB.Status.Namespace != newPRB.Status.Namespace
+		},
+	}
+}
+
+// notificationChannelDefaultChangedPredicate passes the channel events that can change an
+// environment's default notification channel, which is part of the render input: a marked
+// channel appearing or going away, or a channel's mark changing.
+func notificationChannelDefaultChangedPredicate() predicate.Predicate {
+	isMarked := func(obj client.Object) bool {
+		ch, ok := obj.(*openchoreov1alpha1.ObservabilityAlertsNotificationChannel)
+		return ok && ch.Spec.IsEnvDefault
+	}
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return isMarked(e.Object) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isMarked(e.Object) },
+		GenericFunc: func(_ event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if e.ObjectOld == nil || e.ObjectNew == nil {
+				return false
+			}
+			if isMarked(e.ObjectOld) != isMarked(e.ObjectNew) {
+				return true
+			}
+			// A marked channel stops being the default once its deletion starts, before the
+			// delete event arrives (the channel controller holds it with a finalizer).
+			return isMarked(e.ObjectNew) &&
+				e.ObjectOld.GetDeletionTimestamp().IsZero() &&
+				!e.ObjectNew.GetDeletionTimestamp().IsZero()
+		},
+	}
+}
+
+// findReleaseBindingsForNotificationChannel enqueues the ReleaseBindings of the channel's
+// environment, so they re-render with the environment's current default channel.
+func (r *Reconciler) findReleaseBindingsForNotificationChannel(ctx context.Context, obj client.Object) []reconcile.Request {
+	ch, ok := obj.(*openchoreov1alpha1.ObservabilityAlertsNotificationChannel)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(ch.Namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for notification channel change",
+			"namespace", ch.Namespace, "channel", ch.Name)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		rb := &bindings.Items[i]
+		if rb.Spec.Environment != ch.Spec.Environment {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: rb.Name, Namespace: rb.Namespace},
+		})
+	}
+	return requests
 }

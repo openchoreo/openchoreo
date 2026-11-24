@@ -220,6 +220,18 @@ func GetWorkflowRun(cmd *cobra.Command) string {
 	return val
 }
 
+// --- Output ---
+
+func AddOutput(cmd *cobra.Command, exampleColumns string) {
+	cmd.Flags().StringP("output", "o", "text",
+		"Output format: text, json (one object per line), or custom-columns=FIELD,...; e.g. custom-columns="+exampleColumns)
+}
+
+func GetOutput(cmd *cobra.Command) string {
+	val, _ := cmd.Flags().GetString("output")
+	return val
+}
+
 // --- OutputFile (single-file output, -o shorthand) ---
 
 func AddOutputFile(cmd *cobra.Command) {

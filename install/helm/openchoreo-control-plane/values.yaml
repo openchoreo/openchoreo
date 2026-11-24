@@ -1329,6 +1329,7 @@ openchoreoApi:
                 - "workflowplane:view"
                 - "clusterworkflowplane:view"
                 - "workflow:view"
+                - "workflowrun:view"
                 - "deploymentpipeline:view"
                 - "observabilityplane:view"
                 - "clusterobservabilityplane:view"
@@ -2904,7 +2905,7 @@ backstage:
 
   # @schema
   # type: string
-  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: github-actions-token (required when externalCI.githubActions.enabled=true), service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
+  # description: "Name of a Secret containing backstage credentials. Required keys: backend-secret, client-secret, jenkins-api-key. Optional keys: the GitHub token, needed for authenticated GitHub access but not for the pod to start, read from integrations.github.tokenSecretKey (default github-token) when integrations.github.enabled=true, else from github-actions-token when externalCI.githubActions.enabled=true; service-client-secret (if backstage.auth.serviceClientSecretKey is set to a different key). When database.type=postgresql, also requires: postgres-host, postgres-port, postgres-user, postgres-password, postgres-db."
   # default: ""
   # @schema
   secretName: ""
@@ -3144,10 +3145,10 @@ backstage:
     deliveryInsights:
       # @schema
       # type: boolean
-      # description: Show the Delivery Insights page in the portal navigation. Feature preview - off by default, and separate from the Observer flag that collects the data (observer.featurePreview.deliveryInsights.enabled on the observability plane). Both are needed for the page to show anything. Maps to OPENCHOREO_FEATURES_DELIVERY_INSIGHTS_ENABLED in the Backstage container.
-      # default: false
+      # description: Show the Delivery Insights page in the portal navigation. Feature preview - on by default, and separate from the Observer flag that collects the data (observer.featurePreview.deliveryInsights.enabled on the observability plane). Both are needed for the page to show anything. Maps to OPENCHOREO_FEATURES_DELIVERY_INSIGHTS_ENABLED in the Backstage container.
+      # default: true
       # @schema
-      enabled: false
+      enabled: true
     # @schema
     # type: object
     # description: Cost Insights portal feature
@@ -3224,6 +3225,41 @@ backstage:
 
   # @schema
   # type: object
+  # description: Source control integrations the portal reads through, independent of any CI integration
+  # @schema
+  integrations:
+    # @schema
+    # type: object
+    # description: GitHub integration the Scorecards GitHub fact collector reads repositories through. Without it the collector still reads public github.com repositories, unauthenticated at 60 requests an hour, and checks on GitHub facts show no result for repositories it can't read. When enabled, it replaces the host, API base URL and token set under externalCI.githubActions, which also reads through it.
+    # @schema
+    github:
+      # @schema
+      # type: boolean
+      # description: Configure the GitHub integration from this block
+      # default: false
+      # @schema
+      enabled: false
+      # @schema
+      # type: string
+      # description: GitHub host. Use `github.com` for public GitHub or the hostname of your GitHub Enterprise Server (e.g., `ghe.example.com`).
+      # default: "github.com"
+      # @schema
+      host: "github.com"
+      # @schema
+      # type: string
+      # description: GitHub API base URL. Leave empty for public GitHub (Backstage will derive `https://api.github.com` from the host). For GitHub Enterprise Server, set to `https://<host>/api/v3`.
+      # default: ""
+      # @schema
+      apiBaseUrl: ""
+      # @schema
+      # type: string
+      # description: Key within backstage.secretName that holds the GitHub personal access token. Set it to `github-actions-token` to reuse the token already provided for externalCI.githubActions.
+      # default: "github-token"
+      # @schema
+      tokenSecretKey: "github-token"
+
+  # @schema
+  # type: object
   # description: External CI platform integrations (Jenkins, GitHub Actions). GitLab support coming soon.
   # @schema
   externalCI:
@@ -3252,7 +3288,7 @@ backstage:
       username: "jenkins-user"
     # @schema
     # type: object
-    # description: GitHub Actions CI integration configuration. Requires Components to carry the `github.com/project-slug` annotation. The API token must be provided via the Secret referenced by `backstage.secretName` under key `github-actions-token` (a GitHub PAT or GitHub App installation token).
+    # description: GitHub Actions CI integration configuration. Requires Components to carry the `github.com/project-slug` annotation. The API token must be provided via the Secret referenced by `backstage.secretName` under key `github-actions-token` (a GitHub PAT or GitHub App installation token). When backstage.integrations.github is enabled, its host, API base URL and token are used instead.
     # @schema
     githubActions:
       # @schema
@@ -3973,6 +4009,13 @@ clusterGateway:
   # default: 10s
   # @schema
   drainWindow: 10s
+
+  # @schema
+  # type: string
+  # description: How long the gateway waits for its plane CR cache to load before it exits and is restarted. While it waits it is not ready and refuses agent connections. The default, 0s, waits without limit.
+  # default: 0s
+  # @schema
+  planeCacheSyncTimeout: 0s
 
   # @schema
   # type: object

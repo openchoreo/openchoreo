@@ -204,6 +204,7 @@ const (
 	EndpointReleaseSpecVisibilityExternal  EndpointReleaseSpecVisibility = "external"
 	EndpointReleaseSpecVisibilityInternal  EndpointReleaseSpecVisibility = "internal"
 	EndpointReleaseSpecVisibilityNamespace EndpointReleaseSpecVisibility = "namespace"
+	EndpointReleaseSpecVisibilityProject   EndpointReleaseSpecVisibility = "project"
 )
 
 // Defines values for EndpointSecurityApiKeyIn.
@@ -225,6 +226,7 @@ const (
 	EndpointSpecVisibilityExternal  EndpointSpecVisibility = "external"
 	EndpointSpecVisibilityInternal  EndpointSpecVisibility = "internal"
 	EndpointSpecVisibilityNamespace EndpointSpecVisibility = "namespace"
+	EndpointSpecVisibilityProject   EndpointSpecVisibility = "project"
 )
 
 // Defines values for EndpointTypeRefKind.
@@ -2385,7 +2387,7 @@ type EndpointSpec struct {
 	// Type Reference to an EndpointType or ClusterEndpointType template.
 	Type EndpointTypeRef `json:"type"`
 
-	// Visibility Scopes this Endpoint exposes its backends to. The project scope is implicit for every workload endpoint and is not accepted.
+	// Visibility Scopes this Endpoint exposes its backends to. Project asks the EndpointType to serve callers in the Endpoint's project, typically with a Kubernetes Service. Reachability comes from what the types render; without project listed, callers in the project reach a backend only through the Service its ComponentType renders, when it renders one.
 	Visibility []EndpointSpecVisibility `json:"visibility"`
 }
 
@@ -2500,19 +2502,27 @@ type EndpointTypeSpecResourcesTargetPlane string
 // context as resources; nothing is read back from the data plane.
 type EndpointTypeURLs struct {
 	// External Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	External *EndpointURLTemplate `json:"external,omitempty"`
 
 	// Internal Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Internal *EndpointURLTemplate `json:"internal,omitempty"`
 
 	// Namespace Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Namespace *EndpointURLTemplate `json:"namespace,omitempty"`
 
 	// Project Template for one URL and the security clients must satisfy to call it. Resolved only when the
-	// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+	// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+	// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+	// with includeWhen: ${"project" in visibility}.
 	Project *EndpointURLTemplate `json:"project,omitempty"`
 }
 
@@ -2556,7 +2566,9 @@ type EndpointURLStatus struct {
 type EndpointURLStatusType string
 
 // EndpointURLTemplate Template for one URL and the security clients must satisfy to call it. Resolved only when the
-// Endpoint requests the visibility (project is implicit and always applies) and includeWhen passes.
+// Endpoint requests the visibility and includeWhen passes. The project URL is evaluated whether or not the
+// Endpoint lists project, so includeWhen is its only condition; a type that serves project itself gates it
+// with includeWhen: ${"project" in visibility}.
 type EndpointURLTemplate struct {
 	// Host Hostname or IP address clients connect to.
 	Host string `json:"host"`
@@ -2974,10 +2986,10 @@ type NotificationSMTPTLSConfig struct {
 // name and key is used instead; referencing Kubernetes Secrets is deprecated.
 type NotificationSecretKeyRef struct {
 	// Key Secret key of a SecretReference data entry (or, deprecated, key within the Kubernetes Secret)
-	Key *string `json:"key,omitempty"`
+	Key string `json:"key"`
 
 	// Name Name of the SecretReference (or, deprecated, of the Kubernetes Secret)
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 }
 
 // NotificationSecretValueFrom How to obtain a secret value
@@ -2989,7 +3001,7 @@ type NotificationSecretValueFrom struct {
 	SecretKeyRef *NotificationSecretKeyRef `json:"secretKeyRef,omitempty"`
 }
 
-// NotificationWebhookConfig Configuration for webhook notification channels
+// NotificationWebhookConfig Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
 type NotificationWebhookConfig struct {
 	// Headers Optional HTTP headers to include in the webhook request
 	Headers *map[string]NotificationWebhookHeaderValue `json:"headers,omitempty"`
@@ -2997,9 +3009,20 @@ type NotificationWebhookConfig struct {
 	// PayloadTemplate Optional JSON payload template using CEL expressions
 	PayloadTemplate *string `json:"payloadTemplate,omitempty"`
 
-	// Url Webhook endpoint URL where alerts will be sent
-	Url string `json:"url"`
+	// Url Inline webhook endpoint URL where alerts will be sent. It is stored in plain text, so use
+	// urlFrom for a URL that carries a credential, such as a Slack incoming webhook.
+	Url *string `json:"url,omitempty"`
+
+	// UrlFrom Secret reference to the webhook endpoint URL, as an alternative to url
+	UrlFrom *NotificationWebhookURLFrom `json:"urlFrom,omitempty"`
+	union   json.RawMessage
 }
+
+// NotificationWebhookConfig0 defines model for .
+type NotificationWebhookConfig0 = interface{}
+
+// NotificationWebhookConfig1 defines model for .
+type NotificationWebhookConfig1 = interface{}
 
 // NotificationWebhookHeaderValue Header value that can be provided inline or via secret reference
 type NotificationWebhookHeaderValue struct {
@@ -3008,6 +3031,15 @@ type NotificationWebhookHeaderValue struct {
 
 	// ValueFrom How to obtain a secret value
 	ValueFrom *NotificationSecretValueFrom `json:"valueFrom,omitempty"`
+}
+
+// NotificationWebhookURLFrom Secret reference to the webhook endpoint URL, as an alternative to url
+type NotificationWebhookURLFrom struct {
+	// SecretKeyRef Reference to a secret value. The name refers to a SecretReference in the channel's namespace,
+	// such as one created with the secrets API targeting the channel's observability plane, and the key
+	// to one of its data entries. If no SecretReference has that name, a Kubernetes Secret with that
+	// name and key is used instead; referencing Kubernetes Secrets is deprecated.
+	SecretKeyRef NotificationSecretKeyRef `json:"secretKeyRef"`
 }
 
 // OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728
@@ -3101,13 +3133,13 @@ type ObservabilityAlertsNotificationChannelSpec struct {
 	// Environment Name of the openchoreo environment this notification channel belongs to
 	Environment string `json:"environment"`
 
-	// IsEnvDefault Whether this is the default notification channel for the environment
+	// IsEnvDefault Marks this channel as the default notification channel for the environment. If several channels of an environment are marked, the most recently created one is used.
 	IsEnvDefault *bool `json:"isEnvDefault,omitempty"`
 
 	// Type Type of notification channel
 	Type ObservabilityAlertsNotificationChannelSpecType `json:"type"`
 
-	// WebhookConfig Configuration for webhook notification channels
+	// WebhookConfig Configuration for webhook notification channels. Exactly one of url or urlFrom must be set.
 	WebhookConfig *NotificationWebhookConfig `json:"webhookConfig,omitempty"`
 	union         json.RawMessage
 }
@@ -3970,7 +4002,7 @@ type ResolvedEndpointBackend struct {
 	// Name Name of the backendRef this entry resolves.
 	Name string `json:"name"`
 
-	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, UnsupportedProtocol, NamespaceMismatch).
+	// Reason Why the backend could not be resolved (e.g. NotDeployed, EndpointNotAvailable, ObservedComponent, UnsupportedProtocol, NamespaceMismatch).
 	Reason *string `json:"reason,omitempty"`
 
 	// Resolved Whether the backend was found and can receive traffic in this environment.
@@ -6636,6 +6668,144 @@ type CreateSecretJSONRequestBody = CreateSecretRequest
 
 // UpdateSecretJSONRequestBody defines body for UpdateSecret for application/json ContentType.
 type UpdateSecretJSONRequestBody = UpdateSecretRequest
+
+// AsNotificationWebhookConfig0 returns the union data inside the NotificationWebhookConfig as a NotificationWebhookConfig0
+func (t NotificationWebhookConfig) AsNotificationWebhookConfig0() (NotificationWebhookConfig0, error) {
+	var body NotificationWebhookConfig0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNotificationWebhookConfig0 overwrites any union data inside the NotificationWebhookConfig as the provided NotificationWebhookConfig0
+func (t *NotificationWebhookConfig) FromNotificationWebhookConfig0(v NotificationWebhookConfig0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNotificationWebhookConfig0 performs a merge with any union data inside the NotificationWebhookConfig, using the provided NotificationWebhookConfig0
+func (t *NotificationWebhookConfig) MergeNotificationWebhookConfig0(v NotificationWebhookConfig0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNotificationWebhookConfig1 returns the union data inside the NotificationWebhookConfig as a NotificationWebhookConfig1
+func (t NotificationWebhookConfig) AsNotificationWebhookConfig1() (NotificationWebhookConfig1, error) {
+	var body NotificationWebhookConfig1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNotificationWebhookConfig1 overwrites any union data inside the NotificationWebhookConfig as the provided NotificationWebhookConfig1
+func (t *NotificationWebhookConfig) FromNotificationWebhookConfig1(v NotificationWebhookConfig1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNotificationWebhookConfig1 performs a merge with any union data inside the NotificationWebhookConfig, using the provided NotificationWebhookConfig1
+func (t *NotificationWebhookConfig) MergeNotificationWebhookConfig1(v NotificationWebhookConfig1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t NotificationWebhookConfig) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.Headers != nil {
+		object["headers"], err = json.Marshal(t.Headers)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'headers': %w", err)
+		}
+	}
+
+	if t.PayloadTemplate != nil {
+		object["payloadTemplate"], err = json.Marshal(t.PayloadTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'payloadTemplate': %w", err)
+		}
+	}
+
+	if t.Url != nil {
+		object["url"], err = json.Marshal(t.Url)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'url': %w", err)
+		}
+	}
+
+	if t.UrlFrom != nil {
+		object["urlFrom"], err = json.Marshal(t.UrlFrom)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'urlFrom': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *NotificationWebhookConfig) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["headers"]; found {
+		err = json.Unmarshal(raw, &t.Headers)
+		if err != nil {
+			return fmt.Errorf("error reading 'headers': %w", err)
+		}
+	}
+
+	if raw, found := object["payloadTemplate"]; found {
+		err = json.Unmarshal(raw, &t.PayloadTemplate)
+		if err != nil {
+			return fmt.Errorf("error reading 'payloadTemplate': %w", err)
+		}
+	}
+
+	if raw, found := object["url"]; found {
+		err = json.Unmarshal(raw, &t.Url)
+		if err != nil {
+			return fmt.Errorf("error reading 'url': %w", err)
+		}
+	}
+
+	if raw, found := object["urlFrom"]; found {
+		err = json.Unmarshal(raw, &t.UrlFrom)
+		if err != nil {
+			return fmt.Errorf("error reading 'urlFrom': %w", err)
+		}
+	}
+
+	return err
+}
 
 // AsObservabilityAlertsNotificationChannelSpec0 returns the union data inside the ObservabilityAlertsNotificationChannelSpec as a ObservabilityAlertsNotificationChannelSpec0
 func (t ObservabilityAlertsNotificationChannelSpec) AsObservabilityAlertsNotificationChannelSpec0() (ObservabilityAlertsNotificationChannelSpec0, error) {

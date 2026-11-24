@@ -243,7 +243,6 @@ test.describe('component config edits through Backstage UI', () => {
       project: PROJECT_NAME,
       template: 'Web Application',
       image: PRE_BUILT_IMAGE,
-      endpointPort: ENDPOINT_PORT,
       description: 'greeter config edit e2e',
     });
     await expect
@@ -258,6 +257,7 @@ test.describe('component config edits through Backstage UI', () => {
 
     await component.deployTo(COMPONENT_NAME, 'development', {
       args: ['--port', String(ENDPOINT_PORT)],
+      endpointPort: ENDPOINT_PORT,
     });
     await release.expectActive(COMPONENT_NAME, 'development', 120_000);
 

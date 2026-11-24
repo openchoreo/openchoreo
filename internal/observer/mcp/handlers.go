@@ -25,7 +25,13 @@ type MCPHandler struct {
 	finopsService           service.FinOpsQuerier
 	auditLogsService        service.AuditLogsQuerier
 	deliveryInsightsService service.DeliveryInsightsService
-	logger                  *slog.Logger
+	// environments lets the DORA tools default to production; see
+	// dora_environments.go. Optional, set through WithEnvironmentLister.
+	environments EnvironmentLister
+	// authorizer checks the caller before environments are listed. It is set
+	// whenever environments is.
+	authorizer scopeAuthorizer
+	logger     *slog.Logger
 }
 
 func NewMCPHandler(
@@ -405,7 +411,14 @@ func (h *MCPHandler) QueryRecommendations(ctx context.Context, namespace, enviro
 }
 
 func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, component, environment, releaseLine string, allReleaseLines bool,
-	granularity, startTime, endTime string, metrics []string) (any, error) {
+	allEnvironments, byEnvironment bool, granularity, startTime, endTime string, metrics []string) (any, error) {
+	if environment != "" && (allEnvironments || byEnvironment) {
+		return nil, invalidArgument(fmt.Errorf("environment can't be combined with all_environments or by_environment"))
+	}
+	if allEnvironments && byEnvironment {
+		return nil, invalidArgument(fmt.Errorf("all_environments and by_environment can't be combined"))
+	}
+
 	start, err := parseRFC3339Time(startTime)
 	if err != nil {
 		return nil, fmt.Errorf("invalid start_time: %w", err)
@@ -448,6 +461,9 @@ func (h *MCPHandler) QueryDoraMetrics(ctx context.Context, namespace, project, c
 		return nil, invalidArgument(err)
 	}
 
+	if environment == "" {
+		return h.doraMetricsForEnvironments(ctx, req, allEnvironments, byEnvironment)
+	}
 	return h.deliveryInsightsService.QueryDoraMetrics(ctx, req)
 }
 

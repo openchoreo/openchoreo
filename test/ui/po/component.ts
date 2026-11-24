@@ -3,19 +3,16 @@
 
 import { expect, type Locator, type Page } from '@playwright/test';
 import { CreatePO } from './create';
+import { WorkloadConfigPO } from './workloadConfig';
 
 export interface CreateComponentInput {
   name: string;
   project: string; // project metadata name to select in the form's Project picker
   // Template card label on the "Browse component templates" page. Restricted
-  // to the endpoint-bearing templates: create() drives the endpoint sub-form
-  // ("Add Endpoint" / "Save changes") unconditionally, which non-HTTP
-  // templates (e.g. "Worker") don't render. Defaults to "Web Application".
+  // to the endpoint-bearing templates, since deployTo() adds an HTTP endpoint.
+  // Defaults to "Web Application".
   template?: 'Web Application' | 'Service';
   image: string; // container image reference (Container Image deployment source)
-  // Web Application / Service component types require at least one HTTP
-  // endpoint at render time, so creation adds one. Defaults to 8080.
-  endpointPort?: number;
   displayName?: string;
   description?: string;
 }
@@ -25,6 +22,8 @@ export interface DeployOptions {
   // ['--port', '9090']. The create wizard has no args field — args can only
   // be set when snapshotting a release in the Deploy tab.
   args?: string[];
+  // Port of the HTTP endpoint added on the configure page. Defaults to 8080.
+  endpointPort?: number;
 }
 
 // Component creation is a 4-step Backstage Scaffolder wizard reached by
@@ -32,7 +31,7 @@ export interface DeployOptions {
 // no fixed create-openchoreo-component template URL). The steps are:
 //   1. Component Metadata  (Namespace/Project pickers + name)
 //   2. Build & Deploy      (Deployment Source cards + image)
-//   3. Web Application Details (Endpoints / env / mounts)  -> "Review"
+//   3. Details             (nothing required)  -> "Review"
 //   4. Review              -> "Create"
 //
 // Namespace/Project are MUI v4 Selects (role=button, aria-haspopup=listbox),
@@ -110,34 +109,12 @@ export class ComponentPO {
       .fill(input.image);
   }
 
-  // Step 3: Web Application Details — add one HTTP endpoint (required by the
-  // web-application / service component types).
-  private async fillDetails(input: CreateComponentInput): Promise<void> {
-    await this.page
-      .getByRole('button', { name: 'Add Endpoint', exact: true })
-      .click();
-    // The endpoint sub-form defaults to name "endpoint-1", type HTTP, port
-    // 8080. Only the port needs overriding when the image listens elsewhere.
-    const port = input.endpointPort ?? 8080;
-    const portField = this.page.getByRole('spinbutton').first();
-    await portField.fill(String(port));
-    // Commit the endpoint item — the wizard refuses to advance to Review while
-    // an endpoint is still in edit mode ("Save or cancel the item you are
-    // currently editing before proceeding."). The button reads "Save" but
-    // carries aria-label="Save changes", so the accessible name (what
-    // getByRole matches) is "Save changes", not the visible "Save".
-    await this.page
-      .getByRole('button', { name: 'Save changes', exact: true })
-      .click();
-  }
-
   async create(input: CreateComponentInput): Promise<void> {
     await this.openCreateForm(input.template ?? 'Web Application');
     await this.fillMetadata(input);
     await this.clickStep('Next'); // -> Build & Deploy
     await this.fillBuildAndDeploy(input);
-    await this.clickStep('Next'); // -> Web Application Details
-    await this.fillDetails(input);
+    await this.clickStep('Next'); // -> Details (nothing required)
     await this.clickStep('Review'); // -> Review
     await this.clickStep('Create'); // submit
     // The scaffolder lands on a task page; the component is inserted into the
@@ -218,6 +195,9 @@ export class ComponentPO {
     await this.page
       .getByRole('button', { name: 'Create release', exact: true })
       .click();
+    await new WorkloadConfigPO(this.page).addHttpEndpoint(
+      opts.endpointPort ?? 8080,
+    );
     if (opts.args?.length) {
       // Container tab is selected by default in the workload-config panel.
       await this.page

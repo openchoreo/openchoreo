@@ -247,6 +247,20 @@ func TestCreateConfigMap_WebhookSecretRefHeaders(t *testing.T) {
 	}
 }
 
+func TestCreateConfigMap_WebhookURLFromSecret(t *testing.T) {
+	r := newReconcilerWithObjects(t)
+	ch := newWebhookChannelWithURLRef("wh-secret-url", "wh-url")
+
+	cm := r.createConfigMap(ch)
+
+	if _, ok := cm.Data["webhook.url"]; ok {
+		t.Error("a webhook URL that comes from a secret must not appear in ConfigMap data")
+	}
+	if cm.Data["type"] != "webhook" {
+		t.Errorf("type: got %q, want %q", cm.Data["type"], "webhook")
+	}
+}
+
 func TestCreateConfigMap_WebhookNoHeadersOrTemplate(t *testing.T) {
 	r := newReconcilerWithObjects(t)
 	ch := newWebhookChannel("wh-bare", "dev")
@@ -392,6 +406,37 @@ func TestCreateSecret_WebhookHeaderResolved(t *testing.T) {
 	}
 }
 
+func TestCreateSecret_WebhookURLResolved(t *testing.T) {
+	srcSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "wh-url", Namespace: "default"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{testURLKey: []byte("https://hooks.example.com/services/T000/B000/token\n")},
+	}
+	r := newReconcilerWithObjects(t, srcSecret)
+	ch := newWebhookChannelWithURLRef("wh-url-secret", "wh-url")
+
+	sec, err := r.createSecret(context.Background(), ch)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := string(sec.Data["webhook.url"]), "https://hooks.example.com/services/T000/B000/token"; got != want {
+		t.Errorf("webhook.url: got %q, want %q", got, want)
+	}
+}
+
+func TestCreateSecret_WebhookURLSecretMissing(t *testing.T) {
+	r := newReconcilerWithObjects(t)
+	ch := newWebhookChannelWithURLRef("wh-url-missing", "nope")
+
+	_, err := r.createSecret(context.Background(), ch)
+	if err == nil {
+		t.Fatal("expected error when webhook URL secret is missing, got nil")
+	}
+	if !strings.Contains(err.Error(), "webhook URL") {
+		t.Errorf("error should mention webhook URL; got %q", err.Error())
+	}
+}
+
 func TestCreateSecret_WebhookHeaderSecretMissing(t *testing.T) {
 	r := newReconcilerWithObjects(t)
 	ch := newWebhookChannel("wh-missing", "dev")
@@ -478,106 +523,6 @@ func TestResolveSecretKeyRef(t *testing.T) {
 			t.Errorf("error should describe missing key; got %q", err.Error())
 		}
 	})
-}
-
-// ---------------------------------------------------------------------------
-// ensureDefaultChannel
-// ---------------------------------------------------------------------------
-
-func TestEnsureDefaultChannel_AlreadyDefault(t *testing.T) {
-	ch := newEmailChannel("ch1", "dev")
-	ch.Spec.IsEnvDefault = true
-	r := newReconcilerWithObjects(t, ch)
-
-	changed, err := r.ensureDefaultChannel(context.Background(), ch)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if changed {
-		t.Error("expected no change when channel is already default")
-	}
-}
-
-func TestEnsureDefaultChannel_FirstChannelBecomesDefault(t *testing.T) {
-	ch := newEmailChannel("only", "dev")
-	r := newReconcilerWithObjects(t, ch)
-
-	changed, err := r.ensureDefaultChannel(context.Background(), ch)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !changed {
-		t.Fatal("expected first channel in env to be marked as default")
-	}
-
-	// Verify the patch persisted in the fake client.
-	got := &openchoreov1alpha1.ObservabilityAlertsNotificationChannel{}
-	if err := r.Get(context.Background(), types.NamespacedName{Name: "only", Namespace: "default"}, got); err != nil {
-		t.Fatalf("unexpected get error: %v", err)
-	}
-	if !got.Spec.IsEnvDefault {
-		t.Error("expected IsEnvDefault=true to be persisted")
-	}
-}
-
-func TestEnsureDefaultChannel_ExistingDefaultLeavesNewChannelUnchanged(t *testing.T) {
-	existing := newEmailChannel("ch1", "dev")
-	existing.Spec.IsEnvDefault = true
-	// new channel for the same environment; should remain non-default.
-	newCh := newEmailChannel("ch2", "dev")
-	r := newReconcilerWithObjects(t, existing, newCh)
-
-	changed, err := r.ensureDefaultChannel(context.Background(), newCh)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if changed {
-		t.Error("expected no change when an env default already exists")
-	}
-	if newCh.Spec.IsEnvDefault {
-		t.Error("new channel must not be marked default when one already exists")
-	}
-}
-
-func TestEnsureDefaultChannel_DifferentEnvironmentDoesNotInterfere(t *testing.T) {
-	other := newEmailChannel("ch-prod", "production")
-	other.Spec.IsEnvDefault = true
-	target := newEmailChannel("ch-dev", "dev")
-	r := newReconcilerWithObjects(t, other, target)
-
-	changed, err := r.ensureDefaultChannel(context.Background(), target)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !changed {
-		t.Fatal("expected target to be marked default because no default exists in its env")
-	}
-	if !target.Spec.IsEnvDefault {
-		t.Error("expected target.Spec.IsEnvDefault=true")
-	}
-}
-
-func TestEnsureDefaultChannel_SkipsChannelsBeingDeleted(t *testing.T) {
-	// A channel that's mid-deletion in the same env must not block the new one
-	// from becoming the default.
-	now := metav1.Now()
-	deleting := newEmailChannel("ch-deleting", "dev")
-	deleting.DeletionTimestamp = &now
-	// Channels with a deletion timestamp need a finalizer for the fake client
-	// to accept the object (it otherwise rejects creation with a deletion ts).
-	deleting.Finalizers = []string{NotificationChannelCleanupFinalizer}
-	deleting.Spec.IsEnvDefault = true
-
-	target := newEmailChannel("ch-new", "dev")
-	r := newReconcilerWithObjects(t, deleting, target)
-
-	changed, err := r.ensureDefaultChannel(context.Background(), target)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !changed {
-		t.Fatal("expected target to become default because the existing default is being deleted")
-	}
 }
 
 // ---------------------------------------------------------------------------

@@ -23,6 +23,9 @@ spec:
     - jsonPath: .spec.environment
       name: Environment
       type: string
+    - jsonPath: .spec.mode
+      name: Mode
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -64,6 +67,63 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.environment is immutable
                   rule: self == oldSelf
+              mode:
+                default: Manage
+                description: |-
+                  Mode decides whether this binding deploys the component's release
+                  (Manage) or reads objects the component already runs (Observe). Observe
+                  needs a ProjectReleaseBinding in Observe mode for the same project and
+                  environment. In Observe mode, releaseName, the environment configs,
+                  workloadOverrides and state are kept but have no effect.
+                enum:
+                - Manage
+                - Observe
+                type: string
+              observe:
+                description: Observe configures Observe mode. It is ignored in Manage
+                  mode.
+                properties:
+                  resources:
+                    description: |-
+                      Resources lists objects in the namespace of the project's
+                      ProjectReleaseBinding that make up this component, such as its
+                      Deployment and Service.
+                    items:
+                      description: |-
+                        ObservedResourceClaim names an existing object for a binding in observe mode
+                        to read. The object is in the namespace the binding observes, so only
+                        namespaced kinds can be claimed.
+                      properties:
+                        apiVersion:
+                          description: APIVersion is the object's API version, such
+                            as "apps/v1" or "v1".
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^([^/]+/)?[^/]+$
+                          type: string
+                        kind:
+                          description: Kind is the object's kind, such as "Deployment".
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[A-Z][A-Za-z0-9]*$
+                          type: string
+                        name:
+                          description: Name is the object's name.
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                      required:
+                      - apiVersion
+                      - kind
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - apiVersion
+                    - kind
+                    - name
+                    x-kubernetes-list-type: map
+                type: object
               owner:
                 description: Owner identifies the component and project this ReleaseBinding
                   belongs to
@@ -580,6 +640,18 @@ spec:
                   - name
                   type: object
                 type: array
+              endpointsObservedGeneration:
+                description: |-
+                  EndpointsObservedGeneration is the generation whose rendered release
+                  endpoints was last computed from. It is recorded as soon as the release is
+                  rendered, before the binding waits on its connections and resource
+                  dependencies, so it can lead ReleaseSynced. When it matches the
+                  generation, an endpoint listed without a serviceURL has no Service from
+                  the ComponentType, rather than one not reported yet. Zero while the
+                  binding renders nothing: before its first render, when undeployed, and in
+                  Observe mode.
+                format: int64
+                type: integer
               lastSpecUpdateTime:
                 description: |-
                   LastSpecUpdateTime is the timestamp of the last spec change observed by the controller.

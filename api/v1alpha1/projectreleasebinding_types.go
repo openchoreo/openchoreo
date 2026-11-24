@@ -12,10 +12,12 @@ import (
 // Pins a ProjectRelease to an Environment and carries per-env overrides for
 // the schema declared on the inlined (Cluster)ProjectType environmentConfigs.
 // Owns the cell namespace for (Project, Environment); applies the inlined
-// (Cluster)ProjectType.spec.resources to that namespace.
+// (Cluster)ProjectType.spec.resources to that namespace. In Observe mode it
+// maps the environment to an existing namespace and writes nothing to it.
 // An empty projectRelease pin is seeded once by the Project controller with
 // the project's latest release; advancing the pin afterwards is manual
 // (e.g. via `occ project promote` or kubectl edit).
+// +kubebuilder:validation:XValidation:rule="(has(self.mode) && self.mode == 'Observe') == has(self.observe)",message="spec.observe is required when spec.mode is Observe, and not allowed otherwise"
 type ProjectReleaseBindingSpec struct {
 	// Owner identifies the project this ProjectReleaseBinding belongs to.
 	// +kubebuilder:validation:Required
@@ -44,6 +46,45 @@ type ProjectReleaseBindingSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	EnvironmentConfigs *runtime.RawExtension `json:"environmentConfigs,omitempty"`
+
+	// Mode decides whether this binding owns a generated namespace and applies
+	// the inlined (Cluster)ProjectType resources to it (Manage), or maps the
+	// environment to an existing namespace and only reads it (Observe). In
+	// Observe mode, projectRelease and environmentConfigs are ignored.
+	// +kubebuilder:default=Manage
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.mode is immutable"
+	// +optional
+	Mode BindingMode `json:"mode,omitempty"`
+
+	// Observe configures Observe mode.
+	// +optional
+	Observe *ProjectReleaseBindingObserve `json:"observe,omitempty"`
+}
+
+// ProjectReleaseBindingObserve maps an environment to an existing data-plane
+// namespace.
+type ProjectReleaseBindingObserve struct {
+	// Namespace is the existing data-plane namespace this binding observes. The
+	// environment must list it in spec.observe.allowedNamespaces.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.observe.namespace is immutable"
+	Namespace string `json:"namespace"`
+
+	// Resources lists project-level objects in the namespace to observe, such
+	// as NetworkPolicies or ResourceQuotas.
+	// +listType=map
+	// +listMapKey=apiVersion
+	// +listMapKey=kind
+	// +listMapKey=name
+	// +optional
+	Resources []ObservedResourceClaim `json:"resources,omitempty"`
+}
+
+// IsObserve reports whether the binding is in Observe mode.
+func (s *ProjectReleaseBindingSpec) IsObserve() bool {
+	return s.Mode == BindingModeObserve
 }
 
 // ProjectReleaseBindingOwner identifies the project this ProjectReleaseBinding belongs to.
@@ -68,9 +109,10 @@ type ProjectReleaseBindingStatus struct {
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
-	// Namespace is the actual data-plane namespace owned by this binding
-	// (dp-{ns}-{project}-{env}-{hash}). Surfaced here for kubectl describe and
-	// debugging.
+	// Namespace is the data-plane namespace of this binding. In Manage mode it
+	// is the generated namespace the binding owns (dp-{ns}-{project}-{env}-{hash}).
+	// In Observe mode it is spec.observe.namespace, set only while the
+	// environment allows observing it.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 }
@@ -82,6 +124,7 @@ type ProjectReleaseBindingStatus struct {
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.projectRelease`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ProjectReleaseBinding is the Schema for the projectreleasebindings API.

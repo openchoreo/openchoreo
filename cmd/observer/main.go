@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/auditconfig"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
@@ -29,6 +30,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/observer/config"
 	observermcp "github.com/openchoreo/openchoreo/internal/observer/mcp"
 	observermiddleware "github.com/openchoreo/openchoreo/internal/observer/middleware"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications"
+	"github.com/openchoreo/openchoreo/internal/observer/notifications/destination"
 	"github.com/openchoreo/openchoreo/internal/observer/service"
 	"github.com/openchoreo/openchoreo/internal/observer/store/alertentry"
 	"github.com/openchoreo/openchoreo/internal/observer/store/deliveryinsights"
@@ -43,6 +46,23 @@ import (
 	"github.com/openchoreo/openchoreo/pkg/mcp/mcpaudit"
 	"github.com/openchoreo/openchoreo/pkg/observability"
 )
+
+// staleDeliverySweepInterval is how often the observer marks alert notifications that a stopped
+// observer left pending as interrupted.
+const staleDeliverySweepInterval = 5 * time.Minute
+
+// configureNotificationDestinations sets which addresses alert notifications may be sent to.
+func configureNotificationDestinations(cfg *config.Config, logger *slog.Logger) {
+	private := cfg.Alerting.NotificationPrivateDestinations
+	notifications.SetDestinationPolicy(destination.Options{
+		Private:        private,
+		ProtectedHosts: cfg.NotificationProtectedHostList(),
+	})
+	if !private.IsEmpty() {
+		logger.Info("Alert notifications may be sent to these private destinations",
+			"addresses", private.Prefixes, "hosts", private.Hosts)
+	}
+}
 
 func main() {
 	// Create bootstrap logger for early initialization
@@ -62,6 +82,8 @@ func main() {
 	// Initialize logger with proper configuration
 	logger := initLogger(cfg.LogLevel)
 	logger.Info("Configuration loaded successfully", "log_level", cfg.LogLevel)
+
+	configureNotificationDestinations(cfg, logger)
 
 	// Initialize Kubernetes client for fetching notification channel configs
 	k8sClient, err := k8s.NewK8sClient()
@@ -217,11 +239,10 @@ func main() {
 		}
 	}()
 
-	deliveryInsightsStore, closeDeliveryInsightsStore, err := newDeliveryInsightsStore(
+	// Never fatal: a Delivery Insights store that cannot be set up turns the
+	// feature off rather than the Observer. See newDeliveryInsightsStore.
+	deliveryInsightsStore, closeDeliveryInsightsStore := newDeliveryInsightsStore(
 		cfg, logger.With("component", "delivery-insights-store"))
-	if err != nil {
-		log.Fatalf("%v", err)
-	}
 	defer closeDeliveryInsightsStore()
 
 	// Initialize alert service for the internal v1alpha1 API
@@ -355,6 +376,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create MCP handler: %v", err)
 	}
+	// The DORA tools list the namespace's environments to default to production.
+	newMCPHandler.WithEnvironmentLister(uidResolver)
 
 	mcpBindings, err := observeraudit.MCPBindings()
 	if err != nil {
@@ -502,6 +525,9 @@ func main() {
 	backgroundWG, doraAggregator = startDoraAggregator(
 		ctx, cfg, deliveryInsightsStore, incidentEntryStore, concreteLogsAdapter, logger)
 
+	// Mark alert notifications that a stopped observer left pending as interrupted.
+	go alertService.RunStaleDeliverySweep(ctx, staleDeliverySweepInterval)
+
 	// Start main server
 	go func() {
 		logger.Info("Starting server", "address", addr)
@@ -526,6 +552,11 @@ func main() {
 	defer cancel()
 
 	shutdownServers(shutdownCtx, server, internalServer, backgroundWG, logger)
+
+	// The servers no longer accept alerts, so let the notifications in flight finish.
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), alertService.MaxDispatchDuration())
+	defer cancelDrain()
+	alertService.DrainNotifications(drainCtx)
 	logger.Info("Server shutdown complete")
 }
 
@@ -574,34 +605,67 @@ func shutdownServers(
 // migrations, returning the store and the function that closes it. The caller
 // defers that function.
 //
+// It never fails the Observer. Delivery Insights is one optional feature, on by
+// default, and the alert and incident stores -- set up just before, on the same
+// database by default -- have already shown that database is reachable. What can
+// still fail here is the feature's own: a migration, a role without the
+// privilege to create its tables, a separately configured store, a schema left
+// by a newer Observer, or settings that did not validate. Each turns Delivery
+// Insights off, with one error line naming the cause, and leaves logs, alerts,
+// traces and MCP running. A restart retries, which is what fixing any of those
+// needs anyway.
+//
+// Off is the state the rest of startup already handles: with
+// cfg.DeliveryInsights.Enabled false the aggregator is not started and the read
+// API reports nothing collected.
+//
 // The alert and incident stores are initialized inline in main, and this would
 // read better beside them. It cannot be: main sits at exactly the gocyclo limit
-// of 30, and the two extra failure branches inlining this adds take it to 32.
+// of 30.
 func newDeliveryInsightsStore(
 	cfg *config.Config,
 	logger *slog.Logger,
-) (deliveryinsights.Store, func(), error) {
-	// Delivery Insights is behind a feature flag, so nothing is set up until it
-	// is on. The read API then reports nothing collected, which matches the flag:
-	// with it off nothing is being written either.
-	//
-	// The gate is here rather than at the call site because main sits on the
-	// gocyclo limit; see the note above.
-	if !cfg.DeliveryInsights.Enabled {
-		return nil, func() {}, nil
+) (deliveryinsights.Store, func()) {
+	noStore := func() {}
+	if reason := cfg.DeliveryInsights.DisabledReason; reason != nil {
+		logger.Error(deliveryInsightsDisabledMessage+" Its configuration is invalid.", "error", reason)
+		return nil, noStore
 	}
+	// With the flag off, nothing is set up and nothing is written, which the read
+	// API reports as not collecting.
+	if !cfg.DeliveryInsights.Enabled {
+		return nil, noStore
+	}
+
 	store, err := deliveryinsights.New(cfg.DeliveryInsights.StoreBackend, cfg.DeliveryInsights.StoreDSN, logger)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize delivery insights store: %w", err)
+		disableDeliveryInsights(cfg, logger, "Its store could not be opened.", err)
+		return nil, noStore
 	}
 	if err := store.Initialize(context.Background()); err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize delivery insights store schema: %w", err)
+		disableDeliveryInsights(cfg, logger, "Its store schema could not be set up.", err)
+		if closeErr := store.Close(); closeErr != nil {
+			logger.Error("Failed to close delivery insights store", "error", closeErr)
+		}
+		return nil, noStore
 	}
 	return store, func() {
 		if closeErr := store.Close(); closeErr != nil {
 			logger.Error("Failed to close delivery insights store", "error", closeErr)
 		}
-	}, nil
+	}
+}
+
+// deliveryInsightsDisabledMessage opens every line that reports Delivery Insights
+// turning itself off, so one search finds them all.
+const deliveryInsightsDisabledMessage = "Delivery Insights is disabled until the Observer restarts; " +
+	"everything else is unaffected."
+
+// disableDeliveryInsights turns the feature off for the rest of the process and
+// says why.
+func disableDeliveryInsights(cfg *config.Config, logger *slog.Logger, cause string, err error) {
+	cfg.DeliveryInsights.Enabled = false
+	logger.Error(deliveryInsightsDisabledMessage+" "+cause, "error", err)
 }
 
 // startDoraAggregator starts the DORA aggregator, which folds incidents and delivery

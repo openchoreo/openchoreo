@@ -106,6 +106,7 @@ type WorkflowRunLogsParams struct {
 	RunName       string // optional --workflowrun flag; defaults to latest
 	Follow        bool
 	Since         string
+	Output        string
 }
 
 func (p WorkflowRunLogsParams) GetNamespace() string     { return p.Namespace }
@@ -118,6 +119,7 @@ type LogsParams struct {
 	Component   string
 	Environment string
 	Container   string // optional — empty means logs from all containers
+	Output      string // text (default), json, or custom-columns=FIELD,...
 	Follow      bool
 	Since       string // duration like "1h", "30m", "5m"
 	Tail        int    // number of lines to show from the end of logs (0 means no limit)

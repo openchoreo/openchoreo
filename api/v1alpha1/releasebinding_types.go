@@ -207,6 +207,37 @@ type ReleaseBindingSpec struct {
 	// +kubebuilder:validation:Enum=Active;Undeploy
 	// +optional
 	State ReleaseState `json:"state,omitempty"`
+
+	// Mode decides whether this binding deploys the component's release
+	// (Manage) or reads objects the component already runs (Observe). Observe
+	// needs a ProjectReleaseBinding in Observe mode for the same project and
+	// environment. In Observe mode, releaseName, the environment configs,
+	// workloadOverrides and state are kept but have no effect.
+	// +kubebuilder:default=Manage
+	// +optional
+	Mode BindingMode `json:"mode,omitempty"`
+
+	// Observe configures Observe mode. It is ignored in Manage mode.
+	// +optional
+	Observe *ReleaseBindingObserve `json:"observe,omitempty"`
+}
+
+// ReleaseBindingObserve lists the objects an observed component runs as.
+type ReleaseBindingObserve struct {
+	// Resources lists objects in the namespace of the project's
+	// ProjectReleaseBinding that make up this component, such as its
+	// Deployment and Service.
+	// +listType=map
+	// +listMapKey=apiVersion
+	// +listMapKey=kind
+	// +listMapKey=name
+	// +optional
+	Resources []ObservedResourceClaim `json:"resources,omitempty"`
+}
+
+// IsObserve reports whether the binding is in Observe mode.
+func (s *ReleaseBindingSpec) IsObserve() bool {
+	return s.Mode == BindingModeObserve
 }
 
 // ReleaseBindingOwner identifies the component this ReleaseBinding belongs to
@@ -323,6 +354,17 @@ type ReleaseBindingStatus struct {
 	// +optional
 	Endpoints []EndpointURLStatus `json:"endpoints,omitempty"`
 
+	// EndpointsObservedGeneration is the generation whose rendered release
+	// endpoints was last computed from. It is recorded as soon as the release is
+	// rendered, before the binding waits on its connections and resource
+	// dependencies, so it can lead ReleaseSynced. When it matches the
+	// generation, an endpoint listed without a serviceURL has no Service from
+	// the ComponentType, rather than one not reported yet. Zero while the
+	// binding renders nothing: before its first render, when undeployed, and in
+	// Observe mode.
+	// +optional
+	EndpointsObservedGeneration int64 `json:"endpointsObservedGeneration,omitempty"`
+
 	// ConnectionTargets lists the connection targets derived from the workload connections.
 	// Used as an index source for finding consumer ReleaseBindings when a provider's endpoints change.
 	// +optional
@@ -398,6 +440,7 @@ type DeliveryStatus struct {
 // +kubebuilder:printcolumn:name="Project",type=string,JSONPath=`.spec.owner.projectName`
 // +kubebuilder:printcolumn:name="Component",type=string,JSONPath=`.spec.owner.componentName`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
+// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ReleaseBinding is the Schema for the releasebindings API.

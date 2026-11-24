@@ -13,7 +13,6 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -107,6 +106,7 @@ type Reconciler struct {
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=releaselines,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=components,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=projects,verbs=get;list;watch
+// +kubebuilder:rbac:groups=openchoreo.dev,resources=projectreleasebindings,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=environments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=dataplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=openchoreo.dev,resources=clusterdataplanes,verbs=get;list;watch
@@ -167,6 +167,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			rErr = kerrors.NewAggregate([]error{rErr, err})
 		}
 	}()
+
+	if releaseBinding.Spec.IsObserve() {
+		return ctrl.Result{}, r.reconcileObserve(ctx, releaseBinding)
+	}
+	if err := r.stopObservingUnlessAllowed(ctx, releaseBinding); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Fetch ComponentRelease
 	componentRelease := &openchoreov1alpha1.ComponentRelease{}
@@ -491,6 +498,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Handle undeploy state - delete Release resources if they exist
 	if releaseBinding.Spec.State == openchoreov1alpha1.ReleaseStateUndeploy {
 		releaseBinding.Status.Endpoints = nil
+		releaseBinding.Status.EndpointsObservedGeneration = 0
 		return r.handleUndeploy(ctx, releaseBinding, componentRelease)
 	}
 
@@ -505,13 +513,8 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// This will be passed to the rendering pipeline and made available in the trait CEL context
 	defaultNotificationChannel, err := r.getDefaultNotificationChannelName(ctx, releaseBinding.Namespace, releaseBinding.Spec.Environment)
 	if err != nil {
-		if strings.Contains(err.Error(), "no default ObservabilityAlertsNotificationChannel found for environment") {
-			logger.V(1).Info("Default notification channel not configured", "environment", releaseBinding.Spec.Environment)
-			defaultNotificationChannel = ""
-		} else {
-			logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
-			return ctrl.Result{}, err
-		}
+		logger.Error(err, "Failed to resolve default notification channel", "environment", releaseBinding.Spec.Environment)
+		return ctrl.Result{}, err
 	}
 
 	// Build Component from ComponentRelease for rendering
@@ -733,6 +736,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 			},
 			EnvironmentName: releaseBinding.Spec.Environment,
 			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:            renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
 			Resources:       dataPlaneReleaseResources,
 		}
 
@@ -767,7 +771,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// on the rollout's own health (deliveryHealthIsCurrent) and the deferred
 	// status update persists its markers on every return path.
 	r.reconcileDelivery(ctx, releaseBinding, componentRelease, dataPlaneRelease, dataPlaneResources,
-		dataPlaneApplyFailed(dataPlaneRelease) != nil)
+		renderedrelease.ApplyFailedCondition(dataPlaneRelease) != nil)
 
 	// Reconcile observability plane Release (create, update, or cleanup)
 	obsResult, err := r.reconcileObservabilityRelease(ctx, releaseBinding, componentRelease, dataPlaneResult, observabilityPlaneReleaseResources)
@@ -795,6 +799,11 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 		componentRelease.Spec.Workload.Endpoints,
 		releaseBinding.Status.Endpoints,
 	)
+	// Record which generation the endpoints describe before the guards below
+	// can return, so an Endpoint routing to this component can tell a missing
+	// Service from one not reported yet without waiting on this binding's own
+	// dependencies.
+	releaseBinding.Status.EndpointsObservedGeneration = releaseBinding.Generation
 
 	// Connection stability guard: check after endpoint URL resolution so that
 	// this component's own endpoint URLs are always kept up to date (unblocking
@@ -828,7 +837,7 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	// Check if the Release controller recorded a resource apply failure.
 	// Only act on the condition when it matches the current Release generation
 	// to avoid surfacing stale errors from a previous spec revision.
-	if applyCond := dataPlaneApplyFailed(dataPlaneRelease); applyCond != nil {
+	if applyCond := renderedrelease.ApplyFailedCondition(dataPlaneRelease); applyCond != nil {
 		controller.MarkFalseCondition(releaseBinding, ConditionResourcesReady,
 			ReasonResourceApplyFailed, applyCond.Message)
 		return ctrl.Result{}, nil
@@ -852,19 +861,6 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// dataPlaneApplyFailed returns the RenderedRelease's ResourcesApplied condition
-// when it reports a failed apply of the current generation, and nil otherwise.
-// A failure recorded against an earlier generation is stale -- it describes a
-// spec revision that has since been replaced -- so it is not reported.
-func dataPlaneApplyFailed(renderedRelease *openchoreov1alpha1.RenderedRelease) *metav1.Condition {
-	applyCond := meta.FindStatusCondition(renderedRelease.Status.Conditions, renderedrelease.ConditionResourcesApplied)
-	if applyCond != nil && applyCond.Status == metav1.ConditionFalse &&
-		applyCond.ObservedGeneration == renderedRelease.Generation {
-		return applyCond
-	}
-	return nil
 }
 
 // handleUndeploy deletes the Release resources when ReleaseState is Undeploy.
@@ -1050,6 +1046,7 @@ func (r *Reconciler) reconcileObservabilityRelease(
 				},
 				EnvironmentName: releaseBinding.Spec.Environment,
 				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Mode:            renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
 				Resources:       observabilityPlaneReleaseResources,
 			}
 
@@ -1688,20 +1685,37 @@ func resolveGatewayEndpointByVisibility(
 	return spec.Ingress.Internal
 }
 
-// getDefaultNotificationChannelName returns the default ObservabilityAlertsNotificationChannel name for an environment.
+// getDefaultNotificationChannelName returns the name of the environment's default
+// ObservabilityAlertsNotificationChannel, or "" when no channel is marked as default.
+// When several are marked, the most recently created one wins, with the name as tie-break.
 func (r *Reconciler) getDefaultNotificationChannelName(ctx context.Context, namespace, environment string) (string, error) {
 	var channels openchoreov1alpha1.ObservabilityAlertsNotificationChannelList
 	if err := r.List(ctx, &channels, client.InNamespace(namespace)); err != nil {
 		return "", fmt.Errorf("failed to list ObservabilityAlertsNotificationChannels: %w", err)
 	}
 
-	for _, ch := range channels.Items {
-		if ch.Spec.Environment == environment && ch.Spec.IsEnvDefault && ch.DeletionTimestamp.IsZero() {
-			return ch.Name, nil
+	var def *openchoreov1alpha1.ObservabilityAlertsNotificationChannel
+	marked := 0
+	for i := range channels.Items {
+		ch := &channels.Items[i]
+		if ch.Spec.Environment != environment || !ch.Spec.IsEnvDefault || !ch.DeletionTimestamp.IsZero() {
+			continue
+		}
+		marked++
+		if def == nil ||
+			ch.CreationTimestamp.After(def.CreationTimestamp.Time) ||
+			(ch.CreationTimestamp.Time.Equal(def.CreationTimestamp.Time) && ch.Name < def.Name) {
+			def = ch
 		}
 	}
-
-	return "", fmt.Errorf("no default ObservabilityAlertsNotificationChannel found for environment %q", environment)
+	if def == nil {
+		return "", nil
+	}
+	if marked > 1 {
+		log.FromContext(ctx).V(1).Info("Multiple default notification channels found, using the most recently created",
+			"environment", environment, "channel", def.Name, "count", marked)
+	}
+	return def.Name, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -1736,8 +1750,14 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
 		Watches(&openchoreov1alpha1.Component{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponent)).
+		Watches(&openchoreov1alpha1.ComponentRelease{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForComponentRelease),
+			builder.WithPredicates(componentReleaseCreatedPredicate())).
 		Watches(&openchoreov1alpha1.ReleaseLine{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForReleaseLine)).
+		Watches(&openchoreov1alpha1.ProjectReleaseBinding{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForProjectReleaseBinding),
+			builder.WithPredicates(projectReleaseBindingObserveChangedPredicate())).
 		Watches(
 			&openchoreov1alpha1.SecretReference{},
 			handler.EnqueueRequestsFromMapFunc(r.listReleaseBindingsForSecretReference),
@@ -1770,6 +1790,13 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ClusterDataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		// The environment's default notification channel feeds the render context
+		// (environment.defaultNotificationChannel), so re-render when it may have changed.
+		Watches(
+			&openchoreov1alpha1.ObservabilityAlertsNotificationChannel{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForNotificationChannel),
+			builder.WithPredicates(notificationChannelDefaultChangedPredicate()),
 		).
 		Named("releasebinding").
 		Complete(r)

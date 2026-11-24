@@ -9,6 +9,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/occ/auth"
 	"github.com/openchoreo/openchoreo/internal/occ/cmdutil"
 	"github.com/openchoreo/openchoreo/internal/occ/flags"
+	"github.com/openchoreo/openchoreo/internal/occ/logformat"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 )
 
@@ -24,7 +25,7 @@ func NewWorkflowCmd(f client.NewClientFunc) *cobra.Command {
 		newGetCmd(f),
 		newDeleteCmd(f),
 		newStartCmd(f),
-		newLogsCmd(),
+		newLogsCmd(f),
 	)
 	return cmd
 }
@@ -128,7 +129,7 @@ func newStartCmd(f client.NewClientFunc) *cobra.Command {
 	return cmd
 }
 
-func newLogsCmd() *cobra.Command {
+func newLogsCmd(f client.NewClientFunc) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs WORKFLOW_NAME",
 		Short: "Get logs for a workflow",
@@ -138,22 +139,34 @@ Use --workflowrun to specify a particular workflow run instead of the latest.`,
   occ workflow logs my-workflow --namespace acme-corp
 
   # Follow logs
-  occ workflow logs my-workflow --namespace acme-corp -f`,
+  occ workflow logs my-workflow --namespace acme-corp -f
+
+  # Print each log entry as JSON
+  occ workflow logs my-workflow --namespace acme-corp -o json`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return New(nil).Logs(LogsParams{
+			if err := logformat.Validate(flags.GetOutput(cmd)); err != nil {
+				return err
+			}
+			cl, err := f()
+			if err != nil {
+				return err
+			}
+			return New(cl).Logs(LogsParams{
 				Namespace:    flags.GetNamespace(cmd),
 				WorkflowName: args[0],
 				RunName:      flags.GetWorkflowRun(cmd),
 				Follow:       flags.GetFollow(cmd),
 				Since:        flags.GetSince(cmd),
+				Output:       flags.GetOutput(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddFollow(cmd)
 	flags.AddSince(cmd)
+	flags.AddOutput(cmd, "timestamp,log")
 	flags.AddWorkflowRun(cmd)
 	return cmd
 }

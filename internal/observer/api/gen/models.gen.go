@@ -194,6 +194,13 @@ const (
 	MetricsQueryRequestMetricResource MetricsQueryRequestMetric = "resource"
 )
 
+// Defines values for NotificationDeliveryStatus.
+const (
+	Failed  NotificationDeliveryStatus = "failed"
+	Pending NotificationDeliveryStatus = "pending"
+	Sent    NotificationDeliveryStatus = "sent"
+)
+
 // Defines values for RuntimeTopologyEdgeProtocol.
 const (
 	RuntimeTopologyEdgeProtocolHttp RuntimeTopologyEdgeProtocol = "http"
@@ -282,8 +289,11 @@ type Alert struct {
 	IncidentEnabled *bool          `json:"incidentEnabled,omitempty"`
 	Metadata        *AlertMetadata `json:"metadata,omitempty"`
 
-	// NotificationChannels The notification channels of the alert. Empty if failed to notify.
+	// NotificationChannels The notification channels configured for the alert. See notificationDeliveries for whether each one was notified.
 	NotificationChannels *[]string `json:"notificationChannels,omitempty"`
+
+	// NotificationDeliveries The delivery result of the alert's notification to each channel. Absent for alerts fired before delivery results were recorded.
+	NotificationDeliveries *[]NotificationDelivery `json:"notificationDeliveries,omitempty"`
 
 	// Timestamp The timestamp of the alert
 	Timestamp *time.Time `json:"timestamp,omitempty"`
@@ -1644,6 +1654,27 @@ type MetricsTimeSeriesItem struct {
 	// Value The value of the time series item
 	Value *float64 `json:"value,omitempty"`
 }
+
+// NotificationDelivery The delivery result of an alert's notification to one channel.
+type NotificationDelivery struct {
+	// Attempts How many times the notification was sent
+	Attempts int `json:"attempts"`
+
+	// Channel The name of the notification channel
+	Channel string `json:"channel"`
+
+	// LastAttemptAt When the last attempt finished
+	LastAttemptAt *time.Time `json:"lastAttemptAt,omitempty"`
+
+	// Reason Why the notification failed, for status failed: timeout, connection, http_5xx, http_429, http_4xx, smtp_temporary, smtp_permanent, channel_config, template, interrupted or unknown
+	Reason *string `json:"reason,omitempty"`
+
+	// Status pending while the notification is being sent, sent once it was delivered, failed when it could not be delivered
+	Status NotificationDeliveryStatus `json:"status"`
+}
+
+// NotificationDeliveryStatus pending while the notification is being sent, sent once it was delivered, failed when it could not be delivered
+type NotificationDeliveryStatus string
 
 // OAuthProtectedResourceMetadata OAuth 2.0 protected resource metadata as defined in RFC 9728.
 // `openchoreo_security_enabled` is an OpenChoreo extension, permitted by

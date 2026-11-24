@@ -5,12 +5,21 @@ set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/.config.sh"
 
+# The bundled Backstage portal is optional (install.sh --without-portal), so an
+# absent Backstage deployment is a valid install rather than a core failure.
+#
+# The row is never hidden, though: "deliberately excluded" and "the portal died"
+# look identical from the outside, so dropping it would disguise a broken portal
+# as a deliberate choice. Instead Backstage stays listed and is reported as
+# optional, so a reader who expected one still sees it reported as absent.
+
 # Component groups organized by architectural layers
 get_component_group() {
     local group="$1"
     case "$group" in
         "Infrastructure") echo "cert_manager kgateway external_secrets openbao thunder" ;;
-        "Control_Plane") echo "controller_manager api_server backstage cluster_gateway" ;;
+        "Control_Plane") echo "controller_manager api_server cluster_gateway" ;;
+        "Portal") echo "backstage" ;;
         "Data_Plane") echo "cluster_agent_dp gateway_proxy" ;;
         "Workflow_Plane") echo "cluster_agent_wp argo_workflow_controller registry" ;;
         "Observability_Plane") echo "obs_controller_manager cluster_agent_op opensearch observer" ;;
@@ -19,7 +28,7 @@ get_component_group() {
 }
 
 # Group order for display
-group_order=("Infrastructure" "Control_Plane" "Data_Plane" "Workflow_Plane" "Observability_Plane")
+group_order=("Infrastructure" "Control_Plane" "Portal" "Data_Plane" "Workflow_Plane" "Observability_Plane")
 
 # Group display names
 get_group_display_name() {
@@ -27,6 +36,7 @@ get_group_display_name() {
     case "$group" in
         "Infrastructure") echo "Infrastructure" ;;
         "Control_Plane") echo "Control Plane" ;;
+        "Portal") echo "Developer Portal" ;;
         "Data_Plane") echo "Data Plane" ;;
         "Workflow_Plane") echo "Workflow Plane" ;;
         "Observability_Plane") echo "Observability Plane" ;;
@@ -65,8 +75,8 @@ components_cp=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" 
 components_dp=("cluster_agent_dp" "gateway_proxy")
 
 # Core vs optional classification
-core_components=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" "controller_manager" "api_server" "backstage" "cluster_gateway" "cluster_agent_dp" "gateway_proxy")
-optional_components=("cluster_agent_wp" "argo_workflow_controller" "registry" "obs_controller_manager" "cluster_agent_op" "opensearch" "observer")
+core_components=("cert_manager" "kgateway" "external_secrets" "openbao" "thunder" "controller_manager" "api_server" "cluster_gateway" "cluster_agent_dp" "gateway_proxy")
+optional_components=("backstage" "cluster_agent_wp" "argo_workflow_controller" "registry" "obs_controller_manager" "cluster_agent_op" "opensearch" "observer")
 
 # Component configuration: namespace and pod label selector
 # Format is namespace:label-selector
@@ -139,6 +149,28 @@ check_component_status() {
     fi
 
     if [[ -z "$pod_status" ]]; then
+        # No pods. For the portal that is a legitimate end state (installed with
+        # --without-portal), so tell "never installed" apart from "installed but
+        # not up". Deliberately scoped to the portal: $label is a *pod* selector,
+        # and a workload's own metadata labels need not carry it — OpenBao's
+        # StatefulSet, for one, has component=server only on its pod template, so
+        # generalizing this would misreport a down component as absent.
+        if [[ "$component" == "backstage" ]]; then
+            local workload rc_w
+            set +e
+            workload=$(kubectl --context="$context" get deployment \
+                -n "$namespace" -l "$label" -o name 2>/dev/null)
+            rc_w=$?
+            set -e
+            if (( rc_w != 0 )); then
+                echo "unknown"
+            elif [[ -z "$workload" ]]; then
+                echo "not installed"
+            else
+                echo "not started"
+            fi
+            return
+        fi
         echo "not started"
         return
     fi
@@ -185,7 +217,7 @@ print_grouped_components() {
         local group_type=""
         case "$group" in
             "Infrastructure"|"Control_Plane"|"Data_Plane") group_type="Core" ;;
-            "Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
+            "Portal"|"Workflow_Plane"|"Observability_Plane") group_type="Optional" ;;
         esac
 
         echo ""

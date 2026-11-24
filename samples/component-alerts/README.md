@@ -70,7 +70,7 @@ Platform Engineers configure notification channels once per environment (email/w
 
 2. Edit `samples/component-alerts/alert-notification-channels.yaml` and replace the placeholder values:
    - SMTP host, port, and from/to email addresses
-   - Webhook URL and custom headers (if required)
+   - Webhook URL and custom headers (if required). If the URL itself carries a credential, as a Slack incoming webhook does, add it to the secret (`--from-literal=url=<webhook-url>`) and reference it with `urlFrom.secretKeyRef` instead of setting `url`, as the comment in the sample shows.
    - **Email template** (optional): For emails that require specific formatting, you can provide a `template` using CEL expressions. The sample includes a template. If not provided, the raw alertDetails object will be sent.
    - **Webhook payload template** (optional): For webhooks that require specific JSON formats (like Slack), you can provide a `payloadTemplate` using CEL expressions. The sample includes a Slack-compatible template. If not provided, the raw alertDetails object will be sent.
 
@@ -83,7 +83,7 @@ Platform Engineers configure notification channels once per environment (email/w
    kubectl get observabilityalertsnotificationchannels -n default
    ```
 
-4. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The first notification channel created will be marked as the default notification channel for the environment by OpenChoreo.
+4. The notification channels are bounded to the environment. In this sample they are created for the `development` environment. The email channel sets `isEnvDefault: true`, which makes it the default notification channel for the environment. OpenChoreo does not pick a default for you: if no channel is marked, alert rules that list no channels of their own fail to render. If several channels of an environment are marked, the most recently created one is used. To change the default, mark the channel you want and unmark the others.
 
 ---
 
