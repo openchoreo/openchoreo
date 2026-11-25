@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"sync"
+	"time"
 )
 
 // Registry is the embedded RegistryStore: an in-memory map of agent
@@ -191,46 +192,46 @@ func (r *Registry) SetDraining(owner string) {
 	r.logger.Info("owner marked draining", "owner", owner)
 }
 
-// CountForPlane returns the number of remote agent connections for a plane
+// RemoteSummary aggregates the remote agent connections matching a plane (or
+// a CR within a plane).
+type RemoteSummary struct {
+	// Count is the number of matching connections.
+	Count int
+	// LastSeen is the most recent LastSeen among the matching connections.
+	// It is zero when none of their owners reported one, e.g. while every
+	// owner runs a gateway version that predates the field.
+	LastSeen time.Time
+}
+
+func (s *RemoteSummary) add(e AgentEntry) {
+	s.Count++
+	if e.LastSeen.After(s.LastSeen) {
+		s.LastSeen = e.LastSeen
+	}
+}
+
+// SummaryForPlane summarizes the remote agent connections for a plane
 // (draining owners included: their agents are still connected).
-func (r *Registry) CountForPlane(planeIdentifier string) int {
+func (r *Registry) SummaryForPlane(planeIdentifier string) RemoteSummary {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	count := 0
+	var sum RemoteSummary
 	for _, st := range r.owners {
 		for _, e := range st.entries {
 			if e.PlaneIdentifier == planeIdentifier {
-				count++
+				sum.add(e)
 			}
 		}
 	}
-	return count
+	return sum
 }
 
-// CountForCR returns the number of remote agent connections authorized for a
-// specific CR within a plane.
-func (r *Registry) CountForCR(planeIdentifier, crKey string) int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	count := 0
-	for _, st := range r.owners {
-		for _, e := range st.entries {
-			if e.PlaneIdentifier == planeIdentifier && slices.Contains(e.ValidCRs, crKey) {
-				count++
-			}
-		}
-	}
-	return count
-}
-
-// CountForCRAndPlane returns, from one view of the registry, the number of
-// remote agent connections authorized for a CR and the number connected to its
-// plane at all (draining owners included in both). A caller comparing the two
-// must not read them with separate calls: an agent registering in between would
-// pair a count taken before it arrived with one taken after.
-func (r *Registry) CountForCRAndPlane(planeIdentifier, crKey string) (forCR, forPlane int) {
+// SummaryForCRAndPlane summarizes, from one view of the registry, the remote
+// agent connections authorized for a CR and those connected to its plane at
+// all (draining owners included in both). See CountForCRAndPlane for why the
+// two must come from one view.
+func (r *Registry) SummaryForCRAndPlane(planeIdentifier, crKey string) (forCR, forPlane RemoteSummary) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -239,27 +240,39 @@ func (r *Registry) CountForCRAndPlane(planeIdentifier, crKey string) (forCR, for
 			if e.PlaneIdentifier != planeIdentifier {
 				continue
 			}
-			forPlane++
+			forPlane.add(e)
 			if slices.Contains(e.ValidCRs, crKey) {
-				forCR++
+				forCR.add(e)
 			}
 		}
 	}
 	return forCR, forPlane
 }
 
-// AllPlaneCounts returns remote agent connection counts per plane identifier.
-func (r *Registry) AllPlaneCounts() map[string]int {
+// AllPlaneSummaries summarizes remote agent connections per plane identifier.
+func (r *Registry) AllPlaneSummaries() map[string]RemoteSummary {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	counts := make(map[string]int)
+	sums := make(map[string]RemoteSummary)
 	for _, st := range r.owners {
 		for _, e := range st.entries {
-			counts[e.PlaneIdentifier]++
+			sum := sums[e.PlaneIdentifier]
+			sum.add(e)
+			sums[e.PlaneIdentifier] = sum
 		}
 	}
-	return counts
+	return sums
+}
+
+// CountForCRAndPlane returns, from one view of the registry, the number of
+// remote agent connections authorized for a CR and the number connected to its
+// plane at all (draining owners included in both). A caller comparing the two
+// must not read them with separate calls: an agent registering in between would
+// pair a count taken before it arrived with one taken after.
+func (r *Registry) CountForCRAndPlane(planeIdentifier, crKey string) (forCR, forPlane int) {
+	cr, plane := r.SummaryForCRAndPlane(planeIdentifier, crKey)
+	return cr.Count, plane.Count
 }
 
 // CountByOwner returns how many agent connections each peer pod currently

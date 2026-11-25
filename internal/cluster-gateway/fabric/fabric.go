@@ -20,6 +20,7 @@ package fabric
 
 import (
 	"context"
+	"time"
 
 	"github.com/openchoreo/openchoreo/internal/cluster-agent/messaging"
 )
@@ -37,6 +38,12 @@ type AgentEntry struct {
 	PlaneIdentifier string   `json:"planeIdentifier"` // "{planeType}/{planeID}"
 	ConnID          string   `json:"connID"`
 	ValidCRs        []string `json:"validCRs,omitempty"`
+	// LastSeen is when the owner pod last heard from the agent, as of the
+	// owner's latest publish. The owner refreshes it on a throttled schedule
+	// (see Mesh.LocalTouch), so a peer's copy trails the owner's own view by
+	// up to lastSeenPublishInterval plus one heartbeat. Zero means unknown: a
+	// gateway that predates the field never sends it.
+	LastSeen time.Time `json:"lastSeen,omitzero"`
 }
 
 // Delta is a single registry mutation, stamped with the owner pod's monotonic

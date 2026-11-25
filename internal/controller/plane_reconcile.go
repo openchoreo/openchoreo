@@ -8,8 +8,11 @@ import (
 	"slices"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 )
 
 // StatusUpdateJitter is the most that is added to StatusUpdateInterval for one
@@ -55,4 +58,25 @@ func PlaneChangedPredicate() predicate.Predicate {
 			},
 		},
 	)
+}
+
+// RecordAgentHeartbeat sets status.LastHeartbeatTime from the LastSeen a
+// gateway reported, without ever moving it backwards or clearing it.
+//
+// The status request can land on any gateway replica. A replica that does not
+// own the agent's connection may report the agent connected with a zero
+// LastSeen (it predates published liveness, or has not yet received the
+// owner's refresh), or one older than a previous reading from the owner. Such a
+// reading says nothing new about the agent, so the recorded heartbeat stays.
+func RecordAgentHeartbeat(status *openchoreov1alpha1.AgentConnectionStatus, lastSeen time.Time) {
+	if status == nil || lastSeen.IsZero() {
+		return
+	}
+	// LastHeartbeatTime is stored at second precision, so compare at that
+	// precision: a sub-second-later reading of the same heartbeat is not news.
+	lastSeen = lastSeen.Truncate(time.Second)
+	if status.LastHeartbeatTime != nil && !lastSeen.After(status.LastHeartbeatTime.Time) {
+		return
+	}
+	status.LastHeartbeatTime = &metav1.Time{Time: lastSeen}
 }

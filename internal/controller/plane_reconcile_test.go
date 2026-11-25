@@ -104,3 +104,38 @@ func TestStatusRequeueAfter_SpreadsWithinJitter(t *testing.T) {
 	}
 	assert.Greater(t, len(seen), 1, "every requeue got the same delay")
 }
+
+// The status request can land on a gateway replica that reports the agent
+// connected but knows no LastSeen (zero), or an older one than a previous
+// reading. Neither may clear or rewind the recorded heartbeat.
+func TestRecordAgentHeartbeat(t *testing.T) {
+	recorded := time.Date(2026, 11, 25, 6, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		previous *metav1.Time
+		lastSeen time.Time
+		want     *metav1.Time
+	}{
+		{"first reading", nil, recorded.Add(500 * time.Millisecond), &metav1.Time{Time: recorded}},
+		{"zero with nothing recorded", nil, time.Time{}, nil},
+		{"zero keeps the recorded heartbeat", &metav1.Time{Time: recorded}, time.Time{}, &metav1.Time{Time: recorded}},
+		{"older reading keeps the recorded heartbeat", &metav1.Time{Time: recorded}, recorded.Add(-20 * time.Second), &metav1.Time{Time: recorded}},
+		{"same second keeps the recorded heartbeat", &metav1.Time{Time: recorded}, recorded.Add(900 * time.Millisecond), &metav1.Time{Time: recorded}},
+		{"newer reading advances", &metav1.Time{Time: recorded}, recorded.Add(30 * time.Second), &metav1.Time{Time: recorded.Add(30 * time.Second)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := &openchoreov1alpha1.AgentConnectionStatus{LastHeartbeatTime: tt.previous}
+			RecordAgentHeartbeat(status, tt.lastSeen)
+			if tt.want == nil {
+				assert.Nil(t, status.LastHeartbeatTime)
+				return
+			}
+			require.NotNil(t, status.LastHeartbeatTime)
+			assert.True(t, tt.want.Equal(status.LastHeartbeatTime), "want %v, got %v", tt.want, status.LastHeartbeatTime)
+		})
+	}
+
+	assert.NotPanics(t, func() { RecordAgentHeartbeat(nil, recorded) })
+}
