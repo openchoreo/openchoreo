@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	yamlv3 "gopkg.in/yaml.v3"
 	"sigs.k8s.io/yaml"
@@ -380,6 +381,7 @@ type fileChange struct {
 	after         []byte
 	remove        bool
 	backedUp      bool
+	backupMoved   bool
 	installed     bool
 	installedInfo fs.FileInfo
 }
@@ -398,6 +400,8 @@ type fileTransaction struct {
 	createdDirs []string
 	removedDirs []directorySnapshot
 	keepBackups bool
+	// Defaults to root.Link; tests can simulate filesystems without hard links.
+	link func(string, string) error
 }
 
 // writeFiles computes the complete change set before touching manifests. Only
@@ -706,7 +710,16 @@ func (t *fileTransaction) applyChange(index int) error {
 		} else {
 			// Retain the original inode until the replacement is atomically
 			// renamed over it. Both paths are confined to the output root.
-			err = t.root.Link(filepath.FromSlash(change.path), t.stagedName("old", index))
+			link := t.link
+			if link == nil {
+				link = t.root.Link
+			}
+			err = link(filepath.FromSlash(change.path), t.stagedName("old", index))
+			// Some filesystems report unsupported hard links as EPERM.
+			if errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EPERM) {
+				err = t.root.Rename(filepath.FromSlash(change.path), t.stagedName("old", index))
+				change.backupMoved = err == nil
+			}
 		}
 		if err != nil {
 			return err
@@ -887,8 +900,8 @@ func (t *fileTransaction) checkRollbackChange(index int) error {
 	case change.installed:
 		expectedInfo = change.installedInfo
 		expected.before = &fileSnapshot{data: change.after, mode: expectedInfo.Mode().Perm()}
-	case change.remove:
-		// A deleted path must still be absent before restoring its backup.
+	case change.remove || change.backupMoved:
+		// A deleted or moved path must still be absent before restoring its backup.
 		expected.before = nil
 	default:
 		// If installation failed after linking the backup, the original file

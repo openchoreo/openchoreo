@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -620,12 +621,112 @@ func TestFileTransaction_RollsBackMidApplyFailure(t *testing.T) {
 	assert.Equal(t, before, snapshotTree(t, directory))
 }
 
+func TestFileTransaction_UpdatesWithoutHardLinks(t *testing.T) {
+	for _, linkErr := range []error{syscall.ENOTSUP, syscall.EOPNOTSUPP, syscall.ENOSYS, syscall.EPERM} {
+		for _, failure := range []string{"", "install", "later", "concurrent"} {
+			t.Run(linkErr.Error()+"/"+failure, func(t *testing.T) {
+				directory := t.TempDir()
+				previous := []byte("previous content\n")
+				seedFiles(t, directory, []SerializedFile{{Path: "manifest.yaml", Data: previous}})
+				before := snapshotTree(t, directory)
+				root, err := os.OpenRoot(directory)
+				require.NoError(t, err)
+				defer root.Close()
+				originalInfo, err := root.Lstat("manifest.yaml")
+				require.NoError(t, err)
+				tx := &fileTransaction{root: root, changes: []fileChange{
+					{path: "manifest.yaml", before: &fileSnapshot{data: previous, mode: originalInfo.Mode().Perm()}, after: []byte("updated content\n")},
+					{path: "created.yaml", after: []byte("new file\n")},
+				}, link: func(oldname, newname string) error {
+					return &os.LinkError{Op: "link", Old: oldname, New: newname, Err: linkErr}
+				}}
+				require.NoError(t, tx.stage(context.Background()))
+				defer func() { _ = root.RemoveAll(tx.scratch) }()
+				if failure != "" {
+					index := 0
+					if failure == "later" {
+						index = 1
+					}
+					require.NoError(t, root.Remove(tx.stagedName("new", index)))
+				}
+				err = tx.apply(context.Background())
+				require.True(t, tx.changes[0].backupMoved)
+				backupInfo, statErr := root.Lstat(tx.stagedName("old", 0))
+				require.NoError(t, statErr)
+				assert.True(t, os.SameFile(originalInfo, backupInfo))
+				if failure == "" {
+					require.NoError(t, err)
+					data, err := root.ReadFile("manifest.yaml")
+					require.NoError(t, err)
+					assert.Equal(t, "updated content\n", string(data))
+					info, err := root.Lstat("manifest.yaml")
+					require.NoError(t, err)
+					assert.Equal(t, originalInfo.Mode().Perm(), info.Mode().Perm())
+					assert.FileExists(t, filepath.Join(directory, "created.yaml"))
+					return
+				}
+				require.Error(t, err)
+				if failure != "later" {
+					assert.NoFileExists(t, filepath.Join(directory, "manifest.yaml"))
+				}
+				if failure == "concurrent" {
+					current := []byte("another writer's content\n")
+					require.NoError(t, os.WriteFile(filepath.Join(directory, "manifest.yaml"), current, 0o600))
+					require.ErrorContains(t, tx.abort(err, directory), "rollback conflict")
+					assert.True(t, tx.keepBackups)
+					data, err := root.ReadFile("manifest.yaml")
+					require.NoError(t, err)
+					assert.Equal(t, current, data)
+					data, err = root.ReadFile(tx.stagedName("old", 0))
+					require.NoError(t, err)
+					assert.Equal(t, previous, data)
+					return
+				}
+				require.ErrorContains(t, tx.abort(err, directory), "previous files restored")
+				require.NoError(t, root.RemoveAll(tx.scratch))
+				assert.Equal(t, before, snapshotTree(t, directory))
+				restoredInfo, err := root.Lstat("manifest.yaml")
+				require.NoError(t, err)
+				assert.True(t, os.SameFile(originalInfo, restoredInfo))
+			})
+		}
+	}
+}
+
+func TestFileTransaction_LinkErrorsLeaveOriginalUntouched(t *testing.T) {
+	for _, linkErr := range []error{syscall.EACCES, syscall.EIO, syscall.ENOSPC, syscall.EEXIST} {
+		t.Run(linkErr.Error(), func(t *testing.T) {
+			directory := t.TempDir()
+			previous := []byte("previous content\n")
+			seedFiles(t, directory, []SerializedFile{{Path: "manifest.yaml", Data: previous}})
+			before := snapshotTree(t, directory)
+			root, err := os.OpenRoot(directory)
+			require.NoError(t, err)
+			defer root.Close()
+			info, err := root.Lstat("manifest.yaml")
+			require.NoError(t, err)
+			tx := &fileTransaction{root: root, changes: []fileChange{
+				{path: "manifest.yaml", before: &fileSnapshot{data: previous, mode: info.Mode().Perm()}, after: []byte("updated content\n")},
+			}, link: func(oldname, newname string) error {
+				return &os.LinkError{Op: "link", Old: oldname, New: newname, Err: linkErr}
+			}}
+			require.NoError(t, tx.stage(context.Background()))
+			err = tx.apply(context.Background())
+			require.ErrorIs(t, err, linkErr)
+			assert.False(t, tx.changes[0].backedUp)
+			require.ErrorContains(t, tx.abort(err, directory), "previous files restored")
+			require.NoError(t, root.RemoveAll(tx.scratch))
+			assert.Equal(t, before, snapshotTree(t, directory))
+		})
+	}
+}
+
 func TestFileTransaction_RollbackPreservesConcurrentChanges(t *testing.T) {
 	const (
 		createOperation = "create"
 		deleteOperation = "delete"
 	)
-	for _, operation := range []string{createOperation, "update", deleteOperation} {
+	for _, operation := range []string{createOperation, "update", "update without hard links", deleteOperation} {
 		for _, mutation := range []string{"content", "replacement", "permissions", "symlink", "parent"} {
 			t.Run(operation+"/"+mutation, func(t *testing.T) {
 				directory := t.TempDir()
@@ -651,6 +752,9 @@ func TestFileTransaction_RollbackPreservesConcurrentChanges(t *testing.T) {
 					{path: "other.yaml", before: previous, after: []byte(installed)},
 					{path: "failure.yaml", after: []byte(installed)},
 				}}
+				if operation == "update without hard links" {
+					tx.link = func(_, _ string) error { return syscall.ENOTSUP }
+				}
 				require.NoError(t, tx.stage(context.Background()))
 				require.NoError(t, tx.applyChange(0))
 				require.NoError(t, tx.applyChange(1))
