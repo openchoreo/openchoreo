@@ -372,12 +372,21 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 	return opClient, nil
 }
 
-// applyResources applies the given resources to the target plane
+// applyResources applies the given resources to the target plane. Takeovers come last, so
+// that a new object that is rejected leaves the existing ones alone.
 func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []checkedResource) error {
-	for _, resource := range resources {
-		resourceID := resource.desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if err := applyResource(ctx, planeClient, resource); err != nil {
-			return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
+	for _, takeOver := range []bool{false, true} {
+		for _, resource := range resources {
+			if resource.takeOver != takeOver {
+				continue
+			}
+			resourceID := resource.desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
+			if err := applyResource(ctx, planeClient, resource); err != nil {
+				return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
+			}
+			if takeOver {
+				log.FromContext(ctx).Info("Took over an existing object", "object", describeObject(resource.live))
+			}
 		}
 	}
 
@@ -396,9 +405,9 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 func applyResource(ctx context.Context, planeClient client.Client, resource checkedResource) error {
 	obj := resource.desired
 	if resource.live != nil {
-		// The label comes first, so a claimed object is protected before the release owns it.
-		// One that is created now is labeled by the next pass, and protected by its claim until
-		// then.
+		// The label comes first, so a claimed object is protected before the release owns it,
+		// and a crash in between leaves an object that nobody took over. One that is created now
+		// is labeled by the next pass, and protected by its claim until then.
 		if resource.claimed && !hasClaimedLabel(resource.live) {
 			if _, err := addClaimedLabel(ctx, planeClient, resource.live); err != nil {
 				return err

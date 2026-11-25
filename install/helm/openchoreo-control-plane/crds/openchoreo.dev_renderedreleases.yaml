@@ -52,20 +52,31 @@ spec:
                 default: Manage
                 description: |-
                   Mode decides whether the manifests in spec.resources are applied. Manage
-                  applies them. Observe does not, and removes whatever this release applied
-                  earlier, except observed resources, which it gives back. Observed resources
-                  are read in both modes. Defaults to Manage.
+                  applies them. Observe does not, and deletes what this release applied earlier,
+                  except objects protected by observedResources. Observed resources are read in
+                  both modes. Defaults to Manage.
                 enum:
                 - Manage
                 - Observe
                 type: string
               observedResources:
                 description: |-
-                  ObservedResources lists existing objects on the target plane that this
-                  release reads and reports in status.observedResources. They are never
-                  created, updated or deleted, in either mode. One that this release applied
-                  earlier is given back: the labels and the managedFields entry that mark it
-                  as this release's are removed, and nothing else changes.
+                  ObservedResources lists objects on the target plane that the release reads and
+                  reports in status.observedResources, in both modes. Listing an object does not
+                  create, change or delete it.
+
+                  An object can be listed here and also be in spec.resources. In Manage mode the
+                  release then applies it:
+                    - If it does not exist, it is created.
+                    - If it exists and no release manages it, the release takes it over. It sets
+                      the fields in its manifest and leaves the others as they are.
+                    - If another release manages it, the release applies nothing.
+
+                  Listing an object also protects it. An object that the release applied while it
+                  was listed is never deleted by the release, even when it is no longer listed. It
+                  has the label openchoreo.dev/claimed. When it is no longer in spec.resources, the
+                  release stops managing it: it removes its labels and its managedFields entry, and
+                  leaves everything else as it is.
                 items:
                   description: |-
                     ObservedResource names an existing object on the target plane for a

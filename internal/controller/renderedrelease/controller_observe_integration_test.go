@@ -448,7 +448,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
 		})
 
-		It("does not write an existing object in Manage mode", func() {
+		It("takes it over in Manage mode, and gives it back when the release is deleted", func() {
 			envName, r := observeTestPlane("observe-overlap")
 			team := teamConfigMap("overlap-team")
 
@@ -462,30 +462,26 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(k8sClient.Create(ctx, release)).To(Succeed())
 
 			mustReconcile(r, reconcileRequest(releaseName))
-			_, err := r.Reconcile(ctx, reconcileRequest(releaseName))
-			Expect(err).To(MatchError(ContainSubstring("never written")))
+			mustReconcile(r, reconcileRequest(releaseName))
 
 			updated := fetchRelease(releaseName)
-			applied := findCondition(updated, ConditionResourcesApplied)
-			Expect(applied).NotTo(BeNil())
-			Expect(applied.Status).To(Equal(metav1.ConditionFalse))
-			Expect(applied.Reason).To(Equal(ReasonApplyFailed))
-			Expect(applied.Message).To(ContainSubstring("observed resource team"))
-			expectUntouched(team)
-
-			By("The failed apply still publishes the observed reads")
-			Expect(updated.Status.ObservedResources).To(HaveLen(1))
-			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
-			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Status).To(Equal(metav1.ConditionTrue))
-
-			By("Once it is gone, the release creates it, and reports it as it was read before")
-			Expect(k8sClient.Delete(ctx, team)).To(Succeed())
-			mustReconcile(r, reconcileRequest(releaseName))
-			updated = fetchRelease(releaseName)
 			Expect(findCondition(updated, ConditionResourcesApplied).Reason).To(Equal(ReasonApplySucceeded))
-			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
-			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Reason).
-				To(Equal(string(ReasonObservedResourceNotFound)))
+			Expect(updated.Status.Resources).To(HaveLen(1))
+			Expect(updated.Status.ObservedResources).To(HaveLen(1))
+			taken := &corev1.ConfigMap{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(team), taken)).To(Succeed())
+			Expect(taken.UID).To(Equal(team.UID))
+			Expect(taken.Data).To(Equal(map[string]string{"owner": "team", "key": "value"}))
+			Expect(taken.Labels).To(HaveKeyWithValue("team", "payments"))
+			Expect(taken.Labels).To(HaveKeyWithValue(labels.LabelKeyRenderedReleaseName, releaseName))
+
+			Expect(k8sClient.Delete(ctx, updated)).To(Succeed())
+			mustReconcile(r, reconcileRequest(releaseName)) // the Finalizing condition
+			mustReconcile(r, reconcileRequest(releaseName))
+			Expect(apierrors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(updated), updated))).To(BeTrue())
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(team), taken)).To(Succeed())
+			expectUntouched(taken) // no label and no entry of the release
+			Expect(taken.Data).To(Equal(map[string]string{"owner": "team", "key": "value"}), "its values stay")
 		})
 	})
 	Context("when observed workloads decide the next check", func() {

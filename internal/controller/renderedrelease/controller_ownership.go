@@ -11,6 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -117,23 +118,25 @@ type checkedResource struct {
 	// live is the object it is applied over. Nil when there was none, and when it was not
 	// looked for.
 	live *unstructured.Unstructured
+	// takeOver says that live is claimed, and that no release applied it.
+	takeOver bool
 	// missing says that there was none, so applying it creates the object.
 	missing bool
 }
 
 // checkOwnership looks for the objects a release is about to apply, before anything is
 // written, and returns what it found. It looks for the ones that are claimed, and with the
-// guard on for all of them.
+// guard on for all of them. One that no release applied is taken over when it is claimed.
 //
 // It returns a refusedError when another release owns one of them, or when the guard is on
-// and nobody claimed one the release doesn't own. It returns the error of a read that fails,
-// since that object may be someone else's too.
+// and one that no release applied isn't claimed. It returns the error of a read that fails,
+// since that object may be someone else's too, and of a takeover the plane would reject.
 func checkOwnership(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease,
 	desired []*unstructured.Unstructured) ([]checkedResource, error) {
 	guarded := guardIsOn(release, desired, planeClient)
-	claims := make(map[objectIdentity]string, len(release.Spec.ObservedResources))
+	claims := sets.New[objectIdentity]()
 	for _, claim := range resolveObservedResources(release.Spec.ObservedResources) {
-		claims[claim.identity()] = claim.id
+		claims.Insert(claim.identity())
 	}
 
 	resources := make([]checkedResource, 0, len(desired))
@@ -141,7 +144,7 @@ func checkOwnership(ctx context.Context, planeClient client.Client, release *ope
 	var refused []string
 	for _, obj := range desired {
 		identity := identityOnPlane(obj, planeClient)
-		claim, claimed := claims[identity]
+		claimed := claims.Has(identity)
 		if !claimed && !guarded {
 			resources = append(resources, checkedResource{desired: obj})
 			continue
@@ -156,22 +159,47 @@ func checkOwnership(ctx context.Context, planeClient client.Client, release *ope
 			missing.Insert(identity)
 			continue
 		}
-		resources = append(resources, checkedResource{desired: obj, claimed: claimed, live: live})
-		switch owner := ownerOf(live, release); {
-		case owner == ownedByRelease:
+		owner := ownerOf(live, release)
+		resources = append(resources, checkedResource{desired: obj, claimed: claimed, live: live, takeOver: claimed && owner == ownedOutside})
+		switch {
 		case owner == ownedByAnotherRelease:
 			refused = append(refused, fmt.Sprintf("%s belongs to %s", describeObject(live), describeOwner(live, release)))
-		case claimed:
-			return nil, fmt.Errorf("resource %s (%s) is also observed resource %s, and observed resources are never written",
-				obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID], describeObject(live), claim)
-		default:
+		case owner == ownedOutside && !claimed:
 			refused = append(refused, describeObject(live)+" exists and is not managed by this release")
 		}
 	}
 	if len(refused) > 0 {
 		return nil, &refusedError{objects: refused}
 	}
+	if err := dryRunTakeovers(ctx, planeClient, resources); err != nil {
+		return nil, err
+	}
 	return resources, nil
+}
+
+// dryRunTakeovers has the plane run every takeover without storing it, and returns the ones
+// it rejects.
+//
+// Resources are applied one by one, so a takeover that fails leaves the ones before it
+// applied. A Service that selects the release's pods, next to a workload whose immutable
+// selector can't change, would select nothing.
+func dryRunTakeovers(ctx context.Context, planeClient client.Client, resources []checkedResource) error {
+	var errs []error
+	for _, resource := range resources {
+		if !resource.takeOver {
+			continue
+		}
+		dryRun := resource.desired.DeepCopy() // the answer replaces it
+		dryRun.SetUID(resource.live.GetUID())
+		if err := planeClient.Patch(ctx, dryRun, client.Apply, client.ForceOwnership,
+			client.FieldOwner(ControllerName), client.DryRunAll); err != nil {
+			errs = append(errs, fmt.Errorf("%s can't be taken over: %w", describeObject(resource.live), err))
+			if ctx.Err() != nil {
+				break
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // identityOnPlane returns the identity a rendered object has on the plane. A cluster-scoped

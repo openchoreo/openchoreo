@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -59,26 +60,24 @@ func deleteViolations(requests []*planeRequest, claims ...openchoreov1alpha1.Obs
 		if _, labeled := r.before.GetLabels()[labels.LabelKeyClaimed]; labeled {
 			violated("is labeled as claimed")
 		}
-		for _, claim := range claims {
-			gvk := r.before.GroupVersionKind()
-			if strings.EqualFold(claim.Kind, gvk.Kind) && strings.TrimSuffix(claim.APIVersion, "/"+gvk.Version) == groupOrVersion(gvk) &&
-				claim.Namespace == r.before.GetNamespace() && claim.Name == r.before.GetName() {
-				violated("is claimed as " + claim.ID)
-			}
+		if claim := claimOf(r.before, claims); claim != nil {
+			violated("is claimed as " + claim.ID)
 		}
 	}
 	return violations
 }
 
 // applyViolations returns the writes of one pass of a release that break a rule of the
-// checks before them: a pass that refuses writes nothing, and no object the pass read is
-// applied over unless the release owns it.
+// checks before them: a pass that refuses writes nothing. An object the pass read is applied
+// over only if the release owns it, or if it is claimed and a dry run was accepted. Nothing
+// new is created after the first object was taken over.
 func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*planeRequest) []string {
 	refused := false
 	if cond := findCondition(release, ConditionResourcesApplied); cond != nil {
 		refused = cond.Reason == ReasonApplyRefused && cond.ObservedGeneration == release.Generation
 	}
-	read := sets.New[string]()
+	read, dryRun := sets.New[string](), sets.New[string]()
+	tookOver := false
 	var violations []string
 	for _, r := range requests {
 		if r.method == http.MethodGet {
@@ -87,7 +86,11 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*pl
 			}
 			continue
 		}
-		if strings.Contains(r.query, "dryRun=All") || r.status >= http.StatusMultipleChoices {
+		if r.status >= http.StatusMultipleChoices {
+			continue
+		}
+		if strings.Contains(r.query, "dryRun=All") {
+			dryRun.Insert(r.path)
 			continue
 		}
 		violated := func(rule string) {
@@ -96,8 +99,19 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*pl
 		if refused {
 			violated("written by a pass that refuses")
 		}
-		if r.method == http.MethodPatch && r.before != nil && read.Has(r.path) && !hasMarksOf(r.before, release) {
-			violated("read, not owned, and written anyway")
+		if r.contentType != string(types.ApplyPatchType) {
+			continue
+		}
+		if r.before == nil && tookOver {
+			violated("created after an object was taken over")
+		}
+		if r.before != nil && read.Has(r.path) && !hasMarksOf(r.before, release) {
+			tookOver = true
+			if claimOf(r.before, release.Spec.ObservedResources) == nil {
+				violated("read, not owned, and written anyway")
+			} else if !dryRun.Has(r.path) {
+				violated("taken over without a dry run")
+			}
 		}
 	}
 	return violations
@@ -160,12 +174,17 @@ func hasMarksOf(obj *unstructured.Unstructured, release *openchoreov1alpha1.Rend
 		obj.GetLabels()[labels.LabelKeyRenderedReleaseNamespace] == release.Namespace && hasApplyEntry(obj)
 }
 
-// groupOrVersion is what is left of an API version without its "/version".
-func groupOrVersion(gvk schema.GroupVersionKind) string {
-	if gvk.Group == "" {
-		return gvk.Version
+// claimOf returns the claim on an object, whatever its API version, and nil without one.
+func claimOf(obj *unstructured.Unstructured, claims []openchoreov1alpha1.ObservedResource) *openchoreov1alpha1.ObservedResource {
+	gvk := obj.GroupVersionKind()
+	for i, claim := range claims {
+		gv, err := schema.ParseGroupVersion(claim.APIVersion)
+		if err == nil && gv.Group == gvk.Group && strings.EqualFold(claim.Kind, gvk.Kind) &&
+			claim.Namespace == obj.GetNamespace() && claim.Name == obj.GetName() {
+			return &claims[i]
+		}
 	}
-	return gvk.Group
+	return nil
 }
 
 func isList(r *planeRequest) bool {
@@ -309,6 +328,31 @@ var _ = Describe("the rules for applies", func() {
 		read()
 		applyAs("mine")
 		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+	})
+
+	It("pass an object that is claimed, after a dry run, and catch it without one", func() {
+		release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{ID: "mine", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: name}}
+		Expect(k8sClient.Create(ctx, newObj("mine"))).To(Succeed())
+		read()
+		dryRun := newObj("mine")
+		Expect(plane.Patch(ctx, dryRun, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
+		applyAs("mine")
+		requests := proxy.requests()
+		Expect(applyViolations(release, requests)).To(BeEmpty())
+		Expect(applyViolations(release, slices.Delete(requests, 1, 2))).To(ConsistOf(ContainSubstring("without a dry run")))
+	})
+
+	It("catch an object that is created after one was taken over", func() {
+		release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{ID: "mine", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: name}}
+		Expect(k8sClient.Create(ctx, newObj("mine"))).To(Succeed())
+		read()
+		Expect(plane.Patch(ctx, newObj("mine"), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
+		applyAs("mine")
+		created := newObj("mine")
+		created.SetName("apply-rules-created")
+		Expect(plane.Patch(ctx, created, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName))).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, created) })
+		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("created after an object was taken over")))
 	})
 
 	It("leave out an object the pass did not read, which an own namespace adopts", func() {

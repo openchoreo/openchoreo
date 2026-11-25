@@ -91,6 +91,8 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			switch {
 			case r.method == http.MethodGet:
 				sent = append(sent, "read")
+			case strings.Contains(r.query, "dryRun=All") && strings.Contains(string(r.body), `"uid":`):
+				sent = append(sent, "dry run by UID")
 			case isLabelRequest(r) && strings.Contains(string(r.body), `"uid":`):
 				sent = append(sent, "label by UID")
 			case r.contentType == string(types.ApplyPatchType) && strings.Contains(string(r.body), `"uid":`):
@@ -154,16 +156,27 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			Expect(fetchRelease(f.name).Status.ObservedResources).To(HaveLen(1), "it is still read")
 		})
 
-		It(where+": does not write what no release applied", func() {
+		It(where+": takes over what no release applied", func() {
 			start("outside", guarded)
-			theirs := outside(configMap("theirs"))
+			theirs := configMap("theirs")
+			theirs.Object["data"] = map[string]any{"by": "theirs", "theirs": "kept"}
+			theirs.SetLabels(map[string]string{"app.kubernetes.io/managed-by": "Helm"})
+			before := outside(theirs)
 			f.change(rendering(configMap("release")), claiming(configMap("")))
 
-			_, err := f.pass()
-			Expect(err).To(HaveOccurred())
-			Expect(f.writes()).To(BeEmpty())
-			expectUnchanged(theirs)
-			Expect(findCondition(fetchRelease(f.name), ConditionResourcesApplied).Reason).To(Equal(ReasonApplyFailed))
+			f.mustPass()
+			Expect(sent()).To(Equal([]string{"read", "read", "dry run by UID", "label by UID", "apply by UID"}))
+			after := expectApplied("release")
+			Expect(after.GetUID()).To(Equal(before.GetUID()))
+			Expect(after.GetLabels()).To(HaveKeyWithValue(labels.LabelKeyClaimed, "true"))
+			Expect(after.GetLabels()).To(HaveKeyWithValue("app.kubernetes.io/managed-by", "Helm"), "what the release doesn't set stays")
+			Expect(after.Object).To(HaveKeyWithValue("data", HaveKeyWithValue("theirs", "kept")))
+			status := fetchRelease(f.name).Status
+			Expect(status.Resources).To(HaveLen(1))
+			Expect(status.ObservedResources).To(HaveLen(1), "it is in both lists")
+
+			f.mustPass()
+			Expect(sent()).To(Equal([]string{"read", "read", "apply by UID"}), "only the first pass takes it over")
 		})
 
 		It(where+": gives back what appears while it creates it", func() {
