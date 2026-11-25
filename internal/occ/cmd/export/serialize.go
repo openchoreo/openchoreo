@@ -86,7 +86,7 @@ type resourceOwner struct {
 }
 
 // manifestIdentity reads only the fields needed for layout and validation.
-// Encoding uses the complete JSON document, preserving every exposed API field.
+// YAML encoding uses the complete prepared map, preserving every exposed API field.
 type manifestIdentity struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -101,7 +101,7 @@ type manifestIdentity struct {
 
 // Serialize prepares one YAML manifest per resource without writing files or
 // modifying the input objects. Paths are sorted and duplicates are rejected.
-// Filtering and canonicalization are separate pipeline stages.
+// Prepared maps are encoded directly; standalone callers can also supply API values.
 func Serialize(ctx context.Context, resources []Resource) ([]SerializedFile, error) {
 	files := make([]SerializedFile, 0, len(resources))
 	seen := make(map[string]struct{}, len(resources))
@@ -127,18 +127,16 @@ func Serialize(ctx context.Context, resources []Resource) ([]SerializedFile, err
 }
 
 func serializeResource(resource Resource) (SerializedFile, error) {
-	data, err := json.Marshal(resource.Object)
-	if err != nil {
-		return SerializedFile{}, fmt.Errorf("encode API object: %w", err)
-	}
-	if resource.Kind == "Namespace" {
-		data, err = namespaceManifest(data)
+	document, ok := resource.Object.(resourceDocument)
+	if !ok {
+		var err error
+		document, err = copyResourceDocument(resource)
 		if err != nil {
 			return SerializedFile{}, err
 		}
 	}
-	var identity manifestIdentity
-	if err := json.Unmarshal(data, &identity); err != nil {
+	identity, err := readManifestIdentity(document)
+	if err != nil {
 		return SerializedFile{}, fmt.Errorf("read manifest identity: %w", err)
 	}
 	if identity.Metadata.Name != resource.Name || identity.Metadata.Namespace != resource.Namespace {
@@ -151,20 +149,51 @@ func serializeResource(resource Resource) (SerializedFile, error) {
 	if err != nil {
 		return SerializedFile{}, err
 	}
-	encoded, err := encodeJSONAsYAML(data)
+	encoded, err := encodeYAML(document)
 	if err != nil {
 		return SerializedFile{}, fmt.Errorf("encode YAML: %w", err)
 	}
 	return SerializedFile{Path: filePath, Data: encoded}, nil
 }
 
-func encodeJSONAsYAML(data []byte) ([]byte, error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	var document any
-	if err := decoder.Decode(&document); err != nil {
-		return nil, err
+func readManifestIdentity(document map[string]any) (manifestIdentity, error) {
+	var identity manifestIdentity
+	for _, field := range []struct {
+		name   string
+		target *string
+	}{
+		{"apiVersion", &identity.APIVersion},
+		{"kind", &identity.Kind},
+		{"metadata.name", &identity.Metadata.Name},
+		{"metadata.namespace", &identity.Metadata.Namespace},
+		{"spec.owner.projectName", &identity.Spec.Owner.ProjectName},
+		{"spec.owner.componentName", &identity.Spec.Owner.ComponentName},
+		{"spec.owner.resourceName", &identity.Spec.Owner.ResourceName},
+	} {
+		var value any = document
+		for _, key := range strings.Split(field.name, ".") {
+			if value == nil {
+				break
+			}
+			object, ok := value.(map[string]any)
+			if !ok {
+				return manifestIdentity{}, fmt.Errorf("%s must be within JSON objects", field.name)
+			}
+			value = object[key]
+		}
+		if value == nil {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			return manifestIdentity{}, fmt.Errorf("%s must be a string", field.name)
+		}
+		*field.target = text
 	}
+	return identity, nil
+}
+
+func encodeYAML(document map[string]any) ([]byte, error) {
 	var output bytes.Buffer
 	encoder := yamlv3.NewEncoder(&output)
 	encoder.SetIndent(2)
@@ -191,9 +220,11 @@ func prepareYAMLValues(value any) any {
 		}
 		return mapping
 	case []any:
+		sequence := make([]any, len(value))
 		for i, item := range value {
-			value[i] = prepareYAMLValues(item)
+			sequence[i] = prepareYAMLValues(item)
 		}
+		return sequence
 	}
 	return value
 }
@@ -206,21 +237,6 @@ func (key yamlMapKey) MarshalYAML() (any, error) {
 		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Tag: "!!str", Value: string(key), Style: yamlv3.DoubleQuotedStyle}, nil
 	}
 	return string(key), nil
-}
-
-// Namespace is the one generated API model without type metadata. Raw messages
-// add its Kubernetes envelope while preserving the returned metadata and status.
-func namespaceManifest(data []byte) ([]byte, error) {
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal(data, &document); err != nil {
-		return nil, fmt.Errorf("read Namespace object: %w", err)
-	}
-	if document == nil {
-		return nil, fmt.Errorf("namespace object is required")
-	}
-	document["apiVersion"] = json.RawMessage(`"v1"`)
-	document["kind"] = json.RawMessage(`"Namespace"`)
-	return json.Marshal(document)
 }
 
 func resourcePath(resource Resource, owner resourceOwner) (string, error) {

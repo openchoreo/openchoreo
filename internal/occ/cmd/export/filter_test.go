@@ -79,7 +79,7 @@ func TestFilter_ApprovedPolicyAndNumberPreservation(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(filterFixtureJSON), &original))
 	wantSpec, err := json.Marshal(original["spec"])
 	require.NoError(t, err)
-	assert.Equal(t, string(wantSpec), string(document["spec"]), "preserve the entire spec, including numeric precision and nested fields")
+	assert.JSONEq(t, string(wantSpec), string(document["spec"]), "preserve the entire spec, including numeric precision and nested fields")
 	assert.Contains(t, string(document["spec"]), "9007199254740993")
 	assert.Contains(t, string(document["spec"]), "0.1234567890123456789")
 	assert.Equal(t, filterFixtureJSON, string(resource.Object.(json.RawMessage)))
@@ -94,11 +94,11 @@ func TestFilter_TypedInputsRemainUnchanged(t *testing.T) {
 	filtered, err := Filter(context.Background(), []Resource{resource})
 	require.NoError(t, err)
 	require.Len(t, filtered, 1)
-	document, ok := filtered[0].Object.(map[string]json.RawMessage)
+	document, ok := filtered[0].Object.(resourceDocument)
 	require.True(t, ok)
 	// Editing the result must not change the typed input or its nested values.
-	document["metadata"][0] = '['
-	document["spec"][0] = '['
+	document["metadata"].(map[string]any)["name"] = "changed"
+	document["spec"].(map[string]any)["parameters"].(map[string]any)["status"] = "edited"
 	after, err := json.Marshal(resource.Object)
 	require.NoError(t, err)
 	assert.Equal(t, before, after)
@@ -119,7 +119,9 @@ func TestFilter_PreservesNestedTemplatesAndSchemas(t *testing.T) {
 	require.NoError(t, err)
 	filtered, err := Filter(context.Background(), []Resource{resource})
 	require.NoError(t, err)
-	assert.JSONEq(t, string(before), string(filtered[0].Object.(map[string]json.RawMessage)["spec"]))
+	after, err := json.Marshal(filtered[0].Object.(resourceDocument)["spec"])
+	require.NoError(t, err)
+	assert.JSONEq(t, string(before), string(after))
 }
 
 func TestFilter_DeletionMarkers(t *testing.T) {
@@ -152,10 +154,10 @@ func TestFilter_AnnotationContainersAndNamespaceLabels(t *testing.T) {
 		filtered, err := Filter(context.Background(), []Resource{resource})
 		require.NoError(t, err)
 		require.Len(t, filtered, 1)
-		var metadata map[string]json.RawMessage
-		require.NoError(t, json.Unmarshal(filtered[0].Object.(map[string]json.RawMessage)["metadata"], &metadata))
-		assert.JSONEq(t, `{"openchoreo.dev/control-plane":"true"}`, string(metadata["labels"]))
-		assert.NotContains(t, string(metadata["annotations"]), restartedAtAnnotation)
+		metadata := filtered[0].Object.(resourceDocument)["metadata"].(map[string]any)
+		assert.Equal(t, map[string]any{"openchoreo.dev/control-plane": "true"}, metadata["labels"])
+		annotations, _ := metadata["annotations"].(map[string]any)
+		assert.NotContains(t, annotations, restartedAtAnnotation)
 	}
 }
 
@@ -215,4 +217,48 @@ func TestFilter_EmptyInventory(t *testing.T) {
 	filtered, err := Filter(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Empty(t, filtered)
+}
+
+func TestFilter_EquivalentDocumentsProduceIdenticalFiles(t *testing.T) {
+	first := manifestResource(testComponentKind)
+	second := manifestResource(testComponentKind)
+	first.Object = json.RawMessage(`{
+		"spec":{"parameters":{"z":true,"a":"123"},"owner":{"projectName":"store"}},
+		"metadata":{"namespace":"acme","name":"sample"},
+		"kind":"Component","apiVersion":"openchoreo.dev/v1alpha1"}`)
+	second.Object = json.RawMessage(`{
+		"apiVersion":"openchoreo.dev/v1alpha1","kind":"Component",
+		"metadata":{"name":"sample","namespace":"acme"},
+		"spec":{"owner":{"projectName":"store"},"parameters":{"a":"123","z":true}}}`)
+	exports := make([][]SerializedFile, 0, 2)
+	for _, resource := range []Resource{first, second} {
+		filtered, err := Filter(context.Background(), []Resource{resource})
+		require.NoError(t, err)
+		files, err := Serialize(context.Background(), filtered)
+		require.NoError(t, err)
+		exports = append(exports, files)
+	}
+	assert.Equal(t, exports[0], exports[1])
+}
+
+func TestFilter_PreservesNumbersArraysAndOriginalDocuments(t *testing.T) {
+	resource := manifestResource(testComponentKind)
+	document := resource.Object.(map[string]any)
+	document["spec"].(map[string]any)["parameters"] = json.RawMessage(
+		`{"large":9007199254740993,"decimal":1.234567890123456789,"args":["sh","-c","./start.sh"],"empty":null}`)
+	before, err := json.Marshal(document)
+	require.NoError(t, err)
+	filtered, err := Filter(context.Background(), []Resource{resource})
+	require.NoError(t, err)
+	copyDocument := filtered[0].Object.(resourceDocument)
+	parameters := copyDocument["spec"].(map[string]any)["parameters"].(map[string]any)
+	assert.Equal(t, json.Number("9007199254740993"), parameters["large"])
+	assert.Equal(t, json.Number("1.234567890123456789"), parameters["decimal"])
+	assert.Equal(t, []any{"sh", "-c", "./start.sh"}, parameters["args"])
+	assert.Contains(t, parameters, "empty")
+	assert.Nil(t, parameters["empty"])
+	copyDocument["metadata"].(map[string]any)["name"] = "changed"
+	after, err := json.Marshal(document)
+	require.NoError(t, err)
+	assert.Equal(t, before, after)
 }

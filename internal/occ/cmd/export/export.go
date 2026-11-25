@@ -40,11 +40,7 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	if err != nil {
 		return nil, err
 	}
-	canonical, err := Canonicalize(ctx, filtered)
-	if err != nil {
-		return nil, err
-	}
-	files, err := Serialize(ctx, canonical)
+	files, err := Serialize(ctx, filtered)
 	if err != nil {
 		return nil, err
 	}

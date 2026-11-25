@@ -7,8 +7,8 @@ import "time"
 
 // Resource associates an API object with its export identity. Namespace is empty
 // for cluster-scoped objects, including Namespace objects. Fetch supplies a
-// generated API value in Object; Filter replaces it with an independent JSON
-// document containing the approved fields for export.
+// generated API value in Object; Filter replaces it with an independent map
+// containing the approved fields for export and exact json.Number values.
 type Resource struct {
 	Kind      string
 	Namespace string

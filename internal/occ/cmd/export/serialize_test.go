@@ -213,12 +213,18 @@ func TestSerialize_RejectsInvalidResources(t *testing.T) {
 		want   string
 	}{
 		{"unknown kind", func(r *Resource, object map[string]any) { r.Kind = "FutureKind"; object["kind"] = r.Kind }, "unsupported resource kind"},
-		{"missing object", func(r *Resource, _ map[string]any) { r.Object = nil }, "metadata does not match"},
-		{"unencodable object", func(r *Resource, _ map[string]any) { r.Object = make(chan int) }, "encode API object"},
+		{"missing object", func(r *Resource, _ map[string]any) { r.Object = nil }, "API object is required"},
+		{"unencodable object", func(r *Resource, _ map[string]any) { r.Object = make(chan int) }, "copy API object"},
 		{"mismatched name", func(_ *Resource, object map[string]any) { object["metadata"].(map[string]any)["name"] = "other" }, "metadata does not match"},
 		{"mismatched namespace", func(_ *Resource, object map[string]any) { object["metadata"].(map[string]any)["namespace"] = "other" }, "metadata does not match"},
 		{"mismatched kind", func(_ *Resource, object map[string]any) { object["kind"] = "Project" }, "matching kind"},
 		{"missing version", func(_ *Resource, object map[string]any) { delete(object, "apiVersion") }, "apiVersion"},
+		{"invalid spec", func(_ *Resource, object map[string]any) { object["spec"] = []any{} }, "must be within JSON objects"},
+		{"invalid owner", func(_ *Resource, object map[string]any) { object["spec"].(map[string]any)["owner"] = true }, "must be within JSON objects"},
+		{"non-string name", func(_ *Resource, object map[string]any) { object["metadata"].(map[string]any)["name"] = 3 }, "metadata.name must be a string"},
+		{"non-string owner", func(_ *Resource, object map[string]any) {
+			object["spec"].(map[string]any)["owner"].(map[string]any)["projectName"] = 3
+		}, "spec.owner.projectName must be a string"},
 		{"missing owner", func(_ *Resource, object map[string]any) { delete(object, "spec") }, "spec.owner.projectName"},
 		{"unsafe owner", func(_ *Resource, object map[string]any) {
 			object["spec"].(map[string]any)["owner"].(map[string]any)["projectName"] = "../../outside"
@@ -318,11 +324,19 @@ func TestSerialize_PreservesNumberLiterals(t *testing.T) {
 		"trailing": json.Number("2.5000"),
 		"nested":   []any{map[string]any{"exponent": json.Number("1.2300e-04")}},
 	}
-	canonical, err := Canonicalize(context.Background(), []Resource{resource})
+	filtered, err := Filter(context.Background(), []Resource{resource})
 	require.NoError(t, err)
-	files, err := Serialize(context.Background(), canonical)
+	before, err := json.Marshal(filtered[0].Object)
+	require.NoError(t, err)
+	files, err := Serialize(context.Background(), filtered)
 	require.NoError(t, err)
 	require.Len(t, files, 1)
+	again, err := Serialize(context.Background(), filtered)
+	require.NoError(t, err)
+	assert.Equal(t, files, again)
+	after, err := json.Marshal(filtered[0].Object)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "serialization must not mutate prepared maps or arrays")
 	text := string(files[0].Data)
 	assert.Contains(t, text, "decimal: 1.234567890123456789\n")
 	assert.Contains(t, text, "large: 9007199254740993\n")

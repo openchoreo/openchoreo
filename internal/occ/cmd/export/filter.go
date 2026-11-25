@@ -4,6 +4,7 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,18 +15,21 @@ const (
 	restartedAtAnnotation = "openchoreo.dev/restartedAt"
 )
 
-// Filter prepares independent JSON documents for export. It skips objects marked
+// resourceDocument holds a JSON object decoded once with exact numeric literals.
+type resourceDocument map[string]any
+
+// Filter prepares independent maps for export. It skips objects marked
 // for deletion, removes top-level status, keeps only name/namespace/labels/
 // annotations in metadata, and removes the two transient annotations above.
 // Specs, nested documents, and all other labels and annotations are preserved.
-// Raw messages retain numbers without decoding them into floating-point values.
+// Numbers remain json.Number values from conversion through YAML serialization.
 func Filter(ctx context.Context, resources []Resource) ([]Resource, error) {
 	filtered := make([]Resource, 0, len(resources))
 	for _, resource := range resources {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		object, include, err := filterResource(resource.Object)
+		object, include, err := filterResource(resource)
 		if err != nil {
 			return nil, fmt.Errorf("filter %s %q in namespace %q: %w", resource.Kind, resource.Name, resource.Namespace, err)
 		}
@@ -40,28 +44,43 @@ func Filter(ctx context.Context, resources []Resource) ([]Resource, error) {
 	return filtered, nil
 }
 
-func filterResource(object any) (map[string]json.RawMessage, bool, error) {
-	data, err := json.Marshal(object)
+func copyResourceDocument(resource Resource) (resourceDocument, error) {
+	data, err := json.Marshal(resource.Object)
 	if err != nil {
-		return nil, false, fmt.Errorf("copy API object: %w", err)
+		return nil, fmt.Errorf("copy API object: %w", err)
 	}
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal(data, &document); err != nil {
-		return nil, false, fmt.Errorf("read API object: %w", err)
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var document resourceDocument
+	if err := decoder.Decode(&document); err != nil {
+		return nil, fmt.Errorf("read API object: %w", err)
 	}
 	if document == nil {
-		return nil, false, fmt.Errorf("API object is required")
+		return nil, fmt.Errorf("API object is required")
 	}
-	var metadata map[string]json.RawMessage
-	if err := json.Unmarshal(document["metadata"], &metadata); err != nil {
-		return nil, false, fmt.Errorf("read metadata: %w", err)
+	// The generated Namespace model has no Kubernetes type metadata.
+	if resource.Kind == "Namespace" {
+		document["apiVersion"] = "v1"
+		document["kind"] = resource.Kind
 	}
-	if metadata == nil {
-		return nil, false, fmt.Errorf("metadata is required")
+	return document, nil
+}
+
+func filterResource(resource Resource) (resourceDocument, bool, error) {
+	document, err := copyResourceDocument(resource)
+	if err != nil {
+		return nil, false, err
+	}
+	metadata, ok := document["metadata"].(map[string]any)
+	if !ok {
+		if document["metadata"] == nil {
+			return nil, false, fmt.Errorf("read metadata: metadata is required")
+		}
+		return nil, false, fmt.Errorf("read metadata: must be an object")
 	}
 	// Inspect deletion state before dropping server metadata. Omission or JSON
 	// null means the API has not marked this object for deletion.
-	if timestamp, exists := metadata["deletionTimestamp"]; exists && string(timestamp) != "null" {
+	if metadata["deletionTimestamp"] != nil {
 		return nil, false, nil
 	}
 	for field := range metadata {
@@ -74,32 +93,20 @@ func filterResource(object any) (map[string]json.RawMessage, bool, error) {
 	if err := filterAnnotations(metadata); err != nil {
 		return nil, false, err
 	}
-	document["metadata"], err = json.Marshal(metadata)
-	if err != nil {
-		return nil, false, fmt.Errorf("encode filtered metadata: %w", err)
-	}
 	delete(document, "status")
 	return document, true, nil
 }
 
-func filterAnnotations(metadata map[string]json.RawMessage) error {
-	data, exists := metadata["annotations"]
-	if !exists {
+func filterAnnotations(metadata map[string]any) error {
+	value := metadata["annotations"]
+	if value == nil {
 		return nil
 	}
-	var annotations map[string]json.RawMessage
-	if err := json.Unmarshal(data, &annotations); err != nil {
-		return fmt.Errorf("read metadata.annotations: %w", err)
-	}
-	if annotations == nil {
-		return nil
+	annotations, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("read metadata.annotations: must be an object")
 	}
 	delete(annotations, lastAppliedAnnotation)
 	delete(annotations, restartedAtAnnotation)
-	filtered, err := json.Marshal(annotations)
-	if err != nil {
-		return fmt.Errorf("encode filtered annotations: %w", err)
-	}
-	metadata["annotations"] = filtered
 	return nil
 }
