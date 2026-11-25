@@ -195,10 +195,10 @@ func TestGetProgressingRequeueInterval(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// findStaleResources
+// planCleanup
 // ─────────────────────────────────────────────────────────────
 
-func TestFindStaleResources(t *testing.T) {
+func TestPlanCleanup(t *testing.T) {
 	release := &openchoreov1alpha1.RenderedRelease{ObjectMeta: metav1.ObjectMeta{Name: "api-prod", Namespace: "acme"}}
 	makeObj := func(resourceID string) *unstructured.Unstructured {
 		obj := unstructuredObj("v1", "ConfigMap", "prod", "cm-"+resourceID)
@@ -211,7 +211,7 @@ func TestFindStaleResources(t *testing.T) {
 		return obj
 	}
 	find := func(live, desired []*unstructured.Unstructured) []*unstructured.Unstructured {
-		return findStaleResources(release, live, nil, renderedIn(desired))
+		return planCleanup(release, renderedSetOf(desired), live).remove
 	}
 
 	// ESO copies an ExternalSecret's labels onto the Secret it creates when the
@@ -294,7 +294,7 @@ func TestFindStaleResources(t *testing.T) {
 		if len(stale) != 0 {
 			t.Errorf("expected 0 (no ID label skipped), got %d", len(stale))
 		}
-		if stale = findStaleResources(release, []*unstructured.Unstructured{noIDObj}, nil, nothingIsRendered); len(stale) != 1 {
+		if stale = planCleanup(release, renderedSet{}, []*unstructured.Unstructured{noIDObj}).remove; len(stale) != 1 {
 			t.Errorf("expected 1 once nothing is rendered, got %d", len(stale))
 		}
 	})
@@ -316,9 +316,9 @@ func TestFindStaleResources(t *testing.T) {
 			removed, changed := makeObj("res-1"), makeObj("res-2")
 			removed.SetLabels(withoutLabel(removed.GetLabels(), key))
 			changed.SetLabels(withLabel(changed.GetLabels(), key, "another"))
-			stale := findStaleResources(release, []*unstructured.Unstructured{removed, changed}, nil, nothingIsRendered)
-			if len(stale) != 0 {
-				t.Errorf("%s: expected 0 stale, got %d", key, len(stale))
+			plan := planCleanup(release, renderedSet{}, []*unstructured.Unstructured{removed, changed})
+			if len(plan.remove)+len(plan.giveBack) != 0 {
+				t.Errorf("%s: expected nothing to do, got %v", key, plan)
 			}
 		}
 	})
@@ -333,7 +333,7 @@ func TestFindStaleResources(t *testing.T) {
 		}
 	})
 
-	t.Run("observed objects are not stale", func(t *testing.T) {
+	t.Run("claimed objects are given back", func(t *testing.T) {
 		object := func(apiVersion, kind, namespace string) *unstructured.Unstructured {
 			obj := makeObj("res-1")
 			obj.SetAPIVersion(apiVersion)
@@ -342,23 +342,48 @@ func TestFindStaleResources(t *testing.T) {
 			obj.SetName("api")
 			return obj
 		}
-		observedDeploy := object("apps/v1", "Deployment", "prod")
-		// The same object listed under another version is still the observed one.
-		observedOtherVersion := object("apps/v1beta2", "Deployment", "prod")
+		claimedDeploy := object("apps/v1", "Deployment", "prod")
+		// The same object listed under another version is the same claimed one.
+		claimedOtherVersion := object("apps/v1beta2", "Deployment", "prod")
 		otherNamespace := object("apps/v1", "Deployment", "staging")
 		otherKind := object("v1", "Service", "prod")
-		live := []*unstructured.Unstructured{observedDeploy, observedOtherVersion, otherNamespace, otherKind}
+		live := []*unstructured.Unstructured{claimedDeploy, claimedOtherVersion, otherNamespace, otherKind}
 
 		// The kind is compared case-insensitively, as ProxyClient builds the request path
 		// from it: an entry spelled DEPLOYMENT reads, and protects, the Deployment.
 		for _, kind := range []string{"Deployment", "DEPLOYMENT"} {
-			entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-				observedRes("api", "apps/v1", kind, "prod", "api"),
-			})
-			stale := findStaleResources(release, live, entries, nothingIsRendered)
-			if len(stale) != 2 || stale[0] != otherNamespace || stale[1] != otherKind {
-				t.Errorf("%s: %d objects are stale, want only the two that are not observed", kind, len(stale))
+			claiming := release.DeepCopy()
+			claiming.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{observedRes("api", "apps/v1", kind, "prod", "api")}
+			plan := planCleanup(claiming, renderedSet{}, live)
+			if len(plan.giveBack) != 1 || plan.giveBack[0] != claimedDeploy {
+				t.Errorf("%s: %d objects are given back, want the claimed one, once", kind, len(plan.giveBack))
 			}
+			if len(plan.remove) != 2 || plan.remove[0] != otherNamespace || plan.remove[1] != otherKind {
+				t.Errorf("%s: %d objects are stale, want only the two that are not claimed", kind, len(plan.remove))
+			}
+		}
+	})
+
+	t.Run("labeled objects are given back, whatever the label's value", func(t *testing.T) {
+		for _, value := range []string{"true", "false", ""} {
+			labeled := makeObj("res-1")
+			labeled.SetLabels(withLabel(labeled.GetLabels(), labels.LabelKeyClaimed, value))
+			plan := planCleanup(release, renderedSet{}, []*unstructured.Unstructured{labeled})
+			if len(plan.giveBack) != 1 || len(plan.remove) != 0 {
+				t.Errorf("%q: got %v", value, plan)
+			}
+		}
+	})
+
+	t.Run("a rendered object is neither given back nor stale, though claimed, labeled, or listed under an old ID", func(t *testing.T) {
+		claiming := release.DeepCopy()
+		claiming.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{observedRes("cm", "v1", "ConfigMap", "prod", "cm-res-1")}
+		live := makeObj("res-1")
+		live.SetLabels(withLabel(live.GetLabels(), labels.LabelKeyClaimed, "true"))
+		live.SetLabels(withLabel(live.GetLabels(), labels.LabelKeyRenderedReleaseResourceID, "old"))
+		plan := planCleanup(claiming, renderedSetOf([]*unstructured.Unstructured{makeObj("res-1")}), []*unstructured.Unstructured{live})
+		if len(plan.giveBack)+len(plan.remove) != 0 {
+			t.Errorf("expected nothing to do, got %v", plan)
 		}
 	})
 }

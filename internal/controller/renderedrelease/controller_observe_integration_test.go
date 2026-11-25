@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -377,7 +376,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			forceDelete(ctx, nn)
 		})
 
-		It("deletes what it applied and leaves every observed object, even one it applied earlier", func() {
+		It("deletes what it applied and leaves every observed object, also one it applied earlier and gave back", func() {
 			envName, r := observeTestPlane("observe-finalize")
 			team := teamConfigMap("fin-team")
 
@@ -400,9 +399,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(configMapExists("fin-applied")).To(BeTrue())
 			Expect(configMapExists("fin-handover")).To(BeTrue())
 
-			By("Moving fin-handover from spec.resources to observedResources keeps it")
-			// It still carries this release's labels and its apply entry, so without
-			// the observed check both the stale cleanup and the finalizer would delete it.
+			By("Moving fin-handover from spec.resources to observedResources gives it back")
 			updated := fetchRelease(releaseName)
 			updated.Spec.Resources = updated.Spec.Resources[:1]
 			updated.Spec.ObservedResources = append(updated.Spec.ObservedResources, openchoreov1alpha1.ObservedResource{
@@ -416,6 +413,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(updated.Status.ObservedResources).To(HaveLen(2))
 			handover := &corev1.ConfigMap{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: "fin-handover", Namespace: testNs}, handover)).To(Succeed())
+			expectUntouched(handover) // no label and no entry of the release
 
 			By("Deleting the release")
 			Expect(k8sClient.Delete(ctx, updated)).To(Succeed())
@@ -631,14 +629,10 @@ var _ = Describe("RenderedRelease observe mode", func() {
 		})
 	})
 	Context("on the observability plane", func() {
-		const (
-			observeName  = "release-observe-op"
-			finalizeName = "release-observe-op-finalize"
-		)
+		const observeName = "release-observe-op"
 
 		AfterEach(func() {
 			forceDelete(ctx, types.NamespacedName{Name: observeName, Namespace: testNs})
-			forceDelete(ctx, types.NamespacedName{Name: finalizeName, Namespace: testNs})
 		})
 
 		It("reads observed objects in Observe mode and creates no namespace", func() {
@@ -670,51 +664,6 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: "op-observe-absent"}, &corev1.Namespace{})
 			Expect(apierrors.IsNotFound(err)).To(BeTrue(), "no namespace is created in Observe mode, got %v", err)
 			expectUntouched(team)
-		})
-
-		It("leaves an observed object this release applied earlier when it is deleted", func() {
-			envName := observeTestOPPlane("observe-op-finalize")
-			nn := types.NamespacedName{Name: finalizeName, Namespace: testNs}
-
-			release := makeMinimalRelease(finalizeName, envName)
-			release.Spec.TargetPlane = targetPlaneObservabilityPlane
-			release.Finalizers = []string{ObsPlaneCleanupFinalizer}
-			release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{
-				ID: "handed-over", APIVersion: "openchoreo.dev/v1alpha1", Kind: "ObservabilityAlertRule", Name: "handed-over-rule",
-			}}
-			Expect(k8sClient.Create(ctx, release)).To(Succeed())
-			fetched := fetchRelease(finalizeName)
-			fetched.Status.Resources = []openchoreov1alpha1.RenderedManifestStatus{{
-				ID: "applied", Group: "openchoreo.dev", Version: "v1alpha1", Kind: "ObservabilityAlertRule", Name: "applied-rule",
-			}}
-			Expect(k8sClient.Status().Update(ctx, fetched)).To(Succeed())
-			fetched = fetchRelease(finalizeName)
-
-			By("Both rules carry this release's labels and apply entry; one is now observed")
-			handedOver := makeLabeledUnstructured("openchoreo.dev/v1alpha1", "ObservabilityAlertRule", "", "handed-over-rule", "handed-over", fetched)
-			applied := makeLabeledUnstructured("openchoreo.dev/v1alpha1", "ObservabilityAlertRule", "", "applied-rule", "applied", fetched)
-			opClient := fake.NewClientBuilder().WithScheme(k8sClient.Scheme()).
-				WithObjects(handedOver, applied).WithReturnManagedFields().Build()
-			r := testReconcilerWithDPClient(opClient, "", "")
-
-			Expect(k8sClient.Delete(ctx, fetched)).To(Succeed())
-			Eventually(func() bool {
-				return !fetchRelease(finalizeName).DeletionTimestamp.IsZero()
-			}, testTimeout, testInterval).Should(BeTrue())
-			for range 3 {
-				if apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{})) {
-					break
-				}
-				mustReconcile(r, reconcileRequest(finalizeName))
-			}
-			Eventually(func() bool {
-				return apierrors.IsNotFound(k8sClient.Get(ctx, nn, &openchoreov1alpha1.RenderedRelease{}))
-			}, testTimeout, testInterval).Should(BeTrue(), "the finalizer must not wait for the observed rule")
-
-			Expect(apierrors.IsNotFound(opClient.Get(ctx, client.ObjectKeyFromObject(applied), applied.DeepCopy()))).
-				To(BeTrue(), "the rule this release applied is deleted")
-			Expect(opClient.Get(ctx, client.ObjectKeyFromObject(handedOver), handedOver.DeepCopy())).
-				To(Succeed(), "the observed rule is kept")
 		})
 	})
 	Context("when a read of an observed object fails for a passing reason", func() {

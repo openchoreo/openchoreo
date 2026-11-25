@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -231,12 +232,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// PHASE 3: Find and delete stale resources (cleanup orphaned resources)
+	// PHASE 3: Clean up what is no longer rendered
 	// Stale = live resources that are no longer in the desired spec (e.g., user removed a ConfigMap)
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
-	staleResources := findStaleResources(release, liveResources, observedEntries, renderedIn(desiredResources))
-	if err := r.deleteResources(ctx, planeClient, staleResources); err != nil {
-		logger.Error(err, "Failed to delete stale resources")
+	// Stale resources are deleted, except the ones that are or were claimed, which are given
+	// back. The claims' own reads find those of a kind that isn't listed.
+	plan := planCleanup(release, renderedSetOf(desiredResources), slices.Concat(liveResources, observed.live))
+	if err := r.cleanUp(ctx, planeClient, plan); err != nil {
+		logger.Error(err, "Failed to clean up stale resources")
 		return ctrl.Result{}, err
 	}
 

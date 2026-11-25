@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
@@ -24,9 +25,10 @@ import (
 )
 
 // deleteViolations returns the deletes among the requests that break a rule every delete
-// follows: it names by UID an object that was listed before, and that a release applied.
-// testReconcilerWithDPClient checks it for every spec.
-func deleteViolations(requests []*planeRequest) []string {
+// follows: it names by UID an object that was listed before, that a release applied, and
+// that is neither claimed nor labeled as claimed. testReconcilerWithDPClient checks it for
+// every spec, without knowing the claims.
+func deleteViolations(requests []*planeRequest, claims ...openchoreov1alpha1.ObservedResource) []string {
 	listed := sets.New[types.UID]()
 	var violations []string
 	for _, r := range requests {
@@ -53,6 +55,16 @@ func deleteViolations(requests []*planeRequest) []string {
 		}
 		if !hasApplyEntry(r.before) {
 			violated("no release applied it")
+		}
+		if _, labeled := r.before.GetLabels()[labels.LabelKeyClaimed]; labeled {
+			violated("is labeled as claimed")
+		}
+		for _, claim := range claims {
+			gvk := r.before.GroupVersionKind()
+			if strings.EqualFold(claim.Kind, gvk.Kind) && strings.TrimSuffix(claim.APIVersion, "/"+gvk.Version) == groupOrVersion(gvk) &&
+				claim.Namespace == r.before.GetNamespace() && claim.Name == r.before.GetName() {
+				violated("is claimed as " + claim.ID)
+			}
 		}
 	}
 	return violations
@@ -148,6 +160,14 @@ func hasMarksOf(obj *unstructured.Unstructured, release *openchoreov1alpha1.Rend
 		obj.GetLabels()[labels.LabelKeyRenderedReleaseNamespace] == release.Namespace && hasApplyEntry(obj)
 }
 
+// groupOrVersion is what is left of an API version without its "/version".
+func groupOrVersion(gvk schema.GroupVersionKind) string {
+	if gvk.Group == "" {
+		return gvk.Version
+	}
+	return gvk.Group
+}
+
 func isList(r *planeRequest) bool {
 	return r.method == http.MethodGet && strings.HasPrefix(r.query, "labelSelector=")
 }
@@ -219,6 +239,18 @@ var _ = Describe("the rules for deletes", func() {
 		list()
 		Expect(plane.Delete(ctx, obj, client.Preconditions{UID: ptr.To(obj.GetUID())})).To(Succeed())
 		Expect(deleteViolations(proxy.requests())).To(ConsistOf(ContainSubstring("no release applied it")))
+	})
+
+	It("catch a delete of an object that is claimed, or labeled as claimed", func() {
+		claimed := newObj()
+		claimed.SetLabels(map[string]string{labels.LabelKeyClaimed: "yes"})
+		Expect(plane.Patch(ctx, claimed, client.Apply, client.FieldOwner("kubectl"))).To(Succeed())
+		list()
+		Expect(plane.Delete(ctx, obj, client.Preconditions{UID: ptr.To(obj.GetUID())})).To(Succeed())
+		claim := openchoreov1alpha1.ObservedResource{ID: "mine", APIVersion: "v1", Kind: "CONFIGMAP", Namespace: testNs, Name: name}
+		another := openchoreov1alpha1.ObservedResource{ID: "another", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: "x"}
+		Expect(deleteViolations(proxy.requests(), claim, another)).To(ConsistOf(
+			ContainSubstring("is labeled as claimed"), ContainSubstring("is claimed as mine")))
 	})
 
 	It("leave out a delete the plane rejected", func() {

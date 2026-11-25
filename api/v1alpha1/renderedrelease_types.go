@@ -51,7 +51,8 @@ type RenderedReleaseSpec struct {
 
 	// Mode decides whether the manifests in spec.resources are applied. Manage
 	// applies them. Observe does not, and removes whatever this release applied
-	// earlier. Observed resources are read in both modes. Defaults to Manage.
+	// earlier, except observed resources, which it gives back. Observed resources
+	// are read in both modes. Defaults to Manage.
 	// +kubebuilder:validation:Enum=Manage;Observe
 	// +kubebuilder:default=Manage
 	// +optional
@@ -59,7 +60,9 @@ type RenderedReleaseSpec struct {
 
 	// ObservedResources lists existing objects on the target plane that this
 	// release reads and reports in status.observedResources. They are never
-	// created, updated, labeled or deleted, in either mode.
+	// created, updated or deleted, in either mode. One that this release applied
+	// earlier is given back: the labels and the managedFields entry that mark it
+	// as this release's are removed, and nothing else changes.
 	// +listType=map
 	// +listMapKey=id
 	// +optional

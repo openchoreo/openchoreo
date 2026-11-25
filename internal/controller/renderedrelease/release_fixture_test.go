@@ -62,10 +62,11 @@ func (f *releaseFixture) key() types.NamespacedName {
 // pass reconciles the release once, and checks what it wrote against the rules.
 func (f *releaseFixture) pass() (reconcile.Result, error) {
 	GinkgoHelper()
+	claims := fetchRelease(f.name).Spec.ObservedResources
 	seen := len(f.proxy.requests())
 	result, err := f.r.Reconcile(ctx, reconcile.Request{NamespacedName: f.key()})
 	f.sent = f.proxy.requests()[seen:]
-	Expect(deleteViolations(f.sent)).To(BeEmpty())
+	Expect(deleteViolations(f.sent, claims...)).To(BeEmpty())
 	Expect(giveBackViolations(f.sent)).To(BeEmpty())
 	release := &openchoreov1alpha1.RenderedRelease{}
 	if getErr := k8sClient.Get(ctx, f.key(), release); getErr == nil {
@@ -83,18 +84,48 @@ func (f *releaseFixture) mustPass() reconcile.Result {
 	return result
 }
 
+// change changes the release's spec.
+func (f *releaseFixture) change(changes ...func(*openchoreov1alpha1.RenderedReleaseSpec)) {
+	GinkgoHelper()
+	release := fetchRelease(f.name)
+	for _, change := range changes {
+		change(&release.Spec)
+	}
+	Expect(k8sClient.Update(ctx, release)).To(Succeed())
+}
+
 // render changes what the release renders. Each object's ID is its name.
 func (f *releaseFixture) render(objs ...*unstructured.Unstructured) {
 	GinkgoHelper()
-	release := fetchRelease(f.name)
-	release.Spec.Resources = nil
+	f.change(rendering(objs...))
+}
+
+// rendering changes what a release renders. Each object's ID is its name.
+func rendering(objs ...*unstructured.Unstructured) func(*openchoreov1alpha1.RenderedReleaseSpec) {
+	GinkgoHelper()
+	manifests := make([]openchoreov1alpha1.RenderedManifest, 0, len(objs))
 	for _, obj := range objs {
 		raw, err := obj.MarshalJSON()
 		Expect(err).NotTo(HaveOccurred())
-		release.Spec.Resources = append(release.Spec.Resources,
-			openchoreov1alpha1.RenderedManifest{ID: obj.GetName(), Object: &runtime.RawExtension{Raw: raw}})
+		manifests = append(manifests, openchoreov1alpha1.RenderedManifest{ID: obj.GetName(), Object: &runtime.RawExtension{Raw: raw}})
 	}
-	Expect(k8sClient.Update(ctx, release)).To(Succeed())
+	return func(spec *openchoreov1alpha1.RenderedReleaseSpec) { spec.Resources = manifests }
+}
+
+// claiming changes what a release claims. Each claim's ID is the object's name.
+func claiming(objs ...*unstructured.Unstructured) func(*openchoreov1alpha1.RenderedReleaseSpec) {
+	claims := make([]openchoreov1alpha1.ObservedResource, 0, len(objs))
+	for _, obj := range objs {
+		claims = append(claims, openchoreov1alpha1.ObservedResource{
+			ID: obj.GetName(), APIVersion: obj.GetAPIVersion(), Kind: obj.GetKind(), Namespace: obj.GetNamespace(), Name: obj.GetName(),
+		})
+	}
+	return func(spec *openchoreov1alpha1.RenderedReleaseSpec) { spec.ObservedResources = claims }
+}
+
+// inMode changes a release's mode.
+func inMode(mode openchoreov1alpha1.RenderedReleaseMode) func(*openchoreov1alpha1.RenderedReleaseSpec) {
+	return func(spec *openchoreov1alpha1.RenderedReleaseSpec) { spec.Mode = mode }
 }
 
 // deleteRelease deletes the release and runs the pass that marks it as finalizing.
