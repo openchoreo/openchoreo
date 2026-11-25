@@ -4,6 +4,7 @@
 package renderedrelease
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -344,6 +346,197 @@ var _ = Describe("RenderedRelease guard", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(f.writes()).To(BeEmpty())
 			Expect(findCondition(fetchRelease(f.name), ConditionResourcesApplied).Reason).To(Equal(ReasonApplyFailed))
+		})
+	})
+
+	Describe("what happens between the check and the apply", func() {
+		// beforeApplying runs a change right before the apply of an object.
+		beforeApplying := func(obj *unstructured.Unstructured, change func()) {
+			GinkgoHelper()
+			f.proxy.hook(planeHook{match: func(r *planeRequest) bool {
+				return r.method == http.MethodPatch && strings.HasSuffix(r.path, "/"+obj.GetName())
+			}, before: change})
+		}
+		expectFailed := func(err error, messages ...string) {
+			GinkgoHelper()
+			applied := findCondition(fetchRelease(f.name), ConditionResourcesApplied)
+			Expect(applied.Reason).To(Equal(ReasonApplyFailed))
+			for _, message := range messages {
+				Expect(err).To(MatchError(ContainSubstring(message)))
+				Expect(applied.Message).To(ContainSubstring(message))
+			}
+		}
+		applies := func() []*planeRequest {
+			return f.sentThat(func(r *planeRequest) bool { return r.contentType == string(types.ApplyPatchType) })
+		}
+
+		It("names what it found by UID, and only that", func() {
+			start("uid")
+			f.render(configMap("found", "1"))
+			f.mustPass()
+			found := f.live(configMap("found", ""))
+			f.render(configMap("found", "2"), configMap("new", "2"))
+
+			expectApplied(f.pass())
+			Expect(applies()).To(HaveLen(2))
+			Expect(string(applies()[0].body)).To(ContainSubstring(`"uid":"` + string(found.GetUID()) + `"`))
+			Expect(string(applies()[1].body)).NotTo(ContainSubstring(`"uid":`))
+		})
+
+		It("leaves its object alone when it is recreated", func() {
+			start("recreated")
+			f.render(configMap("a", "1"))
+			f.mustPass()
+			f.render(configMap("a", "2"))
+			var recreated *unstructured.Unstructured
+			beforeApplying(configMap("a", ""), func() {
+				Expect(k8sClient.Delete(ctx, configMap("a", ""))).To(Succeed())
+				recreated = outside(configMap("a", "helm"))
+			})
+
+			_, err := f.pass()
+			expectFailed(err, "failed to apply resource a")
+			Expect(applies()[0].status).To(Equal(http.StatusUnprocessableEntity))
+			expectUnchanged(recreated)
+
+			By("The next pass sees whose it is")
+			result, err := f.pass()
+			expectRefused(result, err, "/a exists and is not managed by this release")
+		})
+
+		It("creates nothing in place of its object when it is deleted", func() {
+			start("deleted")
+			f.render(configMap("a", "1"))
+			f.mustPass()
+			f.render(configMap("a", "2"))
+			beforeApplying(configMap("a", ""), func() { Expect(k8sClient.Delete(ctx, configMap("a", ""))).To(Succeed()) })
+
+			_, err := f.pass()
+			expectFailed(err, "failed to apply resource a")
+			Expect(applies()[0].status).To(Equal(http.StatusConflict))
+			Expect(f.live(configMap("a", ""))).To(BeNil())
+
+			By("The next pass creates it")
+			expectApplied(f.pass())
+			Expect(f.live(configMap("a", ""))).NotTo(BeNil())
+		})
+
+		It("applies its object when something else of it changes", func() {
+			start("busy")
+			f.render(configMap("a", "1"))
+			f.mustPass()
+			f.render(configMap("a", "2"))
+			beforeApplying(configMap("a", ""), func() {
+				busy := f.live(configMap("a", ""))
+				busy.SetAnnotations(map[string]string{"example.com/refreshed": "now"})
+				Expect(k8sClient.Update(ctx, busy, client.FieldOwner("operator"))).To(Succeed())
+			})
+			expectApplied(f.pass())
+		})
+
+		withSpec := func(apiVersion, kind, spec string) func() *unstructured.Unstructured {
+			return func() *unstructured.Unstructured {
+				GinkgoHelper()
+				obj := unstructuredObj(apiVersion, kind, elsewhere, "a")
+				Expect(json.Unmarshal([]byte(spec), &obj.Object)).To(Succeed())
+				obj.SetAPIVersion(apiVersion)
+				obj.SetKind(kind)
+				obj.SetNamespace(elsewhere)
+				obj.SetName("a")
+				return obj
+			}
+		}
+		DescribeTable("gives back an object that appears where there was none",
+			func(name string, theirs, rendered func() *unstructured.Unstructured) {
+				start("appears-" + name)
+				f.render(rendered())
+				beforeApplying(rendered(), func() { outside(theirs()) })
+
+				_, err := f.pass()
+				expectFailed(err, describeObject(rendered())+" appeared while it was being created, and was given back")
+				after := f.live(rendered())
+				for key := range after.GetLabels() {
+					Expect(markLabels.Has(key)).To(BeFalse(), "label %s is left", key)
+				}
+				Expect(hasApplyEntry(after)).To(BeFalse())
+				Expect(after.GetManagedFields()).NotTo(BeEmpty(), "its creator's entry is kept")
+
+				By("The next pass sees whose it is")
+				result, err := f.pass()
+				expectRefused(result, err, "exists and is not managed by this release")
+
+				By("Deleting the release keeps it")
+				f.deleteRelease()
+				f.mustPass()
+				Expect(f.live(rendered()).GetUID()).To(Equal(after.GetUID()))
+			},
+			Entry("ConfigMap", "cm",
+				withSpec("v1", "ConfigMap", `{"data": {"by": "helm", "theirs": "kept"}}`),
+				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`)),
+			Entry("ConfigMap with the same values", "cm-same",
+				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`),
+				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`)),
+			Entry("Deployment", "deployment",
+				withSpec("apps/v1", "Deployment", `{"spec": {"replicas": 1, "selector": {"matchLabels": {"app": "api"}},
+					"template": {"metadata": {"labels": {"app": "api"}}, "spec": {"containers": [{"name": "api", "image": "api:1"}]}}}}`),
+				withSpec("apps/v1", "Deployment", `{"spec": {"replicas": 2, "selector": {"matchLabels": {"app": "api"}},
+					"template": {"metadata": {"labels": {"app": "api"}}, "spec": {"containers": [{"name": "api", "image": "api:2"}]}}}}`)),
+			Entry("PersistentVolumeClaim", "pvc",
+				withSpec("v1", "PersistentVolumeClaim", `{"spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "1Gi"}}}}`),
+				withSpec("v1", "PersistentVolumeClaim", `{"spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "1Gi"}}}}`)),
+		)
+
+		It("stops at the object that appeared, and keeps what it created before it", func() {
+			start("appears-second")
+			f.render(configMap("a", "1"), configMap("b", "1"), configMap("c", "1"))
+			beforeApplying(configMap("b", ""), func() { outside(configMap("b", "helm")) })
+
+			_, err := f.pass()
+			expectFailed(err, "/b appeared")
+			Expect(hasApplyEntry(f.live(configMap("a", "")))).To(BeTrue())
+			Expect(f.live(configMap("c", ""))).To(BeNil())
+			Expect(fetchRelease(f.name).Status.Resources).To(BeEmpty(), "nothing was applied as a whole")
+		})
+
+		It("says so when an object that appeared can't be given back", func() {
+			start("appears-kept")
+			f.render(configMap("a", "1"))
+			beforeApplying(configMap("a", ""), func() { outside(configMap("a", "helm")) })
+			f.proxy.hook(planeHook{match: func(r *planeRequest) bool { return r.contentType == string(types.JSONPatchType) },
+				answer: &planeAnswer{status: http.StatusBadGateway, contentType: "text/plain", body: "no agents"}})
+
+			_, err := f.pass()
+			expectFailed(err, "/a appeared while it was being created", "failed to give back")
+		})
+
+		It("applies an object it renders twice, also when an operator gets to it in between", func() {
+			start("twice")
+			render := rendering(configMap("a", "1"), configMap("a", "2"))
+			f.change(func(spec *openchoreov1alpha1.RenderedReleaseSpec) {
+				render(spec)
+				spec.Resources[1].ID = "again"
+			})
+			first := true
+			f.proxy.hook(planeHook{match: func(r *planeRequest) bool {
+				second := withMethod(http.MethodPatch)(r) && !first
+				first = first && !withMethod(http.MethodPatch)(r)
+				return second
+			}, before: func() {
+				created := f.live(configMap("a", ""))
+				created.SetAnnotations(map[string]string{"example.com/seen": "yes"})
+				Expect(k8sClient.Update(ctx, created, client.FieldOwner("operator"))).To(Succeed())
+			}})
+
+			expectApplied(f.pass())
+			Expect(f.live(configMap("a", "")).Object).To(HaveKeyWithValue("data", HaveKeyWithValue("by", "2")), "the last one wins")
+		})
+
+		It("adopts an object that appears in its own namespace, as it adopts one that was there", func() {
+			start("appears-own")
+			f.render(f.object("a"))
+			beforeApplying(f.object("a"), func() { outside(f.object("a")) })
+			expectApplied(f.pass())
+			Expect(hasApplyEntry(f.live(f.object("a")))).To(BeTrue())
 		})
 	})
 

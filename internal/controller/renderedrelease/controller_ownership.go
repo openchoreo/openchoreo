@@ -11,6 +11,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -109,23 +110,50 @@ func (e *refusedError) Error() string {
 	return msg
 }
 
-// checkOwnership reads the objects a guarded release is about to apply, before anything is
-// written. It returns a refusedError when the release doesn't own one that exists, and the
-// error of a read that fails, since that object may be someone else's too.
-func checkOwnership(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease,
-	desired []*unstructured.Unstructured) error {
-	if !guardIsOn(release, desired, planeClient) {
-		return nil
+// checkedResource is a resource to apply, and what the check found in its place.
+type checkedResource struct {
+	desired *unstructured.Unstructured
+	// live is the object it is applied over. Nil when there was none, and when it was not
+	// looked for.
+	live *unstructured.Unstructured
+	// missing says that there was none, so applying it creates the object.
+	missing bool
+}
+
+// unchecked returns the resources as they are applied without a check.
+func unchecked(desired []*unstructured.Unstructured) []checkedResource {
+	resources := make([]checkedResource, 0, len(desired))
+	for _, obj := range desired {
+		resources = append(resources, checkedResource{desired: obj})
 	}
+	return resources
+}
+
+// checkOwnership reads the objects a guarded release is about to apply, before anything is
+// written, and returns what it found. It returns a refusedError when the release doesn't own
+// one that exists, and the error of a read that fails, since that object may be someone
+// else's too.
+func checkOwnership(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease,
+	desired []*unstructured.Unstructured) ([]checkedResource, error) {
+	if !guardIsOn(release, desired, planeClient) {
+		return unchecked(desired), nil
+	}
+	resources := make([]checkedResource, 0, len(desired))
+	missing := sets.New[objectIdentity]()
 	var refused []string
 	for _, obj := range desired {
 		live, err := readLive(ctx, planeClient, obj)
 		if err != nil {
-			return fmt.Errorf("failed to check %s: %w", describeObject(obj), err)
+			return nil, fmt.Errorf("failed to check %s: %w", describeObject(obj), err)
 		}
 		if live == nil {
+			// When a release renders an object twice, the first one creates it.
+			identity := identityOf(obj)
+			resources = append(resources, checkedResource{desired: obj, missing: !missing.Has(identity)})
+			missing.Insert(identity)
 			continue
 		}
+		resources = append(resources, checkedResource{desired: obj, live: live})
 		switch ownerOf(live, release) {
 		case ownedByRelease:
 		case ownedByAnotherRelease:
@@ -135,9 +163,9 @@ func checkOwnership(ctx context.Context, planeClient client.Client, release *ope
 		}
 	}
 	if len(refused) > 0 {
-		return &refusedError{objects: refused}
+		return nil, &refusedError{objects: refused}
 	}
-	return nil
+	return resources, nil
 }
 
 // readLive reads the object desired would be applied as, in desired's API version. It

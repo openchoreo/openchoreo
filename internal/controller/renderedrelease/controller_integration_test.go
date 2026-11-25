@@ -1929,7 +1929,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should apply the resource with tracking labels", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
 
 			existing := &unstructured.Unstructured{}
 			existing.SetGroupVersionKind(configMapGVK)
@@ -1940,9 +1940,9 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should be idempotent when applied twice", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
 			obj2 := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj2})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj2}))).To(Succeed())
 		})
 	})
 
@@ -1954,7 +1954,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		BeforeEach(func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
 		})
 
 		AfterEach(func() { deleteCM(cmName) })

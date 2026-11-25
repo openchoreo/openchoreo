@@ -169,7 +169,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		// Nothing is written, not even a namespace, unless everything may be.
-		if err := checkOwnership(ctx, planeClient, release, desiredResources); err != nil {
+		resources, err := checkOwnership(ctx, planeClient, release, desiredResources)
+		if err != nil {
 			var refused *refusedError
 			if errors.As(err, &refused) {
 				return r.markApplyRefused(ctx, old, release, observed.statuses, refused)
@@ -192,7 +193,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 		// PHASE 1: Apply desired resources to the target plane
 		// This ensures all resources in the spec are created/updated with proper tracking labels
-		if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
+		if err := r.applyResources(ctx, planeClient, resources); err != nil {
 			logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
 			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
@@ -372,17 +373,52 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 }
 
 // applyResources applies the given resources to the target plane
-func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []*unstructured.Unstructured) error {
-	for _, obj := range resources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-
-		// Apply the resource using server-side apply
-		if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
+func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []checkedResource) error {
+	for _, resource := range resources {
+		resourceID := resource.desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
+		if err := applyResource(ctx, planeClient, resource); err != nil {
 			return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
 		}
 	}
 
 	return nil
+}
+
+// applyResource applies a resource using server-side apply. The plane may have changed since
+// the check.
+//
+// An object the check found is named by its UID, so the apply is rejected when it has been
+// recreated or deleted, instead of writing over the new one or creating it again.
+//
+// Where the check found none, one may have appeared. The apply merges into it and succeeds,
+// but then its answer shows another field manager, while a new object has only ours. Such an
+// object is given back, and the apply fails.
+func applyResource(ctx context.Context, planeClient client.Client, resource checkedResource) error {
+	obj := resource.desired
+	if resource.live != nil {
+		obj.SetUID(resource.live.GetUID())
+	}
+	if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
+		return err
+	}
+	if !resource.missing || !hasOtherManager(obj) {
+		return nil
+	}
+	if err := giveBack(ctx, planeClient, obj); err != nil {
+		return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+	}
+	return fmt.Errorf("%s appeared while it was being created, and was given back", describeObject(obj))
+}
+
+// hasOtherManager reports whether anything but an apply of this controller has an entry in an
+// object's managedFields.
+func hasOtherManager(obj *unstructured.Unstructured) bool {
+	for _, entry := range obj.GetManagedFields() {
+		if entry.Manager != ControllerName || entry.Operation != metav1.ManagedFieldsOperationApply {
+			return true
+		}
+	}
+	return false
 }
 
 // makeDesiredResources creates the desired resources from the Release spec
