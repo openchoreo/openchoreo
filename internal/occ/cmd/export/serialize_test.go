@@ -48,7 +48,7 @@ func manifestResource(kind string) Resource {
 		Object: map[string]any{
 			"apiVersion": version, "kind": kind, "metadata": metadata,
 			"spec": map[string]any{"owner": map[string]any{
-				"projectName": "store", "componentName": "backend", "resourceName": "database",
+				"projectName": "store", "componentName": "backend", "resourceName": "database", "endpointName": "public-api",
 			}},
 		},
 	}
@@ -60,6 +60,7 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 		{"ClusterProjectType", "platform-shared/project-types/sample.yaml"},
 		{"ClusterComponentType", "platform-shared/component-types/sample.yaml"},
 		{"ClusterResourceType", "platform-shared/resource-types/sample.yaml"},
+		{"ClusterEndpointType", "platform-shared/endpoint-types/sample.yaml"},
 		{"ClusterTrait", "platform-shared/traits/sample.yaml"},
 		{"ClusterWorkflow", "platform-shared/workflows/sample.yaml"},
 		{"ClusterDataPlane", "platform-shared/infra/data-planes/sample.yaml"},
@@ -73,9 +74,11 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 		{"DataPlane", "namespaces/acme/platform/infra/data-planes/sample.yaml"},
 		{"WorkflowPlane", "namespaces/acme/platform/infra/workflow-planes/sample.yaml"},
 		{"ObservabilityPlane", "namespaces/acme/platform/infra/observability-planes/sample.yaml"},
+		{"ObservabilityAlertsNotificationChannel", "namespaces/acme/platform/infra/observability-alerts-notification-channels/sample.yaml"},
 		{"ProjectType", "namespaces/acme/platform/project-types/sample.yaml"},
 		{"ComponentType", "namespaces/acme/platform/component-types/sample.yaml"},
 		{"ResourceType", "namespaces/acme/platform/resource-types/sample.yaml"},
+		{"EndpointType", "namespaces/acme/platform/endpoint-types/sample.yaml"},
 		{"Trait", "namespaces/acme/platform/traits/sample.yaml"},
 		{"Workflow", "namespaces/acme/platform/workflows/sample.yaml"},
 		{"AuthzRole", "namespaces/acme/platform/authz/roles/sample.yaml"},
@@ -92,6 +95,9 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 		{"Resource", "namespaces/acme/projects/store/resources/sample/resource.yaml"},
 		{"ResourceRelease", "namespaces/acme/projects/store/resources/database/releases/sample.yaml"},
 		{"ResourceReleaseBinding", "namespaces/acme/projects/store/resources/database/release-bindings/sample.yaml"},
+		{endpointKind, "namespaces/acme/projects/store/endpoints/sample/endpoint.yaml"},
+		{endpointReleaseKind, "namespaces/acme/projects/store/endpoints/public-api/releases/sample.yaml"},
+		{"EndpointReleaseBinding", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/sample.yaml"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			resource := manifestResource(tc.kind)

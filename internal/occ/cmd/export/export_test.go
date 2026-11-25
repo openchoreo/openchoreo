@@ -32,7 +32,7 @@ func TestRun_ExportsFilteredObjects(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "nested", "export")
 	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	require.Len(t, result.Files, 58)
+	require.Len(t, result.Files, 69)
 	for _, file := range result.Files {
 		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(file.Path)))
 		require.NoError(t, err)
@@ -103,6 +103,75 @@ func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
 	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
 }
 
+func TestRun_ExportsEndpointResourcesAndNotificationChannels(t *testing.T) {
+	f := newFetchFixture(t, false)
+	directory := t.TempDir()
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Created: len(result.Files)}, result.Counts)
+	expected := []struct{ kind, collection, name string }{
+		{"ClusterEndpointType", "clusterendpointtypes", "platform-shared/endpoint-types/clusterendpointtypes-0.yaml"},
+		{"EndpointType", "endpointtypes", "namespaces/acme/platform/endpoint-types/endpointtypes-0.yaml"},
+		{endpointKind, "endpoints", "namespaces/acme/projects/store/endpoints/endpoints-0/endpoint.yaml"},
+		{endpointReleaseKind, "endpointreleases", "namespaces/acme/projects/store/endpoints/public-api/releases/endpointreleases-0.yaml"},
+		{"EndpointReleaseBinding", "endpointreleasebindings", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/endpointreleasebindings-0.yaml"},
+		{"ObservabilityAlertsNotificationChannel", "observabilityalertsnotificationchannels", "namespaces/acme/platform/infra/observability-alerts-notification-channels/observabilityalertsnotificationchannels-0.yaml"},
+	}
+	for _, tc := range expected {
+		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(tc.name)))
+		require.NoError(t, err, tc.kind)
+		var document map[string]json.RawMessage
+		require.NoError(t, yaml.UnmarshalStrict(data, &document), tc.kind)
+		assert.NotContains(t, document, "status")
+		path := "/api/v1/namespaces/acme/" + tc.collection
+		if tc.kind == "ClusterEndpointType" {
+			path = "/api/v1/" + tc.collection
+		}
+		object := fixtureObject(collectionFixture{kind: tc.kind, path: tc.collection}, path, 0)
+		if spec, exists := object["spec"]; exists {
+			want, err := json.Marshal(spec)
+			require.NoError(t, err)
+			assert.JSONEq(t, string(want), string(document["spec"]), tc.kind)
+		}
+		assert.True(t, isManagedManifest(tc.name, data), tc.kind)
+	}
+	result, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
+	count := len(result.Files)
+	f.empty = true
+	result, err = Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Deleted: count}, result.Counts)
+	for _, tc := range expected {
+		assert.NoFileExists(t, filepath.Join(directory, filepath.FromSlash(tc.name)))
+	}
+}
+
+func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *testing.T) {
+	for _, action := range []string{
+		"endpoint:view", "endpointtype:view", "clusterendpointtype:view", "endpointrelease:view",
+		"endpointreleasebinding:view", "observabilityalertsnotificationchannel:view",
+	} {
+		t.Run(action, func(t *testing.T) {
+			f := newFetchFixture(t, false)
+			profile := fullExportProfile()
+			delete(*profile.Capabilities, action)
+			f.profileOverride = func(_ *http.Request) (*http.Response, error) {
+				return testutil.JSONResp(http.StatusOK, profile), nil
+			}
+			directory := t.TempDir()
+			seedFiles(t, directory, serializedResources(t, manifestResource(endpointKind)))
+			before := snapshotTree(t, directory)
+			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+			require.ErrorIs(t, err, errExportPermissionDenied)
+			assert.Nil(t, result)
+			assert.Empty(t, f.calls)
+			assert.Equal(t, before, snapshotTree(t, directory))
+		})
+	}
+}
+
 func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 	// Each path points to a free-form map in the generated model. Schema defaults
 	// exercise maps nested inside otherwise typed parameter schemas as well.
@@ -120,6 +189,11 @@ func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 		"ProjectRelease":         {"parameters"},
 		"ResourceType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
 		"ClusterResourceType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		endpointKind:             {"parameters"},
+		endpointReleaseKind:      {"parameters"},
+		"EndpointReleaseBinding": {"endpointTypeEnvironmentConfigs"},
+		"EndpointType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"ClusterEndpointType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
 	}
 	f := newFetchFixture(t, true)
 	f.override = func(req *http.Request) (*http.Response, error) {
@@ -422,7 +496,7 @@ func TestRun_AllowsCompleteReadOnlyAccess(t *testing.T) {
 	f := newFetchFixture(t, false)
 	result, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
 	require.NoError(t, err)
-	assert.Len(t, result.Files, 58)
+	assert.Len(t, result.Files, 69)
 	assert.Equal(t, 2, f.profileCalls)
 }
 
@@ -547,7 +621,7 @@ func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
 	directory := t.TempDir()
 	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	assert.Len(t, result.Files, 58, "two additional deleting objects must be excluded from the fetched inventory")
+	assert.Len(t, result.Files, 69, "two additional deleting objects must be excluded from the fetched inventory")
 	assert.FileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-0.yaml"))
 	assert.NoFileExists(t, filepath.Join(directory, "platform-shared", "traits", "clustertraits-1.yaml"))
 	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "components-0", "component.yaml"))
@@ -681,7 +755,7 @@ func TestRun_ExportsReleaseLineConfigurationAndSynchronizesItsFile(t *testing.T)
 	directory := t.TempDir()
 	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 	require.NoError(t, err)
-	assert.Equal(t, 59, result.Counts.Created)
+	assert.Equal(t, 70, result.Counts.Created)
 	base := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "backend", "release-lines")
 	name := filepath.Join(base, "backend-v2.yaml")
 	data, err := os.ReadFile(name)

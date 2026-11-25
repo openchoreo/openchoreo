@@ -75,7 +75,7 @@ func TestExportCommand_ExportsWithBothFlagsAndCurrentDirectory(t *testing.T) {
 			resolved, err = filepath.EvalSymlinks(resolved)
 			require.NoError(t, err)
 			assert.Contains(t, output.String(), "  Output:      "+resolved+"\n")
-			assert.Contains(t, output.String(), "  Resources:   58 selected resource(s)\n")
+			assert.Contains(t, output.String(), "  Resources:   69 selected resource(s)\n")
 			assert.Contains(t, output.String(), "CREATED   UPDATED   UNCHANGED   DELETED")
 			assert.Contains(t, output.String(), "Cutoff (UTC):")
 			assert.NotContains(t, output.String(), "PRESERVED")
@@ -186,12 +186,12 @@ func TestExportCommand_AllReleasesFlag(t *testing.T) {
 			name := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "releases", "historical.yaml")
 			if all {
 				assert.FileExists(t, name)
-				assert.Contains(t, output.String(), "Resources:   58 selected resource(s)")
+				assert.Contains(t, output.String(), "Resources:   69 selected resource(s)")
 				assert.Contains(t, output.String(), "Policy:        All releases")
 				assert.NotContains(t, output.String(), "Cutoff (UTC):")
 			} else {
 				assert.NoFileExists(t, name)
-				assert.Contains(t, output.String(), "Resources:   57 selected resource(s)")
+				assert.Contains(t, output.String(), "Resources:   68 selected resource(s)")
 				assert.Contains(t, output.String(), "Policy:        Last 3 calendar months, plus binding-referenced releases")
 			}
 		})

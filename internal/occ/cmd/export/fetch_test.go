@@ -45,6 +45,7 @@ var requiredClusterCollections = []collectionFixture{
 	{kind: "ClusterProjectType", path: "clusterprojecttypes"},
 	{kind: "ClusterComponentType", path: "clustercomponenttypes"},
 	{kind: "ClusterResourceType", path: "clusterresourcetypes"},
+	{kind: "ClusterEndpointType", path: "clusterendpointtypes"},
 	{kind: "ClusterTrait", path: "clustertraits"},
 	{kind: "ClusterWorkflow", path: "clusterworkflows"},
 	{kind: "ClusterDataPlane", path: "clusterdataplanes"},
@@ -63,6 +64,7 @@ var requiredNamespacedCollections = []collectionFixture{
 	{kind: "ProjectType", path: "projecttypes"},
 	{kind: "ComponentType", path: "componenttypes"},
 	{kind: "ResourceType", path: "resourcetypes"},
+	{kind: "EndpointType", path: "endpointtypes"},
 	{kind: "Trait", path: "traits"},
 	{kind: "Workflow", path: "workflows"},
 	{kind: "AuthzRole", path: "authzroles"},
@@ -78,6 +80,10 @@ var requiredNamespacedCollections = []collectionFixture{
 	{kind: "Resource", path: "resources"},
 	{kind: "ResourceRelease", path: "resourcereleases"},
 	{kind: "ResourceReleaseBinding", path: "resourcereleasebindings"},
+	{kind: endpointKind, path: "endpoints"},
+	{kind: endpointReleaseKind, path: "endpointreleases"},
+	{kind: "EndpointReleaseBinding", path: "endpointreleasebindings"},
+	{kind: "ObservabilityAlertsNotificationChannel", path: "observabilityalertsnotificationchannels"},
 }
 
 var requiredComponentCollections = []collectionFixture{
@@ -243,12 +249,48 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	// Application fixtures include ownership because serialization uses these
 	// fields to place releases, bindings, and workloads in the repository tree.
 	switch collection.kind {
-	case "ProjectRelease", "ProjectReleaseBinding", "Resource":
+	case "ProjectRelease", "ProjectReleaseBinding", "Resource", endpointKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
 	case testWorkloadKind, testComponentReleaseKind, "ReleaseBinding", testReleaseLineKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "componentName": "checkout"}}
 	case "ResourceRelease", "ResourceReleaseBinding":
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "resourceName": "database"}}
+	case endpointReleaseKind, "EndpointReleaseBinding":
+		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "endpointName": "public-api"}}
+	case "ObservabilityAlertsNotificationChannel":
+		object["spec"] = map[string]any{
+			"environment": "development", "type": "webhook", "isEnvDefault": true,
+			"webhookConfig": map[string]any{
+				"url":             "https://hooks.example.test/alerts",
+				"headers":         map[string]any{"Authorization": map[string]string{"value": "Bearer sample-token"}},
+				"payloadTemplate": `{"message":"{{ .Message }}"}`,
+			},
+		}
+	}
+	endpointTypeSpec := map[string]any{"resources": []any{map[string]any{
+		"id": "route", "template": map[string]any{
+			"apiVersion": "gateway.networking.k8s.io/v1", "kind": "HTTPRoute",
+			"spec": map[string]any{"hostnames": []string{"api.example.test"}},
+		},
+	}}}
+	switch collection.kind {
+	case "EndpointType", "ClusterEndpointType":
+		object["spec"] = endpointTypeSpec
+	case endpointKind, endpointReleaseKind:
+		spec := object["spec"].(map[string]any)
+		spec["parameters"] = map[string]any{"path": "/api"}
+		spec["visibility"] = []string{"external"}
+		spec["backendRefs"] = []any{map[string]any{
+			"name": "backend", "kind": "Component", "weight": 100,
+			"component": map[string]any{"name": "checkout", "endpoint": "http"},
+		}}
+		if collection.kind == endpointKind {
+			spec["type"] = map[string]any{"kind": "ClusterEndpointType", "name": "http-route"}
+		} else {
+			spec["endpointType"] = map[string]any{"kind": "ClusterEndpointType", "name": "http-route", "spec": endpointTypeSpec}
+		}
+	case "EndpointReleaseBinding":
+		object["spec"].(map[string]any)["environment"] = "development"
 	}
 	if collection.kind == testComponentKind {
 		object["spec"] = map[string]any{
@@ -353,6 +395,12 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 		{name: "later release line page", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
 			namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 		{name: "later release page", path: "/api/v1/namespaces/acme/resourcereleases", kind: "ResourceRelease", namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
+		{name: "cluster endpoint types", path: "/api/v1/clusterendpointtypes", kind: "ClusterEndpointType", status: http.StatusForbidden},
+		{name: "endpoints", path: "/api/v1/namespaces/acme/endpoints", kind: endpointKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "endpoint types", path: "/api/v1/namespaces/acme/endpointtypes", kind: "EndpointType", namespace: "acme", status: http.StatusForbidden},
+		{name: "notification channels", path: "/api/v1/namespaces/acme/observabilityalertsnotificationchannels", kind: "ObservabilityAlertsNotificationChannel", namespace: "acme", status: http.StatusForbidden},
+		{name: "endpoint release bindings", path: "/api/v1/namespaces/acme/endpointreleasebindings", kind: "EndpointReleaseBinding", namespace: "acme", status: http.StatusForbidden},
+		{name: "later endpoint release page", path: "/api/v1/namespaces/acme/endpointreleases", kind: endpointReleaseKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFetchFixture(t, true)
@@ -545,6 +593,7 @@ var releaseTestCases = []releaseTestCase{
 	{testComponentReleaseKind, "componentreleases", "ReleaseBinding", "releasebindings", "releaseName", "components/checkout/releases"},
 	{"ProjectRelease", "projectreleases", "ProjectReleaseBinding", "projectreleasebindings", "projectRelease", "releases"},
 	{"ResourceRelease", "resourcereleases", "ResourceReleaseBinding", "resourcereleasebindings", "resourceRelease", "resources/database/releases"},
+	{endpointReleaseKind, "endpointreleases", "EndpointReleaseBinding", "endpointreleasebindings", "endpointRelease", "endpoints/public-api/releases"},
 }
 
 func releaseTestObject(tc releaseTestCase, namespace, name string, created *time.Time) map[string]any {

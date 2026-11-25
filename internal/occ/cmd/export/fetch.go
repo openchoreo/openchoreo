@@ -173,6 +173,10 @@ func bindingReleaseReferences(resources []Resource) map[releaseIdentity]bool {
 			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
 				kind, name = "ResourceRelease", binding.Spec.ResourceRelease
 			}
+		case gen.EndpointReleaseBinding:
+			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
+				kind, name = endpointReleaseKind, binding.Spec.EndpointRelease
+			}
 		}
 		if name != nil && *name != "" {
 			references[releaseIdentity{kind: kind, namespace: resource.Namespace, name: *name}] = false
@@ -391,6 +395,13 @@ func clusterFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 			},
 			func(item gen.ClusterResourceType) string { return item.Metadata.Name },
 		),
+		newFetcher("ClusterEndpointType",
+			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterEndpointType], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.ClusterEndpointType](c.ListClusterEndpointTypes(ctx, &gen.ListClusterEndpointTypesParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.ClusterEndpointType) string { return item.Metadata.Name },
+		),
 		newFetcher("ClusterTrait",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterTrait], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -502,6 +513,13 @@ func namespacedFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 			},
 			func(item gen.ResourceType) string { return item.Metadata.Name },
 		),
+		newFetcher("EndpointType",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.EndpointType], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.EndpointType](c.ListEndpointTypes(ctx, namespace, &gen.ListEndpointTypesParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.EndpointType) string { return item.Metadata.Name },
+		),
 		newFetcher("Trait",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Trait], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -529,6 +547,13 @@ func namespacedFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 				return decodePage[gen.AuthzRoleBinding](c.ListNamespaceRoleBindings(ctx, namespace, &gen.ListNamespaceRoleBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.AuthzRoleBinding) string { return item.Metadata.Name },
+		),
+		newFetcher("ObservabilityAlertsNotificationChannel",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ObservabilityAlertsNotificationChannel], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.ObservabilityAlertsNotificationChannel](c.ListObservabilityAlertsNotificationChannels(ctx, namespace, &gen.ListObservabilityAlertsNotificationChannelsParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.ObservabilityAlertsNotificationChannel) string { return item.Metadata.Name },
 		),
 		newFetcher("SecretReference",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.SecretReference], error) {
@@ -572,6 +597,20 @@ func namespacedFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 			},
 			func(item gen.ReleaseBinding) string { return item.Metadata.Name },
 		),
+		newFetcher(endpointKind,
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Endpoint], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.Endpoint](c.ListEndpoints(ctx, namespace, &gen.ListEndpointsParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.Endpoint) string { return item.Metadata.Name },
+		),
+		newFetcher("EndpointReleaseBinding",
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.EndpointReleaseBinding], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.EndpointReleaseBinding](c.ListEndpointReleaseBindings(ctx, namespace, &gen.ListEndpointReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.EndpointReleaseBinding) string { return item.Metadata.Name },
+		),
 		newFetcher("Resource",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceInstance], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -614,6 +653,19 @@ func releaseFetchers(c *gen.ClientWithResponses, selection *releaseSelection) []
 				var owner resourceOwner
 				if item.Spec != nil {
 					owner.ProjectName, owner.ComponentName = item.Spec.Owner.ProjectName, item.Spec.Owner.ComponentName
+				}
+				return item.Metadata, owner
+			}, selection,
+		),
+		newReleaseFetcher(endpointReleaseKind,
+			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.EndpointRelease], error) {
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.EndpointRelease](c.ListEndpointReleases(ctx, namespace, &gen.ListEndpointReleasesParams{Limit: pageLimit, Cursor: pageCursor}))
+			},
+			func(item gen.EndpointRelease) (gen.ObjectMeta, resourceOwner) {
+				var owner resourceOwner
+				if item.Spec != nil {
+					owner.ProjectName, owner.EndpointName = item.Spec.Owner.ProjectName, item.Spec.Owner.EndpointName
 				}
 				return item.Metadata, owner
 			}, selection,
