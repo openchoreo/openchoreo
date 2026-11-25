@@ -19,8 +19,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
-// resourcePage decodes raw list responses while retaining generated item types
-// and sharing pagination across all resource kinds.
+// resourcePage holds typed list items and pagination.
 type resourcePage[T any] struct {
 	Items      []T            `json:"items"`
 	Pagination gen.Pagination `json:"pagination"`
@@ -28,12 +27,8 @@ type resourcePage[T any] struct {
 
 type resourceFetcher func(context.Context, string) ([]Resource, error)
 
-// Fetch collects configuration and selected releases using the authenticated
-// API client. The default window is three calendar months, plus every release
-// referenced by an exported binding. AllReleases bypasses the date cutoff.
-// Calls and pages are sequential. On failure it returns no partial collection.
-// The API controls namespace discovery, authorization, and field visibility;
-// this operation does not provide an atomic snapshot across resource kinds.
+// Fetch collects configuration and selected releases across the cluster.
+// Requests are sequential and do not form an atomic snapshot.
 func Fetch(ctx context.Context, c client.Interface, allReleases bool) (*FetchResult, error) {
 	return fetchResources(ctx, c, allReleases, releaseCutoff(time.Now()))
 }
@@ -98,9 +93,7 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 	return result, nil
 }
 
-// The API exposes release lines under each component and includes a synthetic
-// main entry. Only persisted ReleaseLine configuration belongs in the export;
-// it is always fetched in full, independently of the release-history window.
+// fetchReleaseLines collects persisted component release lines, excluding synthetic main.
 func fetchReleaseLines(ctx context.Context, c *gen.ClientWithResponses, namespace string, resources []Resource) ([]Resource, error) {
 	var lines []Resource
 	for _, component := range resources {
@@ -134,8 +127,7 @@ func fetchReleaseLines(ctx context.Context, c *gen.ClientWithResponses, namespac
 	return lines, nil
 }
 
-// Clamp the day to the target month's last day (May 31 -> February 28/29).
-// One UTC cutoff is captured for the entire export, including every namespace.
+// releaseCutoff returns the UTC three-month cutoff, clamped to the target month's last day.
 func releaseCutoff(now time.Time) time.Time {
 	now = now.UTC()
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -3, 0)
@@ -188,7 +180,7 @@ func (s *releaseSelection) include(kind, namespace string, metadata gen.ObjectMe
 	if metadata.Name == "" {
 		return false, fmt.Errorf("response item has no metadata.name")
 	}
-	// Objects being deleted must neither satisfy references nor protect old files.
+	// Skip deleting releases.
 	if metadata.DeletionTimestamp != nil {
 		return false, nil
 	}
@@ -219,8 +211,7 @@ func (s *releaseSelection) referenceWarnings() []string {
 	return warnings
 }
 
-// Filter each page before FetchAll accumulates it. A fresh slice prevents old
-// release objects from remaining reachable through the page's backing array.
+// newReleaseFetcher filters release pages before accumulation.
 func newReleaseFetcher[T any](
 	kind string,
 	list func(context.Context, string, int, string) (*resourcePage[T], error),
@@ -266,8 +257,7 @@ func fetchCollections(ctx context.Context, namespace string, fetchers []resource
 	return resources, nil
 }
 
-// fetchNamespaces returns all pages of namespace objects as well as their names
-// for the subsequent namespaced requests.
+// fetchNamespaces collects every page of namespace objects.
 func fetchNamespaces(ctx context.Context, c *gen.ClientWithResponses) ([]gen.Namespace, error) {
 	return fetchAll(ctx, "Namespace", "", func(limit int, cursor string) (*resourcePage[gen.Namespace], error) {
 		pageLimit, pageCursor := pageParams(limit, cursor)
@@ -275,8 +265,7 @@ func fetchNamespaces(ctx context.Context, c *gen.ClientWithResponses) ([]gen.Nam
 	})
 }
 
-// Decode list responses locally to preserve numbers in every free-form map.
-// This preserves digits received from the API, not digits already lost server-side.
+// decodePage decodes raw list responses with exact numeric literals.
 func decodePage[T any](response *http.Response, requestErr error) (*resourcePage[T], error) {
 	if requestErr != nil {
 		return nil, requestErr
@@ -305,8 +294,7 @@ func decodePage[T any](response *http.Response, requestErr error) (*resourcePage
 	return &page, nil
 }
 
-// fetchAll keeps the shared pagination behavior while propagating cancellation
-// and adding the resource kind and scope to failures.
+// fetchAll collects every page and adds resource scope to errors.
 func fetchAll[T any](
 	ctx context.Context,
 	kind, namespace string,
@@ -341,8 +329,7 @@ func fetchAll[T any](
 	return items, nil
 }
 
-// newFetcher adapts a typed collection into the flat pipeline collection without
-// changing the API objects. Scope is supplied by namespace discovery.
+// newFetcher wraps typed collection items as export resources.
 func newFetcher[T any](
 	kind string,
 	list func(context.Context, string, int, string) (*resourcePage[T], error),

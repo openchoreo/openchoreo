@@ -13,8 +13,7 @@ import (
 // Params specifies the destination of the export directory tree.
 type Params struct {
 	OutputDir string
-	// AllReleases includes the complete release history instead of the default
-	// three-month window plus releases referenced by exported bindings.
+	// AllReleases includes the complete release history.
 	AllReleases bool
 }
 
@@ -25,8 +24,7 @@ func (p Params) validate() error {
 	return nil
 }
 
-// pageParams supplies only pagination parameters. Fetching deliberately leaves
-// project, component, resource, and label selectors unset.
+// pageParams supplies the page limit and optional cursor.
 func pageParams(limit int, cursor string) (*gen.LimitParam, *gen.CursorParam) {
 	if cursor == "" {
 		return &limit, nil

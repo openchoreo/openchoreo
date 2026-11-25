@@ -229,7 +229,6 @@ func TestExportCommand_AllReleasesFlag(t *testing.T) {
 }
 
 func TestWriteExportSummary_FormatsCommittedCountsAndExactCutoff(t *testing.T) {
-	// Use a non-UTC location to verify that the captured instant is shown in UTC.
 	cutoff := time.Date(2026, time.August, 19, 14, 39, 4, 801915000, time.FixedZone("test", 19800))
 	result := &ExportResult{
 		OutputDir: "/repo/gitops", Files: make([]SerializedFile, 123),

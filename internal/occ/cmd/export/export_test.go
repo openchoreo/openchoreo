@@ -173,8 +173,7 @@ func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *t
 }
 
 func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
-	// Each path points to a free-form map in the generated model. Schema defaults
-	// exercise maps nested inside otherwise typed parameter schemas as well.
+	// Free-form fields include nested schema defaults.
 	fields := map[string][]string{
 		testComponentKind:        {"parameters"},
 		"ReleaseBinding":         {"componentTypeEnvironmentConfigs"},
@@ -378,7 +377,7 @@ func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 
 func setCapabilityPath(capabilities map[string]gen.ActionCapability, action, path string) {
 	capability := capabilities[action]
-	// Give this action its own slice; fixture grants may share their slice.
+	// Set this action's grant slice.
 	allowed := []gen.CapabilityResource{{Path: &path}}
 	capability.Allowed = &allowed
 	capabilities[action] = capability

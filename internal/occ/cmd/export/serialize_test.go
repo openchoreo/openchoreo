@@ -10,7 +10,10 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -55,7 +58,6 @@ func manifestResource(kind string) Resource {
 	}
 }
 
-// Expected paths are independent of the production layout table.
 func TestSerialize_RequiredLayout(t *testing.T) {
 	for _, tc := range []struct{ kind, path string }{
 		{"ClusterProjectType", "platform-shared/project-types/sample.yaml"},
@@ -542,6 +544,67 @@ func TestWriteFiles_SynchronizesOnlyLayoutManagedManifests(t *testing.T) {
 	for name := range snapshotTree(t, directory) {
 		assert.NotContains(t, name, ".occ-export-", "transaction data must be cleaned up")
 	}
+}
+
+func TestWriteFiles_PermissionsRespectUmask(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permissions and umask do not apply on Windows")
+	}
+	maskText := os.Getenv("OCC_EXPORT_TEST_UMASK")
+	if maskText == "" {
+		// Run each umask case in an isolated child process.
+		for _, mask := range []string{"000", "022", "027", "077"} {
+			t.Run(mask, func(t *testing.T) {
+				cmd := exec.Command("sh", "-c", `umask "$1"; shift; exec "$@"`, "export-umask-test", mask,
+					os.Args[0], "-test.run=^TestWriteFiles_PermissionsRespectUmask$")
+				cmd.Env = append(os.Environ(), "OCC_EXPORT_TEST_UMASK="+mask)
+				output, err := cmd.CombinedOutput()
+				require.NoError(t, err, "%s", output)
+			})
+		}
+		return
+	}
+	mask, err := strconv.ParseUint(maskText, 8, 32)
+	require.NoError(t, err)
+	fileMode := fs.FileMode(0o644) &^ fs.FileMode(mask)
+	directoryMode := fs.FileMode(0o755) &^ fs.FileMode(mask)
+	parent := filepath.Join(t.TempDir(), "existing")
+	require.NoError(t, os.Mkdir(parent, 0o750))
+	require.NoError(t, os.Chmod(parent, 0o750))
+	directory := filepath.Join(parent, "nested", "export")
+	files := serializedResources(t, manifestResource(testNamespaceKind))
+	_, err = writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	for _, name := range []string{filepath.Dir(directory), directory,
+		filepath.Join(directory, "namespaces"), filepath.Join(directory, "namespaces", testExportName)} {
+		info, err := os.Stat(name)
+		require.NoError(t, err)
+		assert.Equal(t, directoryMode, info.Mode().Perm(), name)
+	}
+	info, err := os.Stat(parent)
+	require.NoError(t, err)
+	assert.Equal(t, fs.FileMode(0o750), info.Mode().Perm(), "existing directories must retain their mode")
+	name := filepath.Join(directory, filepath.FromSlash(files[0].Path))
+	info, err = os.Stat(name)
+	require.NoError(t, err)
+	assert.Equal(t, fileMode, info.Mode().Perm())
+	require.NoError(t, os.Chmod(name, 0o640))
+	files[0].Data = append(files[0].Data, []byte("# Updated export\n")...)
+	counts, err := writeFiles(context.Background(), directory, files, writeOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Updated: 1}, counts)
+	info, err = os.Stat(name)
+	require.NoError(t, err)
+	assert.Equal(t, fs.FileMode(0o640), info.Mode().Perm(), "updates must preserve the existing mode despite umask")
+	root, err := os.OpenRoot(directory)
+	require.NoError(t, err)
+	defer root.Close()
+	tx := &fileTransaction{root: root, changes: []fileChange{{path: "staged.yaml", after: []byte("staged\n")}}}
+	require.NoError(t, tx.stage(context.Background()))
+	defer func() { _ = root.RemoveAll(tx.scratch) }()
+	info, err = root.Lstat(tx.scratch)
+	require.NoError(t, err)
+	assert.Equal(t, fs.FileMode(0o700), info.Mode().Perm(), "scratch directory must remain private")
 }
 
 func TestManagedManifest_RequiresExactLayoutIdentityAndSingleDocument(t *testing.T) {

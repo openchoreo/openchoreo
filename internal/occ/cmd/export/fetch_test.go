@@ -32,8 +32,7 @@ const (
 	testWorkloadKind         = "Workload"
 )
 
-// The collection inventory comes from the export requirements, rather than the
-// fetch implementation, so tests can detect missing or accidentally added kinds.
+// collectionFixture defines the expected API collection inventory.
 type collectionFixture struct {
 	kind string
 	path string
@@ -137,7 +136,6 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 		CurrentContext: "test",
 		ControlPlanes:  []config.ControlPlane{{Name: "test", URL: "https://api.example.test"}},
 		Credentials:    []config.Credential{{Name: "test", Token: testutil.NonExpiredJWT}},
-		// Default CLI scope must not restrict this complete-inventory fetch.
 		Contexts: []config.Context{{
 			Name: "test", ControlPlane: "test", Credentials: "test",
 			Namespace: "unrelated", Project: "unrelated", Component: "unrelated", Resource: "unrelated",
@@ -150,8 +148,7 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 	return f
 }
 
-// roundTrip exercises the real OCC and generated clients while intercepting the
-// HTTP boundary, without requiring a cluster or local listening socket.
+// roundTrip intercepts HTTP requests from the OCC and generated clients.
 func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	f.t.Helper()
 	assert.Equal(f.t, http.MethodGet, req.Method)
@@ -201,8 +198,7 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 				}
 			}
 		} else if collection.kind == testReleaseLineKind {
-			// An ordinary component has only the implicit main entry, which is
-			// not backed by a ReleaseLine and must never be written to disk.
+			// Add the implicit main entry on the first page.
 			if page == 0 {
 				component := strings.Split(path, "/")[6]
 				items = append(items, releaseLineTestObject(strings.Split(path, "/")[4], component, "main"))
@@ -246,8 +242,7 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	object := map[string]any{
 		"apiVersion": "openchoreo.dev/v1alpha1", "kind": collection.kind, "metadata": metadata,
 	}
-	// Application fixtures include ownership because serialization uses these
-	// fields to place releases, bindings, and workloads in the repository tree.
+	// Add ownership fields to application fixtures.
 	switch collection.kind {
 	case "ProjectRelease", "ProjectReleaseBinding", "Resource", endpointKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
@@ -574,7 +569,7 @@ func TestFetch_NilClient(t *testing.T) {
 	assert.Nil(t, resources)
 }
 
-// Inventory tests opt into all history; cutoff behavior has separate cases.
+// fetchAllTestResources fetches complete history for inventory tests.
 func fetchAllTestResources(ctx context.Context, c client.Interface) ([]Resource, error) {
 	result, err := Fetch(ctx, c, true)
 	if err != nil {
@@ -631,7 +626,7 @@ func TestFetch_RecentAndReferencedReleasesAcrossPages(t *testing.T) {
 						return testutil.JSONResp(http.StatusOK, page), nil
 					}
 					if req.URL.Path == "/api/v1/namespaces/payments/"+tc.collection {
-						// Same release name in another namespace must not inherit acme's binding.
+						// Return the same release name in another namespace.
 						return testutil.JSONResp(http.StatusOK, map[string]any{
 							"items": []any{releaseTestObject(tc, "payments", "old-referenced", &old)}, "pagination": map[string]any{},
 						}), nil
@@ -643,7 +638,7 @@ func TestFetch_RecentAndReferencedReleasesAcrossPages(t *testing.T) {
 						assert.NotEmpty(t, f.calls["/api/v1/namespaces/acme/"+binding])
 					}
 					if req.URL.Query().Get("cursor") == "" {
-						// An entirely excluded page must still advance to the next page.
+						// Return an excluded release with a next-page cursor.
 						return testutil.JSONResp(http.StatusOK, map[string]any{
 							"items":      []any{releaseTestObject(tc, "acme", "old-unreferenced", &old)},
 							"pagination": map[string]string{"nextCursor": "next " + path},

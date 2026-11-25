@@ -46,8 +46,7 @@ type resourceLayout struct {
 	filename  string
 }
 
-// Each fetched kind has an explicit layout. Ownership comes from spec.owner;
-// path segments are encoded for portability while manifest names are preserved.
+// resourceLayouts maps supported kinds to export scopes and paths.
 var resourceLayouts = map[string]resourceLayout{
 	"ClusterProjectType":                     {scope: clusterScope, directory: "project-types"},
 	"ClusterComponentType":                   {scope: clusterScope, directory: "component-types"},
@@ -100,7 +99,6 @@ type resourceOwner struct {
 }
 
 // manifestIdentity reads only the fields needed for layout and validation.
-// YAML encoding uses the complete prepared map, preserving every exposed API field.
 type manifestIdentity struct {
 	APIVersion string `json:"apiVersion"`
 	Kind       string `json:"kind"`
@@ -113,9 +111,7 @@ type manifestIdentity struct {
 	} `json:"spec"`
 }
 
-// Serialize prepares one YAML manifest per resource without writing files or
-// modifying the input objects. Paths are sorted and duplicates are rejected.
-// Prepared maps are encoded directly; standalone callers can also supply API values.
+// Serialize returns sorted YAML manifests, rejecting duplicate paths without modifying resources.
 func Serialize(ctx context.Context, resources []Resource) ([]SerializedFile, error) {
 	files := make([]SerializedFile, 0, len(resources))
 	seen := make(map[string]struct{}, len(resources))
@@ -225,8 +221,7 @@ func encodeYAML(document map[string]any) ([]byte, error) {
 func prepareYAMLValues(value any) any {
 	switch value := value.(type) {
 	case json.Number:
-		// Let readers resolve the plain literal: an explicit integer tag can
-		// reject numbers beyond their supported integer range.
+		// Emit the numeric literal without an explicit tag.
 		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Value: value.String()}
 	case map[string]any:
 		mapping := make(map[yamlMapKey]any, len(value))
@@ -248,7 +243,7 @@ type yamlMapKey string
 
 func (key yamlMapKey) MarshalYAML() (any, error) {
 	if key == "<<" {
-		// An unquoted << key would be interpreted as a YAML merge operation.
+		// Quote the literal << key.
 		return &yamlv3.Node{Kind: yamlv3.ScalarNode, Tag: "!!str", Value: string(key), Style: yamlv3.DoubleQuotedStyle}, nil
 	}
 	return string(key), nil
@@ -277,9 +272,7 @@ func resourcePath(resource Resource, owner resourceOwner) (string, error) {
 	return strings.Join(parts, "/"), nil
 }
 
-// Prefix Windows device names with ~ on every platform, including names with
-// extensions. Doubling literal ~ characters makes the mapping reversible and
-// prevents a resource named ~nul from colliding with the encoding of nul.
+// portablePathPart escapes Windows device names with ~ and doubles literal ~ characters.
 func portablePathPart(value string) string {
 	encoded := strings.ReplaceAll(value, "~", "~~")
 	base, _, _ := strings.Cut(value, ".")
@@ -391,8 +384,7 @@ type directorySnapshot struct {
 	mode fs.FileMode
 }
 
-// Backups are temporary transaction data, not an ownership inventory. Original
-// files are linked or moved into scratch so rollback retains their metadata.
+// fileTransaction stages changes and retains originals for rollback.
 type fileTransaction struct {
 	root        *os.Root
 	scratch     string
@@ -400,14 +392,12 @@ type fileTransaction struct {
 	createdDirs []string
 	removedDirs []directorySnapshot
 	keepBackups bool
-	// Defaults to root.Link; tests can simulate filesystems without hard links.
+	// link defaults to root.Link.
 	link func(string, string) error
 }
 
-// writeFiles computes the complete change set before touching manifests. Only
-// supported objects at their exact layout paths are managed. Returned operation
-// errors roll back unchanged files; conflicts retain backups for recovery.
-// Abrupt process termination is not recoverable.
+// writeFiles synchronizes managed manifests and rolls back failures.
+// Rollback conflicts retain backups; abrupt termination is not recoverable.
 func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, options writeOptions) (counts FileCounts, resultErr error) {
 	if err := validateExportFiles(ctx, files); err != nil {
 		return FileCounts{}, err
@@ -419,8 +409,7 @@ func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, o
 	defer func() {
 		if resultErr != nil {
 			for i := len(created) - 1; i >= 0; i-- {
-				// Never recursively remove a destination: failed rollback or a
-				// concurrent writer may have left content that must be preserved.
+				// Remove newly created empty directories.
 				if err := os.Remove(created[i]); err != nil {
 					resultErr = errors.Join(resultErr, fmt.Errorf("remove new directory %q: %w", created[i], err))
 				}
@@ -454,8 +443,7 @@ func writeFiles(ctx context.Context, outputDir string, files []SerializedFile, o
 	return summarizeFileChanges(len(files), changes), nil
 }
 
-// Changes come from byte comparisons against the existing managed manifests.
-// Counts are returned only after successfully applying all changes.
+// summarizeFileChanges counts committed creates, updates, deletions, and unchanged files.
 func summarizeFileChanges(resources int, changes []fileChange) FileCounts {
 	counts := FileCounts{Unchanged: resources}
 	for _, change := range changes {
@@ -508,7 +496,7 @@ func createOutputDir(directory string) ([]string, error) {
 		missing = append(missing, current)
 	}
 	for i := len(missing) - 1; i >= 0; i-- {
-		if err := os.Mkdir(missing[i], 0o700); err != nil {
+		if err := os.Mkdir(missing[i], 0o755); err != nil {
 			for j := len(created) - 1; j >= 0; j-- {
 				err = errors.Join(err, os.Remove(created[j]))
 			}
@@ -562,8 +550,7 @@ func findManagedFiles(ctx context.Context, root *os.Root, preservedPaths map[str
 			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || path.Ext(name) != ".yaml" {
 				return nil
 			}
-			// Excluded releases still in the cluster are untouched. Avoid loading
-			// their historical YAML bodies into the transaction's memory too.
+			// Preserve existing releases excluded by the history window.
 			if _, preserve := preservedPaths[name]; preserve {
 				return nil
 			}
@@ -595,7 +582,7 @@ func collectManagedFile(root *os.Root, name string, entry fs.DirEntry, managed m
 }
 
 func isManagedManifest(name string, data []byte) bool {
-	// Multi-document and malformed YAML cannot establish layout ownership.
+	// Accept only valid, single-document YAML.
 	decoder := yamlv3.NewDecoder(bytes.NewReader(data))
 	var node yamlv3.Node
 	if err := decoder.Decode(&node); err != nil {
@@ -651,7 +638,7 @@ func (t *fileTransaction) stage(ctx context.Context) error {
 	}
 	t.scratch = ".occ-export-" + rand.Text()
 	if err := t.root.Mkdir(t.scratch, 0o700); err != nil {
-		// Do not clean up a directory that this transaction did not create.
+		// Clear the scratch path after creation fails.
 		t.scratch = ""
 		return err
 	}
@@ -662,24 +649,30 @@ func (t *fileTransaction) stage(ctx context.Context) error {
 		if change.remove {
 			continue
 		}
-		mode := fs.FileMode(0o600)
-		if change.before != nil {
-			mode = change.before.mode
-		}
-		if err := t.stageFile(i, change.after, mode); err != nil {
+		if err := t.stageFile(i); err != nil {
 			return fmt.Errorf("prepare %q: %w", change.path, err)
 		}
 	}
 	return nil
 }
 
-func (t *fileTransaction) stageFile(index int, data []byte, mode fs.FileMode) error {
-	file, err := t.root.OpenFile(t.stagedName("new", index), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+func (t *fileTransaction) stageFile(index int) error {
+	change := t.changes[index]
+	mode := fs.FileMode(0o644)
+	if change.before != nil {
+		mode = change.before.mode
+	}
+	file, err := t.root.OpenFile(t.stagedName("new", index), os.O_CREATE|os.O_EXCL|os.O_WRONLY, mode)
 	if err != nil {
 		return err
 	}
-	_, writeErr := file.Write(data)
-	return errors.Join(writeErr, file.Chmod(mode), file.Sync(), file.Close())
+	_, writeErr := file.Write(change.after)
+	var chmodErr error
+	if change.before != nil {
+		// Restore the existing file mode.
+		chmodErr = file.Chmod(mode)
+	}
+	return errors.Join(writeErr, chmodErr, file.Sync(), file.Close())
 }
 
 func (t *fileTransaction) stagedName(prefix string, index int) string {
@@ -708,14 +701,13 @@ func (t *fileTransaction) applyChange(index int) error {
 		if change.remove {
 			err = t.root.Rename(filepath.FromSlash(change.path), t.stagedName("old", index))
 		} else {
-			// Retain the original inode until the replacement is atomically
-			// renamed over it. Both paths are confined to the output root.
+			// Link the original into the backup directory.
 			link := t.link
 			if link == nil {
 				link = t.root.Link
 			}
 			err = link(filepath.FromSlash(change.path), t.stagedName("old", index))
-			// Some filesystems report unsupported hard links as EPERM.
+			// Fall back to renaming when hard links are unavailable.
 			if errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EPERM) {
 				err = t.root.Rename(filepath.FromSlash(change.path), t.stagedName("old", index))
 				change.backupMoved = err == nil
@@ -779,7 +771,7 @@ func (t *fileTransaction) makeParents(name string) error {
 		if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		if err := t.root.Mkdir(directory, 0o700); err != nil {
+		if err := t.root.Mkdir(directory, 0o755); err != nil {
 			return err
 		}
 		t.createdDirs = append(t.createdDirs, directory)
@@ -871,8 +863,7 @@ func (t *fileTransaction) rollback() error {
 		}
 	}
 	if rollbackErr != nil {
-		// Preserve directory paths too: an ancestor may have been replaced by
-		// another writer, and recovery still needs the conflicted paths.
+		// Preserve recovery paths when rollback encounters conflicts.
 		return rollbackErr
 	}
 	for i := len(t.createdDirs) - 1; i >= 0; i-- {
@@ -881,8 +872,7 @@ func (t *fileTransaction) rollback() error {
 	return rollbackErr
 }
 
-// Only undo paths that still match the state left by this transaction. Failed
-// checks leave both the current path and its recovery backup untouched.
+// checkRollbackChange verifies that the destination still matches the transaction's state.
 func (t *fileTransaction) checkRollbackChange(index int) error {
 	change := t.changes[index]
 	for directory := path.Dir(change.path); directory != "."; directory = path.Dir(directory) {
@@ -901,11 +891,10 @@ func (t *fileTransaction) checkRollbackChange(index int) error {
 		expectedInfo = change.installedInfo
 		expected.before = &fileSnapshot{data: change.after, mode: expectedInfo.Mode().Perm()}
 	case change.remove || change.backupMoved:
-		// A deleted or moved path must still be absent before restoring its backup.
+		// Expect the deleted or moved destination to be absent.
 		expected.before = nil
 	default:
-		// If installation failed after linking the backup, the original file
-		// must still be present at the destination.
+		// Check the original left at the destination after a failed installation.
 		var err error
 		expectedInfo, err = t.root.Lstat(t.stagedName("old", index))
 		if err != nil {

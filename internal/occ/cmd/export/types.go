@@ -5,10 +5,8 @@ package export
 
 import "time"
 
-// Resource associates an API object with its export identity. Namespace is empty
-// for cluster-scoped objects, including Namespace objects. Fetch supplies a
-// generated API value in Object; Filter replaces it with an independent map
-// containing the approved fields for export and exact json.Number values.
+// Resource associates an API object or filtered document with its export identity.
+// Namespace is empty for cluster-scoped objects, including Namespace objects.
 type Resource struct {
 	Kind      string
 	Namespace string
@@ -16,15 +14,13 @@ type Resource struct {
 	Object    any
 }
 
-// FetchResult keeps selected API objects separate from paths deliberately left
-// out by the release window. Only existing files at PreservedPaths are retained;
-// no manifest is created or updated for those paths.
+// FetchResult contains selected resources, preserved history paths, and warnings.
 type FetchResult struct {
-	Resources      []Resource
+	Resources []Resource
+	// PreservedPaths are retained without being created or updated.
 	PreservedPaths map[string]struct{}
 	Warnings       []string
-	// ReleaseCutoff is the exact inclusive cutoff used for selection, or nil
-	// when exporting the complete release history.
+	// ReleaseCutoff is inclusive, or nil when exporting all history.
 	ReleaseCutoff *time.Time
 }
 
@@ -34,8 +30,7 @@ type SerializedFile struct {
 	Data []byte
 }
 
-// FileCounts describes successfully committed manifest changes. Historical
-// files outside the selection window are excluded from these counts.
+// FileCounts records committed changes, excluding preserved historical files.
 type FileCounts struct {
 	Created   int
 	Updated   int

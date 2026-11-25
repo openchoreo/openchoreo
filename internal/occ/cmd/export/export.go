@@ -19,8 +19,7 @@ import (
 
 var errExportPermissionDenied = errors.New("your role does not have enough permission to perform export")
 
-// Run prepares the complete export before transactionally synchronizing managed
-// files. Layouts determine ownership; no inventory is written into the output.
+// Run collects resources and synchronizes managed export files.
 func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult, error) {
 	if err := params.validate(); err != nil {
 		return nil, err
@@ -44,7 +43,6 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	if err != nil {
 		return nil, err
 	}
-	// Do not prune files using a view that is now known to be permission-limited.
 	if err := checkExportPermissions(ctx, c); err != nil {
 		return nil, err
 	}
@@ -61,9 +59,7 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	}, nil
 }
 
-// A filtered list cannot distinguish an absent object from an inaccessible one.
-// Full-cluster export therefore requires provable, unconditional access to every
-// supported kind before fetching and again before synchronizing the destination.
+// checkExportPermissions requires unrestricted access to every supported kind.
 func checkExportPermissions(ctx context.Context, c client.Interface) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -84,8 +80,7 @@ func checkExportPermissions(ctx context.Context, c client.Interface) error {
 	if profile == nil || profile.Capabilities == nil {
 		return fmt.Errorf("cannot verify full-cluster export permissions: authorization capabilities are missing")
 	}
-	// View action names follow the API's lower-case kind naming convention.
-	// Reuse the supported layouts so newly exported kinds cannot bypass the gate.
+	// Check the view action for every supported kind.
 	for kind := range resourceLayouts {
 		action := strings.ToLower(kind) + ":view"
 		if !hasUnrestrictedAccess(*profile.Capabilities, action) {
@@ -95,9 +90,7 @@ func checkExportPermissions(ctx context.Context, c client.Interface) error {
 	return nil
 }
 
-// Keep generated-client access local to export instead of extending the shared
-// resource client interface. The existing accessor preserves authentication and
-// token refresh configured by client.NewClient.
+// generatedClientProvider exposes the generated client for profile and raw list calls.
 type generatedClientProvider interface {
 	GetClient() *gen.ClientWithResponses
 }
@@ -111,7 +104,6 @@ func getExportProfile(ctx context.Context, c client.Interface) (*gen.UserCapabil
 	if api == nil {
 		return nil, fmt.Errorf("generated API client is missing")
 	}
-	// No namespace or project selectors: scoped grants must not appear global.
 	resp, err := api.GetSubjectProfileWithResponse(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get authorization profile: %w", err)
@@ -134,8 +126,7 @@ func getExportProfile(ctx context.Context, c client.Interface) (*gen.UserCapabil
 
 func hasUnrestrictedAccess(capabilities map[string]gen.ActionCapability, action string) bool {
 	allowed := false
-	// Normal profiles expand action wildcards. The disabled authorizer can return
-	// a '*' capability; its grants must never override a concrete action denial.
+	// Check wildcard grants while preserving explicit action denials.
 	for _, name := range []string{action, "*"} {
 		capability := capabilities[name]
 		if capability.Denied != nil && len(*capability.Denied) != 0 {
@@ -157,8 +148,7 @@ func hasUnrestrictedAccess(capabilities map[string]gen.ActionCapability, action 
 	return allowed
 }
 
-// Resolve existing ancestors so output paths are consistent even when the
-// destination does not exist yet or is reached through a symlink.
+// canonicalOutputDir resolves an absolute output path through existing symlinks.
 func canonicalOutputDir(directory string) (string, error) {
 	absolute, err := filepath.Abs(directory)
 	if err != nil {

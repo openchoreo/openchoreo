@@ -18,11 +18,8 @@ const (
 // resourceDocument holds a JSON object decoded once with exact numeric literals.
 type resourceDocument map[string]any
 
-// Filter prepares independent maps for export. It skips objects marked
-// for deletion, removes top-level status, keeps only name/namespace/labels/
-// annotations in metadata, and removes the two transient annotations above.
-// Specs, nested documents, and all other labels and annotations are preserved.
-// Numbers remain json.Number values from conversion through YAML serialization.
+// Filter copies resources into maps, omitting deleting objects and runtime metadata.
+// Configuration and exact numeric literals are preserved.
 func Filter(ctx context.Context, resources []Resource) ([]Resource, error) {
 	filtered := make([]Resource, 0, len(resources))
 	for _, resource := range resources {
@@ -58,7 +55,7 @@ func copyResourceDocument(resource Resource) (resourceDocument, error) {
 	if document == nil {
 		return nil, fmt.Errorf("API object is required")
 	}
-	// The generated Namespace model has no Kubernetes type metadata.
+	// Set the Namespace type metadata.
 	if resource.Kind == "Namespace" {
 		document["apiVersion"] = "v1"
 		document["kind"] = resource.Kind
@@ -78,8 +75,7 @@ func filterResource(resource Resource) (resourceDocument, bool, error) {
 		}
 		return nil, false, fmt.Errorf("read metadata: must be an object")
 	}
-	// Inspect deletion state before dropping server metadata. Omission or JSON
-	// null means the API has not marked this object for deletion.
+	// Skip deleting objects before removing server metadata.
 	if metadata["deletionTimestamp"] != nil {
 		return nil, false, nil
 	}
