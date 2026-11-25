@@ -265,6 +265,7 @@ func TestExportCommand_HelpDescribesExportAndReleasePolicy(t *testing.T) {
 	for _, text := range []string{
 		"GitOps", "one YAML manifest per resource", "unrestricted",
 		"including local edits", "resources deleted from the cluster", "Unrelated files",
+		"changed managed manifests",
 		"three calendar months", "binding-referenced", "--all-releases", "-o, --output",
 		"summary of file changes and release history",
 	} {

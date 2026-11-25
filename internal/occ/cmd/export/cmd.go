@@ -24,9 +24,10 @@ func NewExportCmd(f client.NewClientFunc) *cobra.Command {
 directory tree, with one YAML manifest per resource. Requires unrestricted
 read access to all supported resource kinds.
 
-Re-export skips identical files, replaces changed files (including local edits),
-and removes files for resources deleted from the cluster. Unrelated files are
-preserved. Status and server metadata are removed from exported manifests.
+Re-export skips identical files and replaces changed managed manifests,
+including local edits. It removes files for resources deleted from the cluster.
+Unrelated files are preserved. Status and server metadata are removed from
+exported manifests.
 
 Releases include the last three calendar months (UTC), binding-referenced
 releases, and releases without creation timestamps. Use --all-releases for the
