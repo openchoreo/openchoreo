@@ -697,26 +697,37 @@ func TestFetch_RecentAndReferencedReleasesAcrossPages(t *testing.T) {
 func TestFetch_MissingOrDeletingReferencedRelease(t *testing.T) {
 	for _, tc := range releaseTestCases {
 		for _, deleting := range []bool{false, true} {
-			t.Run(tc.kind+"/deleting="+strconv.FormatBool(deleting), func(t *testing.T) {
-				f := newFetchFixture(t, false)
-				f.override = func(req *http.Request) (*http.Response, error) {
-					if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
-						return testutil.JSONResp(http.StatusOK, map[string]any{
-							"items": []any{bindingTestObject(tc, "required-release")}, "pagination": map[string]any{},
-						}), nil
+			for _, all := range []bool{false, true} {
+				t.Run(tc.kind+"/deleting="+strconv.FormatBool(deleting)+"/all="+strconv.FormatBool(all), func(t *testing.T) {
+					f := newFetchFixture(t, false)
+					f.override = func(req *http.Request) (*http.Response, error) {
+						if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
+							return testutil.JSONResp(http.StatusOK, map[string]any{
+								"items": []any{bindingTestObject(tc, "required-release")}, "pagination": map[string]any{},
+							}), nil
+						}
+						if deleting && req.URL.Path == "/api/v1/namespaces/acme/"+tc.collection {
+							object := releaseTestObject(tc, "acme", "required-release", nil)
+							object["metadata"].(map[string]any)["deletionTimestamp"] = fixtureCreationTimestamp
+							return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
+						}
+						return nil, nil
 					}
-					if deleting && req.URL.Path == "/api/v1/namespaces/acme/"+tc.collection {
-						object := releaseTestObject(tc, "acme", "required-release", nil)
-						object["metadata"].(map[string]any)["deletionTimestamp"] = fixtureCreationTimestamp
-						return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
+					result, err := Fetch(context.Background(), f.client, all)
+					require.NoError(t, err)
+					assert.Equal(t, []string{"binding-referenced release is missing or marked for deletion: " + tc.kind + " \"required-release\" in namespace \"acme\""}, result.Warnings)
+					var bindingFound bool
+					for _, resource := range result.Resources {
+						if resource.Kind == tc.bindingKind && resource.Namespace == testExportNamespace {
+							bindingFound = true
+						}
+						if resource.Kind == tc.kind {
+							assert.NotEqual(t, "required-release", resource.Name)
+						}
 					}
-					return nil, nil
-				}
-				result, err := Fetch(context.Background(), f.client, false)
-				require.ErrorContains(t, err, "binding-referenced release is missing or marked for deletion")
-				assert.ErrorContains(t, err, tc.kind)
-				assert.Nil(t, result)
-			})
+					assert.True(t, bindingFound, "the binding must remain in the export")
+				})
+			}
 		}
 	}
 }

@@ -22,6 +22,7 @@ type Resource struct {
 type FetchResult struct {
 	Resources      []Resource
 	PreservedPaths map[string]struct{}
+	Warnings       []string
 	// ReleaseCutoff is the exact inclusive cutoff used for selection, or nil
 	// when exporting the complete release history.
 	ReleaseCutoff *time.Time
@@ -48,4 +49,5 @@ type ExportResult struct {
 	Files         []SerializedFile
 	Counts        FileCounts
 	ReleaseCutoff *time.Time
+	Warnings      []string
 }

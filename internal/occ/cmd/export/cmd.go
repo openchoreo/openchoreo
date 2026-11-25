@@ -57,6 +57,11 @@ Shows export progress and a summary of file changes and release history.`,
 			if err != nil {
 				return err
 			}
+			for _, warning := range result.Warnings {
+				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s\n", warning); err != nil {
+					return err
+				}
+			}
 			return writeExportSummary(cmd.OutOrStdout(), result)
 		},
 	}

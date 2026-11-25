@@ -64,6 +64,7 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 
 	fetchers := namespacedFetchers(api)
 	preservedPaths := make(map[string]struct{})
+	var warnings []string
 	for _, namespace := range namespaces {
 		name := namespace.Metadata.Name
 		if name == "" {
@@ -87,12 +88,10 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 		if err != nil {
 			return nil, err
 		}
-		if err := selection.checkReferences(); err != nil {
-			return nil, err
-		}
+		warnings = append(warnings, selection.referenceWarnings()...)
 		resources = append(resources, releases...)
 	}
-	result := &FetchResult{Resources: resources, PreservedPaths: preservedPaths}
+	result := &FetchResult{Resources: resources, PreservedPaths: preservedPaths, Warnings: warnings}
 	if !allReleases {
 		result.ReleaseCutoff = &cutoff
 	}
@@ -209,18 +208,15 @@ func (s *releaseSelection) include(kind, namespace string, metadata gen.ObjectMe
 	return false, nil
 }
 
-func (s *releaseSelection) checkReferences() error {
-	var missing []string
+func (s *releaseSelection) referenceWarnings() []string {
+	var warnings []string
 	for identity, found := range s.references {
 		if !found {
-			missing = append(missing, fmt.Sprintf("%s %q in namespace %q", identity.kind, identity.name, identity.namespace))
+			warnings = append(warnings, fmt.Sprintf("binding-referenced release is missing or marked for deletion: %s %q in namespace %q", identity.kind, identity.name, identity.namespace))
 		}
 	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return fmt.Errorf("binding-referenced release is missing or marked for deletion: %s", missing[0])
-	}
-	return nil
+	sort.Strings(warnings)
+	return warnings
 }
 
 // Filter each page before FetchAll accumulates it. A fresh slice prevents old

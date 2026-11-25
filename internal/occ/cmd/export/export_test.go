@@ -706,7 +706,7 @@ func TestRun_ReleaseWindowPreservesHistoryUntilDeleted(t *testing.T) {
 	}
 }
 
-func TestRun_MissingReferencedReleaseLeavesFilesUnchanged(t *testing.T) {
+func TestRun_MissingReferencedReleaseExportsBindingWithWarning(t *testing.T) {
 	f := newFetchFixture(t, false)
 	tc := releaseTestCases[0]
 	f.override = func(req *http.Request) (*http.Response, error) {
@@ -718,12 +718,16 @@ func TestRun_MissingReferencedReleaseLeavesFilesUnchanged(t *testing.T) {
 		return nil, nil
 	}
 	directory := t.TempDir()
-	seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
-	before := snapshotTree(t, directory)
 	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
-	require.ErrorContains(t, err, "binding-referenced release is missing")
-	assert.Nil(t, result)
-	assert.Equal(t, before, snapshotTree(t, directory))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"binding-referenced release is missing or marked for deletion: ComponentRelease \"missing-release\" in namespace \"acme\""}, result.Warnings)
+	assert.Equal(t, len(result.Files), result.Counts.Created)
+	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "namespace.yaml"))
+	bindingPath := filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "release-bindings", "releasebindings-0.yaml")
+	data, err := os.ReadFile(bindingPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "releaseName: missing-release")
+	assert.NoFileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "releases", "missing-release.yaml"))
 }
 
 func TestRun_ExportsReleaseLineConfigurationAndSynchronizesItsFile(t *testing.T) {

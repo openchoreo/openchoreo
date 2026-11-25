@@ -118,6 +118,36 @@ func TestExportCommand_FetchError(t *testing.T) {
 	assert.NoDirExists(t, directory)
 }
 
+func TestExportCommand_MissingReferencedReleasesWarnsAndCompletes(t *testing.T) {
+	f := newFetchFixture(t, false)
+	tc := releaseTestCases[0]
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path == "/api/v1/namespaces/acme/"+tc.bindings {
+			first := bindingTestObject(tc, "missing-z")
+			second := bindingTestObject(tc, "missing-a")
+			second["metadata"].(map[string]any)["name"] = "another-binding"
+			return testutil.JSONResp(http.StatusOK, map[string]any{
+				"items": []any{first, second}, "pagination": map[string]any{},
+			}), nil
+		}
+		return nil, nil
+	}
+	cmd := NewExportCmd(func() (client.Interface, error) { return f.client, nil })
+	directory := t.TempDir()
+	require.NoError(t, cmd.Flags().Set("output", directory))
+	cmd.SetContext(context.Background())
+	var output, warnings bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetErr(&warnings)
+
+	require.NoError(t, cmd.RunE(cmd, nil))
+	assert.Equal(t, "Warning: binding-referenced release is missing or marked for deletion: ComponentRelease \"missing-a\" in namespace \"acme\"\n"+
+		"Warning: binding-referenced release is missing or marked for deletion: ComponentRelease \"missing-z\" in namespace \"acme\"\n", warnings.String())
+	assert.Contains(t, output.String(), "Export completed")
+	assert.NotContains(t, output.String(), "Warning:")
+	assert.FileExists(t, filepath.Join(directory, "namespaces", "acme", "projects", "store", "components", "checkout", "release-bindings", "another-binding.yaml"))
+}
+
 func TestExportCommand_RequiresLogin(t *testing.T) {
 	testutil.SetupTestHome(t)
 	called := false

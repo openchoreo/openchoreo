@@ -57,6 +57,7 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	}
 	return &ExportResult{
 		OutputDir: directory, Files: files, Counts: counts, ReleaseCutoff: fetched.ReleaseCutoff,
+		Warnings: fetched.Warnings,
 	}, nil
 }
 
