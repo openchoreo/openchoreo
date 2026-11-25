@@ -19,9 +19,8 @@ import (
 	"github.com/openchoreo/openchoreo/internal/releaseline"
 )
 
-// resourcePage has the same underlying structure as the generated list types.
-// Adapters use checked Go pointer conversions to share pagination without
-// reflection or a JSON round trip.
+// resourcePage decodes raw list responses while retaining generated item types
+// and sharing pagination across all resource kinds.
 type resourcePage[T any] struct {
 	Items      []T            `json:"items"`
 	Pagination gen.Pagination `json:"pagination"`
@@ -44,17 +43,26 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 		return nil, fmt.Errorf("API client is required")
 	}
 
-	resources, err := fetchCollections(ctx, "", clusterFetchers(c))
+	provider, ok := c.(generatedClientProvider)
+	if !ok {
+		return nil, fmt.Errorf("API client does not expose the generated client required to preserve export numbers")
+	}
+	api := provider.GetClient()
+	if api == nil {
+		return nil, fmt.Errorf("generated API client is missing")
+	}
+
+	resources, err := fetchCollections(ctx, "", clusterFetchers(api))
 	if err != nil {
 		return nil, err
 	}
 
-	namespaces, err := fetchNamespaces(ctx, c)
+	namespaces, err := fetchNamespaces(ctx, api)
 	if err != nil {
 		return nil, err
 	}
 
-	fetchers := namespacedFetchers(c)
+	fetchers := namespacedFetchers(api)
 	preservedPaths := make(map[string]struct{})
 	for _, namespace := range namespaces {
 		name := namespace.Metadata.Name
@@ -67,7 +75,7 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 			return nil, err
 		}
 		resources = append(resources, items...)
-		lines, err := fetchReleaseLines(ctx, c, name, items)
+		lines, err := fetchReleaseLines(ctx, api, name, items)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +83,7 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 		selection := releaseSelection{
 			all: allReleases, cutoff: cutoff, references: bindingReleaseReferences(items), preservedPaths: preservedPaths,
 		}
-		releases, err := fetchCollections(ctx, name, releaseFetchers(c, &selection))
+		releases, err := fetchCollections(ctx, name, releaseFetchers(api, &selection))
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +102,7 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 // The API exposes release lines under each component and includes a synthetic
 // main entry. Only persisted ReleaseLine configuration belongs in the export;
 // it is always fetched in full, independently of the release-history window.
-func fetchReleaseLines(ctx context.Context, c client.Interface, namespace string, resources []Resource) ([]Resource, error) {
+func fetchReleaseLines(ctx context.Context, c *gen.ClientWithResponses, namespace string, resources []Resource) ([]Resource, error) {
 	var lines []Resource
 	for _, component := range resources {
 		if component.Kind != "Component" {
@@ -103,10 +111,10 @@ func fetchReleaseLines(ctx context.Context, c client.Interface, namespace string
 		fetch := newFetcher("ReleaseLine",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ReleaseLine], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListComponentReleaseLines(ctx, namespace, component.Name,
-					&gen.ListComponentReleaseLinesParams{Limit: pageLimit, Cursor: pageCursor})
+				response, err := decodePage[gen.ReleaseLine](c.ListComponentReleaseLines(ctx, namespace, component.Name,
+					&gen.ListComponentReleaseLinesParams{Limit: pageLimit, Cursor: pageCursor}))
 				if err != nil || response == nil {
-					return (*resourcePage[gen.ReleaseLine])(response), err
+					return response, err
 				}
 				items := make([]gen.ReleaseLine, 0, len(response.Items))
 				for _, line := range response.Items {
@@ -260,25 +268,21 @@ func fetchCollections(ctx context.Context, namespace string, fetchers []resource
 
 // fetchNamespaces returns all pages of namespace objects as well as their names
 // for the subsequent namespaced requests.
-func fetchNamespaces(ctx context.Context, c client.Interface) ([]gen.Namespace, error) {
+func fetchNamespaces(ctx context.Context, c *gen.ClientWithResponses) ([]gen.Namespace, error) {
 	return fetchAll(ctx, "Namespace", "", func(limit int, cursor string) (*resourcePage[gen.Namespace], error) {
 		pageLimit, pageCursor := pageParams(limit, cursor)
-		response, err := c.ListNamespaces(ctx, &gen.ListNamespacesParams{Limit: pageLimit, Cursor: pageCursor})
-		return (*resourcePage[gen.Namespace])(response), err
+		return decodePage[gen.Namespace](c.ListNamespaces(ctx, &gen.ListNamespacesParams{Limit: pageLimit, Cursor: pageCursor}))
 	})
 }
 
-// Decode component responses locally to preserve numbers in free-form maps.
+// Decode list responses locally to preserve numbers in every free-form map.
 // This preserves digits received from the API, not digits already lost server-side.
-func fetchComponentPage(ctx context.Context, c client.Interface, namespace string, limit int, cursor string) (*resourcePage[gen.Component], error) {
-	provider, ok := c.(generatedClientProvider)
-	if !ok || provider.GetClient() == nil {
-		return nil, fmt.Errorf("generated API client is required to preserve component numbers")
+func decodePage[T any](response *http.Response, requestErr error) (*resourcePage[T], error) {
+	if requestErr != nil {
+		return nil, requestErr
 	}
-	pageLimit, pageCursor := pageParams(limit, cursor)
-	response, err := provider.GetClient().ListComponents(ctx, namespace, &gen.ListComponentsParams{Limit: pageLimit, Cursor: pageCursor})
-	if err != nil {
-		return nil, err
+	if response == nil || response.Body == nil {
+		return nil, fmt.Errorf("API returned a nil list response or body")
 	}
 	defer func() { _ = response.Body.Close() }()
 	decoder := json.NewDecoder(response.Body)
@@ -286,17 +290,17 @@ func fetchComponentPage(ctx context.Context, c client.Interface, namespace strin
 	if response.StatusCode != http.StatusOK {
 		var problem gen.ErrorResponse
 		if err := decoder.Decode(&problem); err == nil && problem.Error != "" {
-			return nil, fmt.Errorf("component list request failed (HTTP %d): %s", response.StatusCode, problem.Error)
+			return nil, fmt.Errorf("list request failed (HTTP %d): %s", response.StatusCode, problem.Error)
 		}
-		return nil, fmt.Errorf("component list request failed (HTTP %d)", response.StatusCode)
+		return nil, fmt.Errorf("list request failed (HTTP %d)", response.StatusCode)
 	}
-	var page resourcePage[gen.Component]
+	var page resourcePage[T]
 	if err := decoder.Decode(&page); err != nil {
-		return nil, fmt.Errorf("decode component list: %w", err)
+		return nil, fmt.Errorf("decode list: %w", err)
 	}
 	var trailing any
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("component list response contains trailing data")
+		return nil, fmt.Errorf("list response contains trailing data")
 	}
 	return &page, nil
 }
@@ -364,85 +368,75 @@ func newFetcher[T any](
 }
 
 // clusterFetchers declares the requested cluster-scoped inventory.
-func clusterFetchers(c client.Interface) []resourceFetcher {
+func clusterFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 	return []resourceFetcher{
 		newFetcher("ClusterProjectType",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterProjectType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterProjectTypes(ctx, &gen.ListClusterProjectTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterProjectType])(response), err
+				return decodePage[gen.ClusterProjectType](c.ListClusterProjectTypes(ctx, &gen.ListClusterProjectTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterProjectType) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterComponentType",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterComponentType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterComponentTypes(ctx, &gen.ListClusterComponentTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterComponentType])(response), err
+				return decodePage[gen.ClusterComponentType](c.ListClusterComponentTypes(ctx, &gen.ListClusterComponentTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterComponentType) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterResourceType",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterResourceType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterResourceTypes(ctx, &gen.ListClusterResourceTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterResourceType])(response), err
+				return decodePage[gen.ClusterResourceType](c.ListClusterResourceTypes(ctx, &gen.ListClusterResourceTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterResourceType) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterTrait",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterTrait], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterTraits(ctx, &gen.ListClusterTraitsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterTrait])(response), err
+				return decodePage[gen.ClusterTrait](c.ListClusterTraits(ctx, &gen.ListClusterTraitsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterTrait) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterWorkflow",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterWorkflow], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterWorkflows(ctx, &gen.ListClusterWorkflowsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterWorkflow])(response), err
+				return decodePage[gen.ClusterWorkflow](c.ListClusterWorkflows(ctx, &gen.ListClusterWorkflowsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterWorkflow) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterDataPlane",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterDataPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterDataPlanes(ctx, &gen.ListClusterDataPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterDataPlane])(response), err
+				return decodePage[gen.ClusterDataPlane](c.ListClusterDataPlanes(ctx, &gen.ListClusterDataPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterDataPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterWorkflowPlane",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterWorkflowPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterWorkflowPlanes(ctx, &gen.ListClusterWorkflowPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterWorkflowPlane])(response), err
+				return decodePage[gen.ClusterWorkflowPlane](c.ListClusterWorkflowPlanes(ctx, &gen.ListClusterWorkflowPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterWorkflowPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterObservabilityPlane",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterObservabilityPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterObservabilityPlanes(ctx, &gen.ListClusterObservabilityPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterObservabilityPlane])(response), err
+				return decodePage[gen.ClusterObservabilityPlane](c.ListClusterObservabilityPlanes(ctx, &gen.ListClusterObservabilityPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterObservabilityPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterAuthzRole",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterAuthzRole], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterRoles(ctx, &gen.ListClusterRolesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterAuthzRole])(response), err
+				return decodePage[gen.ClusterAuthzRole](c.ListClusterRoles(ctx, &gen.ListClusterRolesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterAuthzRole) string { return item.Metadata.Name },
 		),
 		newFetcher("ClusterAuthzRoleBinding",
 			func(ctx context.Context, _ string, limit int, cursor string) (*resourcePage[gen.ClusterAuthzRoleBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListClusterRoleBindings(ctx, &gen.ListClusterRoleBindingsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ClusterAuthzRoleBinding])(response), err
+				return decodePage[gen.ClusterAuthzRoleBinding](c.ListClusterRoleBindings(ctx, &gen.ListClusterRoleBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ClusterAuthzRoleBinding) string { return item.Metadata.Name },
 		),
@@ -450,163 +444,145 @@ func clusterFetchers(c client.Interface) []resourceFetcher {
 }
 
 // namespacedFetchers declares the requested namespaced inventory.
-func namespacedFetchers(c client.Interface) []resourceFetcher {
+func namespacedFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 	return []resourceFetcher{
 		newFetcher("DeploymentPipeline",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.DeploymentPipeline], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListDeploymentPipelines(ctx, namespace, &gen.ListDeploymentPipelinesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.DeploymentPipeline])(response), err
+				return decodePage[gen.DeploymentPipeline](c.ListDeploymentPipelines(ctx, namespace, &gen.ListDeploymentPipelinesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.DeploymentPipeline) string { return item.Metadata.Name },
 		),
 		newFetcher("Environment",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Environment], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListEnvironments(ctx, namespace, &gen.ListEnvironmentsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Environment])(response), err
+				return decodePage[gen.Environment](c.ListEnvironments(ctx, namespace, &gen.ListEnvironmentsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Environment) string { return item.Metadata.Name },
 		),
 		newFetcher("DataPlane",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.DataPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListDataPlanes(ctx, namespace, &gen.ListDataPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.DataPlane])(response), err
+				return decodePage[gen.DataPlane](c.ListDataPlanes(ctx, namespace, &gen.ListDataPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.DataPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("WorkflowPlane",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.WorkflowPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListWorkflowPlanes(ctx, namespace, &gen.ListWorkflowPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.WorkflowPlane])(response), err
+				return decodePage[gen.WorkflowPlane](c.ListWorkflowPlanes(ctx, namespace, &gen.ListWorkflowPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.WorkflowPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("ObservabilityPlane",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ObservabilityPlane], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListObservabilityPlanes(ctx, namespace, &gen.ListObservabilityPlanesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ObservabilityPlane])(response), err
+				return decodePage[gen.ObservabilityPlane](c.ListObservabilityPlanes(ctx, namespace, &gen.ListObservabilityPlanesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ObservabilityPlane) string { return item.Metadata.Name },
 		),
 		newFetcher("ProjectType",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListProjectTypes(ctx, namespace, &gen.ListProjectTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ProjectType])(response), err
+				return decodePage[gen.ProjectType](c.ListProjectTypes(ctx, namespace, &gen.ListProjectTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ProjectType) string { return item.Metadata.Name },
 		),
 		newFetcher("ComponentType",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ComponentType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListComponentTypes(ctx, namespace, &gen.ListComponentTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ComponentType])(response), err
+				return decodePage[gen.ComponentType](c.ListComponentTypes(ctx, namespace, &gen.ListComponentTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ComponentType) string { return item.Metadata.Name },
 		),
 		newFetcher("ResourceType",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceType], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListResourceTypes(ctx, namespace, &gen.ListResourceTypesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ResourceType])(response), err
+				return decodePage[gen.ResourceType](c.ListResourceTypes(ctx, namespace, &gen.ListResourceTypesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ResourceType) string { return item.Metadata.Name },
 		),
 		newFetcher("Trait",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Trait], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListTraits(ctx, namespace, &gen.ListTraitsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Trait])(response), err
+				return decodePage[gen.Trait](c.ListTraits(ctx, namespace, &gen.ListTraitsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Trait) string { return item.Metadata.Name },
 		),
 		newFetcher("Workflow",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Workflow], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListWorkflows(ctx, namespace, &gen.ListWorkflowsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Workflow])(response), err
+				return decodePage[gen.Workflow](c.ListWorkflows(ctx, namespace, &gen.ListWorkflowsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Workflow) string { return item.Metadata.Name },
 		),
 		newFetcher("AuthzRole",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.AuthzRole], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListNamespaceRoles(ctx, namespace, &gen.ListNamespaceRolesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.AuthzRole])(response), err
+				return decodePage[gen.AuthzRole](c.ListNamespaceRoles(ctx, namespace, &gen.ListNamespaceRolesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.AuthzRole) string { return item.Metadata.Name },
 		),
 		newFetcher("AuthzRoleBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.AuthzRoleBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListNamespaceRoleBindings(ctx, namespace, &gen.ListNamespaceRoleBindingsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.AuthzRoleBinding])(response), err
+				return decodePage[gen.AuthzRoleBinding](c.ListNamespaceRoleBindings(ctx, namespace, &gen.ListNamespaceRoleBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.AuthzRoleBinding) string { return item.Metadata.Name },
 		),
 		newFetcher("SecretReference",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.SecretReference], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListSecretReferences(ctx, namespace, &gen.ListSecretReferencesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.SecretReference])(response), err
+				return decodePage[gen.SecretReference](c.ListSecretReferences(ctx, namespace, &gen.ListSecretReferencesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.SecretReference) string { return item.Metadata.Name },
 		),
 		newFetcher("Project",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Project], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListProjects(ctx, namespace, &gen.ListProjectsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Project])(response), err
+				return decodePage[gen.Project](c.ListProjects(ctx, namespace, &gen.ListProjectsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Project) string { return item.Metadata.Name },
 		),
 		newFetcher("ProjectReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListProjectReleaseBindings(ctx, namespace, &gen.ListProjectReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ProjectReleaseBinding])(response), err
+				return decodePage[gen.ProjectReleaseBinding](c.ListProjectReleaseBindings(ctx, namespace, &gen.ListProjectReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ProjectReleaseBinding) string { return item.Metadata.Name },
 		),
 		newFetcher("Component",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Component], error) {
-				return fetchComponentPage(ctx, c, namespace, limit, cursor)
+				pageLimit, pageCursor := pageParams(limit, cursor)
+				return decodePage[gen.Component](c.ListComponents(ctx, namespace, &gen.ListComponentsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Component) string { return item.Metadata.Name },
 		),
 		newFetcher("Workload",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Workload], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListWorkloads(ctx, namespace, &gen.ListWorkloadsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.Workload])(response), err
+				return decodePage[gen.Workload](c.ListWorkloads(ctx, namespace, &gen.ListWorkloadsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.Workload) string { return item.Metadata.Name },
 		),
 		newFetcher("ReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListReleaseBindings(ctx, namespace, &gen.ListReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ReleaseBinding])(response), err
+				return decodePage[gen.ReleaseBinding](c.ListReleaseBindings(ctx, namespace, &gen.ListReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ReleaseBinding) string { return item.Metadata.Name },
 		),
 		newFetcher("Resource",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceInstance], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListResources(ctx, namespace, &gen.ListResourcesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ResourceInstance])(response), err
+				return decodePage[gen.ResourceInstance](c.ListResources(ctx, namespace, &gen.ListResourcesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ResourceInstance) string { return item.Metadata.Name },
 		),
 		newFetcher("ResourceReleaseBinding",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceReleaseBinding], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListResourceReleaseBindings(ctx, namespace, &gen.ListResourceReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ResourceReleaseBinding])(response), err
+				return decodePage[gen.ResourceReleaseBinding](c.ListResourceReleaseBindings(ctx, namespace, &gen.ListResourceReleaseBindingsParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ResourceReleaseBinding) string { return item.Metadata.Name },
 		),
@@ -614,13 +590,12 @@ func namespacedFetchers(c client.Interface) []resourceFetcher {
 }
 
 // releaseFetchers run after namespace configuration and bindings have been read.
-func releaseFetchers(c client.Interface, selection *releaseSelection) []resourceFetcher {
+func releaseFetchers(c *gen.ClientWithResponses, selection *releaseSelection) []resourceFetcher {
 	return []resourceFetcher{
 		newReleaseFetcher("ProjectRelease",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ProjectRelease], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListProjectReleases(ctx, namespace, &gen.ListProjectReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ProjectRelease])(response), err
+				return decodePage[gen.ProjectRelease](c.ListProjectReleases(ctx, namespace, &gen.ListProjectReleasesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ProjectRelease) (gen.ObjectMeta, resourceOwner) {
 				var owner resourceOwner
@@ -633,8 +608,7 @@ func releaseFetchers(c client.Interface, selection *releaseSelection) []resource
 		newReleaseFetcher("ComponentRelease",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ComponentRelease], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListComponentReleases(ctx, namespace, &gen.ListComponentReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ComponentRelease])(response), err
+				return decodePage[gen.ComponentRelease](c.ListComponentReleases(ctx, namespace, &gen.ListComponentReleasesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ComponentRelease) (gen.ObjectMeta, resourceOwner) {
 				var owner resourceOwner
@@ -647,8 +621,7 @@ func releaseFetchers(c client.Interface, selection *releaseSelection) []resource
 		newReleaseFetcher("ResourceRelease",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ResourceRelease], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
-				response, err := c.ListResourceReleases(ctx, namespace, &gen.ListResourceReleasesParams{Limit: pageLimit, Cursor: pageCursor})
-				return (*resourcePage[gen.ResourceRelease])(response), err
+				return decodePage[gen.ResourceRelease](c.ListResourceReleases(ctx, namespace, &gen.ListResourceReleasesParams{Limit: pageLimit, Cursor: pageCursor}))
 			},
 			func(item gen.ResourceRelease) (gen.ObjectMeta, resourceOwner) {
 				var owner resourceOwner

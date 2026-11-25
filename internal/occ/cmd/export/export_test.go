@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,6 +99,94 @@ func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
 	assert.Contains(t, string(data), "large: 9007199254740993\n")
 	assert.Contains(t, string(data), "value: 2.5000\n")
 	result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
+	require.NoError(t, err)
+	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
+}
+
+func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
+	// Each path points to a free-form map in the generated model. Schema defaults
+	// exercise maps nested inside otherwise typed parameter schemas as well.
+	fields := map[string][]string{
+		testComponentKind:        {"parameters"},
+		"ReleaseBinding":         {"componentTypeEnvironmentConfigs"},
+		testReleaseLineKind:      {"parameters"},
+		testComponentReleaseKind: {"componentProfile", "parameters"},
+		"ComponentType":          {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"ClusterComponentType":   {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"Trait":                  {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"ClusterTrait":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"Resource":               {"parameters"},
+		"ResourceRelease":        {"parameters"},
+		"ProjectRelease":         {"parameters"},
+		"ResourceType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		"ClusterResourceType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+	}
+	f := newFetchFixture(t, true)
+	f.override = func(req *http.Request) (*http.Response, error) {
+		collection := f.collections[req.URL.Path]
+		field, ok := fields[collection.kind]
+		if !ok {
+			return nil, nil
+		}
+		page := 0
+		pagination := map[string]any{"nextCursor": "next " + req.URL.Path}
+		if req.URL.Query().Get("cursor") != "" {
+			page = 1
+			pagination = map[string]any{}
+		}
+		object := fixtureObject(collection, req.URL.Path, page)
+		spec, ok := object["spec"].(map[string]any)
+		if !ok {
+			spec = make(map[string]any)
+			object["spec"] = spec
+		}
+		if collection.kind == testReleaseLineKind {
+			spec["owner"] = map[string]string{"projectName": "store", "componentName": strings.Split(req.URL.Path, "/")[6]}
+		}
+		container := spec
+		for _, key := range field[:len(field)-1] {
+			child := make(map[string]any)
+			container[key] = child
+			container = child
+		}
+		container[field[len(field)-1]] = map[string]any{
+			"maxBytes": json.Number("9007199254740993"),
+			"decimal":  json.Number("1.234567890123456789"),
+			"ratio":    json.Number("1.0"),
+			"nested":   []any{map[string]any{"value": json.Number("2.5000")}},
+		}
+		return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": pagination}), nil
+	}
+	directory := t.TempDir()
+	result, err := Run(context.Background(), f.client, Params{OutputDir: directory, AllReleases: true})
+	require.NoError(t, err)
+	seen := make(map[string]int)
+	for _, file := range result.Files {
+		encoded, err := yaml.YAMLToJSONStrict(file.Data)
+		require.NoError(t, err, file.Path)
+		var identity manifestIdentity
+		require.NoError(t, json.Unmarshal(encoded, &identity), file.Path)
+		if _, ok := fields[identity.Kind]; !ok {
+			continue
+		}
+		seen[identity.Kind]++
+		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(file.Path)))
+		require.NoError(t, err)
+		for _, literal := range []string{
+			"maxBytes: 9007199254740993", "decimal: 1.234567890123456789", "ratio: 1.0", "value: 2.5000",
+		} {
+			assert.Contains(t, string(data), literal+"\n", file.Path)
+		}
+	}
+	for kind := range fields {
+		assert.Positive(t, seen[kind], kind)
+	}
+	for name, collection := range f.collections {
+		if _, ok := fields[collection.kind]; ok {
+			assert.Equal(t, []string{"", "next " + name}, f.calls[name], name)
+		}
+	}
+	result, err = Run(context.Background(), f.client, Params{OutputDir: directory, AllReleases: true})
 	require.NoError(t, err)
 	assert.Equal(t, FileCounts{Unchanged: len(result.Files)}, result.Counts)
 }

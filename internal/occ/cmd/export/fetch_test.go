@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
@@ -389,8 +388,13 @@ func TestFetch_TransportError(t *testing.T) {
 func TestFetch_MalformedResponse(t *testing.T) {
 	for _, tc := range []struct{ name, path, kind, body string }{
 		{"cluster collection", "/api/v1/clustertraits", "ClusterTrait", "{invalid-json"},
+		{"trailing cluster data", "/api/v1/clustertraits", "ClusterTrait", `{"items":[],"pagination":{}} {}`},
+		{"namespace discovery", "/api/v1/namespaces", testNamespaceKind, "{invalid-json"},
 		{"component collection", testComponentsPath, testComponentKind, "{invalid-json"},
 		{"trailing component data", testComponentsPath, testComponentKind, `{"items":[],"pagination":{}} {}`},
+		{"binding collection", "/api/v1/namespaces/acme/releasebindings", "ReleaseBinding", "{invalid-json"},
+		{"trailing release data", "/api/v1/namespaces/acme/componentreleases", testComponentReleaseKind, `{"items":[],"pagination":{}} {}`},
+		{"trailing release line data", "/api/v1/namespaces/acme/components/components-0/releaselines", testReleaseLineKind, `{"items":[],"pagination":{}} {}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFetchFixture(t, false)
@@ -474,11 +478,46 @@ func TestFetch_InvalidIdentity(t *testing.T) {
 }
 
 func TestFetch_NilListResponse(t *testing.T) {
-	c := mocks.NewMockInterface(t)
-	c.EXPECT().ListClusterProjectTypes(mock.Anything, mock.Anything).Return(nil, nil)
-	resources, err := fetchAllTestResources(context.Background(), c)
+	resources, err := fetchAll(context.Background(), "ClusterProjectType", "", func(int, string) (*resourcePage[gen.ClusterProjectType], error) {
+		return nil, nil
+	})
 	require.ErrorContains(t, err, "nil list response")
 	assert.Nil(t, resources)
+}
+
+func TestFetch_RequiresGeneratedClientAccess(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		api  client.Interface
+		want string
+	}{
+		{"missing accessor", mocks.NewMockInterface(t), "API client does not expose the generated client"},
+		{"nil generated client", exportClientWithMissingGeneratedClient{}, "generated API client is missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resources, err := fetchAllTestResources(context.Background(), tc.api)
+			require.ErrorContains(t, err, tc.want)
+			assert.Nil(t, resources)
+		})
+	}
+}
+
+func TestDecodePage_InvalidResponses(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		response *http.Response
+		want     string
+	}{
+		{"nil response", nil, "nil list response"},
+		{"nil body", &http.Response{StatusCode: http.StatusOK}, "nil list response or body"},
+		{"plain error", &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("unavailable"))}, "HTTP 502"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			page, err := decodePage[gen.ReleaseBinding](tc.response, nil)
+			require.ErrorContains(t, err, tc.want)
+			assert.Nil(t, page)
+		})
+	}
 }
 
 func TestFetch_NilClient(t *testing.T) {
