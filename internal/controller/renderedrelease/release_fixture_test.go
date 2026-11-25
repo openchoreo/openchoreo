@@ -66,6 +66,7 @@ func (f *releaseFixture) pass() (reconcile.Result, error) {
 	result, err := f.r.Reconcile(ctx, reconcile.Request{NamespacedName: f.key()})
 	f.sent = f.proxy.requests()[seen:]
 	Expect(deleteViolations(f.sent)).To(BeEmpty())
+	Expect(giveBackViolations(f.sent)).To(BeEmpty())
 	release := &openchoreov1alpha1.RenderedRelease{}
 	if getErr := k8sClient.Get(ctx, f.key(), release); getErr == nil {
 		Expect(applyViolations(release, f.sent)).To(BeEmpty())

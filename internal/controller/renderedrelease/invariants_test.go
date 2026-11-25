@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,6 +90,57 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*pl
 	}
 	return violations
 }
+
+// giveBackViolations returns the requests that erase or add the marks of a claimed object
+// and change anything else of it.
+func giveBackViolations(requests []*planeRequest) []string {
+	var violations []string
+	for _, r := range requests {
+		marks := r.contentType == string(types.JSONPatchType) || strings.Contains(r.query, "fieldManager=renderedrelease-takeover")
+		if !marks || r.status != http.StatusOK || r.before == nil || r.after == nil {
+			continue
+		}
+		if diff := cmp.Diff(withoutMarks(r.before), withoutMarks(r.after)); diff != "" {
+			violations = append(violations, fmt.Sprintf("%s %s changes more than the marks: %s", r.method, r.path, diff))
+		}
+	}
+	return violations
+}
+
+// withoutMarks returns the object without what a release and a claim leave on it: the
+// entries of the two field managers, the tracking labels and the claimed label.
+func withoutMarks(obj *unstructured.Unstructured) map[string]any {
+	obj = obj.DeepCopy()
+	obj.SetResourceVersion("")
+	var entries []metav1.ManagedFieldsEntry
+	for _, entry := range obj.GetManagedFields() {
+		if entry.Operation != metav1.ManagedFieldsOperationApply ||
+			entry.Manager != ControllerName && entry.Manager != "renderedrelease-takeover" {
+			entries = append(entries, entry)
+		}
+	}
+	obj.SetManagedFields(entries)
+	kept := map[string]string{}
+	for key, value := range obj.GetLabels() {
+		if !markLabels.Has(key) {
+			kept[key] = value
+		}
+	}
+	obj.SetLabels(kept)
+	if len(kept) == 0 {
+		unstructured.RemoveNestedField(obj.Object, "metadata", "labels")
+	}
+	return obj.Object
+}
+
+var markLabels = sets.New(
+	"openchoreo.dev/managed-by",
+	"openchoreo.dev/rendered-release-resource-id",
+	"openchoreo.dev/rendered-release-uid",
+	"openchoreo.dev/rendered-release-name",
+	"openchoreo.dev/rendered-release-namespace",
+	"openchoreo.dev/claimed",
+)
 
 // hasMarksOf reports whether a release applied the object, by its labels and its entry.
 func hasMarksOf(obj *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) bool {
@@ -240,5 +292,49 @@ var _ = Describe("the rules for applies", func() {
 		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
 		applyAs("mine")
 		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("written by a pass that refuses")))
+	})
+})
+
+var _ = Describe("the rules for marks", func() {
+	var (
+		proxy *planeProxy
+		plane client.Client
+		obj   *unstructured.Unstructured
+	)
+	BeforeEach(func() {
+		proxy = newPlaneProxy()
+		plane = proxy.client()
+		obj = unstructuredObj("v1", "ConfigMap", testNs, "mark-rules")
+		obj.SetLabels(map[string]string{labels.LabelKeyManagedBy: ControllerName, "app": "api"})
+		obj.Object["data"] = map[string]any{"k": "v"}
+		Expect(plane.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName))).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, unstructuredObj("v1", "ConfigMap", testNs, "mark-rules")) })
+	})
+	patch := func(ops string) {
+		GinkgoHelper()
+		Expect(plane.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, []byte(ops)))).To(Succeed())
+	}
+
+	It("pass a patch that only removes a mark", func() {
+		patch(`[{"op": "remove", "path": "/metadata/labels/openchoreo.dev~1managed-by"}]`)
+		Expect(giveBackViolations(proxy.requests())).To(BeEmpty())
+	})
+
+	It("catch a patch that also removes another label, or changes the data", func() {
+		patch(`[{"op": "remove", "path": "/metadata/labels/app"}]`)
+		patch(`[{"op": "replace", "path": "/data/k", "value": "x"}]`)
+		Expect(giveBackViolations(proxy.requests())).To(HaveLen(2))
+	})
+
+	It("catch a claim that writes more than its label", func() {
+		claim := unstructuredObj("v1", "ConfigMap", testNs, "mark-rules")
+		claim.SetLabels(map[string]string{labels.LabelKeyClaimed: "true"})
+		Expect(plane.Patch(ctx, claim, client.Apply, client.FieldOwner("renderedrelease-takeover"))).To(Succeed())
+		Expect(giveBackViolations(proxy.requests())).To(BeEmpty())
+
+		claim = unstructuredObj("v1", "ConfigMap", testNs, "mark-rules")
+		claim.SetLabels(map[string]string{labels.LabelKeyClaimed: "true", "extra": "label"})
+		Expect(plane.Patch(ctx, claim, client.Apply, client.FieldOwner("renderedrelease-takeover"))).To(Succeed())
+		Expect(giveBackViolations(proxy.requests())).To(HaveLen(1))
 	})
 })

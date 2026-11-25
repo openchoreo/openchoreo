@@ -160,7 +160,10 @@ func makeEnvironment(name, cdpName string) *openchoreov1alpha1.Environment {
 func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler {
 	if dpClient == k8sClient {
 		proxy := newPlaneProxy()
-		DeferCleanup(func() { Expect(deleteViolations(proxy.requests())).To(BeEmpty()) })
+		DeferCleanup(func() {
+			Expect(deleteViolations(proxy.requests())).To(BeEmpty())
+			Expect(giveBackViolations(proxy.requests())).To(BeEmpty())
+		})
 		dpClient = proxy.client()
 	}
 	mockProvider := &k8sMocks.MockPlaneClientProvider{}

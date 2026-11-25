@@ -1,4 +1,25 @@
-# A cluster-scoped custom kind. ProxyClient only knows the scope of built-in kinds.
+# Custom kinds, one of them cluster-scoped. ProxyClient only knows the scope of built-in kinds.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.test.openchoreo.dev
+spec:
+  group: test.openchoreo.dev
+  scope: Namespaced
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          x-kubernetes-preserve-unknown-fields: true
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
