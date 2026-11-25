@@ -1622,7 +1622,8 @@ func TestServer_ForwardViaMesh_EndToEnd(t *testing.T) {
 	require.NoError(t, err)
 
 	waitForCondition(t, "registry convergence on gw-b", func() bool {
-		return registryB.CountForCR("dataplane/prod", "ns/dp1") == 1
+		forCR, _ := registryB.CountForCRAndPlane("dataplane/prod", "ns/dp1")
+		return forCR == 1
 	})
 
 	// Simulate the agent: answer the tunnel request that gw-a writes to the
@@ -1666,7 +1667,7 @@ func TestServer_ForwardViaMesh_EndToEnd(t *testing.T) {
 	// Unregistering on gw-a must converge on gw-b too.
 	serverA.connMgr.DisconnectAllForPlane("dataplane", "prod")
 	waitForCondition(t, "removal convergence on gw-b", func() bool {
-		return registryB.CountForPlane("dataplane/prod") == 0
+		return registryB.SummaryForPlane("dataplane/prod").Count == 0
 	})
 }
 
@@ -1694,7 +1695,8 @@ func TestServer_ForwardViaMesh_ConvergesWhenRegisteredBeforeDial(t *testing.T) {
 
 	discB.ch <- []fabric.Peer{{ID: "gw-a", Addr: addrA}}
 	waitForCondition(t, "gw-b pulls gw-a's initial snapshot", func() bool {
-		return registryB.CountForCR("workflowplane/canary", "ns/wf1") == 1
+		forCR, _ := registryB.CountForCRAndPlane("workflowplane/canary", "ns/wf1")
+		return forCR == 1
 	})
 
 	// Now register the real connection — gw-a doesn't know about gw-b yet,
@@ -1707,7 +1709,8 @@ func TestServer_ForwardViaMesh_ConvergesWhenRegisteredBeforeDial(t *testing.T) {
 	discA.ch <- []fabric.Peer{{ID: "gw-b", Addr: addrB}}
 
 	waitForCondition(t, "registry convergence on gw-b despite pre-dial registration", func() bool {
-		return registryB.CountForCR("dataplane/prod", "ns/dp1") == 1
+		forCR, _ := registryB.CountForCRAndPlane("dataplane/prod", "ns/dp1")
+		return forCR == 1
 	})
 
 	// Convergence must be real, not just a registry entry: a forwarded
@@ -1789,6 +1792,178 @@ func TestServer_PlaneStatusIncludesRemoteAgents(t *testing.T) {
 	all = s.AllPlaneStatuses()
 	require.Len(t, all, 1)
 	assert.Equal(t, 2, all[0].ConnectedAgents)
+}
+
+// A replica that does not own the agent connection must still report its
+// liveness: controllers poll status through the load balancer and record
+// LastSeen as the plane's heartbeat. Local and remote LastSeen merge to the
+// latest, and a peer that publishes none (an older gateway) adds to the count
+// without hiding a known LastSeen.
+func TestServer_StatusMergesRemoteLastSeen(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme()).Build()
+	s := New(&Config{}, fakeClient, testLogger())
+
+	registry := fabric.NewRegistry(testLogger())
+	disc := &staticPeerDiscovery{ch: make(chan []fabric.Peer, 1)}
+	mesh := fabric.NewMesh(fabric.MeshConfig{Self: fabric.Peer{ID: "gw-self"}}, registry, disc, s, testLogger())
+	s.SetFabric(mesh, registry)
+
+	peerSeen := time.Now().Add(-10 * time.Second).Round(0)
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-peer", Seq: 1,
+		Entry: fabric.AgentEntry{
+			PlaneIdentifier: "dataplane/prod", ConnID: "c1", ValidCRs: []string{"ns/dp1"}, LastSeen: peerSeen,
+		},
+	}))
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-old", Seq: 1,
+		Entry: fabric.AgentEntry{PlaneIdentifier: "dataplane/prod", ConnID: "c2", ValidCRs: []string{"ns/dp1"}},
+	}))
+
+	// No local connection: LastSeen comes from the peer that published one.
+	status := s.PlaneStatus("dataplane", "prod")
+	assert.Equal(t, 2, status.ConnectedAgents)
+	assert.True(t, status.LastSeen.Equal(peerSeen), "got %v", status.LastSeen)
+	crStatus := s.CRAuthorizationStatus("dataplane", "prod", "ns", "dp1")
+	assert.Equal(t, 2, crStatus.ConnectedAgents)
+	assert.Equal(t, 2, crStatus.PlaneConnectedAgents)
+	assert.True(t, crStatus.LastSeen.Equal(peerSeen), "got %v", crStatus.LastSeen)
+	all := s.AllPlaneStatuses()
+	require.Len(t, all, 1)
+	assert.True(t, all[0].Connected)
+	assert.True(t, all[0].LastSeen.Equal(peerSeen), "got %v", all[0].LastSeen)
+
+	// A local connection registered now is the latest.
+	_, err := s.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+	localSeen := s.connMgr.GetPlaneStatus("dataplane", "prod").LastSeen
+	require.True(t, localSeen.After(peerSeen))
+	assert.True(t, s.PlaneStatus("dataplane", "prod").LastSeen.Equal(localSeen))
+	assert.True(t, s.CRAuthorizationStatus("dataplane", "prod", "ns", "dp1").LastSeen.Equal(localSeen))
+	assert.True(t, s.AllPlaneStatuses()[0].LastSeen.Equal(localSeen))
+
+	// A peer that heard from its agent after the local one did wins.
+	newer := localSeen.Add(time.Minute)
+	require.True(t, registry.ApplyDelta(fabric.Delta{
+		Op: fabric.DeltaOpAdd, Owner: "gw-peer", Seq: 2,
+		Entry: fabric.AgentEntry{
+			PlaneIdentifier: "dataplane/prod", ConnID: "c1", ValidCRs: []string{"ns/dp1"}, LastSeen: newer,
+		},
+	}))
+	assert.True(t, s.PlaneStatus("dataplane", "prod").LastSeen.Equal(newer))
+	assert.Equal(t, 3, s.PlaneStatus("dataplane", "prod").ConnectedAgents)
+}
+
+// The reported bug, end to end: the agent is connected to gw-a and the status
+// request lands on gw-b. gw-b must answer with the agent's LastSeen, not zero.
+func TestServer_PlaneStatusLastSeenOnNonOwnerReplica(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	serverA, _, discA, addrA := newFabricServer(t, ctx, "gw-a")
+	serverB, registryB, discB, addrB := newFabricServer(t, ctx, "gw-b")
+
+	discA.ch <- []fabric.Peer{{ID: "gw-b", Addr: addrB}}
+	discB.ch <- []fabric.Peer{{ID: "gw-a", Addr: addrA}}
+
+	before := time.Now()
+	_, err := serverA.connMgr.Register("dataplane", "prod", &mockGatewayConn{}, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+
+	waitForCondition(t, "registry convergence on gw-b", func() bool {
+		forCR, _ := registryB.CountForCRAndPlane("dataplane/prod", "ns/dp1")
+		return forCR == 1
+	})
+
+	status := serverB.PlaneStatus("dataplane", "prod")
+	assert.True(t, status.Connected)
+	assert.False(t, status.LastSeen.Before(before.Round(0)), "non-owner LastSeen %v predates registration", status.LastSeen)
+	crStatus := serverB.CRAuthorizationStatus("dataplane", "prod", "ns", "dp1")
+	assert.True(t, crStatus.Connected)
+	assert.False(t, crStatus.LastSeen.IsZero())
+}
+
+// pongGatewayConn hands the pong handler handleConnection installs to the test
+// and keeps the connection open until Close.
+type pongGatewayConn struct {
+	mockGatewayConn
+	pongHandler chan func(string) error
+	closed      chan struct{}
+	closeOnce   sync.Once
+}
+
+func newPongGatewayConn() *pongGatewayConn {
+	return &pongGatewayConn{
+		pongHandler: make(chan func(string) error, 1),
+		closed:      make(chan struct{}),
+	}
+}
+
+func (c *pongGatewayConn) ReadMessage() (int, []byte, error) {
+	<-c.closed
+	return 0, nil, errors.New("connection closed")
+}
+
+func (c *pongGatewayConn) SetPongHandler(h func(string) error) { c.pongHandler <- h }
+
+func (c *pongGatewayConn) Close() error {
+	c.closeOnce.Do(func() { close(c.closed) })
+	return nil
+}
+
+// Registration publishes LastSeen once. After that the agent's pongs are the
+// only thing that moves it on peers, so the pong handler has to republish: a
+// non-owner replica would otherwise report the registration time forever.
+func TestServer_PongRefreshesLastSeenOnNonOwnerReplica(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	serverA, _, discA, addrA := newFabricServer(t, ctx, "gw-a")
+	serverB, _, discB, addrB := newFabricServer(t, ctx, "gw-b")
+
+	discA.ch <- []fabric.Peer{{ID: "gw-b", Addr: addrB}}
+	discB.ch <- []fabric.Peer{{ID: "gw-a", Addr: addrA}}
+
+	conn := newPongGatewayConn()
+	connID, err := serverA.connMgr.Register("dataplane", "prod", conn, []string{"ns/dp1"}, nil, nil)
+	require.NoError(t, err)
+
+	handlerDone := make(chan struct{})
+	go func() {
+		defer close(handlerDone)
+		serverA.handleConnection("dataplane/prod", connID, conn)
+	}()
+	t.Cleanup(func() {
+		_ = conn.Close()
+		<-handlerDone
+	})
+	pong := <-conn.pongHandler
+
+	// Age the published entry past the publish throttle, as if the agent
+	// registered a minute ago, so the pong below is due a refresh.
+	stale := time.Now().Add(-time.Minute).Round(0)
+	serverA.fabricMesh.LocalUpsert(fabric.AgentEntry{
+		PlaneIdentifier: "dataplane/prod",
+		ConnID:          connID,
+		ValidCRs:        []string{"ns/dp1"},
+		LastSeen:        stale,
+	})
+	waitForCondition(t, "aged entry on gw-b", func() bool {
+		return serverB.PlaneStatus("dataplane", "prod").LastSeen.Equal(stale)
+	})
+
+	before := time.Now().Round(0)
+	require.NoError(t, pong(""))
+
+	waitForCondition(t, "pong refresh on gw-b", func() bool {
+		return !serverB.PlaneStatus("dataplane", "prod").LastSeen.Before(before)
+	})
+	crStatus := serverB.CRAuthorizationStatus("dataplane", "prod", "ns", "dp1")
+	assert.True(t, crStatus.Connected)
+	assert.False(t, crStatus.LastSeen.Before(before), "CR LastSeen %v predates the pong", crStatus.LastSeen)
+	all := serverB.AllPlaneStatuses()
+	require.Len(t, all, 1)
+	assert.False(t, all[0].LastSeen.Before(before), "listed LastSeen %v predates the pong", all[0].LastSeen)
 }
 
 // With no remote candidates the caller gets the original routing error, so

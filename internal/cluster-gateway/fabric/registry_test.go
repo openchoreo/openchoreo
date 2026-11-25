@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+	"time"
 )
 
 func testLogger() *slog.Logger {
@@ -147,11 +148,12 @@ func TestRegistry_DrainingExcludedFromLookupButCounted(t *testing.T) {
 	if got := r.Lookup("dataplane/dp-a", ""); len(got) != 0 {
 		t.Fatalf("expected draining owner excluded from lookup, got %+v", got)
 	}
-	if got := r.CountForPlane("dataplane/dp-a"); got != 1 {
-		t.Fatalf("expected draining owner still counted for status, got %d", got)
+	forCR, forPlane := r.CountForCRAndPlane("dataplane/dp-a", "ns/cr-1")
+	if forPlane != 1 {
+		t.Fatalf("expected draining owner still counted for status, got %d", forPlane)
 	}
-	if got := r.CountForCR("dataplane/dp-a", "ns/cr-1"); got != 1 {
-		t.Fatalf("expected draining owner still counted for CR status, got %d", got)
+	if forCR != 1 {
+		t.Fatalf("expected draining owner still counted for CR status, got %d", forCR)
 	}
 }
 
@@ -173,7 +175,7 @@ func TestRegistry_LookupRotates(t *testing.T) {
 	}
 }
 
-func TestRegistry_AllPlaneCounts(t *testing.T) {
+func TestRegistry_AllPlaneSummaries(t *testing.T) {
 	r := NewRegistry(testLogger())
 	if !r.ApplyDelta(addDelta("gw-1", 1, "dataplane/dp-a", "conn-1")) {
 		t.Fatal("setup delta failed")
@@ -185,9 +187,9 @@ func TestRegistry_AllPlaneCounts(t *testing.T) {
 		t.Fatal("setup delta failed")
 	}
 
-	counts := r.AllPlaneCounts()
-	if counts["dataplane/dp-a"] != 2 || counts["workflowplane/wp-1"] != 1 {
-		t.Fatalf("unexpected plane counts: %+v", counts)
+	sums := r.AllPlaneSummaries()
+	if len(sums) != 2 || sums["dataplane/dp-a"].Count != 2 || sums["workflowplane/wp-1"].Count != 1 {
+		t.Fatalf("unexpected plane summaries: %+v", sums)
 	}
 }
 
@@ -336,4 +338,60 @@ func TestRegistry_CountForCRAndPlaneIsOneView(t *testing.T) {
 	}
 	close(stop)
 	wg.Wait()
+}
+
+// Peers serve plane status from the registry, so each summary must carry the
+// most recent LastSeen among the matching connections. An owner that predates
+// published LastSeen sends none: it adds to the count without pulling LastSeen
+// back to zero.
+func TestRegistry_SummariesReportLatestLastSeen(t *testing.T) {
+	r := NewRegistry(testLogger())
+	base := time.Date(2026, 11, 25, 6, 0, 0, 0, time.UTC)
+
+	withSeen := func(d Delta, seen time.Time) Delta {
+		d.Entry.LastSeen = seen
+		return d
+	}
+	for _, d := range []Delta{
+		withSeen(addDelta("gw-1", 1, "dataplane/dp-a", "conn-1", "ns/cr-1"), base),
+		withSeen(addDelta("gw-2", 1, "dataplane/dp-a", "conn-2"), base.Add(30*time.Second)),
+		addDelta("gw-old", 1, "dataplane/dp-a", "conn-3", "ns/cr-1"), // no LastSeen
+		withSeen(addDelta("gw-1", 2, "workflowplane/wp-1", "conn-4"), base.Add(time.Minute)),
+	} {
+		if !r.ApplyDelta(d) {
+			t.Fatalf("setup delta failed: %+v", d)
+		}
+	}
+	// A draining owner's agents are still connected; their liveness counts.
+	r.SetDraining("gw-2")
+
+	plane := r.SummaryForPlane("dataplane/dp-a")
+	if plane.Count != 3 || !plane.LastSeen.Equal(base.Add(30*time.Second)) {
+		t.Fatalf("unexpected plane summary: %+v", plane)
+	}
+
+	forCR, forPlane := r.SummaryForCRAndPlane("dataplane/dp-a", "ns/cr-1")
+	if forCR.Count != 2 || !forCR.LastSeen.Equal(base) {
+		t.Fatalf("CR summary must only cover connections authorized for the CR, got %+v", forCR)
+	}
+	if forPlane != plane {
+		t.Fatalf("plane half of the CR summary differs from the plane summary: %+v vs %+v", forPlane, plane)
+	}
+
+	all := r.AllPlaneSummaries()
+	if all["dataplane/dp-a"] != plane || all["workflowplane/wp-1"].Count != 1 ||
+		!all["workflowplane/wp-1"].LastSeen.Equal(base.Add(time.Minute)) {
+		t.Fatalf("unexpected per-plane summaries: %+v", all)
+	}
+
+	if unknown := r.SummaryForPlane("dataplane/none"); unknown.Count != 0 || !unknown.LastSeen.IsZero() {
+		t.Fatalf("expected empty summary for an unknown plane, got %+v", unknown)
+	}
+
+	// Only owners that never report LastSeen: connected, liveness unknown.
+	r.PurgeOwner("gw-1")
+	r.PurgeOwner("gw-2")
+	if got := r.SummaryForPlane("dataplane/dp-a"); got.Count != 1 || !got.LastSeen.IsZero() {
+		t.Fatalf("expected one connection with unknown LastSeen, got %+v", got)
+	}
 }

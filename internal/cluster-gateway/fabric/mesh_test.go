@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -157,12 +158,12 @@ func TestMesh_TwoNodeConvergenceAndForwarding(t *testing.T) {
 	// Live delta convergence after bootstrap.
 	a.mesh.LocalUpsert(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "conn-2"})
 	waitFor(t, "delta add on gw-b", func() bool {
-		return b.registry.CountForPlane("dataplane/dp-1") == 2
+		return b.registry.SummaryForPlane("dataplane/dp-1").Count == 2
 	})
 
 	a.mesh.LocalRemove("dataplane/dp-1", "conn-2")
 	waitFor(t, "delta remove on gw-b", func() bool {
-		return b.registry.CountForPlane("dataplane/dp-1") == 1
+		return b.registry.SummaryForPlane("dataplane/dp-1").Count == 1
 	})
 
 	// Worst case is one hop: gw-b forwards to gw-a, which answers as if it
@@ -193,7 +194,7 @@ func TestMesh_TwoNodeConvergenceAndForwarding(t *testing.T) {
 	waitFor(t, "draining visible on gw-b", func() bool {
 		return len(b.registry.Lookup("dataplane/dp-1", "")) == 0
 	})
-	if got := b.registry.CountForPlane("dataplane/dp-1"); got != 1 {
+	if got := b.registry.SummaryForPlane("dataplane/dp-1").Count; got != 1 {
 		t.Fatalf("expected draining owner still counted, got %d", got)
 	}
 }
@@ -260,12 +261,12 @@ func TestMesh_PeerRemovalPurgesRegistry(t *testing.T) {
 	b.disc.ch <- []Peer{{ID: "gw-a", Addr: a.addr}}
 
 	waitFor(t, "entry replicated to gw-b", func() bool {
-		return b.registry.CountForPlane("dataplane/dp-1") == 1
+		return b.registry.SummaryForPlane("dataplane/dp-1").Count == 1
 	})
 
 	b.disc.ch <- []Peer{}
 	waitFor(t, "purge after peer removal", func() bool {
-		return b.registry.CountForPlane("dataplane/dp-1") == 0
+		return b.registry.SummaryForPlane("dataplane/dp-1").Count == 0
 	})
 }
 
@@ -1447,4 +1448,131 @@ func TestMesh_ForwardAbandonedWhenTheCallerGivesUp(t *testing.T) {
 	if left != 0 {
 		t.Fatalf("abandoned forward left %d pending entries behind", left)
 	}
+}
+
+// drainDeltas returns the delta frames queued on an unstarted mesh's outbox.
+func drainDeltas(m *Mesh) []*Delta {
+	var out []*Delta
+	for {
+		select {
+		case f := <-m.outbox:
+			if f.Type == frameDelta {
+				out = append(out, f.Delta)
+			}
+		default:
+			return out
+		}
+	}
+}
+
+// The owner publishes LastSeen on pong, at most once per
+// lastSeenPublishInterval per connection, and never loses it when the entry is
+// republished for another reason.
+func TestMesh_LocalTouchThrottlesAndPreservesLastSeen(t *testing.T) {
+	m := NewMesh(MeshConfig{Self: Peer{ID: "gw-self"}}, NewRegistry(testLogger()),
+		&staticDiscovery{ch: make(chan []Peer, 1)}, nil, testLogger())
+	t0 := time.Date(2026, 11, 25, 6, 0, 0, 0, time.UTC)
+
+	m.LocalUpsert(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "conn-1", LastSeen: t0})
+	if got := drainDeltas(m); len(got) != 1 || !got[0].Entry.LastSeen.Equal(t0) {
+		t.Fatalf("registration must publish its LastSeen, got %+v", got)
+	}
+
+	m.LocalTouch("conn-1", t0.Add(lastSeenPublishInterval-time.Second))
+	if got := drainDeltas(m); len(got) != 0 {
+		t.Fatalf("touch inside the publish interval must not publish, got %+v", got)
+	}
+
+	t1 := t0.Add(lastSeenPublishInterval)
+	m.LocalTouch("conn-1", t1)
+	got := drainDeltas(m)
+	if len(got) != 1 || got[0].Op != DeltaOpAdd || got[0].Seq != 2 || !got[0].Entry.LastSeen.Equal(t1) {
+		t.Fatalf("touch after the publish interval must publish an upsert, got %+v", got)
+	}
+
+	// A CR authorization change republishes the entry without a LastSeen of
+	// its own: the published one must carry over, not reset to zero.
+	m.LocalUpsert(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "conn-1", ValidCRs: []string{"ns/cr-1"}})
+	got = drainDeltas(m)
+	if len(got) != 1 || !got[0].Entry.LastSeen.Equal(t1) {
+		t.Fatalf("CR change must keep the published LastSeen, got %+v", got)
+	}
+	if snap := m.localSnapshot(); len(snap.Entries) != 1 || !snap.Entries[0].LastSeen.Equal(t1) {
+		t.Fatalf("snapshot must carry LastSeen to joining peers, got %+v", snap)
+	}
+
+	// Unknown and removed connections are ignored.
+	m.LocalTouch("conn-unknown", t1.Add(time.Hour))
+	m.LocalRemove("dataplane/dp-1", "conn-1")
+	m.LocalTouch("conn-1", t1.Add(time.Hour))
+	got = drainDeltas(m)
+	if len(got) != 1 || got[0].Op != DeltaOpRemove {
+		t.Fatalf("expected only the remove delta, got %+v", got)
+	}
+}
+
+// legacyAgentEntry is AgentEntry as gateways before published LastSeen define it.
+type legacyAgentEntry struct {
+	PlaneIdentifier string   `json:"planeIdentifier"`
+	ConnID          string   `json:"connID"`
+	ValidCRs        []string `json:"validCRs,omitempty"`
+}
+
+// During a rolling upgrade old and new replicas share the mesh. Each must
+// decode the other's entries, and an entry without LastSeen must read as
+// "unknown" (zero) rather than fail.
+func TestAgentEntry_LastSeenWireCompat(t *testing.T) {
+	seen := time.Date(2026, 11, 25, 6, 0, 0, 0, time.UTC)
+
+	newer, err := json.Marshal(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "c1", LastSeen: seen})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var asLegacy legacyAgentEntry
+	if err := json.Unmarshal(newer, &asLegacy); err != nil || asLegacy.ConnID != "c1" {
+		t.Fatalf("legacy replica cannot decode a new entry: %v %+v", err, asLegacy)
+	}
+
+	legacy, err := json.Marshal(legacyAgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "c1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fromLegacy AgentEntry
+	if err := json.Unmarshal(legacy, &fromLegacy); err != nil || fromLegacy.ConnID != "c1" || !fromLegacy.LastSeen.IsZero() {
+		t.Fatalf("new replica cannot decode a legacy entry: %v %+v", err, fromLegacy)
+	}
+
+	unknown, err := json.Marshal(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "c1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(unknown), "lastSeen") {
+		t.Fatalf("an unknown LastSeen must be left off the wire, got %s", unknown)
+	}
+}
+
+// End-to-end over loopback: a LastSeen refresh on the owner reaches the peer's
+// registry, which is what a peer answers plane status from.
+func TestMesh_LastSeenPropagatesToPeers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	a := startMeshNode(t, ctx, "gw-a")
+	b := startMeshNode(t, ctx, "gw-b")
+
+	t0 := time.Now().Add(-time.Minute).Round(0)
+	a.mesh.LocalUpsert(AgentEntry{PlaneIdentifier: "dataplane/dp-1", ConnID: "conn-1", LastSeen: t0})
+
+	a.disc.ch <- []Peer{{ID: "gw-b", Addr: b.addr}}
+	b.disc.ch <- []Peer{{ID: "gw-a", Addr: a.addr}}
+
+	waitFor(t, "snapshot carries LastSeen to gw-b", func() bool {
+		return b.registry.SummaryForPlane("dataplane/dp-1").LastSeen.Equal(t0)
+	})
+
+	t1 := t0.Add(lastSeenPublishInterval)
+	a.mesh.LocalTouch("conn-1", t1)
+	waitFor(t, "LastSeen refresh on gw-b", func() bool {
+		return b.registry.SummaryForPlane("dataplane/dp-1").LastSeen.Equal(t1)
+	})
 }

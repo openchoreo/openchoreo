@@ -143,6 +143,9 @@ func (s *Server) OnAgentRegistered(planeIdentifier, connID string, validCRs []st
 		PlaneIdentifier: planeIdentifier,
 		ConnID:          connID,
 		ValidCRs:        validCRs,
+		// The agent just completed its handshake: that is the first time
+		// this pod heard from it.
+		LastSeen: time.Now(),
 	})
 }
 
@@ -1163,6 +1166,13 @@ func (s *Server) handleConnection(planeName, connID string, conn Connection) {
 			s.logger.Warn("failed to set read deadline", "plane", planeName, "error", err)
 		}
 		s.connMgr.UpdateConnectionLastSeen(planeName, connID)
+		// Peer replicas answer plane status requests too, so they need this
+		// connection's liveness. Publishing on pong (throttled by the mesh)
+		// rather than on every message keeps the mesh traffic proportional to
+		// connections, not to request volume.
+		if s.fabricMesh != nil {
+			s.fabricMesh.LocalTouch(connID, time.Now())
+		}
 		return nil
 	})
 
@@ -2118,63 +2128,75 @@ func (s *Server) fetchCRClientCA(ctx context.Context, planeType, planeID, namesp
 }
 
 // PlaneStatus returns the fleet-wide connection status for a plane: local
-// connections plus registry entries owned by peer replicas. LastSeen reflects
-// only locally-owned connections (liveness is tracked by the owning pod).
+// connections plus registry entries owned by peer replicas. LastSeen is the
+// latest of the local connections' LastSeen and the LastSeen their owners last
+// published for remote ones, which trails the owner's own view by up to one
+// publish interval plus one heartbeat (see fabric.AgentEntry). It is zero when
+// no connection's liveness is known here, e.g. every agent is on a peer that
+// predates published LastSeen.
 func (s *Server) PlaneStatus(planeType, planeID string) *PlaneConnectionStatus {
 	status := s.connMgr.GetPlaneStatus(planeType, planeID)
 	if s.fabricRegistry != nil {
-		if remote := s.fabricRegistry.CountForPlane(planeType + "/" + planeID); remote > 0 {
-			status.ConnectedAgents += remote
-			status.Connected = true
-		}
+		mergeRemoteSummary(status, s.fabricRegistry.SummaryForPlane(planeType+"/"+planeID))
 	}
 	return status
 }
 
 // CRAuthorizationStatus returns the fleet-wide authorization status for a
-// specific CR within a plane.
+// specific CR within a plane. LastSeen is merged as in PlaneStatus, over the
+// connections authorized for the CR.
 func (s *Server) CRAuthorizationStatus(planeType, planeID, namespace, name string) *PlaneConnectionStatus {
 	status := s.connMgr.GetCRAuthorizationStatus(planeType, planeID, namespace, name)
 	// The plane-wide count lets a caller tell "no agent connected" apart from
 	// "agents connected, none authorized for this CR".
-	status.PlaneConnectedAgents = s.PlaneStatus(planeType, planeID).ConnectedAgents
+	status.PlaneConnectedAgents = s.connMgr.GetPlaneStatus(planeType, planeID).ConnectedAgents
 	if s.fabricRegistry != nil {
 		crKey := fmt.Sprintf("%s/%s", namespace, name)
-		if remote := s.fabricRegistry.CountForCR(planeType+"/"+planeID, crKey); remote > 0 {
-			status.ConnectedAgents += remote
-			status.Connected = true
-		}
+		forCR, forPlane := s.fabricRegistry.SummaryForCRAndPlane(planeType+"/"+planeID, crKey)
+		status.PlaneConnectedAgents += forPlane.Count
+		mergeRemoteSummary(status, forCR)
 	}
 	return status
 }
 
-// AllPlaneStatuses returns the fleet-wide connection status for all planes.
+// mergeRemoteSummary folds remote connections from the fabric registry into a
+// locally computed status. A remote LastSeen only moves LastSeen forward, so a
+// peer that predates published LastSeen (zero) leaves the local value alone.
+func mergeRemoteSummary(status *PlaneConnectionStatus, remote fabric.RemoteSummary) {
+	if remote.Count == 0 {
+		return
+	}
+	status.ConnectedAgents += remote.Count
+	status.Connected = true
+	if remote.LastSeen.After(status.LastSeen) {
+		status.LastSeen = remote.LastSeen
+	}
+}
+
+// AllPlaneStatuses returns the fleet-wide connection status for all planes,
+// with LastSeen merged as in PlaneStatus.
 func (s *Server) AllPlaneStatuses() []PlaneConnectionStatus {
 	statuses := s.connMgr.GetAllPlaneStatuses()
 	if s.fabricRegistry == nil {
 		return statuses
 	}
 
-	remote := s.fabricRegistry.AllPlaneCounts()
+	remote := s.fabricRegistry.AllPlaneSummaries()
 	for i := range statuses {
 		key := statuses[i].PlaneType + "/" + statuses[i].PlaneID
-		if count, ok := remote[key]; ok {
-			statuses[i].ConnectedAgents += count
-			statuses[i].Connected = true
+		if sum, ok := remote[key]; ok {
+			mergeRemoteSummary(&statuses[i], sum)
 			delete(remote, key)
 		}
 	}
-	for key, count := range remote {
+	for key, sum := range remote {
 		parts := splitPlaneIdentifier(key)
 		if len(parts) != 2 {
 			continue
 		}
-		statuses = append(statuses, PlaneConnectionStatus{
-			PlaneType:       parts[0],
-			PlaneID:         parts[1],
-			Connected:       true,
-			ConnectedAgents: count,
-		})
+		status := PlaneConnectionStatus{PlaneType: parts[0], PlaneID: parts[1]}
+		mergeRemoteSummary(&status, sum)
+		statuses = append(statuses, status)
 	}
 	return statuses
 }

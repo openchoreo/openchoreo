@@ -44,6 +44,14 @@ const (
 	meshPongTimeout    = 90 * time.Second
 	meshMaxDialBackoff = 15 * time.Second
 	meshOutboxSize     = 1024
+
+	// lastSeenPublishInterval is the least time between two LastSeen
+	// refreshes this pod publishes for one of its agent connections. Peers
+	// serve plane status from the published value, so it bounds how far their
+	// LastSeen trails this pod's. Refreshes ride the agent's pong, so at the
+	// default 30s heartbeat every pong publishes; a shorter heartbeat is held
+	// to this rate to keep mesh delta traffic proportional to connections.
+	lastSeenPublishInterval = 15 * time.Second
 )
 
 // ErrNoLink reports that no established mesh link exists for the owner pod.
@@ -363,14 +371,45 @@ func (m *Mesh) buildTLSConfigs() (*tls.Config, error) {
 // --- local registry state (this pod as owner) ---
 
 // LocalUpsert records an agent connection owned by this pod (new connection
-// or changed CR authorizations) and broadcasts the delta.
+// or changed CR authorizations) and broadcasts the delta. A zero LastSeen
+// keeps the value already recorded for the connection, so a CR change does not
+// erase the liveness peers know about.
 func (m *Mesh) LocalUpsert(e AgentEntry) {
 	m.localMu.Lock()
+	if e.LastSeen.IsZero() {
+		e.LastSeen = m.localEntries[e.ConnID].LastSeen
+	}
+	m.publishLocked(e)
+	m.localMu.Unlock()
+}
+
+// LocalTouch records that this pod heard from one of its agent connections at
+// seen. It republishes the connection's entry, so peers can report its
+// liveness, only when the published LastSeen is at least
+// lastSeenPublishInterval older than seen; other calls are no-ops. Unknown
+// (already removed) connections are ignored.
+func (m *Mesh) LocalTouch(connID string, seen time.Time) {
+	m.localMu.Lock()
+	defer m.localMu.Unlock()
+
+	e, ok := m.localEntries[connID]
+	if !ok || seen.Sub(e.LastSeen) < lastSeenPublishInterval {
+		return
+	}
+	e.LastSeen = seen
+	m.publishLocked(e)
+}
+
+// publishLocked stores a local entry and broadcasts it as an add delta.
+// Called with localMu held.
+func (m *Mesh) publishLocked(e AgentEntry) {
+	// Wall clock only: the value crosses pods, where a monotonic reading
+	// means nothing, and equality checks on entries should not depend on it.
+	e.LastSeen = e.LastSeen.Round(0)
 	m.localSeq++
 	m.localEntries[e.ConnID] = e
 	d := &Delta{Op: DeltaOpAdd, Owner: m.cfg.Self.ID, Seq: m.localSeq, Entry: e}
 	m.enqueueLocked(&meshFrame{Type: frameDelta, Delta: d})
-	m.localMu.Unlock()
 }
 
 // LocalRemove records the removal of an agent connection owned by this pod

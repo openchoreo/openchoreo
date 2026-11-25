@@ -353,7 +353,7 @@ func (r *Reconciler) populateAgentConnectionStatus(ctx context.Context, workflow
 	workflowPlane.Status.AgentConnection.ConnectedAgents = status.ConnectedAgents
 
 	if status.Connected {
-		workflowPlane.Status.AgentConnection.LastHeartbeatTime = &metav1.Time{Time: status.LastSeen}
+		controller.RecordAgentHeartbeat(workflowPlane.Status.AgentConnection, status.LastSeen)
 
 		// Only update LastConnectedTime on transition from disconnected to connected
 		if !previouslyConnected {

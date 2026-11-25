@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -75,6 +76,49 @@ func TestPopulateAgentConnectionStatus_RenotifiesOnMissingGrant(t *testing.T) {
 			}
 			if cop.Status.AgentConnection.Connected != tt.status.Connected {
 				t.Errorf("expected Connected=%v", tt.status.Connected)
+			}
+		})
+	}
+}
+
+// A status request can land on a gateway replica that does not own the agent's
+// connection and reports it connected without a LastSeen. That reading must
+// not clear the heartbeat an earlier one recorded.
+func TestPopulateAgentConnectionStatus_LastHeartbeatTime(t *testing.T) {
+	recorded := time.Date(2026, 11, 25, 6, 0, 0, 0, time.UTC)
+	newer := recorded.Add(30 * time.Second)
+
+	tests := []struct {
+		name     string
+		lastSeen time.Time
+		want     time.Time
+	}{
+		{name: "no LastSeen keeps the recorded heartbeat", want: recorded},
+		{name: "newer LastSeen advances the heartbeat", lastSeen: newer, want: newer},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gwClient, _, shutdown := testgateway.StartFakeGateway(http.StatusOK, &gw.PlaneConnectionStatus{
+				Connected:       true,
+				ConnectedAgents: 1,
+				LastSeen:        tt.lastSeen,
+			})
+			defer shutdown()
+
+			r := &Reconciler{GatewayClient: gwClient}
+			plane := &openchoreov1alpha1.ClusterObservabilityPlane{
+				ObjectMeta: metav1.ObjectMeta{Name: "plane-1"},
+			}
+			plane.Status.AgentConnection = &openchoreov1alpha1.AgentConnectionStatus{
+				Connected:         true,
+				LastHeartbeatTime: &metav1.Time{Time: recorded},
+			}
+			if err := r.populateAgentConnectionStatus(context.Background(), plane); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			got := plane.Status.AgentConnection.LastHeartbeatTime
+			if got == nil || !got.Time.Equal(tt.want) {
+				t.Errorf("LastHeartbeatTime = %v, want %v", got, tt.want)
 			}
 		})
 	}
