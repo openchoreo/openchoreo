@@ -94,6 +94,12 @@ const (
 	// does not render.
 	ReasonOverrideUnsupportedByType controller.ConditionReason = "OverrideUnsupportedByType"
 
+	// ReasonOverrideMatchInvalid indicates a spec.backendOverrides match fails
+	// the checks a release's matches pass before it is cut, such as a header
+	// pattern that is not RE2 or the same match as another backend, so the
+	// binding does not render.
+	ReasonOverrideMatchInvalid controller.ConditionReason = "OverrideMatchInvalid"
+
 	// ReasonBackendOverridesApplied indicates every spec.backendOverrides
 	// entry applies to a backend of the pinned release.
 	ReasonBackendOverridesApplied controller.ConditionReason = "BackendOverridesApplied"

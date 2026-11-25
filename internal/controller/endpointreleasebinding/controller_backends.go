@@ -38,6 +38,9 @@ type resolvedBackends struct {
 	// policyTargets are the pods each resolved backend runs on, in spec order,
 	// for the network policies that admit the Endpoint's visibility to them.
 	policyTargets []policyTarget
+
+	// matches is each backend's match in this environment, by backend name.
+	matches map[string]*openchoreov1alpha1.EndpointMatch
 }
 
 // policyTarget is what a backend's network policy selects and opens: the pods
@@ -74,10 +77,13 @@ func (r *Reconciler) resolveBackends(
 	release *openchoreov1alpha1.EndpointRelease,
 	md endpointpipeline.MetadataContext,
 ) (*resolvedBackends, error) {
-	out := &resolvedBackends{}
+	out := &resolvedBackends{matches: map[string]*openchoreov1alpha1.EndpointMatch{}}
 
 	for _, ref := range release.Spec.BackendRefs {
-		weight := effectiveWeight(binding, ref)
+		weight := effectiveWeight(binding, release.Spec.BackendRefs, ref)
+		if m := effectiveMatch(binding, ref); m != nil {
+			out.matches[ref.Name] = m
+		}
 
 		res, err := r.resolveBackend(ctx, binding, ref, md)
 		if err != nil {
@@ -118,8 +124,11 @@ const defaultRuleName = "default"
 
 // buildRules builds the routing rules the type renders as ${rules}, in order:
 //
-//   - one rule per backend with a match, in backendRefs order, sending every
-//     request it matches to that backend alone, whatever the weights;
+//   - one rule per backend with a match, most specific first (an exact path,
+//     then the longer path, then more conditions, then backendRefs order), as
+//     Gateway API ranks them, so every routing API sends a request to the same
+//     backend; each sends every request it matches to that backend alone,
+//     whatever the weights;
 //   - the default rule, splitting every other request across the resolved
 //     backends by their weight in this environment, and copying a share of
 //     them to each mirror backend.
@@ -147,12 +156,12 @@ func buildRules(
 		if !ok {
 			continue
 		}
-		if ref.Match != nil {
+		if m := resolved.matches[ref.Name]; m != nil {
 			matched := b
 			matched.Weight, matched.Percent = 1, 100
 			rules = append(rules, endpointpipeline.Rule{
 				Name:     ref.Name,
-				Matches:  []endpointpipeline.Match{convertMatch(ref.Match)},
+				Matches:  []endpointpipeline.Match{convertMatch(m)},
 				Backends: []endpointpipeline.Backend{matched},
 				Mirrors:  []endpointpipeline.Mirror{},
 			})
@@ -161,6 +170,7 @@ func buildRules(
 			mirrors = append(mirrors, endpointpipeline.Mirror{Backend: b, Percent: m.Percent})
 		}
 	}
+	endpointpipeline.SortBySpecificity(rules)
 	return append(rules, endpointpipeline.Rule{
 		Name:     defaultRuleName,
 		Matches:  []endpointpipeline.Match{},
@@ -199,19 +209,35 @@ func findOverride(binding *openchoreov1alpha1.EndpointReleaseBinding, name strin
 
 // effectiveWeight returns a backend's weight in the binding's environment: the
 // binding's override for it, or the release's weight (1 when unset, the CRD
-// default). A mirror backend only receives copies, so its weight stays 0
-// whatever an override says.
-func effectiveWeight(binding *openchoreov1alpha1.EndpointReleaseBinding, ref openchoreov1alpha1.EndpointBackendRef) int32 {
+// default). When the environment has its own split, a backend it doesn't
+// name gets 0, so a backend a new release adds takes none of its traffic
+// until it is given a share there. A mirror backend only receives copies,
+// so its weight stays 0 whatever an override says.
+func effectiveWeight(binding *openchoreov1alpha1.EndpointReleaseBinding, refs []openchoreov1alpha1.EndpointBackendRef, ref openchoreov1alpha1.EndpointBackendRef) int32 {
 	if ref.Mirror != nil {
 		return 0
 	}
 	if o := findOverride(binding, ref.Name); o != nil && o.Weight != nil {
 		return *o.Weight
 	}
+	if hasOwnSplit(binding, refs) {
+		return 0
+	}
 	if ref.Weight != nil {
 		return *ref.Weight
 	}
 	return 1
+}
+
+// hasOwnSplit reports whether the binding sets the weight of a backend of
+// the release that takes a share.
+func hasOwnSplit(binding *openchoreov1alpha1.EndpointReleaseBinding, refs []openchoreov1alpha1.EndpointBackendRef) bool {
+	for _, ref := range refs {
+		if o := findOverride(binding, ref.Name); ref.Mirror == nil && o != nil && o.Weight != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // effectiveMirror returns a backend's mirror share in the binding's
@@ -227,10 +253,23 @@ func effectiveMirror(binding *openchoreov1alpha1.EndpointReleaseBinding, ref ope
 	return ref.Mirror.DeepCopy()
 }
 
+// effectiveMatch returns a backend's match in the binding's environment: the
+// binding's override for it, or the release's. Nil when the backend has no
+// match in the release.
+func effectiveMatch(binding *openchoreov1alpha1.EndpointReleaseBinding, ref openchoreov1alpha1.EndpointBackendRef) *openchoreov1alpha1.EndpointMatch {
+	if ref.Match == nil {
+		return nil
+	}
+	if o := findOverride(binding, ref.Name); o != nil && o.Match != nil {
+		return o.Match.DeepCopy()
+	}
+	return ref.Match.DeepCopy()
+}
+
 // overridesUnsupported lists the routing features the binding's overrides
 // make the release's backends use that the release's EndpointType snapshot
 // does not declare. The release itself was checked when it was cut, so only
-// an override, such as a mirror share below 100, can add one.
+// an override, such as a mirror share below 100 or a cookie match, can add one.
 func overridesUnsupported(binding *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease) []string {
 	if len(binding.Spec.BackendOverrides) == 0 {
 		return nil
@@ -238,9 +277,30 @@ func overridesUnsupported(binding *openchoreov1alpha1.EndpointReleaseBinding, re
 	refs := make([]openchoreov1alpha1.EndpointBackendRef, 0, len(release.Spec.BackendRefs))
 	for _, ref := range release.Spec.BackendRefs {
 		ref.Mirror = effectiveMirror(binding, ref)
+		ref.Match = effectiveMatch(binding, ref)
 		refs = append(refs, ref)
 	}
 	return endpointpipeline.CapabilityProblems(release.Spec.EndpointType.Spec.Capabilities, refs)
+}
+
+// overrideMatchProblems runs the checks a release's matches pass before it is
+// cut over the backends as this environment runs them, so a match override
+// can't render a route the data plane rejects or that two backends share.
+// Nil when the binding overrides no match.
+func overrideMatchProblems(binding *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease) []string {
+	overrides := false
+	for _, o := range binding.Spec.BackendOverrides {
+		overrides = overrides || o.Match != nil
+	}
+	if !overrides {
+		return nil
+	}
+	refs := make([]openchoreov1alpha1.EndpointBackendRef, 0, len(release.Spec.BackendRefs))
+	for _, ref := range release.Spec.BackendRefs {
+		ref.Match = effectiveMatch(binding, ref)
+		refs = append(refs, ref)
+	}
+	return endpointpipeline.MatchProblems(refs)
 }
 
 // hasWeight reports whether any resolved backend receives traffic.
@@ -256,7 +316,8 @@ func hasWeight(backends []endpointpipeline.Backend) bool {
 // ignoredOverrides explains which backendOverrides entries the pinned release
 // gives no meaning to, or returns "": an entry naming a backend the release
 // does not have, setting a mirror share on a backend that is not a mirror in
-// it, or setting a weight on one that is. Such entries are ignored rather than blocking the binding, because a
+// it, setting a weight on one that is, or setting a match on a backend that
+// has none in it. Such entries are ignored rather than blocking the binding, because a
 // release that retired a backend (a finished canary, a retired blue) must
 // promote to environments whose overrides still name it. They are reported so
 // a typo doesn't go unnoticed.
@@ -265,16 +326,22 @@ func ignoredOverrides(release *openchoreov1alpha1.EndpointRelease, binding *open
 	for _, ref := range release.Spec.BackendRefs {
 		known[ref.Name] = ref
 	}
-	var unknown, notMirrors, weightedMirrors []string
+	var unknown, notMirrors, weightedMirrors, unmatched []string
 	for _, o := range binding.Spec.BackendOverrides {
 		ref, ok := known[o.Name]
-		switch {
-		case !ok:
+		if !ok {
 			unknown = append(unknown, o.Name)
-		case o.Mirror != nil && ref.Mirror == nil:
+			continue
+		}
+		// Each field is checked on its own, so every ignored one is reported.
+		if o.Mirror != nil && ref.Mirror == nil {
 			notMirrors = append(notMirrors, o.Name)
-		case o.Weight != nil && ref.Mirror != nil:
+		}
+		if o.Weight != nil && ref.Mirror != nil {
 			weightedMirrors = append(weightedMirrors, o.Name)
+		}
+		if o.Match != nil && ref.Match == nil {
+			unmatched = append(unmatched, o.Name)
 		}
 	}
 	var parts []string
@@ -289,6 +356,10 @@ func ignoredOverrides(release *openchoreov1alpha1.EndpointRelease, binding *open
 	if len(weightedMirrors) > 0 {
 		parts = append(parts, fmt.Sprintf("weight set on mirror backend(s) in EndpointRelease %q: %s",
 			release.Name, strings.Join(weightedMirrors, ", ")))
+	}
+	if len(unmatched) > 0 {
+		parts = append(parts, fmt.Sprintf("match set on backend(s) that have no match in EndpointRelease %q: %s",
+			release.Name, strings.Join(unmatched, ", ")))
 	}
 	if len(parts) == 0 {
 		return ""

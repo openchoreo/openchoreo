@@ -2741,6 +2741,11 @@ func (in *EndpointBackendOverride) DeepCopyInto(out *EndpointBackendOverride) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.Match != nil {
+		in, out := &in.Match, &out.Match
+		*out = new(EndpointMatch)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Mirror != nil {
 		in, out := &in.Mirror, &out.Mirror
 		*out = new(EndpointMirror)

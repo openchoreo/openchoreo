@@ -41,9 +41,9 @@ type EndpointReleaseBindingSpec struct {
 	EndpointTypeEnvironmentConfigs *runtime.RawExtension `json:"endpointTypeEnvironmentConfigs,omitempty"`
 
 	// BackendOverrides sets environment-specific values for the release's
-	// backends, matched by name: a backend's weight and its mirror share, so
-	// each environment can run its own traffic split (a canary step, a
-	// blue/green switch) while the release stays the same. An entry for a
+	// backends, matched by name: a backend's weight, its match and its mirror
+	// share, so each environment can run its own traffic split (a canary step,
+	// a blue/green switch, its own testers) while the release stays the same. An entry for a
 	// backend the pinned release does not have is ignored and reported in the
 	// BackendOverridesApplied condition, so a release that retired a backend
 	// can still be promoted.
@@ -56,6 +56,7 @@ type EndpointReleaseBindingSpec struct {
 // EndpointBackendOverride sets environment-specific values for one backend.
 // Fields use the names of the EndpointBackendRef fields they replace.
 // +kubebuilder:validation:XValidation:rule="!(has(self.weight) && has(self.mirror))",message="set weight or mirror, not both: a mirror backend only receives copies"
+// +kubebuilder:validation:XValidation:rule="!(has(self.match) && has(self.mirror))",message="set match or mirror, not both: a mirror backend only receives copies"
 type EndpointBackendOverride struct {
 	// Name is the name of the backend in the release.
 	// +kubebuilder:validation:Required
@@ -64,12 +65,18 @@ type EndpointBackendOverride struct {
 
 	// Weight replaces the release's weight for this backend in this
 	// environment, with the same semantics: relative to the other backends'
-	// weights, and 0 sends no traffic. status.backends reports the effective
-	// weight.
+	// weights, and 0 sends no traffic. When any backend has a weight
+	// override, a backend without one gets 0 in this environment.
+	// status.backends reports the effective weight.
 	// +optional
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:validation:Maximum=1000000
 	Weight *int32 `json:"weight,omitempty"`
+
+	// Match replaces the release's match for this backend in this
+	// environment. The backend must have a match in the release.
+	// +optional
+	Match *EndpointMatch `json:"match,omitempty"`
 
 	// Mirror replaces the release's mirror share for this backend in this
 	// environment. The backend must have a mirror in the release.

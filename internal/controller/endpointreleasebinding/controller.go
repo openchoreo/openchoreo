@@ -127,7 +127,24 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		return ctrl.Result{}, err
 	}
 
-	reportOverrides(binding, in.release)
+	// The overrides' checks need only the release, so BackendOverridesApplied
+	// is set once, to its final value, before any step below returns early.
+	var unsupportedMsg, matchMsg string
+	if problems := overridesUnsupported(binding, in.release); len(problems) > 0 {
+		unsupportedMsg = fmt.Sprintf("spec.backendOverrides need what %s %q does not declare: %s",
+			in.release.Spec.EndpointType.Kind, in.release.Spec.EndpointType.Name, strings.Join(problems, "; "))
+	}
+	if problems := overrideMatchProblems(binding, in.release); len(problems) > 0 {
+		matchMsg = "spec.backendOverrides match can't be rendered: " + strings.Join(problems, "; ")
+	}
+	switch {
+	case unsupportedMsg != "":
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideUnsupportedByType, unsupportedMsg)
+	case matchMsg != "":
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideMatchInvalid, matchMsg)
+	default:
+		reportOverrides(binding, in.release)
+	}
 
 	md := buildMetadataContext(binding, in)
 
@@ -160,14 +177,16 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		markSyncedFalse(binding, ReasonNoWeightedBackend, "RenderedRelease not updated until a backend has a weight above 0")
 		return ctrl.Result{}, nil
 	}
-	if problems := overridesUnsupported(binding, in.release); len(problems) > 0 {
+	if unsupportedMsg != "" {
 		// Same as an unresolved backend: keep the current RenderedRelease
 		// rather than render what the type does not declare it can.
-		msg := fmt.Sprintf("spec.backendOverrides need what %s %q does not declare: %s",
-			in.release.Spec.EndpointType.Kind, in.release.Spec.EndpointType.Name, strings.Join(problems, "; "))
-		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideUnsupportedByType, msg)
-		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideUnsupportedByType, msg)
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideUnsupportedByType, unsupportedMsg)
 		markSyncedFalse(binding, ReasonOverrideUnsupportedByType, "RenderedRelease not updated until the overrides fit the type")
+		return ctrl.Result{}, nil
+	}
+	if matchMsg != "" {
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideMatchInvalid, matchMsg)
+		markSyncedFalse(binding, ReasonOverrideMatchInvalid, "RenderedRelease not updated until the overrides' matches are valid")
 		return ctrl.Result{}, nil
 	}
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,

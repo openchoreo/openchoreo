@@ -13,15 +13,18 @@ import (
 
 var _ = Describe("buildRules", func() {
 	// rulesFor builds the rules with the named backends resolved, and each
-	// backend's effective mirror on its status entry as resolveBackends sets it.
+	// backend's effective mirror and match as resolveBackends sets them.
 	rulesFor := func(
 		b *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease, names ...string,
 	) []endpointpipeline.Rule {
-		res := &resolvedBackends{}
+		res := &resolvedBackends{matches: map[string]*openchoreov1alpha1.EndpointMatch{}}
 		for _, ref := range release.Spec.BackendRefs {
 			res.statuses = append(res.statuses, openchoreov1alpha1.ResolvedEndpointBackend{
 				Name: ref.Name, Mirror: effectiveMirror(b, ref),
 			})
+			if m := effectiveMatch(b, ref); m != nil {
+				res.matches[ref.Name] = m
+			}
 		}
 		for i, n := range names {
 			res.backends = append(res.backends, endpointpipeline.Backend{Name: n, ServiceName: n + "-svc", Weight: int32(100 - i*100)})
@@ -127,8 +130,29 @@ var _ = Describe("buildRules", func() {
 		weight := int32(50)
 		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "shadow", Weight: &weight}}
 
-		Expect(effectiveWeight(b, shadow)).To(BeZero(), "a mirror only receives copies")
+		Expect(effectiveWeight(b, []openchoreov1alpha1.EndpointBackendRef{shadow}, shadow)).To(BeZero(), "a mirror only receives copies")
 		Expect(effectiveMirror(b, shadow).Percent).To(Equal(int32(20)))
+	})
+
+	It("gives a backend the environment's own split doesn't name no share", func() {
+		python := componentBackend("trips-python", "trips-python", 50)
+		goRef := componentBackend("trips-go", "trips-go", 0)
+		stale := componentBackend("trips-stale", "trips-stale", 50)
+		refs := []openchoreov1alpha1.EndpointBackendRef{python, goRef, stale}
+		b := newBinding("rules", testRelease)
+		Expect(effectiveWeight(b, refs, stale)).To(Equal(int32(50)), "without an own split the release's weight applies")
+
+		eighty, twenty := int32(80), int32(20)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "trips-python", Weight: &eighty},
+			{Name: "trips-go", Weight: &twenty},
+		}
+		Expect(effectiveWeight(b, refs, python)).To(Equal(int32(80)))
+		Expect(effectiveWeight(b, refs, goRef)).To(Equal(int32(20)))
+		Expect(effectiveWeight(b, refs, stale)).To(BeZero(), "a backend new to the release joins the own split at 0")
+
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "trips-java", Weight: &eighty}}
+		Expect(effectiveWeight(b, refs, stale)).To(Equal(int32(50)), "an override for a backend the release lacks is no own split")
 	})
 
 	It("reports a weight override on a mirror backend as ignored", func() {
@@ -140,5 +164,98 @@ var _ = Describe("buildRules", func() {
 		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "shadow", Weight: &weight}}
 
 		Expect(ignoredOverrides(release, b)).To(ContainSubstring("weight set on mirror backend(s)"))
+	})
+
+	It("matches the environment's own condition instead of the release's", func() {
+		preview := componentBackend("preview", "greeter-v2", 0)
+		preview.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-preview", Value: "true"}},
+		}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview)
+		b := newBinding("rules", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:  "preview",
+			Match: &openchoreov1alpha1.EndpointMatch{Path: &openchoreov1alpha1.EndpointPathMatch{Value: "/beta"}},
+		}}
+
+		rules := rulesFor(b, release, "stable", "preview")
+		Expect(rules).To(HaveLen(2))
+		Expect(rules[0].Name).To(Equal("preview"))
+		Expect(rules[0].Matches[0].Conditions).To(BeEmpty(), "the release's header is replaced")
+		Expect(rules[0].Matches[0].Path).NotTo(BeNil())
+		Expect(rules[0].Matches[0].Path.Value).To(Equal("/beta"))
+		Expect(ignoredOverrides(release, b)).To(BeEmpty())
+	})
+
+	It("ignores and reports a match override on a backend with no match", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), componentBackend("next", "greeter-v2", 0))
+		b := newBinding("rules", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:  "next",
+			Match: &openchoreov1alpha1.EndpointMatch{Path: &openchoreov1alpha1.EndpointPathMatch{Value: "/beta"}},
+		}}
+
+		Expect(ignoredOverrides(release, b)).To(ContainSubstring("match set on backend(s) that have no match"))
+		Expect(rulesFor(b, release, "stable", "next")).To(HaveLen(1), "next stays in the weighted split only")
+	})
+
+	It("refuses an override match the type doesn't declare", func() {
+		preview := componentBackend("preview", "greeter-v2", 0)
+		preview.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-preview", Value: "true"}},
+		}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview)
+		release.Spec.EndpointType.Spec.Capabilities = []openchoreov1alpha1.EndpointCapability{
+			openchoreov1alpha1.EndpointCapabilityMatch,
+		}
+		b := newBinding("rules", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:  "preview",
+			Match: &openchoreov1alpha1.EndpointMatch{Cookies: []openchoreov1alpha1.EndpointCookieMatch{{Name: "group", Value: "beta"}}},
+		}}
+
+		Expect(overridesUnsupported(b, release)).To(ConsistOf(ContainSubstring("RegularExpression")))
+	})
+
+	It("runs a release's match checks on the environment's own matches", func() {
+		preview := componentBackend("preview", "greeter-v2", 0)
+		preview.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-preview", Value: "true"}},
+		}
+		beta := componentBackend("beta", "greeter-v3", 0)
+		beta.Match = &openchoreov1alpha1.EndpointMatch{Path: &openchoreov1alpha1.EndpointPathMatch{Value: "/beta"}}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview, beta)
+		b := newBinding("rules", testRelease)
+		Expect(overrideMatchProblems(b, release)).To(BeEmpty(), "no match override, nothing to check")
+
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name: "preview",
+			Match: &openchoreov1alpha1.EndpointMatch{Headers: []openchoreov1alpha1.EndpointHeaderMatch{
+				{Name: "x-preview", Type: openchoreov1alpha1.EndpointHeaderMatchRegularExpression, Value: "("},
+			}},
+		}}
+		Expect(overrideMatchProblems(b, release)).To(ConsistOf(ContainSubstring("RE2")))
+
+		b.Spec.BackendOverrides[0].Match = &openchoreov1alpha1.EndpointMatch{
+			Path: &openchoreov1alpha1.EndpointPathMatch{Value: "/beta"},
+		}
+		Expect(overrideMatchProblems(b, release)).To(ConsistOf(ContainSubstring("has the same match")))
+	})
+
+	It("reports every ignored field of an override", func() {
+		shadow := componentBackend("shadow", "greeter-v2", 0)
+		shadow.Mirror = &openchoreov1alpha1.EndpointMirror{Percent: 20}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), shadow)
+		b := newBinding("rules", testRelease)
+		weight := int32(5)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:   "shadow",
+			Weight: &weight,
+			Match:  &openchoreov1alpha1.EndpointMatch{Path: &openchoreov1alpha1.EndpointPathMatch{Value: "/x"}},
+		}}
+
+		msg := ignoredOverrides(release, b)
+		Expect(msg).To(ContainSubstring("weight set on mirror backend(s)"))
+		Expect(msg).To(ContainSubstring("match set on backend(s) that have no match"))
 	})
 })

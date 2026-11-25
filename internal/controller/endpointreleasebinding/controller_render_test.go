@@ -307,19 +307,52 @@ var _ = Describe("Backend resolution and rendering", func() {
 		}))
 	})
 
-	It("does not render when the overrides leave every backend at weight 0", func() {
+	It("keeps the current route when the overrides leave every backend at weight 0", func() {
 		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
 		b := newBinding("zero", testRelease)
-		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "stable", Weight: ptr.To[int32](0)}}
 		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+		reconcileBinding(r, cli, b)
+		before, err := renderedRelease(cli, b)
+		Expect(err).NotTo(HaveOccurred())
 
+		live := &openchoreov1alpha1.EndpointReleaseBinding{}
+		Expect(cli.Get(fctx, client.ObjectKeyFromObject(b), live)).To(Succeed())
+		live.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "stable", Weight: ptr.To[int32](0)}}
+		Expect(cli.Update(fctx, live)).To(Succeed())
 		updated := reconcileBinding(r, cli, b)
 
 		backends := condition(updated, ConditionBackendsResolved)
 		Expect(backends.Status).To(Equal(metav1.ConditionFalse))
 		Expect(backends.Reason).To(Equal(string(ReasonNoWeightedBackend)))
-		_, err := renderedRelease(cli, updated)
-		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "a route to nowhere must not be rendered")
+		after, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after.Spec).To(Equal(before.Spec), "the route keeps serving rather than sending traffic nowhere")
+	})
+
+	It("reports an override the type can't render once, without rewriting status on every pass", func() {
+		preview := componentBackend("preview", "greeter-v2", 0)
+		preview.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-preview", Value: "true"}},
+		}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview)
+		release.Spec.EndpointType.Spec.Capabilities = []openchoreov1alpha1.EndpointCapability{
+			openchoreov1alpha1.EndpointCapabilityMatch,
+		}
+		b := newBinding("unsupported", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:  "preview",
+			Match: &openchoreov1alpha1.EndpointMatch{Cookies: []openchoreov1alpha1.EndpointCookieMatch{{Name: "group", Value: "beta"}}},
+		}}
+		r, cli := build(release, b, deployedComponent("greeter", dpNS), deployedComponent("greeter-v2", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+		applied := condition(updated, ConditionBackendOverridesApplied)
+		Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+		Expect(applied.Reason).To(Equal(string(ReasonOverrideUnsupportedByType)))
+
+		again := reconcileBinding(r, cli, b)
+		Expect(again.ResourceVersion).To(Equal(updated.ResourceVersion),
+			"an unchanged problem must not write status, or every write would start another pass")
 	})
 
 	It("leaves the existing RenderedRelease untouched when a backend disappears", func() {
