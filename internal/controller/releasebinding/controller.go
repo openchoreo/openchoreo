@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -44,6 +45,12 @@ const (
 	tlsRouteKind    = "TLSRoute"
 	gatewayAPIGroup = "gateway.networking.k8s.io"
 )
+
+// dependencyNotFoundRequeue is how soon a binding blocked on a missing dependency
+// checks again. The ComponentRelease, Environment, data plane and Component watches
+// usually wake it sooner, but a mapper that fails to list drops the event, and the
+// Project is not watched directly, so poll as a backstop.
+const dependencyNotFoundRequeue = time.Minute
 
 // routeKindCompat lists which workload endpoint types each Gateway API route kind
 // may expose. HTTPRoute/GRPCRoute attach to the http and https gateway listeners
@@ -186,7 +193,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonComponentReleaseNotFound, msg)
 			logger.Info(msg, "componentRelease", releaseBinding.Spec.ReleaseName)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get ComponentRelease", "componentRelease", releaseBinding.Spec.ReleaseName)
 		return ctrl.Result{}, err
@@ -212,7 +219,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonEnvironmentNotFound, msg)
 			logger.Info("Environment not found", "environment", releaseBinding.Spec.Environment)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Environment", "environment", releaseBinding.Spec.Environment)
 		return ctrl.Result{}, err
@@ -226,7 +233,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonDataPlaneNotFound, msg)
 			logger.Info("DataPlane not found", "environment", environment.Name)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to resolve DataPlane", "environment", environment.Name)
 		return ctrl.Result{}, err
@@ -243,7 +250,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonComponentNotFound, msg)
 			logger.Info("Component not found", "component", componentRelease.Spec.Owner.ComponentName)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Component", "component", componentRelease.Spec.Owner.ComponentName)
 		return ctrl.Result{}, err
@@ -269,7 +276,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ct
 			controller.MarkFalseCondition(releaseBinding, ConditionReleaseSynced,
 				ReasonProjectNotFound, msg)
 			logger.Info("Project not found", "project", componentRelease.Spec.Owner.ProjectName)
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: dependencyNotFoundRequeue}, nil
 		}
 		logger.Error(err, "Failed to get Project", "project", componentRelease.Spec.Owner.ProjectName)
 		return ctrl.Result{}, err
@@ -1745,6 +1752,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
 	}
 
+	// Setup field index for the target Environment (reads from spec.environment)
+	if err := r.setupEnvironmentIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup environment index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
@@ -1790,6 +1802,15 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ClusterDataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		// Wake bindings stuck on EnvironmentNotFound when their Environment appears, and
+		// re-render on spec changes (the gateway settings feed the render context). The
+		// Environment controller also writes status and a finalizer, which rendering
+		// never reads, so skip updates that leave the generation unchanged.
+		Watches(
+			&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEnvironment),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// The environment's default notification channel feeds the render context
 		// (environment.defaultNotificationChannel), so re-render when it may have changed.
