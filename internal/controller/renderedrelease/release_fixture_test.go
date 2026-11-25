@@ -4,6 +4,7 @@
 package renderedrelease
 
 import (
+	"context"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -62,9 +63,15 @@ func (f *releaseFixture) key() types.NamespacedName {
 // pass reconciles the release once, and checks what it wrote against the rules.
 func (f *releaseFixture) pass() (reconcile.Result, error) {
 	GinkgoHelper()
+	return f.passIn(ctx)
+}
+
+// passIn is a pass that ends early when its context is canceled.
+func (f *releaseFixture) passIn(passCtx context.Context) (reconcile.Result, error) {
+	GinkgoHelper()
 	claims := fetchRelease(f.name).Spec.ObservedResources
 	seen := len(f.proxy.requests())
-	result, err := f.r.Reconcile(ctx, reconcile.Request{NamespacedName: f.key()})
+	result, err := f.r.Reconcile(passCtx, reconcile.Request{NamespacedName: f.key()})
 	f.sent = f.proxy.requests()[seen:]
 	Expect(deleteViolations(f.sent, claims...)).To(BeEmpty())
 	Expect(giveBackViolations(f.sent)).To(BeEmpty())
