@@ -197,6 +197,26 @@ func jsonMarshal(t *testing.T, v any) []byte {
 	return data
 }
 
+// podForComponent builds a live pod object owned by the given component, as the
+// data plane would label it. It is used to exercise the component-ownership
+// check that the logs and events endpoints run before returning anything.
+func podForComponent(component string, names ...string) map[string]any {
+	cs := make([]any, len(names))
+	for i, n := range names {
+		cs[i] = map[string]any{"name": n}
+	}
+	return map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]any{
+			"name":      "pod-1",
+			"namespace": "dp-ns",
+			"labels":    map[string]any{"openchoreo.dev/component": component},
+		},
+		"spec": map[string]any{"containers": cs},
+	}
+}
+
 // --- NewService ---
 
 func TestNewService(t *testing.T) {
@@ -477,6 +497,76 @@ func TestGetResourceEvents(t *testing.T) {
 		// For cluster-scoped resource (empty namespace), the events path should be cluster-level
 		assert.Contains(t, capturedPath, "api/v1/events")
 	})
+
+	// A child object is resolved through its parent in the binding's release, so
+	// the live object is fetched and its component label is confirmed before any
+	// events are returned. A pod owned by a sibling component in the same shared
+	// namespace must be rejected without ever querying its events.
+	t.Run("child-kind events for another component's object are rejected", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		var eventsFetched bool
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/events") {
+				eventsFetched = true
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(jsonMarshal(t, k8sList()))
+				return
+			}
+			// The pod exists and is readable, but is owned by a sibling component.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-2", "main")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "Pod", "pod-1")
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.False(t, eventsFetched, "a sibling component's events must never be fetched")
+	})
+
+	// Names can be reused in the shared namespace and events outlive their
+	// object, so the event query must be constrained to the authorized object's
+	// UID, not just its kind and name.
+	t.Run("child-kind events are scoped to the authorized object UID", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		pod := podForComponent("comp-1", "main")
+		pod["metadata"].(map[string]any)["uid"] = "pod-uid-123"
+
+		var capturedQuery string
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.HasSuffix(r.URL.Path, "/events") {
+				capturedQuery = r.URL.RawQuery
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(jsonMarshal(t, k8sList()))
+				return
+			}
+			// Live pod GET for the ownership check.
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, pod))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "Pod", "pod-1")
+		require.NoError(t, err)
+		assert.Contains(t, capturedQuery, "involvedObject.uid=pod-uid-123",
+			"child-resource events must be scoped to the authorized object's UID so a reused name cannot surface a prior object's events")
+	})
 }
 
 // --- GetResourceLogs ---
@@ -517,8 +607,15 @@ func TestGetResourceLogs(t *testing.T) {
 		fc := newFakeClient(rb, env, dp, rr)
 
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z Starting server\n2024-01-15T10:00:01Z Ready\n"))
+				return
+			}
+			// Live pod GET for the ownership check.
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("2024-01-15T10:00:00Z Starting server\n2024-01-15T10:00:01Z Ready\n"))
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-1", "main")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
@@ -539,7 +636,14 @@ func TestGetResourceLogs(t *testing.T) {
 		fc := newFakeClient(rb, env, dp, rr)
 
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			// The pod authorizes successfully; the log fetch returns a permanent error.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-1", "main")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
@@ -558,9 +662,16 @@ func TestGetResourceLogs(t *testing.T) {
 
 		var capturedURL string
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			capturedURL = r.URL.String()
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				capturedURL = r.URL.String()
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z recent log\n"))
+				return
+			}
+			// Live pod GET for the ownership check.
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("2024-01-15T10:00:00Z recent log\n"))
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-1", "main")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
@@ -569,6 +680,39 @@ func TestGetResourceLogs(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 1)
 		assert.Contains(t, capturedURL, "sinceSeconds=300")
+	})
+
+	// Every component in a project and environment shares one data-plane
+	// namespace, so a caller authorized for this binding must not read the logs
+	// of a pod owned by a sibling component. The pod is fetched and its component
+	// label confirmed before any logs are read.
+	t.Run("pod owned by another component is rejected", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		var logsFetched bool
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				logsFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z secret\n"))
+				return
+			}
+			// The pod exists and is readable, but is owned by a sibling component.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-2", "main")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", nil)
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.False(t, logsFetched, "a sibling component's logs must never be fetched")
 	})
 }
 
