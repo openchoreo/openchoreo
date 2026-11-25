@@ -26,6 +26,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/clients/gateway"
 	"github.com/openchoreo/openchoreo/internal/controller"
 	renderedreleasecontroller "github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
+	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/models"
 )
 
@@ -113,8 +114,48 @@ func (s *k8sResourcesService) GetResourceEvents(ctx context.Context, namespaceNa
 		return nil, ErrResourceNotFound
 	}
 
+	// Authorize the target resource, not just the release binding named in the
+	// path. Child resources (Pod/ReplicaSet/Job) are resolved by walking up to a
+	// parent kind in the binding's release, which does not prove the specific
+	// named object belongs to this binding's component. Confirm its component
+	// label before returning events so that events for sibling components'
+	// objects in the shared namespace are not disclosed.
+	var liveUID string
+	if isChildResourceKind(kind) {
+		componentName, err := s.releaseBindingComponent(ctx, namespaceName, releaseBindingName)
+		if err != nil {
+			return nil, err
+		}
+		plural, err := s.resolveResourcePlural(group, version, kind)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve resource for kind %s: %w", kind, err)
+		}
+		obj, err := s.fetchLiveResource(ctx, rc.plane, buildK8sGetPath(group, version, plural, resourceNS, name))
+		if err != nil {
+			var statusErr *liveResourceStatusError
+			if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
+				return nil, ErrResourceNotFound
+			}
+			return nil, fmt.Errorf("failed to fetch resource: %w", err)
+		}
+		if !resourceBelongsToComponent(obj, componentName) {
+			return nil, ErrResourceNotFound
+		}
+		// Scope the event query to this exact object instance. Names can be
+		// reused in the shared namespace, and events outlive the object they
+		// refer to, so matching on kind and name alone could return a prior
+		// object's retained events after a sibling component reuses the name.
+		liveUID = getNestedString(obj, "metadata", "uid")
+		if liveUID == "" {
+			return nil, ErrResourceNotFound
+		}
+	}
+
 	// Build field selector to filter events
 	fieldSelector := fmt.Sprintf("involvedObject.kind=%s,involvedObject.name=%s", kind, name)
+	if liveUID != "" {
+		fieldSelector += ",involvedObject.uid=" + liveUID
+	}
 	if resourceNS != "" {
 		fieldSelector += ",involvedObject.namespace=" + resourceNS
 	}
@@ -169,6 +210,30 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 		return nil, ErrResourceNotFound
 	}
 
+	// Authorize the target pod, not just the release binding named in the path.
+	// Every component of a project and environment shares one data-plane
+	// namespace, so a caller authorized for this binding must not be able to read
+	// the logs of a pod that belongs to a different component. Fetch the pod and
+	// confirm it carries this binding's component label before reading any logs;
+	// a missing or mismatched pod is reported as not found so that sibling
+	// components' pods in the shared namespace are not disclosed.
+	componentName, err := s.releaseBindingComponent(ctx, namespaceName, releaseBindingName)
+	if err != nil {
+		return nil, err
+	}
+	pod, err := s.fetchLiveResource(ctx, targetRC.plane, buildK8sGetPath("", "v1", "pods", targetRC.namespace, podName))
+	if err != nil {
+		var statusErr *liveResourceStatusError
+		if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
+			return nil, ErrResourceNotFound
+		}
+		return nil, fmt.Errorf("failed to fetch pod: %w", err)
+	}
+	if !resourceBelongsToComponent(pod, componentName) {
+		// Do not disclose that a pod with this name exists under another component.
+		return nil, ErrResourceNotFound
+	}
+
 	// Determine which containers to fetch logs from. A pod's Kubernetes log API requires an
 	// explicit container name once the pod has more than one container, so when the caller
 	// does not pick one we enumerate the pod's containers and aggregate their logs.
@@ -176,16 +241,9 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 	if container != "" {
 		containers = []string{container}
 	} else {
-		containers, err = s.resolvePodContainers(ctx, targetRC.plane, targetRC.namespace, podName)
-		if err != nil {
-			s.logger.Warn("Failed to resolve pod containers", "pod", podName, "error", err)
-			var statusErr *liveResourceStatusError
-			if errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound {
-				return nil, ErrResourceNotFound
-			}
-			// The pod is present but unreadable (transient/agent error) or the
-			// response was otherwise unexpected
-			return nil, fmt.Errorf("failed to resolve pod containers: %w", err)
+		containers = extractContainerNames(pod)
+		if len(containers) == 0 {
+			return nil, ErrResourceNotFound
 		}
 	}
 
@@ -241,19 +299,30 @@ func (s *k8sResourcesService) GetResourceLogs(ctx context.Context, namespaceName
 	return &models.ResourcePodLogsResponse{LogEntries: entries}, nil
 }
 
-// resolvePodContainers fetches the live pod and returns the names of its containers.
-func (s *k8sResourcesService) resolvePodContainers(ctx context.Context, pi planeInfo, namespace, podName string) ([]string, error) {
-	podPath := buildK8sGetPath("", "v1", "pods", namespace, podName)
-	pod, err := s.fetchLiveResource(ctx, pi, podPath)
-	if err != nil {
-		return nil, err
+// releaseBindingComponent returns the owner component of the named release
+// binding. It is used to authorize that a requested pod or child resource
+// actually belongs to this binding before its logs or events are returned.
+func (s *k8sResourcesService) releaseBindingComponent(ctx context.Context, namespaceName, releaseBindingName string) (string, error) {
+	var rb openchoreov1alpha1.ReleaseBinding
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: releaseBindingName}, &rb); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			return "", ErrReleaseBindingNotFound
+		}
+		return "", fmt.Errorf("failed to get release binding: %w", err)
 	}
+	return rb.Spec.Owner.ComponentName, nil
+}
 
-	names := extractContainerNames(pod)
-	if len(names) == 0 {
-		return nil, fmt.Errorf("no containers found for pod %s", podName)
+// resourceBelongsToComponent reports whether a live object carries the given
+// component's identity label. The data plane labels every rendered pod and its
+// workload children with the owning component, so this label is what
+// distinguishes a binding's own resources from sibling components' resources in
+// the shared project+environment namespace. An empty component never matches.
+func resourceBelongsToComponent(obj map[string]any, componentName string) bool {
+	if componentName == "" {
+		return false
 	}
-	return names, nil
+	return getNestedString(obj, "metadata", "labels", labels.LabelKeyComponentName) == componentName
 }
 
 // resolveReleaseContexts fetches the ReleaseBinding, finds its owned Releases,

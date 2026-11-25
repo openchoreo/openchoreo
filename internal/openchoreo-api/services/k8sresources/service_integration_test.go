@@ -477,6 +477,76 @@ func TestGetResourceEvents(t *testing.T) {
 		// For cluster-scoped resource (empty namespace), the events path should be cluster-level
 		assert.Contains(t, capturedPath, "api/v1/events")
 	})
+
+	// A child object is resolved through its parent in the binding's release, so
+	// the live object is fetched and its component label is confirmed before any
+	// events are returned. A pod owned by a sibling component in the same shared
+	// namespace must be rejected without ever querying its events.
+	t.Run("child-kind events for another component's object are rejected", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		var eventsFetched bool
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/events") {
+				eventsFetched = true
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(jsonMarshal(t, k8sList()))
+				return
+			}
+			// The pod exists and is readable, but is owned by a sibling component.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-2", "main")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "Pod", "pod-1")
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.False(t, eventsFetched, "a sibling component's events must never be fetched")
+	})
+
+	// Names can be reused in the shared namespace and events outlive their
+	// object, so the event query must be constrained to the authorized object's
+	// UID, not just its kind and name.
+	t.Run("child-kind events are scoped to the authorized object UID", func(t *testing.T) {
+		rb := testReleaseBinding()
+		env := testEnvironment()
+		dp := testDataPlane("default")
+		rr := testRenderedRelease(rb, planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "dep", Group: "apps", Version: "v1", Kind: "Deployment", Name: "web", Namespace: "dp-ns"},
+		})
+		fc := newFakeClient(rb, env, dp, rr)
+
+		pod := podForComponent("comp-1", "main")
+		pod["metadata"].(map[string]any)["uid"] = "pod-uid-123"
+
+		var capturedQuery string
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.HasSuffix(r.URL.Path, "/events") {
+				capturedQuery = r.URL.RawQuery
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(jsonMarshal(t, k8sList()))
+				return
+			}
+			// Live pod GET for the ownership check.
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, pod))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceEvents(context.Background(), testNamespace, "rb-1", "", "v1", "Pod", "pod-1")
+		require.NoError(t, err)
+		assert.Contains(t, capturedQuery, "involvedObject.uid=pod-uid-123",
+			"child-resource events must be scoped to the authorized object's UID so a reused name cannot surface a prior object's events")
+	})
 }
 
 // --- GetResourceLogs ---
@@ -559,23 +629,31 @@ func TestGetResourceLogs(t *testing.T) {
 		assert.Equal(t, []string{"main", "daprd", "main", "daprd"}, containers)
 	})
 
-	t.Run("explicit container fetches only that container without listing the pod", func(t *testing.T) {
+	t.Run("explicit container authorizes the pod then fetches only that container", func(t *testing.T) {
 		objs := dataPlaneRelease()
 		fc := newFakeClient(objs...)
 
 		var capturedContainer string
+		var podFetched bool
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			require.True(t, strings.HasSuffix(r.URL.Path, "/log"),
-				"expected only a pod-log request, got %s", r.URL.Path)
-			capturedContainer = r.URL.Query().Get("container")
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				capturedContainer = r.URL.Query().Get("container")
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z only-daprd\n"))
+				return
+			}
+			// Pod GET performed to authorize that the pod belongs to this binding's component.
+			podFetched = true
+			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("2024-01-15T10:00:00Z only-daprd\n"))
+			_, _ = w.Write(jsonMarshal(t, podWithContainers("daprd")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
 		result, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "daprd", nil)
 		require.NoError(t, err)
 		require.Len(t, result.LogEntries, 1)
+		assert.True(t, podFetched, "pod must be fetched to authorize it even when a container is named")
 		assert.Equal(t, "daprd", capturedContainer)
 		assert.Equal(t, "daprd", result.LogEntries[0].Container)
 	})
@@ -585,7 +663,14 @@ func TestGetResourceLogs(t *testing.T) {
 		fc := newFakeClient(objs...)
 
 		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusBadRequest)
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			// Pod GET for the ownership check succeeds; only the named container is invalid.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podWithContainers("main")))
 		})
 
 		svc := NewService(fc, gc, testLogger())
@@ -721,10 +806,67 @@ func TestGetResourceLogs(t *testing.T) {
 		require.Error(t, err)
 		require.NotErrorIs(t, err, ErrResourceNotFound)
 	})
+
+	// Regression: a caller authorized for binding rb-1 (component comp-1) must not
+	// read the logs of a pod that lives in the same shared data-plane namespace but
+	// belongs to a different component. Before the fix, the caller-supplied podName
+	// was trusted and the sibling pod's logs were returned.
+	t.Run("aggregate: pod belonging to another component is rejected", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		var logFetched bool
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				logFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z sibling-secret\n"))
+				return
+			}
+			// The pod exists and is readable, but is owned by a sibling component.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-2", "main")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "", nil)
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.False(t, logFetched, "a sibling component's pod logs must never be fetched")
+	})
+
+	t.Run("explicit container: pod belonging to another component is rejected", func(t *testing.T) {
+		objs := dataPlaneRelease()
+		fc := newFakeClient(objs...)
+
+		var logFetched bool
+		gc := testGatewayServer(t, func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/log") {
+				logFetched = true
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte("2024-01-15T10:00:00Z sibling-secret\n"))
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(jsonMarshal(t, podForComponent("comp-2", "main")))
+		})
+
+		svc := NewService(fc, gc, testLogger())
+		_, err := svc.GetResourceLogs(context.Background(), testNamespace, "rb-1", "pod-1", "main", nil)
+		require.ErrorIs(t, err, ErrResourceNotFound)
+		assert.False(t, logFetched, "a sibling component's pod logs must never be fetched")
+	})
 }
 
 // podWithContainers builds a minimal pod object (as decoded JSON) with the given container names.
 func podWithContainers(names ...string) map[string]any {
+	return podForComponent("comp-1", names...)
+}
+
+// podForComponent builds a minimal pod object (as decoded JSON) labeled with
+// the given owning component, so ownership checks can be exercised.
+func podForComponent(component string, names ...string) map[string]any {
 	cs := make([]any, len(names))
 	for i, n := range names {
 		cs[i] = map[string]any{"name": n}
@@ -732,8 +874,12 @@ func podWithContainers(names ...string) map[string]any {
 	return map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
-		"metadata":   map[string]any{"name": "pod-1", "namespace": "dp-ns"},
-		"spec":       map[string]any{"containers": cs},
+		"metadata": map[string]any{
+			"name":      "pod-1",
+			"namespace": "dp-ns",
+			"labels":    map[string]any{"openchoreo.dev/component": component},
+		},
+		"spec": map[string]any{"containers": cs},
 	}
 }
 
