@@ -1,6 +1,6 @@
 module licenser
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/onsi/ginkgo/v2 v2.23.4
