@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -93,6 +94,42 @@ var _ = Describe("plane proxy", func() {
 	It("passes the API server's errors on", func() {
 		err := plane.Get(ctx, client.ObjectKey{Namespace: testNs, Name: "plane-proxy-missing"}, &corev1.ConfigMap{})
 		Expect(apierrors.IsNotFound(err)).To(BeTrue(), "got %v", err)
+	})
+
+	It("stores nothing in a dry run", func() {
+		Expect(k8sClient.Create(ctx, newCM("outside"))).To(Succeed())
+
+		dryRun := newCM("release")
+		Expect(plane.Patch(ctx, dryRun, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName),
+			client.DryRunAll)).To(Succeed())
+
+		Expect(dryRun.Data).To(HaveKeyWithValue("key", "release"), "the answer shows what would be stored")
+		Expect(liveValue()).To(Equal("outside"))
+	})
+
+	It("rejects in a dry run what it would reject for real", func() {
+		fixed := newCM("outside")
+		fixed.Immutable = ptr.To(true)
+		Expect(k8sClient.Create(ctx, fixed)).To(Succeed())
+
+		err := plane.Patch(ctx, newCM("release"), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)
+		Expect(apierrors.IsInvalid(err)).To(BeTrue(), "got %v", err)
+	})
+
+	It("deletes an object only while it is the one that was read", func() {
+		read := newCM("release")
+		Expect(k8sClient.Create(ctx, read)).To(Succeed())
+		Expect(k8sClient.Delete(ctx, newCM(""))).To(Succeed())
+		recreated := newCM("outside")
+		Expect(k8sClient.Create(ctx, recreated)).To(Succeed())
+
+		err := plane.Delete(ctx, newCM(""), client.Preconditions{UID: ptr.To(read.UID)})
+		Expect(apierrors.IsConflict(err)).To(BeTrue(), "got %v", err)
+		Expect(liveValue()).To(Equal("outside"))
+
+		Expect(plane.Delete(ctx, newCM(""), client.Preconditions{UID: ptr.To(recreated.UID)})).To(Succeed())
+		Expect(plane.Delete(ctx, newCM(""), client.Preconditions{UID: ptr.To(recreated.UID)})).To(Succeed(),
+			"an object that is gone is deleted")
 	})
 
 	It("runs a hook before it forwards the request, on the first match only", func() {
