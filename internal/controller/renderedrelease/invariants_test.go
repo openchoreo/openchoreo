@@ -18,6 +18,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
@@ -54,6 +55,45 @@ func deleteViolations(requests []*planeRequest) []string {
 		}
 	}
 	return violations
+}
+
+// applyViolations returns the writes of one pass of a release that break a rule of the
+// checks before them: a pass that refuses writes nothing, and no object the pass read is
+// applied over unless the release owns it.
+func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*planeRequest) []string {
+	refused := false
+	if cond := findCondition(release, ConditionResourcesApplied); cond != nil {
+		refused = cond.Reason == ReasonApplyRefused && cond.ObservedGeneration == release.Generation
+	}
+	read := sets.New[string]()
+	var violations []string
+	for _, r := range requests {
+		if r.method == http.MethodGet {
+			if r.status == http.StatusOK && !isList(r) {
+				read.Insert(r.path)
+			}
+			continue
+		}
+		if strings.Contains(r.query, "dryRun=All") || r.status >= http.StatusMultipleChoices {
+			continue
+		}
+		violated := func(rule string) {
+			violations = append(violations, fmt.Sprintf("%s %s: %s", r.method, r.path, rule))
+		}
+		if refused {
+			violated("written by a pass that refuses")
+		}
+		if r.method == http.MethodPatch && r.before != nil && read.Has(r.path) && !hasMarksOf(r.before, release) {
+			violated("read, not owned, and written anyway")
+		}
+	}
+	return violations
+}
+
+// hasMarksOf reports whether a release applied the object, by its labels and its entry.
+func hasMarksOf(obj *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) bool {
+	return obj.GetLabels()[labels.LabelKeyRenderedReleaseName] == release.Name &&
+		obj.GetLabels()[labels.LabelKeyRenderedReleaseNamespace] == release.Namespace && hasApplyEntry(obj)
 }
 
 func isList(r *planeRequest) bool {
@@ -134,5 +174,71 @@ var _ = Describe("the rules for deletes", func() {
 		err := plane.Delete(ctx, obj, client.Preconditions{UID: ptr.To(types.UID("another"))})
 		Expect(err).To(HaveOccurred())
 		Expect(deleteViolations(proxy.requests())).To(BeEmpty())
+	})
+})
+
+var _ = Describe("the rules for applies", func() {
+	const name = "apply-rules"
+	var (
+		proxy   *planeProxy
+		plane   client.Client
+		release *openchoreov1alpha1.RenderedRelease
+	)
+	newObj := func(releaseName string) *unstructured.Unstructured {
+		o := unstructuredObj("v1", "ConfigMap", testNs, name)
+		o.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseName: releaseName, labels.LabelKeyRenderedReleaseNamespace: testNs})
+		return o
+	}
+	applyAs := func(releaseName string) {
+		GinkgoHelper()
+		Expect(plane.Patch(ctx, newObj(releaseName), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName))).To(Succeed())
+	}
+	read := func() {
+		GinkgoHelper()
+		Expect(plane.Get(ctx, client.ObjectKey{Namespace: testNs, Name: name}, newObj(""))).To(Succeed())
+	}
+
+	BeforeEach(func() {
+		proxy = newPlaneProxy()
+		plane = proxy.client()
+		release = makeMinimalRelease("mine", "env")
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, newObj("")) })
+	})
+
+	It("pass a new object, and one the release owns", func() {
+		applyAs("mine")
+		read()
+		applyAs("mine")
+		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+	})
+
+	It("catch an apply over another release's object", func() {
+		applyAs("another")
+		proxy.reset()
+		read()
+		applyAs("mine")
+		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+	})
+
+	It("catch an apply over an object no release applied", func() {
+		Expect(k8sClient.Create(ctx, newObj("mine"))).To(Succeed())
+		read()
+		applyAs("mine")
+		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+	})
+
+	It("leave out an object the pass did not read, which an own namespace adopts", func() {
+		applyAs("another")
+		proxy.reset()
+		applyAs("mine")
+		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+	})
+
+	It("catch any write of a pass that refuses, except a dry run", func() {
+		release.Status.Conditions = []metav1.Condition{{Type: ConditionResourcesApplied, Status: metav1.ConditionFalse, Reason: ReasonApplyRefused}}
+		Expect(plane.Patch(ctx, newObj("mine"), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
+		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+		applyAs("mine")
+		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("written by a pass that refuses")))
 	})
 })

@@ -4,6 +4,11 @@
 package renderedrelease
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,4 +88,79 @@ func guardIsOn(release *openchoreov1alpha1.RenderedRelease, desired []*unstructu
 		}
 	}
 	return true
+}
+
+// maxReportedRefusals caps how many refused objects the ResourcesApplied condition names
+// one by one.
+const maxReportedRefusals = 10
+
+// refusedError says which objects a release must not touch.
+type refusedError struct {
+	// objects names each object and whose it is.
+	objects []string
+}
+
+func (e *refusedError) Error() string {
+	named := e.objects[:min(len(e.objects), maxReportedRefusals)]
+	msg := strings.Join(named, "; ")
+	if extra := len(e.objects) - len(named); extra > 0 {
+		msg += fmt.Sprintf("; and %d more", extra)
+	}
+	return msg
+}
+
+// checkOwnership reads the objects a guarded release is about to apply, before anything is
+// written. It returns a refusedError when the release doesn't own one that exists, and the
+// error of a read that fails, since that object may be someone else's too.
+func checkOwnership(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease,
+	desired []*unstructured.Unstructured) error {
+	if !guardIsOn(release, desired, planeClient) {
+		return nil
+	}
+	var refused []string
+	for _, obj := range desired {
+		live, err := readLive(ctx, planeClient, obj)
+		if err != nil {
+			return fmt.Errorf("failed to check %s: %w", describeObject(obj), err)
+		}
+		if live == nil {
+			continue
+		}
+		switch ownerOf(live, release) {
+		case ownedByRelease:
+		case ownedByAnotherRelease:
+			refused = append(refused, fmt.Sprintf("%s belongs to %s", describeObject(live), describeOwner(live, release)))
+		case ownedOutside:
+			refused = append(refused, describeObject(live)+" exists and is not managed by this release")
+		}
+	}
+	if len(refused) > 0 {
+		return &refusedError{objects: refused}
+	}
+	return nil
+}
+
+// readLive reads the object desired would be applied as, in desired's API version. It
+// returns nil when there is none. ProxyClient answers the same for a kind the plane does
+// not serve, and applying that fails anyway.
+func readLive(ctx context.Context, planeClient client.Client, desired *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	live := &unstructured.Unstructured{}
+	live.SetGroupVersionKind(desired.GroupVersionKind())
+	err := planeClient.Get(ctx, client.ObjectKeyFromObject(desired), live)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return live, nil
+}
+
+// describeOwner names the release that owns a live object. Two organizations can use one
+// namespace of a plane, so a release in another control plane namespace is not named.
+func describeOwner(live *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) string {
+	if live.GetLabels()[labels.LabelKeyRenderedReleaseNamespace] != release.Namespace {
+		return "another RenderedRelease"
+	}
+	return "RenderedRelease " + live.GetLabels()[labels.LabelKeyRenderedReleaseName]
 }

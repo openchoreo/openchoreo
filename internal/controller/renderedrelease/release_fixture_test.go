@@ -4,6 +4,8 @@
 package renderedrelease
 
 import (
+	"net/http"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -57,13 +59,19 @@ func (f *releaseFixture) key() types.NamespacedName {
 	return types.NamespacedName{Name: f.name, Namespace: testNs}
 }
 
-// pass reconciles the release once, and checks its deletes.
+// pass reconciles the release once, and checks what it wrote against the rules.
 func (f *releaseFixture) pass() (reconcile.Result, error) {
 	GinkgoHelper()
 	seen := len(f.proxy.requests())
 	result, err := f.r.Reconcile(ctx, reconcile.Request{NamespacedName: f.key()})
 	f.sent = f.proxy.requests()[seen:]
 	Expect(deleteViolations(f.sent)).To(BeEmpty())
+	release := &openchoreov1alpha1.RenderedRelease{}
+	if getErr := k8sClient.Get(ctx, f.key(), release); getErr == nil {
+		Expect(applyViolations(release, f.sent)).To(BeEmpty())
+	} else {
+		Expect(client.IgnoreNotFound(getErr)).To(Succeed())
+	}
 	return result, err
 }
 
@@ -97,13 +105,27 @@ func (f *releaseFixture) deleteRelease() {
 
 // deletes returns the deletes of the last pass.
 func (f *releaseFixture) deletes() []*planeRequest {
-	var deletes []*planeRequest
+	return f.sentThat(func(r *planeRequest) bool { return r.method == http.MethodDelete })
+}
+
+// writes returns everything the last pass wrote or tried to.
+func (f *releaseFixture) writes() []*planeRequest {
+	return f.sentThat(func(r *planeRequest) bool { return r.method != http.MethodGet })
+}
+
+// reads returns the objects the last pass read one by one.
+func (f *releaseFixture) reads() []*planeRequest {
+	return f.sentThat(func(r *planeRequest) bool { return r.method == http.MethodGet && !isList(r) })
+}
+
+func (f *releaseFixture) sentThat(match func(*planeRequest) bool) []*planeRequest {
+	var requests []*planeRequest
 	for _, r := range f.sent {
-		if r.method == "DELETE" {
-			deletes = append(deletes, r)
+		if match(r) {
+			requests = append(requests, r)
 		}
 	}
-	return deletes
+	return requests
 }
 
 // object returns an object of a kind the plane's agent may write, in the own namespace:

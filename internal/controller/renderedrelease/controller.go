@@ -5,6 +5,7 @@ package renderedrelease
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -166,6 +167,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
 
+		// Nothing is written, not even a namespace, unless everything may be.
+		if err := checkOwnership(ctx, planeClient, release, desiredResources); err != nil {
+			var refused *refusedError
+			if errors.As(err, &refused) {
+				return r.markApplyRefused(ctx, old, release, observed.statuses, refused)
+			}
+			logger.Error(err, "Failed to check who owns the resources to apply")
+			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
+		}
+
 		// Ensure namespaces exist before applying resources on the observability plane only.
 		// The data plane's cell namespace is owned by the ProjectReleaseBinding, so the DP
 		// apply path must not regain implicit namespace creation. On the observability plane
@@ -292,6 +303,23 @@ func (r *Reconciler) markApplyFailed(ctx context.Context, old, release *openchor
 		log.FromContext(ctx).Error(statusErr, "Failed to update Release status with apply error")
 	}
 	return ctrl.Result{}, err
+}
+
+// markApplyRefused persists ResourcesApplied=False with what was refused, the way
+// markApplyFailed does. A refusal is not an error: it lasts until someone changes the
+// objects or the release, so the release is checked again at the progressing interval
+// instead of backing off, and at low priority.
+func (r *Reconciler) markApplyRefused(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease,
+	observedStatuses []openchoreov1alpha1.RenderedManifestStatus, refused *refusedError) (ctrl.Result, error) {
+	log.FromContext(ctx).Info("Refused to apply resources", "refused", refused.Error())
+	controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+		controller.ConditionReason(ReasonApplyRefused),
+		fmt.Sprintf("Refused to apply, and nothing was changed: %v", refused))
+	if _, err := r.updateStatus(ctx, old, release, release.Status.Resources, observedStatuses); err != nil {
+		return ctrl.Result{}, err
+	}
+	requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
+	return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
 }
 
 // getDPClient gets the dataplane client for the specified environment
