@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -33,7 +32,7 @@ func findStaleResources(release *openchoreov1alpha1.RenderedRelease, liveResourc
 	var stale []*unstructured.Unstructured
 	for _, live := range liveResources {
 		identity := identityOf(live)
-		if isObserved.Has(identity) || seen.Has(identity) || isRendered(live) || !appliedByRelease(live, release) {
+		if isObserved.Has(identity) || seen.Has(identity) || isRendered(live) || ownerOf(live, release) != ownedByRelease {
 			continue
 		}
 		seen.Insert(identity)
@@ -58,33 +57,6 @@ func renderedIn(desiredResources []*unstructured.Unstructured) func(*unstructure
 
 // nothingIsRendered is the isRendered of a release that is being deleted.
 func nothingIsRendered(*unstructured.Unstructured) bool { return false }
-
-// appliedByRelease reports whether this release applied the live resource: its
-// managedFields hold a server-side apply entry from this controller's field manager, and
-// its labels name the release.
-//
-// The labels alone do not say that. Operators copy labels onto the objects they create
-// (ESO copies an ExternalSecret's labels onto its Secret when the ExternalSecret has no
-// target template), and such an object is listed as if it were ours. managedFields are
-// not copied, and applyResources records an Apply entry under ControllerName on
-// everything it writes. Deleting only what carries that entry leaves those objects to
-// their owner: the Secret of an ExternalSecret with creationPolicy Orphan outlives it,
-// and one with Merge existed before it.
-//
-// The entry alone does not say it either, since every release applies as ControllerName.
-func appliedByRelease(live *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) bool {
-	liveLabels := live.GetLabels()
-	if liveLabels[labels.LabelKeyRenderedReleaseNamespace] != release.Namespace ||
-		liveLabels[labels.LabelKeyRenderedReleaseName] != release.Name {
-		return false
-	}
-	for _, entry := range live.GetManagedFields() {
-		if entry.Manager == ControllerName && entry.Operation == metav1.ManagedFieldsOperationApply {
-			return true
-		}
-	}
-	return false
-}
 
 // deleteResources deletes the given stale resources from the target plane. It tries all
 // of them and reports the ones that fail together.

@@ -41,7 +41,7 @@ func newReleaseFixture(name, targetPlane string) *releaseFixture {
 	} else {
 		envName, _ = observeTestPlane(name)
 	}
-	f.own = dpkubernetes.GenerateK8sNameWithLengthLimit(dpkubernetes.MaxNamespaceNameLength, "dp", testNs, "test-project", envName)
+	f.own = dpkubernetes.DataPlaneNamespace(testNs, "test-project", envName)
 	Expect(k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: f.own}})).To(Succeed())
 	f.r = testReconcilerWithDPClient(f.proxy.client(), "", "")
 

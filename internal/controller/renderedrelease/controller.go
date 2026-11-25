@@ -39,6 +39,8 @@ const (
 	deploymentKind  = "Deployment"
 	statefulSetKind = "StatefulSet"
 
+	namespaceKind = "Namespace"
+
 	batchAPIGroup = "batch"
 	cronJobKind   = "CronJob"
 
@@ -490,7 +492,7 @@ var wellKnownDataPlaneGVKs = []schema.GroupVersionKind{
 	{Group: "", Version: "v1", Kind: "ConfigMap"},
 	{Group: "", Version: "v1", Kind: "Secret"},
 	{Group: "", Version: "v1", Kind: "ServiceAccount"},
-	{Group: "", Version: "v1", Kind: "Namespace"},
+	{Group: "", Version: "v1", Kind: namespaceKind},
 	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
 
 	// Apps
