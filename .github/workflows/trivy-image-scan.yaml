@@ -79,10 +79,12 @@ jobs:
           else
             candidates=("$minor_branch")
           fi
-          ref="" sha=""
+          # The commit the scanned images were built from. The branch may have moved past it.
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$IMAGE_TAG" --jq .sha)
+          ref=""
           for branch in "${candidates[@]}"; do
-            if out=$(gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --jq .commit.sha 2>&1); then
-              ref="refs/heads/$branch" sha="$out"
+            if out=$(gh api "repos/$GITHUB_REPOSITORY/branches/$branch" --jq .name 2>&1); then
+              ref="refs/heads/$branch"
               break
             elif [[ "$out" != *"HTTP 404"* ]]; then
               # Only a missing branch moves on; any other API error must not misfile results.
@@ -92,7 +94,6 @@ jobs:
           done
           if [[ -z "$ref" ]]; then
             echo "::warning::No release branch found for $IMAGE_TAG (tried ${candidates[*]}); filing results under the tag"
-            sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$IMAGE_TAG" --jq .sha)
             ref="refs/tags/$IMAGE_TAG"
           fi
           # Without both, upload-sarif would fall back to main and replace main's results.
