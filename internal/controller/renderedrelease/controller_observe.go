@@ -314,26 +314,6 @@ func readFailureMessage(total int, failures []observedReadFailure) string {
 	return msg
 }
 
-// excludeObserved drops the objects that are listed as observed resources.
-// Observed objects are never deleted, even one this release applied earlier and
-// that still carries its labels.
-func excludeObserved(objs []*unstructured.Unstructured, entries []observedEntry) []*unstructured.Unstructured {
-	if len(entries) == 0 || len(objs) == 0 {
-		return objs
-	}
-	observed := make(map[objectIdentity]bool, len(entries))
-	for _, entry := range entries {
-		observed[entry.identity()] = true
-	}
-	kept := make([]*unstructured.Unstructured, 0, len(objs))
-	for _, obj := range objs {
-		if !observed[identityOf(obj)] {
-			kept = append(kept, obj)
-		}
-	}
-	return kept
-}
-
 // checkObservedOverlap returns an error naming the first desired resource that is
 // also listed as an observed resource. Applying it would write to an object the
 // release only observes.

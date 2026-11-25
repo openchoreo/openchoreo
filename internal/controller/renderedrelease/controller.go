@@ -221,9 +221,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// PHASE 3: Find and delete stale resources (cleanup orphaned resources)
 	// Stale = live resources that are no longer in the desired spec (e.g., user removed a ConfigMap)
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
-	// An observed object is never deleted, even one this release applied before it
-	// was listed as observed.
-	staleResources := excludeObserved(r.findStaleResources(liveResources, desiredResources), observedEntries)
+	staleResources := findStaleResources(release, liveResources, observedEntries, renderedIn(desiredResources))
 	if err := r.deleteResources(ctx, planeClient, staleResources); err != nil {
 		logger.Error(err, "Failed to delete stale resources")
 		return ctrl.Result{}, err
@@ -477,77 +475,6 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 				continue
 			}
 			return fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
-		}
-	}
-
-	return nil
-}
-
-// findStaleResources finds resources that this controller applied but are no longer in the
-// desired spec. Live objects it did not apply are never stale, whatever labels they carry
-// (see appliedByController).
-func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstructured.Unstructured) []*unstructured.Unstructured {
-	// Build a set of desired resource IDs for fast lookup
-	desiredResourceIDs := make(map[string]bool)
-	for _, obj := range desiredResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if resourceID != "" {
-			desiredResourceIDs[resourceID] = true
-		}
-	}
-
-	// Find live resources that are not in the desired set
-	var staleResources []*unstructured.Unstructured
-	for _, liveObj := range appliedByController(liveResources) {
-		liveResourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if liveResourceID != "" {
-			// If this live resource ID is not in the desired set, it's stale
-			if !desiredResourceIDs[liveResourceID] {
-				staleResources = append(staleResources, liveObj)
-			}
-		}
-	}
-
-	return staleResources
-}
-
-// appliedByController returns the live resources this controller applied: those whose
-// managedFields hold a server-side apply entry from its field manager.
-//
-// The tracking labels alone do not say that. Operators copy labels onto the objects they
-// create (ESO copies an ExternalSecret's labels onto its Secret when the ExternalSecret has
-// no target template), and such an object is listed as if it were ours. managedFields are
-// not copied, and applyResources records an Apply entry under ControllerName on everything
-// it writes. Deleting only what carries that entry leaves those objects to their owner: the
-// Secret of an ExternalSecret with creationPolicy Orphan outlives it, and one with Merge
-// existed before it.
-func appliedByController(liveResources []*unstructured.Unstructured) []*unstructured.Unstructured {
-	applied := make([]*unstructured.Unstructured, 0, len(liveResources))
-	for _, obj := range liveResources {
-		for _, entry := range obj.GetManagedFields() {
-			if entry.Manager == ControllerName && entry.Operation == metav1.ManagedFieldsOperationApply {
-				applied = append(applied, obj)
-				break
-			}
-		}
-	}
-	return applied
-}
-
-// deleteResources deletes the given stale resources from the target plane
-func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Client, staleResources []*unstructured.Unstructured) error {
-	for _, obj := range staleResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-
-		// Skip resources already terminating on the target plane (re-deleting over
-		// the gateway tunnel is a wasted round-trip on the most expensive I/O path).
-		if obj.GetDeletionTimestamp() != nil {
-			continue
-		}
-
-		// Delete the resource from the target plane
-		if err := planeClient.Delete(ctx, obj); err != nil {
-			return fmt.Errorf("failed to delete stale resource %s: %w", resourceID, err)
 		}
 	}
 

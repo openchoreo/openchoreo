@@ -688,34 +688,6 @@ func TestSetObservedConditions(t *testing.T) {
 // never written
 // ─────────────────────────────────────────────────────────────
 
-func TestExcludeObserved(t *testing.T) {
-	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-		observedRes("api", "apps/v1", "Deployment", "prod", "api"),
-	})
-	observedDeploy := unstructuredObj("apps/v1", "Deployment", "prod", "api")
-	// The same object listed under another version is still the observed one.
-	observedOtherVersion := unstructuredObj("apps/v1beta2", "Deployment", "prod", "api")
-	otherNamespace := unstructuredObj("apps/v1", "Deployment", "staging", "api")
-	otherKind := unstructuredObj("v1", "Service", "prod", "api")
-
-	kept := excludeObserved([]*unstructured.Unstructured{observedDeploy, observedOtherVersion, otherNamespace, otherKind}, entries)
-	if len(kept) != 2 || kept[0] != otherNamespace || kept[1] != otherKind {
-		t.Errorf("kept %d objects, want only the two that are not observed", len(kept))
-	}
-	if got := excludeObserved([]*unstructured.Unstructured{observedDeploy}, nil); len(got) != 1 {
-		t.Error("with nothing observed, everything is kept")
-	}
-
-	// The kind is compared case-insensitively, as ProxyClient builds the request
-	// path from it: an entry spelled DEPLOYMENT reads, and protects, the Deployment.
-	upperCase := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-		observedRes("api", "apps/v1", "DEPLOYMENT", "prod", "api"),
-	})
-	if got := excludeObserved([]*unstructured.Unstructured{observedDeploy}, upperCase); len(got) != 0 {
-		t.Error("an entry spelled DEPLOYMENT must keep the Deployment out of the deletes")
-	}
-}
-
 func TestCheckObservedOverlap(t *testing.T) {
 	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
 		observedRes("team-api", "apps/v1", "Deployment", "prod", "api"),
