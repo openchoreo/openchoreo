@@ -1,9 +1,13 @@
 name: Publish podman-runner
 
+# Run by hand from the Actions tab. podman-runner has its own version numbers, separate from OpenChoreo releases.
 on:
-  push:
-    tags:
-      - "podman-runner-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version to publish, for example v1.3"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,10 +29,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set image version
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${GITHUB_REF_NAME#podman-runner-}"
+          if [[ "${GITHUB_REF}" != "refs/heads/main" ]]; then
+            echo "ERROR: run this workflow from main, not ${GITHUB_REF}"
+            exit 1
+          fi
           if ! [[ "${VERSION}" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "ERROR: tag ${GITHUB_REF_NAME} is not podman-runner-v<major>.<minor>[.<patch>]"
+            echo "ERROR: version ${VERSION} is not v<major>.<minor>[.<patch>]"
             exit 1
           fi
           echo "IMAGE=${IMAGE_REPO_PREFIX}/podman-runner:${VERSION}" >> "$GITHUB_ENV"
@@ -64,6 +73,13 @@ jobs:
           registry: ${{ env.OCI_REGISTRY_HOST }}
           username: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_USERNAME || github.actor) || secrets.OCI_REGISTRY_USERNAME }}
           password: ${{ env.OCI_REGISTRY_HOST == 'ghcr.io' && (secrets.OCI_REGISTRY_PASSWORD || github.token) || secrets.OCI_REGISTRY_PASSWORD }}
+
+      - name: Check the version is not already published
+        run: |
+          if docker buildx imagetools inspect "${IMAGE}" > /dev/null 2>&1; then
+            echo "ERROR: ${IMAGE} already exists; choose a new version"
+            exit 1
+          fi
 
       - name: Build and push
         id: push
