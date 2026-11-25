@@ -155,7 +155,12 @@ func makeEnvironment(name, cdpName string) *openchoreov1alpha1.Environment {
 
 // testReconcilerWithDPClient creates a Reconciler with a mock PlaneClientProvider
 // that returns dpClient for any data plane. This allows testing without a real data-plane cluster.
+// With envtest's client it returns a ProxyClient in front of envtest instead, the client
+// production uses, since the two differ in what they send and in the errors they return.
 func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler {
+	if dpClient == k8sClient {
+		dpClient = newPlaneProxy().client()
+	}
 	mockProvider := &k8sMocks.MockPlaneClientProvider{}
 	mockProvider.EXPECT().DataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
 	mockProvider.EXPECT().ClusterDataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()

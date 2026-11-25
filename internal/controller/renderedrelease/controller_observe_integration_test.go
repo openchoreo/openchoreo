@@ -29,11 +29,11 @@ import (
 	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
-// These specs run the reconciler against envtest with the envtest client as the
-// plane client, so reads, server-side applies and deletes go to a real API server.
+// These specs run the reconciler against envtest through ProxyClient, so reads,
+// server-side applies and deletes go to a real API server as production sends them.
 
 // observeTestPlane creates a ClusterDataPlane and an Environment for one spec and
-// returns the environment name and a reconciler whose plane client is envtest.
+// returns the environment name and a reconciler whose plane is envtest.
 func observeTestPlane(suffix string) (string, *Reconciler) {
 	GinkgoHelper()
 	envName, cdpName, planeID := "env-"+suffix, "cdp-"+suffix, "plane-"+suffix
@@ -209,17 +209,18 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(observed[1].ID).To(Equal("settings"))
 			Expect(observed[1].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
 
-			By("A missing object and an unknown kind are Unknown, with the reasons in the condition")
+			By("A missing object and an unknown kind are Unknown, with the reason in the condition")
 			Expect(observed[2].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
 			Expect(observed[2].LastObservedTime).To(BeNil())
 			Expect(observed[3].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
 			read := findCondition(updated, string(ConditionObservedResourcesRead))
 			Expect(read).NotTo(BeNil())
 			Expect(read.Status).To(Equal(metav1.ConditionFalse))
-			Expect(read.Reason).To(Equal(string(ReasonObservedReadFailed)), "two different causes")
+			Expect(read.Reason).To(Equal(string(ReasonObservedResourceNotFound)),
+				"ProxyClient reports a kind the plane does not serve as a missing object")
 			Expect(read.Message).To(ContainSubstring("2 of 4"))
 			Expect(read.Message).To(ContainSubstring("missing (v1 Service default/observe-read-missing): not found"))
-			Expect(read.Message).To(ContainSubstring("widget (example.com/v1 Widget default/w): kind is not served"))
+			Expect(read.Message).To(ContainSubstring("widget (example.com/v1 Widget default/w): not found"))
 
 			By("Nothing was applied, and the apply condition says why")
 			applied := findCondition(updated, ConditionResourcesApplied)
@@ -265,7 +266,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			updated = fetchRelease(releaseName)
 			Expect(updated.Status.ObservedResources[2].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
 			read = findCondition(updated, string(ConditionObservedResourcesRead))
-			Expect(read.Reason).To(Equal(string(ReasonObservedKindNotFound)))
+			Expect(read.Reason).To(Equal(string(ReasonObservedResourceNotFound)))
 			Expect(read.Message).To(ContainSubstring("1 of 4"))
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(svc), svc)).To(Succeed())
 			expectUntouched(svc)
