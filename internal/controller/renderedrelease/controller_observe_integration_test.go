@@ -448,7 +448,7 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			forceDelete(ctx, types.NamespacedName{Name: releaseName, Namespace: testNs})
 		})
 
-		It("refuses to apply it in Manage mode", func() {
+		It("does not write an existing object in Manage mode", func() {
 			envName, r := observeTestPlane("observe-overlap")
 			team := teamConfigMap("overlap-team")
 
@@ -478,11 +478,11 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
 			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Status).To(Equal(metav1.ConditionTrue))
 
-			By("A repeat of the same failure still writes what changed on the observed side")
+			By("Once it is gone, the release creates it, and reports it as it was read before")
 			Expect(k8sClient.Delete(ctx, team)).To(Succeed())
-			_, err = r.Reconcile(ctx, reconcileRequest(releaseName))
-			Expect(err).To(MatchError(ContainSubstring("never written")))
+			mustReconcile(r, reconcileRequest(releaseName))
 			updated = fetchRelease(releaseName)
+			Expect(findCondition(updated, ConditionResourcesApplied).Reason).To(Equal(ReasonApplySucceeded))
 			Expect(updated.Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusUnknown))
 			Expect(findCondition(updated, string(ConditionObservedResourcesRead)).Reason).
 				To(Equal(string(ReasonObservedResourceNotFound)))

@@ -685,43 +685,6 @@ func TestSetObservedConditions(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// never written
-// ─────────────────────────────────────────────────────────────
-
-func TestCheckObservedOverlap(t *testing.T) {
-	entries := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-		observedRes("team-api", "apps/v1", "Deployment", "prod", "api"),
-	})
-	rendered := unstructuredObj("apps/v1", "Deployment", "prod", "api")
-	rendered.SetLabels(map[string]string{"openchoreo.dev/rendered-release-resource-id": "deployment"})
-
-	err := checkObservedOverlap([]*unstructured.Unstructured{rendered}, entries)
-	if err == nil || !strings.Contains(err.Error(), "team-api") || !strings.Contains(err.Error(), "never written") {
-		t.Errorf("err = %v, want one naming the observed resource", err)
-	}
-	if err := checkObservedOverlap([]*unstructured.Unstructured{unstructuredObj("apps/v1", "Deployment", "prod", "web")}, entries); err != nil {
-		t.Errorf("distinct objects overlap: %v", err)
-	}
-	if err := checkObservedOverlap([]*unstructured.Unstructured{unstructuredObj("apps/v1beta2", "Deployment", "prod", "api")}, entries); err == nil {
-		t.Error("the same object under another API version overlaps too")
-	}
-	if err := checkObservedOverlap([]*unstructured.Unstructured{rendered}, nil); err != nil {
-		t.Errorf("nothing observed, got %v", err)
-	}
-
-	upperCase := resolveObservedResources([]openchoreov1alpha1.ObservedResource{
-		observedRes("team-api", "apps/v1", "DEPLOYMENT", "prod", "api"),
-	})
-	err = checkObservedOverlap([]*unstructured.Unstructured{rendered}, upperCase)
-	if err == nil {
-		t.Fatal("an entry spelled DEPLOYMENT overlaps the rendered Deployment")
-	}
-	if !strings.Contains(err.Error(), "(Deployment.apps prod/api)") {
-		t.Errorf("err = %v, want the object named as rendered", err)
-	}
-}
-
-// ─────────────────────────────────────────────────────────────
 // mode and requeue inputs
 // ─────────────────────────────────────────────────────────────
 

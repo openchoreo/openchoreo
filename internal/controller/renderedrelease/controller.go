@@ -145,8 +145,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	// Observed resources are read in both modes and never written. They are read
-	// before the apply so that a failed apply still publishes them.
+	// Observed resources are read in both modes. They are read before the apply so that
+	// a failed apply still publishes them.
 	observedEntries := resolveObservedResources(release.Spec.ObservedResources)
 	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
 	setObservedConditions(release, observedEntries, observed.failures)
@@ -160,12 +160,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err != nil {
 			logger.Error(err, "Failed to make desired resources")
 			return ctrl.Result{}, err
-		}
-
-		// An object that is both rendered and observed would be written by the apply.
-		if err := checkObservedOverlap(desiredResources, observedEntries); err != nil {
-			logger.Error(err, "Rendered resources overlap observed resources")
-			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
 
 		// Nothing is written, not even a namespace, unless everything may be.
@@ -266,9 +260,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Polls run at low priority so that real changes (spec, restart annotation,
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
 	// Observed resources count too; transitioningRequeuePriority weighs them. So does
-	// a failed read, whose entry may still show its last health.
-	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(release.Status.ObservedResources) ||
-		len(observed.failures) > 0 {
+	// a failed read, whose entry may still show its last health. One that does not exist
+	// counts only in Observe mode: in Manage mode it may never, such as the old name of an
+	// object the release renders under a new one.
+	awaited := observed
+	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
+		awaited = observed.withoutMissing()
+	}
+	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(awaited.statuses) ||
+		len(awaited.failures) > 0 {
 		requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
 		priority := transitioningRequeuePriority(release.Status.Resources, release.Status.ObservedResources)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
@@ -396,6 +396,14 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 func applyResource(ctx context.Context, planeClient client.Client, resource checkedResource) error {
 	obj := resource.desired
 	if resource.live != nil {
+		// The label comes first, so a claimed object is protected before the release owns it.
+		// One that is created now is labeled by the next pass, and protected by its claim until
+		// then.
+		if resource.claimed && !hasClaimedLabel(resource.live) {
+			if _, err := addClaimedLabel(ctx, planeClient, resource.live); err != nil {
+				return err
+			}
+		}
 		obj.SetUID(resource.live.GetUID())
 	}
 	if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {

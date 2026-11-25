@@ -1884,6 +1884,9 @@ var _ = Describe("applyResources and deleteResources", func() {
 	const testNS = "default"
 	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 
+	unchecked := func(obj *unstructured.Unstructured) []checkedResource {
+		return []checkedResource{{desired: obj}}
+	}
 	makeTrackedCM := func(name, resourceID, releaseUID string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(configMapGVK)
@@ -1929,7 +1932,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should apply the resource with tracking labels", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 
 			existing := &unstructured.Unstructured{}
 			existing.SetGroupVersionKind(configMapGVK)
@@ -1940,9 +1943,9 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should be idempotent when applied twice", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 			obj2 := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj2}))).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj2))).To(Succeed())
 		})
 	})
 
@@ -1954,7 +1957,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		BeforeEach(func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, unchecked([]*unstructured.Unstructured{obj}))).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 		})
 
 		AfterEach(func() { deleteCM(cmName) })

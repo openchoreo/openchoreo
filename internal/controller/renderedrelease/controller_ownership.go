@@ -83,8 +83,7 @@ func guardIsOn(release *openchoreov1alpha1.RenderedRelease, desired []*unstructu
 		if gvk := obj.GroupVersionKind(); gvk.Group == "" && gvk.Kind == namespaceKind && obj.GetName() == own {
 			return false
 		}
-		// A cluster-scoped object is in no namespace, even if its manifest sets one.
-		if namespaced, err := planeClient.IsObjectNamespaced(obj); err == nil && namespaced && obj.GetNamespace() == own {
+		if identityOnPlane(obj, planeClient).namespace == own {
 			return false
 		}
 	}
@@ -113,6 +112,8 @@ func (e *refusedError) Error() string {
 // checkedResource is a resource to apply, and what the check found in its place.
 type checkedResource struct {
 	desired *unstructured.Unstructured
+	// claimed says that the release also lists the object in spec.observedResources.
+	claimed bool
 	// live is the object it is applied over. Nil when there was none, and when it was not
 	// looked for.
 	live *unstructured.Unstructured
@@ -120,45 +121,50 @@ type checkedResource struct {
 	missing bool
 }
 
-// unchecked returns the resources as they are applied without a check.
-func unchecked(desired []*unstructured.Unstructured) []checkedResource {
-	resources := make([]checkedResource, 0, len(desired))
-	for _, obj := range desired {
-		resources = append(resources, checkedResource{desired: obj})
-	}
-	return resources
-}
-
-// checkOwnership reads the objects a guarded release is about to apply, before anything is
-// written, and returns what it found. It returns a refusedError when the release doesn't own
-// one that exists, and the error of a read that fails, since that object may be someone
-// else's too.
+// checkOwnership looks for the objects a release is about to apply, before anything is
+// written, and returns what it found. It looks for the ones that are claimed, and with the
+// guard on for all of them.
+//
+// It returns a refusedError when another release owns one of them, or when the guard is on
+// and nobody claimed one the release doesn't own. It returns the error of a read that fails,
+// since that object may be someone else's too.
 func checkOwnership(ctx context.Context, planeClient client.Client, release *openchoreov1alpha1.RenderedRelease,
 	desired []*unstructured.Unstructured) ([]checkedResource, error) {
-	if !guardIsOn(release, desired, planeClient) {
-		return unchecked(desired), nil
+	guarded := guardIsOn(release, desired, planeClient)
+	claims := make(map[objectIdentity]string, len(release.Spec.ObservedResources))
+	for _, claim := range resolveObservedResources(release.Spec.ObservedResources) {
+		claims[claim.identity()] = claim.id
 	}
+
 	resources := make([]checkedResource, 0, len(desired))
 	missing := sets.New[objectIdentity]()
 	var refused []string
 	for _, obj := range desired {
+		identity := identityOnPlane(obj, planeClient)
+		claim, claimed := claims[identity]
+		if !claimed && !guarded {
+			resources = append(resources, checkedResource{desired: obj})
+			continue
+		}
 		live, err := readLive(ctx, planeClient, obj)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check %s: %w", describeObject(obj), err)
 		}
 		if live == nil {
 			// When a release renders an object twice, the first one creates it.
-			identity := identityOf(obj)
-			resources = append(resources, checkedResource{desired: obj, missing: !missing.Has(identity)})
+			resources = append(resources, checkedResource{desired: obj, claimed: claimed, missing: !missing.Has(identity)})
 			missing.Insert(identity)
 			continue
 		}
-		resources = append(resources, checkedResource{desired: obj, live: live})
-		switch ownerOf(live, release) {
-		case ownedByRelease:
-		case ownedByAnotherRelease:
+		resources = append(resources, checkedResource{desired: obj, claimed: claimed, live: live})
+		switch owner := ownerOf(live, release); {
+		case owner == ownedByRelease:
+		case owner == ownedByAnotherRelease:
 			refused = append(refused, fmt.Sprintf("%s belongs to %s", describeObject(live), describeOwner(live, release)))
-		case ownedOutside:
+		case claimed:
+			return nil, fmt.Errorf("resource %s (%s) is also observed resource %s, and observed resources are never written",
+				obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID], describeObject(live), claim)
+		default:
 			refused = append(refused, describeObject(live)+" exists and is not managed by this release")
 		}
 	}
@@ -166,6 +172,16 @@ func checkOwnership(ctx context.Context, planeClient client.Client, release *ope
 		return nil, &refusedError{objects: refused}
 	}
 	return resources, nil
+}
+
+// identityOnPlane returns the identity a rendered object has on the plane. A cluster-scoped
+// object is in no namespace, even if its manifest sets one.
+func identityOnPlane(obj *unstructured.Unstructured, planeClient client.Client) objectIdentity {
+	identity := identityOf(obj)
+	if namespaced, err := planeClient.IsObjectNamespaced(obj); err == nil && !namespaced {
+		identity.namespace = ""
+	}
+	return identity
 }
 
 // readLive reads the object desired would be applied as, in desired's API version. It
