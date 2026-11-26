@@ -566,9 +566,24 @@ def _shown_as_input_card(reply: str, scope: dict[str, Any] | None) -> bool:
     return bool(view and not view.clear)
 
 
+# Where an answer can go on to a test request: "yes, test it on …", "1 and test …".
+_THEN_RE = re.compile(r"[\s,.;!]+(?:(?:and|then)\s+)*(?=\S)", re.IGNORECASE)
+
+
+def _without_test_request(answer: str) -> str:
+    """``answer`` without a test request at its end ("yes, test it on
+    order-api" → "yes"): Step 2 runs the test asked for in the approval.
+    Anything else is returned as it is."""
+    for split in _THEN_RE.finditer(answer):
+        if split.start() and _TEST_REQUEST_RE.fullmatch(answer[split.end() :].strip()):
+            return answer[: split.start()]
+    return answer
+
+
 def _approves(answer: str, step1: str) -> bool:
-    """Whether ``answer``, and nothing else in it, approves the ``step1`` reply."""
-    answer = answer.strip()
+    """Whether ``answer``, and nothing else in it, approves the ``step1`` reply.
+    A test request after the approval is allowed: the test is part of Step 2."""
+    answer = _without_test_request(answer.strip()).strip()
     choices = {int(n) for n in _CHOICE_LINE_RE.findall(step1)}
     if _APPROVAL_ONLY_RE.fullmatch(answer):
         # "yes" to two choices doesn't say which one.

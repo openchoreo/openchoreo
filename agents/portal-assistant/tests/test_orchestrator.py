@@ -3042,3 +3042,30 @@ async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):
     ]
 
     assert not [e for e in events if e["type"] == "confirmation_required"]
+
+
+@pytest.mark.parametrize("answer", [
+    "yes, test it on order-api",
+    "Yes. Test it on component:default/order-api",
+    "ok and test it on order-api",
+    "yes please, then run it on order-api",
+])
+def test_an_approval_that_also_asks_for_a_test_approves(answer):
+    # CodeRabbit: the prompt runs a test asked for "in their confirmation",
+    # but such an answer went back to Step 1 with no tools.
+    assert _phase(_STEP1, answer) == "apply"
+
+
+@pytest.mark.parametrize("answer", ["1, then test it on order-api", "the second and test it on order-api"])
+def test_a_picked_choice_that_also_asks_for_a_test_approves(answer):
+    assert _phase(_TWO_CHOICES, answer) == "apply"
+
+
+@pytest.mark.parametrize("answer", [
+    "yes, but make it 70 and test it on order-api",
+    "yes, test it",  # no component named: not a test request
+    "test it on order-api",  # a test alone is the test phase, not an approval
+    "yes to both, test it on order-api",
+])
+def test_a_test_request_does_not_turn_other_answers_into_approvals(answer):
+    assert _phase(_STEP1, answer) != "apply"
