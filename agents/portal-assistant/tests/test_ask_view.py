@@ -219,3 +219,39 @@ def test_an_unindented_line_between_options_gets_no_card():
     )
 
     assert ask_view(reply, _SCOPE) is None
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        # Unindented text after the last option is part of it.
+        "counted only from code owners.",
+        "counted only from code owners.\n\nReply with 1 or 2.",
+    ],
+)
+def test_text_after_the_last_option_gets_no_buttons(tail):
+    # CodeRabbit: the code-owner restriction was dropped, so the button sent half the answer.
+    reply = f"Which do you mean?\n1. Require two approving reviews\n2. Require one approving review,\n{tail}"
+
+    assert ask_view(reply, _SCOPE) is None
+
+
+@pytest.mark.parametrize(
+    "footer",
+    [
+        "Reply with 1 or 2.",
+        "Reply with 1, 2 (and the number), or 3.",
+        "Please reply with 1 or 2",
+        "Or tell me something else.",
+        "Which one do you want?",
+    ],
+)
+def test_a_closing_line_after_the_options_is_not_part_of_them(footer):
+    reply = f"Which do you mean?\n1. Require two approving reviews\n2. Require one approving review\n\n{footer}"
+
+    view = ask_view(reply, _SCOPE)
+
+    assert [o.message for o in view.options] == [
+        "Require two approving reviews",
+        "Require one approving review",
+    ]

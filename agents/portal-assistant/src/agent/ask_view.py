@@ -44,6 +44,13 @@ COMPARISONS = {
 _OPTION_RE = re.compile(r"^[ \t]*([1-9])[.)][ \t]+(.+)$", re.MULTILINE)
 # An indented line under an option: more of it, or a sub-point ("   - …").
 _CONTINUATION_RE = re.compile(r"^[ \t]+([-*•][ \t]+)?(\S.*)$")
+# A closing line after the options that tells the user how to answer
+# ("Reply with 1 or 2.", "Or tell me something else."); it isn't part of one.
+_FOOTER_RE = re.compile(
+    r"^[ \t]*(?:please[ \t]+)?(?:reply|answer|respond|choose|pick|say|type|tell[ \t]+me|"
+    r"or[ \t]+(?:reply|tell|type|say|pick|choose))\b",
+    re.IGNORECASE,
+)
 # A numbered list is a question only when the reply asks the user to pick.
 _PICK_RE = re.compile(r"\b(?:reply with|do you mean|which|choose|pick)\b", re.IGNORECASE)
 # "(tell me the exact number)": the option needs a number from the user.
@@ -159,15 +166,16 @@ def _open_question(message: str, scope: dict[str, Any]) -> AskView | None:
 
 def _numbered_items(message: str) -> list[tuple[str, str]] | None:
     """Each numbered option with the indented lines under it (a wrapped line,
-    or a sub-point), as (number, text). None when an unindented line sits
-    between two options: which option it belongs to can't be told, and a
-    button without it would send half the answer."""
+    or a sub-point), as (number, text). None when an unindented line that
+    isn't a closing line ("Reply with 1 or 2.") sits between two options or
+    after the last: which option it belongs to can't be told, and a button
+    without it would send half the answer."""
     items: list[tuple[str, str]] = []
-    in_item = between = False
+    in_item = stray = closed = False
     for line in message.splitlines():
         option = _OPTION_RE.match(line)
         if option:
-            if between:
+            if stray or closed:
                 return None
             items.append((option[1], option[2]))
             in_item = True
@@ -178,8 +186,14 @@ def _numbered_items(message: str) -> list[tuple[str, str]] | None:
             joiner = "; " if more[1] else " "
             items[-1] = (number, f"{text.rstrip()}{joiner}{more[2]}")
         elif items:
-            in_item, between = False, True
-    return items
+            in_item = False
+            # A closing question ("Which one do you want?") ends the list too:
+            # an option's own wrapped text doesn't end in one.
+            if _FOOTER_RE.match(line) or line.rstrip().endswith("?"):
+                closed = True
+            else:
+                stray = True
+    return None if stray else items
 
 
 def _options(message: str, scope: dict[str, Any]) -> AskView | None:
