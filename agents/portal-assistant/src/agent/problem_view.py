@@ -3,9 +3,10 @@
 
 """A check tool that failed at the end of a turn, read for an A2UI notice card.
 
-Built from the tool's own error (see ToolErrorHandlerMiddleware: already
-scrubbed of tokens and internal addresses), never from the model's words.
-Known errors get plain words; any other keeps the tool's text.
+Built from the tool's own error, never from the model's words. Known errors
+get plain words; any other keeps the tool's text, scrubbed here of tokens
+and internal addresses: not every error comes through
+ToolErrorHandlerMiddleware (a test run by code, or a tool's error result).
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import re
 from dataclasses import dataclass
 
 from src.agent.dry_run_view import entity_name
+from src.agent.middleware.tool_error_handler import _scrub
 from src.agent.reply_view import NoticeView
 
 _TEXT_MAX = 300
@@ -47,7 +49,7 @@ class ToolError:
 
 
 def _clean(text: str) -> str:
-    text = re.sub(r"^\s*Error(?: executing tool \S+)?:\s*", "", text or "")
+    text = re.sub(r"^\s*Error(?: executing tool \S+)?:\s*", "", _scrub(text or ""))
     text = " ".join(text.split())
     return text if len(text) <= _TEXT_MAX else text[: _TEXT_MAX - 1] + "…"
 

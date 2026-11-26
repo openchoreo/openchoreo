@@ -68,3 +68,20 @@ def test_only_a_failed_test_is_the_save_cards_note():
         failed_test_note(ToolError("validate_check", "Error: Request failed with status 503"))
         is None
     )
+
+
+def test_an_unknown_error_is_shown_without_secrets_or_internal_addresses():
+    # A test run by code gets Backstage's error straight, not through the
+    # tool error middleware.
+    view = problem_view(
+        ToolError(
+            "dry_run_check",
+            "Fetch failed for http://backstage.openchoreo.svc:7007/api "
+            "with Bearer eyJhbGciOi.abc from 10.0.0.5:8080",
+        )
+    )
+
+    assert "eyJhbGciOi" not in view.summary
+    assert ".svc" not in view.summary
+    assert "10.0.0.5" not in view.summary
+    assert "[REDACTED]" in view.summary
