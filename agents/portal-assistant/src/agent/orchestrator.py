@@ -482,8 +482,26 @@ _OPEN_CHANGE_RE = re.compile(
 )
 
 
+# "Improve it by requiring two reviews": an improvement that says what to do
+# is a change, not a request for ideas — unless it still asks for some
+# ("suggest how to improve it to …") or is a question.
+_NAMED_IMPROVEMENT_RE = re.compile(
+    r"\b(?:improve\w*|better)\b.*\b(?:by|to|so(?: that)?)\s+"
+    r"(?:requir|add|includ|exclud|chang|set|remov|mak|check|fail|pass|only)\w*",
+    re.IGNORECASE,
+)
+_ASKS_SOME_RE = re.compile(r"\b(?:suggest\w*|ideas?|recommend\w*|how)\b", re.IGNORECASE)
+
+
 def _asks_for_ideas(text: str) -> bool:
     """Whether the user's message asks for ideas or an explanation."""
+    if (
+        _NAMED_IMPROVEMENT_RE.search(text)
+        and "?" not in text
+        and not _ASKS_SOME_RE.search(text)
+        and not _EXPLAIN_RE.search(text)
+    ):
+        return False
     return bool(_DISCUSS_RE.search(text))
 
 

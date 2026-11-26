@@ -337,6 +337,8 @@ def test_non_approvals_of_a_single_proposal(answer):
 @pytest.mark.parametrize("answer", [
     "what does this check do?", "Suggest ways to improve this check",
     "Explain what this check tests", "any ideas to make it better?", "why 60?",
+    "How can I improve this to require more reviews?",
+    "Suggest how to improve it to make it stricter",
 ])
 def test_a_request_for_ideas_or_an_explanation_is_no_change(answer):
     assert _phase(_STEP1, answer) == "discuss"
@@ -2386,6 +2388,8 @@ def test_a_change_that_names_none_asks_for_ideas(latest):
     "Add another condition: require 2 approving reviews",
     "Make it stricter by requiring status checks",
     "Also require the repo to be private",
+    "Improve this check by requiring two approving reviews",
+    "Make it better: improve it to require code owner reviews",
 ])
 def test_a_change_that_names_one_is_proposed(latest):
     chat = [{"role": "user", "content": latest}]
