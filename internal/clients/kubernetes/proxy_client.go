@@ -747,6 +747,11 @@ func (pc *ProxyClient) buildSubResourcePatchQueryParams(opts *client.SubResource
 		params = append(params, "force=true")
 	}
 
+	// dryRun makes the server run the whole request without storing the result
+	for _, dryRun := range opts.DryRun {
+		params = append(params, "dryRun="+url.QueryEscape(dryRun))
+	}
+
 	return strings.Join(params, "&")
 }
 

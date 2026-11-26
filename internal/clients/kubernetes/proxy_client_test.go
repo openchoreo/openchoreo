@@ -738,6 +738,12 @@ func TestBuildSubResourcePatchQueryParams(t *testing.T) {
 		opts.Force = boolPtr(true)
 		assert.Equal(t, "fieldManager=controller%23blue&force=true", pc.buildSubResourcePatchQueryParams(opts))
 	})
+
+	t.Run("dry run", func(t *testing.T) {
+		opts := (&client.SubResourcePatchOptions{}).ApplyOptions([]client.SubResourcePatchOption{
+			client.FieldOwner("test-mgr"), client.DryRunAll})
+		assert.Equal(t, "fieldManager=test-mgr&dryRun=All", pc.buildSubResourcePatchQueryParams(opts))
+	})
 }
 
 func TestHandleErrorResponse(t *testing.T) {
