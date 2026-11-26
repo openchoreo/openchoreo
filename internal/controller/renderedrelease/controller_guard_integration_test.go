@@ -224,6 +224,19 @@ var _ = Describe("RenderedRelease guard", func() {
 			Expect(fetchRelease(f.name).Status.Resources).To(HaveLen(3))
 		})
 
+		It("is over when the next pass applies, even if that pass then fails", func() {
+			start("then-fails")
+			outside(configMap("c", "helm"))
+			f.render(configMap("a", "1"), configMap("c", "1"))
+			expectRefused(f.pass())
+			Expect(k8sClient.Delete(ctx, configMap("c", ""))).To(Succeed())
+			f.proxy.hook(planeHook{match: isList, answer: &planeAnswer{status: http.StatusBadGateway, contentType: "text/plain", body: "no agents"}})
+
+			_, err := f.pass()
+			Expect(err).To(MatchError(ContainSubstring("no agents")))
+			Expect(f.live(configMap("c", ""))).NotTo(BeNil(), "applied")
+		})
+
 		It("cleans up nothing", func() {
 			start("no-cleanup")
 			f.render(configMap("a", "1"))

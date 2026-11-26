@@ -77,7 +77,7 @@ func (f *releaseFixture) passIn(passCtx context.Context) (reconcile.Result, erro
 	Expect(giveBackViolations(f.sent)).To(BeEmpty())
 	release := &openchoreov1alpha1.RenderedRelease{}
 	if getErr := k8sClient.Get(ctx, f.key(), release); getErr == nil {
-		Expect(applyViolations(release, f.sent)).To(BeEmpty())
+		Expect(applyViolations(release, refusedBy(release, err), f.sent)).To(BeEmpty())
 	} else {
 		Expect(client.IgnoreNotFound(getErr)).To(Succeed())
 	}

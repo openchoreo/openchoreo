@@ -5,6 +5,7 @@ package renderedrelease
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -27,8 +28,9 @@ import (
 
 // deleteViolations returns the deletes among the requests that break a rule every delete
 // follows: it names by UID an object that was listed before, that a release applied, and
-// that is neither claimed nor labeled as claimed. testReconcilerWithDPClient checks it for
-// every spec, without knowing the claims.
+// that is neither claimed nor labeled as claimed. Which release applied it is left to the
+// cleanup specs. testReconcilerWithDPClient checks it for every spec, without knowing the
+// claims.
 func deleteViolations(requests []*planeRequest, claims ...openchoreov1alpha1.ObservedResource) []string {
 	listed := sets.New[types.UID]()
 	var violations []string
@@ -67,17 +69,23 @@ func deleteViolations(requests []*planeRequest, claims ...openchoreov1alpha1.Obs
 	return violations
 }
 
+// refusedBy reports whether a pass refused: it ended without an error, and the release says
+// ApplyRefused for its generation. A pass that fails after its writes and before the status
+// leaves the condition of an earlier refusal behind.
+func refusedBy(release *openchoreov1alpha1.RenderedRelease, passErr error) bool {
+	cond := findCondition(release, ConditionResourcesApplied)
+	return passErr == nil && cond != nil && cond.Reason == ReasonApplyRefused && cond.ObservedGeneration == release.Generation
+}
+
 // applyViolations returns the writes of one pass of a release that break a rule of the
-// checks before them: a pass that refuses writes nothing. An object the pass read is applied
-// over only if the release owns it, or if it is claimed and a dry run was accepted. Nothing
-// new is created after the first object was taken over.
-func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*planeRequest) []string {
-	refused := false
-	if cond := findCondition(release, ConditionResourcesApplied); cond != nil {
-		refused = cond.Reason == ReasonApplyRefused && cond.ObservedGeneration == release.Generation
-	}
+// checks before them: a pass that refuses writes nothing, and a pass with a rejected dry run
+// writes nothing after it. An object the pass read is applied over only if the release owns
+// it, or if it is claimed and a dry run was accepted. Nothing new is created after the first
+// object was taken over. Only server-side applies are checked against what the pass read;
+// giveBackViolations checks the other writes to an object.
+func applyViolations(release *openchoreov1alpha1.RenderedRelease, refused bool, requests []*planeRequest) []string {
 	read, dryRun := sets.New[string](), sets.New[string]()
-	tookOver := false
+	tookOver, rejected := false, false
 	var violations []string
 	for _, r := range requests {
 		if r.method == http.MethodGet {
@@ -86,10 +94,12 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*pl
 			}
 			continue
 		}
+		isDryRun := strings.Contains(r.query, "dryRun=All")
 		if r.status >= http.StatusMultipleChoices {
+			rejected = rejected || isDryRun
 			continue
 		}
-		if strings.Contains(r.query, "dryRun=All") {
+		if isDryRun {
 			dryRun.Insert(r.path)
 			continue
 		}
@@ -98,6 +108,9 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, requests []*pl
 		}
 		if refused {
 			violated("written by a pass that refuses")
+		}
+		if rejected {
+			violated("written after a dry run was rejected")
 		}
 		if r.contentType != string(types.ApplyPatchType) {
 			continue
@@ -312,7 +325,7 @@ var _ = Describe("the rules for applies", func() {
 		applyAs("mine")
 		read()
 		applyAs("mine")
-		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+		Expect(applyViolations(release, false, proxy.requests())).To(BeEmpty())
 	})
 
 	It("catch an apply over another release's object", func() {
@@ -320,14 +333,14 @@ var _ = Describe("the rules for applies", func() {
 		proxy.reset()
 		read()
 		applyAs("mine")
-		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
 	})
 
 	It("catch an apply over an object no release applied", func() {
 		Expect(k8sClient.Create(ctx, newObj("mine"))).To(Succeed())
 		read()
 		applyAs("mine")
-		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
 	})
 
 	It("pass an object that is claimed, after a dry run, and catch it without one", func() {
@@ -338,8 +351,8 @@ var _ = Describe("the rules for applies", func() {
 		Expect(plane.Patch(ctx, dryRun, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
 		applyAs("mine")
 		requests := proxy.requests()
-		Expect(applyViolations(release, requests)).To(BeEmpty())
-		Expect(applyViolations(release, slices.Delete(requests, 1, 2))).To(ConsistOf(ContainSubstring("without a dry run")))
+		Expect(applyViolations(release, false, requests)).To(BeEmpty())
+		Expect(applyViolations(release, false, slices.Delete(requests, 1, 2))).To(ConsistOf(ContainSubstring("without a dry run")))
 	})
 
 	It("catch an object that is created after one was taken over", func() {
@@ -352,22 +365,38 @@ var _ = Describe("the rules for applies", func() {
 		created.SetName("apply-rules-created")
 		Expect(plane.Patch(ctx, created, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName))).To(Succeed())
 		DeferCleanup(func() { _ = k8sClient.Delete(ctx, created) })
-		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("created after an object was taken over")))
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("created after an object was taken over")))
 	})
 
 	It("leave out an object the pass did not read, which an own namespace adopts", func() {
 		applyAs("another")
 		proxy.reset()
 		applyAs("mine")
-		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+		Expect(applyViolations(release, false, proxy.requests())).To(BeEmpty())
+	})
+
+	It("catch any write after a dry run was rejected", func() {
+		release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{ID: "mine", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: name}}
+		Expect(k8sClient.Create(ctx, newObj("mine"))).To(Succeed())
+		read()
+		rejected := newObj("mine")
+		rejected.SetUID("another")
+		Expect(plane.Patch(ctx, rejected, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).NotTo(Succeed())
+		created := newObj("mine")
+		created.SetName("apply-rules-created")
+		Expect(plane.Patch(ctx, created, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName))).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, created) })
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("written after a dry run was rejected")))
 	})
 
 	It("catch any write of a pass that refuses, except a dry run", func() {
 		release.Status.Conditions = []metav1.Condition{{Type: ConditionResourcesApplied, Status: metav1.ConditionFalse, Reason: ReasonApplyRefused}}
+		Expect(refusedBy(release, nil)).To(BeTrue())
+		Expect(refusedBy(release, errors.New("a list failed"))).To(BeFalse(), "a refusal is not an error")
 		Expect(plane.Patch(ctx, newObj("mine"), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
-		Expect(applyViolations(release, proxy.requests())).To(BeEmpty())
+		Expect(applyViolations(release, true, proxy.requests())).To(BeEmpty())
 		applyAs("mine")
-		Expect(applyViolations(release, proxy.requests())).To(ConsistOf(ContainSubstring("written by a pass that refuses")))
+		Expect(applyViolations(release, true, proxy.requests())).To(ConsistOf(ContainSubstring("written by a pass that refuses")))
 	})
 })
 
