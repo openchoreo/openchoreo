@@ -255,3 +255,70 @@ def test_a_closing_line_after_the_options_is_not_part_of_them(footer):
         "Require two approving reviews",
         "Require one approving review",
     ]
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        # CodeRabbit: "or tell …" starts like a closing line, but goes on with option 2.
+        "or tell the repository owner to approve it when no code owner is available.",
+        # Any closing-line start, after an option that isn't finished.
+        "Reply with 1 or 2.",
+        "Which one do you want?",
+    ],
+)
+def test_a_line_after_an_unfinished_option_gets_no_buttons(tail):
+    reply = (
+        "Which do you mean?\n"
+        "1. Require two approving reviews\n"
+        f"2. Require one approving review,\n{tail}\n\nReply with 1 or 2."
+    )
+
+    assert ask_view(reply, _SCOPE) is None
+
+
+@pytest.mark.parametrize(
+    "footer",
+    ["  Reply with 1 or 2.", "   Please reply with 1, 2 or 3.", "\tPick 1 or 2."],
+)
+def test_an_indented_closing_line_is_not_part_of_the_last_option(footer):
+    # CodeRabbit: it was joined to option 2, so its button sent the instruction too.
+    reply = (
+        "Which do you mean?\n"
+        "1. Require two approving reviews\n"
+        "   - Keep the administrator bypass enabled\n"
+        "2. Require one approving review\n"
+        "   counted only from code owners\n"
+        f"{footer}\n"
+        "Which one?"
+    )
+
+    view = ask_view(reply, _SCOPE)
+
+    assert [o.message for o in view.options] == [
+        "Require two approving reviews; Keep the administrator bypass enabled",
+        "Require one approving review counted only from code owners",
+    ]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "   or type a new value",
+        "   or tell the owner first",
+        # Names numbers, but goes on with the option ("… with").
+        "   reply with 1 or 2 approvals",
+    ],
+)
+def test_an_indented_line_that_goes_on_with_the_option_stays_in_it(line):
+    reply = (
+        "Which do you mean?\n"
+        "1. Require two approving reviews\n"
+        "2. Require one approving review, or\n"
+        f"{line}\n\n"
+        "Reply with 1 or 2."
+    )
+
+    view = ask_view(reply, _SCOPE)
+
+    assert view.options[1].message == f"Require one approving review, or {line.strip()}"

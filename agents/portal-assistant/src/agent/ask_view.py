@@ -48,9 +48,18 @@ _CONTINUATION_RE = re.compile(r"^[ \t]+([-*•][ \t]+)?(\S.*)$")
 # ("Reply with 1 or 2.", "Or tell me something else."); it isn't part of one.
 _FOOTER_RE = re.compile(
     r"^[ \t]*(?:please[ \t]+)?(?:reply|answer|respond|choose|pick|say|type|tell[ \t]+me|"
-    r"or[ \t]+(?:reply|tell|type|say|pick|choose))\b",
+    r"or[ \t]+(?:reply|tell[ \t]+me|type|say|pick|choose))\b",
     re.IGNORECASE,
 )
+# A closing line indented like the options' own lines: only one that names
+# the choices ("  Reply with 1 or 2."), as wrapped option text rarely does.
+_INDENTED_FOOTER_RE = re.compile(
+    r"^[ \t]+(?:please[ \t]+)?(?:reply|answer|respond|choose|pick|type|say)\b"
+    r"[^\n]*\b[1-9]\b[^\n]*?(?:,|\bor\b|\band\b)[ \t]*[1-9]\b",
+    re.IGNORECASE,
+)
+# An option that ends like this goes on in the next line, whatever that says.
+_UNFINISHED_RE = re.compile(r"(?:[,;:]|\b(?:and|or|but|when|if|unless|to|with))\s*$", re.I)
 # A numbered list is a question only when the reply asks the user to pick.
 _PICK_RE = re.compile(r"\b(?:reply with|do you mean|which|choose|pick)\b", re.IGNORECASE)
 # "(tell me the exact number)": the option needs a number from the user.
@@ -181,6 +190,10 @@ def _numbered_items(message: str) -> list[tuple[str, str]] | None:
             in_item = True
         elif not line.strip():
             continue
+        elif (
+            in_item and _INDENTED_FOOTER_RE.match(line) and not _UNFINISHED_RE.search(items[-1][1])
+        ):
+            in_item, closed = False, True
         elif in_item and (more := _CONTINUATION_RE.match(line)):
             number, text = items[-1]
             joiner = "; " if more[1] else " "
@@ -188,8 +201,11 @@ def _numbered_items(message: str) -> list[tuple[str, str]] | None:
         elif items:
             in_item = False
             # A closing question ("Which one do you want?") ends the list too:
-            # an option's own wrapped text doesn't end in one.
-            if _FOOTER_RE.match(line) or line.rstrip().endswith("?"):
+            # an option's own wrapped text doesn't end in one. Not after an
+            # option that isn't finished ("…review,"): the line goes on with it.
+            if not _UNFINISHED_RE.search(items[-1][1]) and (
+                _FOOTER_RE.match(line) or line.rstrip().endswith("?")
+            ):
                 closed = True
             else:
                 stray = True
