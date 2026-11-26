@@ -274,8 +274,29 @@ def test_a_failed_required_condition_keeps_its_mark_beside_optional_ones():
     }
 
     assert _marks(rule, {reviews: 1}) == [False]
-    # Met by the required condition: the optional ones can't take that back.
-    assert _marks(rule, {reviews: 5}) == [True]
+    # Met by the required condition, but none of its choices: the rule fails
+    # for this fact, so no pass mark.
+    assert _marks(rule, {reviews: 5}) == [None]
+
+
+def test_a_pass_mark_needs_one_of_the_facts_choices_met_too():
+    # CodeRabbit: reviews >= 2 AND (reviews == 2 OR reviews == 3).
+    reviews = "githubRequiredApprovingReviewCount"
+    rule = {
+        "all": [
+            {"fact": reviews, "operator": "greaterThanInclusive", "value": 2},
+            {
+                "any": [
+                    {"fact": reviews, "operator": "equal", "value": 2},
+                    {"fact": reviews, "operator": "equal", "value": 3},
+                ]
+            },
+        ]
+    }
+
+    assert _marks(rule, {reviews: 1}) == [False]
+    assert _marks(rule, {reviews: 2}) == [True]
+    assert _marks(rule, {reviews: 5}) == [None]
 
 
 def test_a_fact_only_in_optional_conditions_stays_unmarked_whatever_they_read():

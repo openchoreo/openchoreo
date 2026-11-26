@@ -114,20 +114,29 @@ def same_rule(first: str, second: str) -> bool:
 
 
 def check_baseline(check: dict[str, Any]) -> dict[str, Any]:
-    """A saved check's rule and retrievers, as an edit card signs them: the
-    save compares them with the check then, so it never replaces a change
-    someone made after the card (see confirm_actions)."""
+    """A saved check's rule, retrievers, name and description, as an edit
+    card signs them: update_check sends all four, so the save compares them
+    with the check then and never replaces a change someone made after the
+    card (see confirm_actions)."""
     conditions = unwrap(check.get("rule"))
     if isinstance(conditions, str):
         with contextlib.suppress(ValueError):
             conditions = json.loads(conditions)
-    return {"rule": conditions, "factIds": list(check.get("factIds") or [])}
+    return {
+        "rule": conditions,
+        "factIds": list(check.get("factIds") or []),
+        "name": check.get("name") or "",
+        "description": check.get("description") or "",
+    }
 
 
-def same_baseline(first: dict[str, Any], second: dict[str, Any]) -> bool:
-    """Whether two baselines are the same check, whatever the retrievers' order."""
-    same_retrievers = sorted(first["factIds"]) == sorted(second["factIds"])
-    return first["rule"] == second["rule"] and same_retrievers
+def same_baseline(now: dict[str, Any], signed: dict[str, Any]) -> bool:
+    """Whether the check ``now`` is still the one the card signed, whatever
+    the retrievers' order. A card signed before the texts were in its
+    baseline compares the rule and retrievers only."""
+    same_retrievers = sorted(now["factIds"]) == sorted(signed["factIds"])
+    same_texts = all(now[key] == signed[key] for key in ("name", "description") if key in signed)
+    return now["rule"] == signed["rule"] and same_retrievers and same_texts
 
 
 def _has_condition(rule: Any) -> bool:

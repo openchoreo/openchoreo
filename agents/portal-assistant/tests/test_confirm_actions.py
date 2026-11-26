@@ -378,15 +378,22 @@ def test_the_request_accepts_only_the_cards_choices(body):
 
 # ── an edit card made from a check that changed since ──────────────────
 
-_BASELINE = {"rule": {"all": []}, "factIds": ["r"]}
+_BASELINE = {
+    "rule": {"all": []},
+    "factIds": ["r"],
+    "name": "Old name",
+    "description": "Old description",
+}
 _GUARDED_EDIT = {**_EDIT, "baseline": _BASELINE}
 
 
-def _saved_now(rule=None, fact_ids=None):
+def _saved_now(rule=None, fact_ids=None, name="Old name", description="Old description"):
     return {
         "check": {
             "id": "c1",
             "status": "draft",
+            "name": name,
+            "description": description,
             "factIds": fact_ids or ["r"],
             "rule": {"conditions": rule if rule is not None else {"all": []}},
         }
@@ -408,6 +415,10 @@ async def test_an_edit_saves_when_the_check_is_as_the_card_saw_it(backstage):
         # Someone else changed the rule, or the retrievers, since the card.
         _saved_now(rule={"all": [{"fact": "x", "operator": "equal", "value": 1}]}),
         _saved_now(fact_ids=["r", "other"]),
+        # Or renamed it, or changed its description: update_check sends the
+        # card's texts, so saving would put the old ones back.
+        _saved_now(name="Renamed by someone else"),
+        _saved_now(description="Changed by someone else"),
     ],
 )
 async def test_an_edit_of_a_check_that_changed_since_saves_nothing(backstage, now):
@@ -476,3 +487,13 @@ async def test_a_card_without_a_baseline_saves_as_before(backstage):
     await _confirm(_EDIT, "draft")
 
     assert _names(backstage) == ["update_check"]
+
+
+async def test_a_card_whose_baseline_has_no_texts_compares_the_rule_only(backstage):
+    # A card signed before the texts were in the baseline still saves.
+    backstage["outputs"]["get_check"] = _saved_now(name="Renamed by someone else")
+    action = {**_EDIT, "baseline": {"rule": {"all": []}, "factIds": ["r"]}}
+
+    result = await _confirm(action, "draft")
+
+    assert result["message"] == "Saved as a draft."

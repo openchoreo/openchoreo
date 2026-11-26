@@ -3219,12 +3219,61 @@ def test_a_test_with_other_retrievers_than_the_cards_is_not_its_result():
 
     assert orchestrator._run_of_card_rule([run], card) is run
     assert orchestrator._run_of_card_rule([run], {**card, "fact_ids": ["other"]}) is None
-    # Order doesn't matter; a run that doesn't say, or a card with none, can't differ.
+    # Order doesn't matter, and a card with none can't differ.
     two = DryRun(status="passed", rule=rule, fact_ids=["a", "b"])
     assert orchestrator._run_of_card_rule([two], {**card, "fact_ids": ["b", "a"]}) is two
-    unknown = DryRun(status="passed", rule=rule)
-    assert orchestrator._run_of_card_rule([unknown], {**card, "fact_ids": ["other"]}) is unknown
     assert orchestrator._run_of_card_rule([run], {"new_rule": rule}) is run
+    # A run that doesn't say which retrievers it used isn't the card's result.
+    unknown = DryRun(status="passed", rule=rule)
+    assert orchestrator._run_of_card_rule([unknown], card) is None
+
+
+def test_a_test_of_true_is_not_the_result_of_a_card_with_1():
+    # Python says True == 1; the rules engine compares strictly.
+    tested = {"all": [{"fact": "githubIsPrivate", "operator": "equal", "value": True}]}
+    signed = {"all": [{"fact": "githubIsPrivate", "operator": "equal", "value": 1}]}
+    run = DryRun(status="passed", rule=json.dumps({"conditions": tested}))
+
+    assert orchestrator._run_of_card_rule([run], {"new_rule": json.dumps(signed)}) is None
+    # Key order and spacing don't matter.
+    same = json.dumps({"all": [{"value": True, "operator": "equal", "fact": "githubIsPrivate"}]})
+    assert orchestrator._run_of_card_rule([run], {"new_rule": same}) is run
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["Platform — Core", "a – b", "uses `code`", ["x — y", "z"]],
+)
+def test_a_question_asked_again_reads_back_the_written_rule(value):
+    # Its proposal must be readable, or a yes to it couldn't be compared.
+    asked = orchestrator._reproposal([("team", "equal", value)], _EDIT_SCOPE)
+
+    assert orchestrator.proposed_conditions(asked) == {1: [("team", "equal", value)]}
+
+
+async def test_a_yes_to_a_question_with_a_dash_still_compares(monkeypatch):
+    asked = orchestrator._reproposal([("team", "equal", "Platform — Core")], _EDIT_SCOPE)
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": asked}, {"role": "user", "content": "yes"}],
+        _edited({"all": [{"fact": "team", "operator": "equal", "value": "Platform"}]}),
+        confirmation=_card_of_reply,
+    )
+
+    assert not _has_card(events)
+
+
+_TIGHT_CHOICES = (
+    "1.**Proposed rule:** `githubDaysSinceLastPush` `lessThanInclusive` `60` — 60 or less\n"
+    "2.**Proposed rule:** `githubDaysSinceLastPush` `lessThan` `60` — less than 60\n\n"
+    "Reply with 1 or 2."
+)
+
+
+@pytest.mark.parametrize(("answer", "picked"), [("yes", None), ("1", 1), ("2", 2)])
+def test_choices_with_no_space_after_the_number_still_need_a_number(answer, picked):
+    assert orchestrator._picked_choice(answer, _TIGHT_CHOICES) == picked
 
 
 async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):

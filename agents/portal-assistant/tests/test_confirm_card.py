@@ -156,7 +156,12 @@ async def test_the_token_carries_exactly_the_change_on_the_card():
         },
         "texts": {"name": "Default branch protection with 2 approvals"},
         # The check as the card saw it, for the save to compare.
-        "baseline": {"rule": _SAVED_RULE, "factIds": ["githubRepositoryFactRetriever"]},
+        "baseline": {
+            "rule": _SAVED_RULE,
+            "factIds": ["githubRepositoryFactRetriever"],
+            "name": _SCOPE["check_name"],
+            "description": _SCOPE["check_description"],
+        },
     }
 
 
@@ -1032,19 +1037,27 @@ async def test_the_model_tests_the_last_rule_after_an_approved_edit(monkeypatch)
     assert last.endswith(orchestrator._TEST_NOTE)
 
 
-def test_the_test_card_says_the_saved_rule_ran():
-    from src.agent.a2ui import dry_run_card_surface
+@pytest.mark.parametrize(
+    ("rule", "says"),
+    [
+        # Written another way: the same rule.
+        pytest.param(json.dumps({"conditions": _SAVED_RULE}, indent=2), True, id="the saved rule"),
+        pytest.param(json.dumps({"conditions": _NEW_RULE}), False, id="another rule"),
+        pytest.param(None, False, id="a rule it doesn't say"),
+    ],
+)
+def test_the_test_card_says_the_saved_rule_ran_only_when_it_did(rule, says):
+    # The model writes the test's rule: it may have run the edit anyway.
+    from src.agent.a2ui import dry_run_card_surface, dry_run_result_event
     from src.agent.dry_run_view import DryRun
 
-    run = DryRun(status="failed", entity_ref="component:default/order-api")
-
-    def summary(scope):
-        card = dry_run_card_surface(run, scope)["createSurface"]["components"][0]
-        return card["summary"]
-
+    run = DryRun(status="failed", entity_ref="component:default/order-api", rule=rule)
     said = "This ran the saved rule, as the change isn't approved yet."
-    assert said in summary({**_SCOPE, "tests_saved_rule": True})
-    assert said not in summary(_SCOPE)
+
+    for scope, expected in (({**_SCOPE, "tests_saved_rule": True}, says), (_SCOPE, False)):
+        card = dry_run_card_surface(run, scope)["createSurface"]["components"][0]
+        assert (said in card["summary"]) is expected
+        assert (said in dry_run_result_event(run, scope)["summary"]) is expected
 
 
 # ── a rule with a fact from another retriever ──────────────────────────
@@ -1164,4 +1177,9 @@ async def test_an_edit_card_signs_the_saved_rule_it_was_built_from(_backstage):
     card = await _card()
 
     baseline = consume(card["token"], "user-a")["baseline"]
-    assert baseline == {"rule": _SAVED_RULE, "factIds": ["githubRepositoryFactRetriever"]}
+    assert baseline == {
+        "rule": _SAVED_RULE,
+        "factIds": ["githubRepositoryFactRetriever"],
+        "name": _SCOPE["check_name"],
+        "description": _SCOPE["check_description"],
+    }

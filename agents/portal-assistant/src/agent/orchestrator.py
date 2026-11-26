@@ -166,8 +166,9 @@ _CHOICE_RE = re.compile(
     re.IGNORECASE,
 )
 _ORDINALS = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3}
-# A numbered choice line in a Step 1 reply: "1. **Proposed rule:** …".
-_CHOICE_LINE_RE = re.compile(r"^[ \t]*([1-9])[.)][ \t]", re.MULTILINE)
+# A numbered choice line in a Step 1 reply: "1. **Proposed rule:** …", also
+# written "1.**Proposed rule:** …" (the proposal parser reads both).
+_CHOICE_LINE_RE = re.compile(r"^[ \t]*([1-9])[.)](?=[ \t*])", re.MULTILINE)
 # What a Step 1 reply that proposes a change has: a "Proposed rule:" line,
 # or a condition in backticks (`fact` `operator` `value`, or one span like
 # `fact in [...]`) outside its "Current rule:" line. An open question
@@ -671,6 +672,19 @@ def _same_conditions(first: list[Leaf], second: list[Leaf]) -> bool:
     return not left
 
 
+# Characters in a value that end a backtick span or split the proposal
+# line from its words (see rule_view): escaped, as JSON reads them back.
+_PROPOSAL_ESCAPES = {"`": "\\u0060", "\u2014": "\\u2014", "\u2013": "\\u2013"}
+
+
+def _proposal_value(value: Any) -> str:
+    """``value`` as JSON the proposal parser reads back as ``value``."""
+    text = json.dumps(value, ensure_ascii=False)
+    for char, escaped in _PROPOSAL_ESCAPES.items():
+        text = text.replace(char, escaped)
+    return text
+
+
 _REPROPOSED = (
     "The rule I wrote isn't the one you picked, so please check it before I make the save card."
 )
@@ -681,8 +695,7 @@ def _reproposal(conditions: list[Leaf], scope: dict[str, Any] | None) -> str:
     the approved one: a "yes" to it approves this rule, and the card that
     follows must match it."""
     rule = " AND ".join(
-        f"`{fact}` `{operator}` `{json.dumps(value, ensure_ascii=False)}`"
-        for fact, operator, value in conditions
+        f"`{fact}` `{operator}` `{_proposal_value(value)}`" for fact, operator, value in conditions
     )
     summary = _current_rule_summary(scope or {})
     return "\n\n".join(
@@ -940,9 +953,15 @@ def _run_of_card_rule(dry_runs: list[DryRun], confirmation: dict[str, Any]) -> D
     except ValueError:
         return None
     signed = confirmation.get("fact_ids")
-    if run.fact_ids is not None and signed and sorted(run.fact_ids) != sorted(signed):
+    # A run that doesn't say which retrievers it used can't show it used the card's.
+    if signed and (run.fact_ids is None or sorted(run.fact_ids) != sorted(signed)):
         return None
-    return run if tested == saved else None
+    # As JSON, not Python values: True == 1 in Python, but not to the rules engine.
+    return run if _canonical(tested) == _canonical(saved) else None
+
+
+def _canonical(rule: Any) -> str:
+    return json.dumps(rule, sort_keys=True)
 
 
 def _shows_test_after_failure(dry_runs: list[DryRun], scope: dict[str, Any] | None) -> bool:

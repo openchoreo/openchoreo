@@ -211,19 +211,25 @@ def fact_results(
     words, whether that follows the rule (None when it can't be told), and
     what the rule wants when it doesn't."""
     wants = dict(needed_lines(run, scope))
-    # Only the conditions the rule needs decide a fact's mark: one of several
-    # choices can fail while the rule passes, so it says nothing either way.
-    checks: dict[str, list[bool | None]] = {}
+    # The conditions the rule needs decide a fact's mark. One of several
+    # choices can fail while the rule passes, so on its own it says nothing;
+    # but a pass needs one of the fact's choices met too, or the rule can
+    # fail for this fact while every needed condition holds.
+    needed: dict[str, list[bool | None]] = {}
+    choices: dict[str, list[bool | None]] = {}
     for leaf, negated, required in _leaves(_json(run.rule or "")):
         fact = leaf["fact"]
-        results = checks.setdefault(fact, [])
-        if required:
-            results.append(_follows(run.fact_values.get(fact), leaf, negated))
+        needed.setdefault(fact, [])
+        choices.setdefault(fact, [])
+        result = _follows(run.fact_values.get(fact), leaf, negated)
+        (needed if required else choices)[fact].append(result)
     rows: list[tuple[str, str, bool | None, str | None]] = []
     for fact, value in run.fact_values.items():
-        results = checks.get(fact) or [None]
+        results = needed.get(fact) or [None]
         # A needed condition that fails is a fail, whatever else can't be told.
         follows = False if False in results else None if None in results else True
+        if follows and choices.get(fact) and True not in choices[fact]:
+            follows = None
         label = _label(fact, scope)
         rows.append(
             (label, actual_words(value), follows, wants.get(label) if follows is False else None)

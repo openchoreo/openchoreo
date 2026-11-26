@@ -11,6 +11,7 @@ decides what happens next — the buttons add no new way to approve.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
 from typing import Any
@@ -18,6 +19,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from src.agent.ask_view import COMPARISONS, KEEP_MESSAGE, AskOption, AskView, Editor
+from src.agent.check_reply import unwrap
 from src.agent.dry_run_view import (
     DryRun,
     actual_lines,
@@ -593,6 +595,20 @@ _TEST_SUMMARY = {
 }
 
 
+def _ran_saved_rule(run: DryRun, scope: dict[str, Any]) -> bool:
+    """Whether the test ran the check's saved rule. The model writes the
+    test's rule, so a test meant for the saved rule may have run another."""
+
+    def _rule(text: str | None) -> str | None:
+        try:
+            return json.dumps(unwrap(json.loads(text or "")), sort_keys=True)
+        except ValueError:
+            return None
+
+    ran = _rule(run.rule)
+    return ran is not None and ran == _rule(scope.get("current_rule"))
+
+
 def _test_words(
     run: DryRun,
     scope: dict[str, Any],
@@ -604,7 +620,7 @@ def _test_words(
     summary = _TEST_SUMMARY[run.status].format(name=name)
     if run.status == "not-applicable" and run.reasons:
         summary = f"{summary} {_words(' '.join(reason_words(run, scope)), 400)}"
-    if scope.get("tests_saved_rule"):
+    if scope.get("tests_saved_rule") and _ran_saved_rule(run, scope):
         # The edit in the chat isn't approved, so the saved rule ran: say so,
         # or the result reads as the edit's.
         summary = f"{summary} This ran the saved rule, as the change isn't approved yet."
