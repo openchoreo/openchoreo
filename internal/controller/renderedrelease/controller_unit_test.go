@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -1532,8 +1533,12 @@ func TestEnsureNamespaces(t *testing.T) {
 
 	t.Run("creates namespace that does not exist", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("new-ns")}); err != nil {
+		created, err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("new-ns")})
+		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if !created.Has("new-ns") || created.Len() != 1 {
+			t.Errorf("expected new-ns to be reported as created, got %v", sets.List(created))
 		}
 		got := &corev1.Namespace{}
 		if err := cl.Get(ctx, client.ObjectKey{Name: "new-ns"}, got); err != nil {
@@ -1543,14 +1548,18 @@ func TestEnsureNamespaces(t *testing.T) {
 
 	t.Run("is idempotent when namespace already exists", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithObjects(makeNamespace("existing-ns")).Build()
-		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("existing-ns")}); err != nil {
+		created, err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("existing-ns")})
+		if err != nil {
 			t.Fatalf("unexpected error for existing namespace: %v", err)
+		}
+		if created.Len() != 0 {
+			t.Errorf("expected nothing to be reported as created, got %v", sets.List(created))
 		}
 	})
 
 	t.Run("empty list is a no-op", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		if err := r.ensureNamespaces(ctx, cl, nil); err != nil {
+		if _, err := r.ensureNamespaces(ctx, cl, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

@@ -624,6 +624,15 @@ var _ = Describe("RenderedRelease guard", func() {
 			Expect(f.live(rule(elsewhere, "a"))).NotTo(BeNil())
 		})
 
+		It("applies a Namespace it renders after creating it for its objects", func() {
+			startOP("renders-namespace")
+			namespace := unstructuredObj("v1", "Namespace", "", elsewhere)
+			f.render(namespace, rule(elsewhere, "a"))
+			expectApplied(f.pass())
+			Expect(hasApplyEntry(f.live(namespace))).To(BeTrue(), "it is the release's")
+			expectApplied(f.pass())
+		})
+
 		It("creates no namespace when it refuses", func() {
 			startOP("refused")
 			taken := "taken-op-refused"

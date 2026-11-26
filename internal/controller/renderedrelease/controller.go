@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -180,10 +181,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// nothing else creates the target namespace, so we create it here.
 		if targetPlane == targetPlaneObservabilityPlane {
 			desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
-			if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
+			created, err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces)
+			if err != nil {
 				logger.Error(err, "Failed to ensure namespaces on observability plane")
 				return ctrl.Result{}, err
 			}
+			markCreatedNamespaces(resources, created)
 		}
 
 		// PHASE 1: Apply desired resources to the target plane
@@ -557,8 +560,21 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.RenderedR
 	return namespaces
 }
 
-// ensureNamespaces ensures all required namespaces exist in the target plane
-func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) error {
+// markCreatedNamespaces marks the rendered Namespaces that this pass has just created as no
+// longer missing: they did not appear from elsewhere.
+func markCreatedNamespaces(resources []checkedResource, created sets.Set[string]) {
+	for i := range resources {
+		gvk := resources[i].desired.GroupVersionKind()
+		if resources[i].missing && gvk.Group == "" && gvk.Kind == namespaceKind && created.Has(resources[i].desired.GetName()) {
+			resources[i].missing = false
+		}
+	}
+}
+
+// ensureNamespaces ensures all required namespaces exist in the target plane, and returns the
+// names of the ones it created.
+func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) (sets.Set[string], error) {
+	created := sets.New[string]()
 	for _, namespace := range namespaces {
 		existingNs := &corev1.Namespace{}
 		err := planeClient.Get(ctx, client.ObjectKey{Name: namespace.Name}, existingNs)
@@ -570,7 +586,7 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 
 		// Error other than NotFound
 		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check namespace %s: %w", namespace.Name, err)
+			return nil, fmt.Errorf("failed to check namespace %s: %w", namespace.Name, err)
 		}
 
 		// Namespace doesn't exist, create it
@@ -579,11 +595,12 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 				// Another controller/release created it concurrently - that's fine
 				continue
 			}
-			return fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
+			return nil, fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
 		}
+		created.Insert(namespace.Name)
 	}
 
-	return nil
+	return created, nil
 }
 
 // wellKnownDataPlaneGVKs is the safety-net list for data-plane rendered releases.
