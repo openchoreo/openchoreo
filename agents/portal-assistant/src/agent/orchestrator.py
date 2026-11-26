@@ -860,9 +860,11 @@ async def stream_chat(
     if example_reply:
         yield _emit_event(_PREPARING_STEP)
         try:
-            confirmation = await build_confirmation(
-                example_reply, scope, user_sub=user_sub, backstage_token=backstage_token,
-            )
+            # Calls Backstage, so it takes a chat slot like a model turn.
+            async with _get_semaphore():
+                confirmation = await build_confirmation(
+                    example_reply, scope, user_sub=user_sub, backstage_token=backstage_token,
+                )
         except Exception:  # noqa: BLE001 — the model drafts it instead
             logger.warning("Building the practice example's card failed", exc_info=True)
             confirmation = None
@@ -882,10 +884,12 @@ async def stream_chat(
     test = _code_test(messages, scope) if backstage_token and user_sub else None
     if test:
         logger.info("Test run by code (no model call)")
-        async for event in _run_code_test(
-            *test, messages, scope, user_sub=user_sub, backstage_token=backstage_token or "",
-        ):
-            yield event
+        # Calls Backstage, so it takes a chat slot like a model turn.
+        async with _get_semaphore():
+            async for event in _run_code_test(
+                *test, messages, scope, user_sub=user_sub, backstage_token=backstage_token or "",
+            ):
+                yield event
         return
 
     # Stamp the server clock onto the latest user turn ONCE and share it with

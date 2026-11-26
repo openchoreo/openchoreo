@@ -2829,3 +2829,55 @@ async def test_a_reply_that_fails_validation_is_not_logged(monkeypatch, caplog):
     assert "Structured output validation failed" in caplog.text
     assert "string_type" in caplog.text
     assert secret not in caplog.text
+
+
+async def test_a_test_run_by_code_takes_a_chat_slot(monkeypatch):
+    # It calls Backstage like a model turn, so max_concurrent_chats holds for it.
+    import asyncio
+
+    slot = asyncio.Semaphore(1)
+    held = []
+    monkeypatch.setattr(orchestrator, "_semaphore", slot)
+
+    async def _fake_run(*_args, **_kwargs):
+        held.append(slot.locked())
+        yield orchestrator._emit_event({"type": "done", "message": "ok"})
+
+    monkeypatch.setattr(orchestrator, "_run_code_test", _fake_run)
+    chat = [
+        {"role": "user", "content": "Repos must be private"},
+        {"role": "assistant", "content": _PRIVATE_DRAFT},
+        {"role": "user", "content": _PICKED},
+    ]
+    _ = [
+        ev async for ev in orchestrator.stream_chat(
+            messages=chat, token="t", user_sub="u", scope={"case_type": "check_authoring"},
+            backstage_token="b",
+        )
+    ]
+
+    assert held == [True]
+    assert not slot.locked()
+
+
+async def test_the_beginners_example_takes_a_chat_slot(monkeypatch):
+    import asyncio
+
+    slot = asyncio.Semaphore(1)
+    held = []
+    monkeypatch.setattr(orchestrator, "_semaphore", slot)
+
+    async def _fake_confirmation(_message, _scope, **_kwargs):
+        held.append(slot.locked())
+        return {**_CARD, "kind": "create"}
+
+    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    _ = [
+        ev async for ev in orchestrator.stream_chat(
+            messages=[{"role": "user", "content": _EXAMPLE}], token="t", user_sub="u",
+            scope=_EXAMPLE_SCOPE, backstage_token="b",
+        )
+    ]
+
+    assert held == [True]
+    assert not slot.locked()
