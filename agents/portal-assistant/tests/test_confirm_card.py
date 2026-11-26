@@ -49,6 +49,24 @@ _STEP2 = (
 )
 
 
+# What list_fact_schemas returns: each retriever's id and its facts.
+_SCHEMAS = [
+    {
+        "id": "githubRepositoryFactRetriever",
+        "version": "0.1.0",
+        "githubDefaultBranchProtected": {"type": "boolean"},
+        "githubRequiresPullRequest": {"type": "boolean"},
+        "githubRequiredApprovals": {"type": "integer"},
+        "githubVisibility": {"type": "string"},
+    },
+    {
+        "id": "githubCodeScanningFactRetriever",
+        "version": "0.1.0",
+        "githubCodeqlOpenAlertCount": {"type": "integer"},
+    },
+]
+
+
 @pytest.fixture(autouse=True)
 def _backstage(monkeypatch):
     """Fake Backstage tools; records each call."""
@@ -77,6 +95,8 @@ def _backstage(monkeypatch):
                     "rule": {"conditions": _SAVED_RULE},
                 }
             }
+        if name == "list_fact_schemas":
+            return {"schemas": _SCHEMAS}
         return {"valid": not state["problems"], "problems": state["problems"]}
 
     monkeypatch.setattr(confirm_card, "backstage_tools_as_user", fake_tools)
@@ -141,8 +161,7 @@ async def test_the_token_carries_exactly_the_change_on_the_card():
 async def test_validates_the_new_rule_with_the_saved_retrievers(_backstage):
     await _card()
 
-    name, args = _backstage["calls"][1]
-    assert name == "validate_check"
+    name, args = next(c for c in _backstage["calls"] if c[0] == "validate_check")
     assert args["factIds"] == ["githubRepositoryFactRetriever"]
     assert json.loads(args["rule"]["conditions"]) == _NEW_RULE
 
@@ -231,7 +250,7 @@ async def test_builds_a_signed_card_for_a_new_check(_backstage):
     assert "check_id" not in card and "status" not in card
     assert json.loads(emit(card))["kind"] == "create"
     # Only validated: nothing to read for a check that doesn't exist yet.
-    assert [name for name, _ in _backstage["calls"]] == ["validate_check"]
+    assert [name for name, _ in _backstage["calls"]] == ["list_fact_schemas", "validate_check"]
 
 
 async def test_new_check_card_shows_the_kinds_validate_check_returns(monkeypatch):
@@ -509,7 +528,11 @@ async def test_a_plain_save_request_gets_the_card_from_the_previous_reply(_backs
 
     assert card["kind"] == "update"
     assert json.loads(card["new_rule"]) == _NEW_RULE
-    assert [name for name, _ in _backstage["calls"]] == ["get_check", "validate_check"]
+    assert [name for name, _ in _backstage["calls"]] == [
+        "get_check",
+        "list_fact_schemas",
+        "validate_check",
+    ]
     # Asked to save: the card offers the save buttons, not the test first.
     assert card["test_skipped"] is True
 
@@ -1020,3 +1043,115 @@ def test_the_test_card_says_the_saved_rule_ran():
     said = "This ran the saved rule, as the change isn't approved yet."
     assert said in summary({**_SCOPE, "tests_saved_rule": True})
     assert said not in summary(_SCOPE)
+
+
+# ── a rule with a fact from another retriever ──────────────────────────
+
+_CODE_SCANNING = {"fact": "githubCodeqlOpenAlertCount", "operator": "equal", "value": 0}
+_BOTH = ["githubRepositoryFactRetriever", "githubCodeScanningFactRetriever"]
+
+
+def _edit_reply(rule):
+    return "Edited rule:\n\n```json\n" + json.dumps({"conditions": rule}) + "\n```"
+
+
+async def test_an_edit_that_needs_another_retriever_gets_it(_backstage):
+    # Live test 2026-11-26: "Also require no open Code Scanning alerts" on a
+    # check with only the repository retriever: the AI wrote the right rule,
+    # but the card validated and signed it with the saved retriever alone.
+    rule = {"all": [*_SAVED_RULE["all"], _CODE_SCANNING]}
+
+    card = await _card(_edit_reply(rule))
+
+    validate = next(args for name, args in _backstage["calls"] if name == "validate_check")
+    assert validate["factIds"] == _BOTH
+    assert card["fact_ids"] == _BOTH
+    assert consume(card["token"], "user-a")["check"]["factIds"] == _BOTH
+
+
+async def test_an_edit_with_the_checks_own_retrievers_keeps_them(_backstage):
+    card = await _card()
+
+    assert card["fact_ids"] == ["githubRepositoryFactRetriever"]
+
+
+async def test_a_new_check_gets_every_retriever_its_rule_needs(_backstage):
+    rule = {
+        "all": [
+            {"fact": "githubVisibility", "operator": "equal", "value": "private"},
+            _CODE_SCANNING,
+        ]
+    }
+    reply = (
+        "Name: Private and no CodeQL alerts\n\nDescription: d\n\n"
+        "Suggested Fact Retriever: githubRepositoryFactRetriever\n\n"
+        "Rule (json-rules-engine conditions)\n```json\n"
+        + json.dumps({"conditions": rule})
+        + "\n```"
+    )
+
+    card = await _card(reply, {"case_type": "check_authoring"})
+
+    assert card["fact_ids"] == _BOTH
+    assert consume(card["token"], "user-a")["check"]["factIds"] == _BOTH
+
+
+async def test_without_the_fact_list_the_card_keeps_the_saved_retrievers(_backstage):
+    # list_fact_schemas failing must not lose the card: Backstage's validator
+    # still says what's missing, as before.
+    _backstage["fail"] = "list_fact_schemas"
+    rule = {"all": [*_SAVED_RULE["all"], _CODE_SCANNING]}
+
+    card = await _card(_edit_reply(rule))
+
+    assert card["fact_ids"] == ["githubRepositoryFactRetriever"]
+
+
+async def test_a_fact_no_retriever_collects_adds_nothing(_backstage):
+    rule = {"all": [*_SAVED_RULE["all"], {"fact": "noSuchFact", "operator": "equal", "value": 1}]}
+
+    card = await _card(_edit_reply(rule))
+
+    assert card["fact_ids"] == ["githubRepositoryFactRetriever"]
+
+
+async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch, _backstage):
+    # The live test's step 4: the test ran with the saved retriever only and
+    # Backstage refused it ("isn't selected for this check").
+    sent = {}
+
+    async def _tools(_auth):
+        return {}
+
+    async def _dry_run(_tools, name, args):
+        sent[name] = args
+        return {"status": "passed", "factValues": {}}
+
+    async def _no_card(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(orchestrator, "backstage_tools_as_user", _tools)
+    monkeypatch.setattr(orchestrator, "call_backstage_tool", _dry_run)
+    monkeypatch.setattr(orchestrator, "build_confirmation", _no_card)
+    rule = {"all": [*_SAVED_RULE["all"], _CODE_SCANNING]}
+    check = {
+        "name": "n",
+        "description": "",
+        "factIds": ["githubRepositoryFactRetriever"],
+        "rule": {"conditions": json.dumps(rule)},
+    }
+
+    _ = [
+        ev
+        async for ev in orchestrator._run_code_test(
+            "component:default/order-api",
+            check,
+            None,
+            [{"role": "user", "content": "test it on order-api"}],
+            _SCOPE,
+            user_sub="user-a",
+            backstage_token="t",
+        )
+    ]
+
+    assert sent["dry_run_check"]["check"]["factIds"] == _BOTH

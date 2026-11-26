@@ -66,6 +66,7 @@ from src.agent.confirm_card import (
     card_for_save_request,
     check_to_test,
     example_draft,
+    fact_ids_for_rule,
     is_save_request,
     is_saved_rule,
     rule_fix_note,
@@ -858,6 +859,9 @@ async def _run_code_test(
     run: DryRun | None = None
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
+        # The retrievers the save card signs: the rule's new facts may need more.
+        rule = json.loads(check["rule"]["conditions"])
+        args["check"] = {**check, "factIds": await fact_ids_for_rule(tools, rule, check["factIds"])}
         output = await call_backstage_tool(tools, "dry_run_check", args)
         run = read_dry_run(args, output)
         error = ToolError("dry_run_check", json.dumps(output))

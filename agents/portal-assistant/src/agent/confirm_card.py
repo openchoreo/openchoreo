@@ -124,6 +124,53 @@ def _has_condition(rule: Any) -> bool:
     return False
 
 
+def _rule_facts(rule: Any) -> list[str]:
+    """The facts a rule reads, in order, each once."""
+    facts: list[str] = []
+    if isinstance(rule, dict):
+        if isinstance(rule.get("fact"), str):
+            facts.append(rule["fact"])
+        for value in rule.values():
+            facts += _rule_facts(value)
+    elif isinstance(rule, list):
+        for value in rule:
+            facts += _rule_facts(value)
+    return list(dict.fromkeys(facts))
+
+
+# Keys of a list_fact_schemas schema that aren't facts.
+_SCHEMA_KEYS = {"id", "version", "entityFilter"}
+
+
+async def fact_ids_for_rule(tools: Any, rule: Any, fact_ids: list[str]) -> list[str]:
+    """``fact_ids`` and, after them, the retriever of each fact in ``rule``
+    that none of them collects ("also require no open Code Scanning alerts"
+    on a check that reads only repository facts). Validation, the test and
+    the save all use this list, so they agree. When the fact list can't be
+    read, ``fact_ids`` as they are: the validator then says what's missing."""
+    facts = _rule_facts(rule)
+    if not facts:
+        return list(fact_ids)
+    try:
+        output = await call_backstage_tool(tools, "list_fact_schemas", {"ids": []})
+    except Exception as exc:  # noqa: BLE001 — the validator says what's missing
+        logger.warning("Fact schemas unavailable; keeping retrievers %s: %s", fact_ids, exc)
+        return list(fact_ids)
+    owners: dict[str, set[str]] = {}
+    for schema in output.get("schemas") or []:
+        if isinstance(schema, dict) and isinstance(schema.get("id"), str):
+            owners[schema["id"]] = set(schema) - _SCHEMA_KEYS
+    result = list(fact_ids)
+    for fact in facts:
+        if any(fact in owners.get(retriever, ()) for retriever in result):
+            continue
+        owner = next((r for r, collected in owners.items() if fact in collected), None)
+        if owner:
+            logger.info("Rule reads %s: adding retriever %s", fact, owner)
+            result.append(owner)
+    return result
+
+
 def _text_changes(message: str, check: dict[str, Any]) -> list[dict[str, Any]]:
     """The suggested text changes after the rule, with the saved text as old.
 
@@ -335,10 +382,11 @@ async def _new_check_card(
     conditions = json.dumps(rule, separators=(",", ":"))
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
+        fact_ids = await fact_ids_for_rule(tools, rule, fields["fact_ids"])
         validation = await call_backstage_tool(
             tools,
             "validate_check",
-            {"factIds": fields["fact_ids"], "rule": {"conditions": conditions}},
+            {"factIds": fact_ids, "rule": {"conditions": conditions}},
         )
     except Exception as exc:  # noqa: BLE001 — no card; the reply still arrives
         logger.warning("No confirm card for the new check: %s", exc)
@@ -355,7 +403,7 @@ async def _new_check_card(
         "check": {
             "name": fields["name"],
             "description": fields["description"],
-            "factIds": fields["fact_ids"],
+            "factIds": fact_ids,
             "rule": {"conditions": conditions},
         },
         "metadata": metadata,
@@ -367,7 +415,7 @@ async def _new_check_card(
         "kind": "create",
         "check_name": fields["name"],
         "description": fields["description"],
-        "fact_ids": fields["fact_ids"],
+        "fact_ids": fact_ids,
         "category": fields["category"],
         "tier": fields["tier"],
         "applies_to": validation.get("kinds", []),
@@ -389,10 +437,12 @@ async def _edit_card(
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
         saved = (await call_backstage_tool(tools, "get_check", {"id": check_id}))["check"]
         conditions = json.dumps(rule, separators=(",", ":"))
+        # The saved retrievers, and any the edited rule's new facts need.
+        fact_ids = await fact_ids_for_rule(tools, rule, saved["factIds"])
         validation = await call_backstage_tool(
             tools,
             "validate_check",
-            {"factIds": saved["factIds"], "rule": {"conditions": conditions}},
+            {"factIds": fact_ids, "rule": {"conditions": conditions}},
         )
     except Exception as exc:  # noqa: BLE001 — no card; the reply still arrives
         logger.warning("No confirm card for check %s: %s", check_id, exc)
@@ -403,12 +453,13 @@ async def _edit_card(
         "kind": "update",
         "check_id": check_id,
         "status": saved["status"],
-        # update_check's input as saved, with only the rule changed; the
-        # user chooses on the card whether the texts below are applied.
+        # update_check's input as saved, with the rule changed (and the
+        # retrievers its facts need); the user chooses on the card whether
+        # the texts below are applied.
         "check": {
             "name": saved["name"],
             "description": saved.get("description") or "",
-            "factIds": saved["factIds"],
+            "factIds": fact_ids,
             "rule": {"conditions": conditions},
         },
         "texts": {change["field"]: change["new"] for change in text_changes},
@@ -425,7 +476,7 @@ async def _edit_card(
         "kind": "update",
         "check_id": check_id,
         "check_name": saved["name"],
-        "fact_ids": saved["factIds"],
+        "fact_ids": fact_ids,
         "status": saved["status"],
         "current_rule": json.dumps(unwrap(saved["rule"]), indent=2),
         "new_rule": json.dumps(rule, indent=2),
