@@ -2748,3 +2748,46 @@ def test_an_explanation_never_names_a_real_component():
     # 2026-11-25: it named order-api as passing, while its test failed.
     assert "never name a real component or service" in orchestrator._EXPLAIN_NOTE
     assert "one entity that passes" not in orchestrator._EXPLAIN_NOTE
+
+
+async def test_a_reply_that_fails_validation_is_not_logged(monkeypatch, caplog):
+    from langchain.agents.structured_output import StructuredOutputValidationError
+    from langchain_core.messages import AIMessage
+    from pydantic import BaseModel, ValidationError
+
+    secret = "KEY=hunter2"
+
+    class _Reply(BaseModel):
+        message: str
+
+    try:
+        _Reply.model_validate({"message": {"text": secret}})
+    except ValidationError as exc:
+        source = exc
+
+    class _BadAgent:
+        async def astream(self, _input, **_kwargs):
+            yield SimpleNamespace(type="AIMessageChunk", content_blocks=[]), {}
+            raise StructuredOutputValidationError(
+                "ChatResponse",
+                source,
+                AIMessage(content=f'{{"message": "{secret}"}}'),
+            )
+
+    async def _fake_build_agent(*_args, **_kwargs):
+        return _BadAgent(), [], {}
+
+    monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
+    with caplog.at_level("WARNING"):
+        _ = [
+            ev
+            async for ev in orchestrator.stream_chat(
+                messages=[{"role": "user", "content": "hi"}],
+                token="t",
+                user_sub="u",
+            )
+        ]
+
+    assert "Structured output validation failed" in caplog.text
+    assert "string_type" in caplog.text
+    assert secret not in caplog.text

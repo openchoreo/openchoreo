@@ -29,6 +29,7 @@ from typing import Any
 
 from langchain.agents.structured_output import StructuredOutputValidationError
 from langchain_core.runnables import Runnable
+from pydantic import ValidationError
 
 from common.auth.bearer import BearerTokenAuth
 from src.agent.a2ui import (
@@ -1597,14 +1598,21 @@ async def _yield_chunks(
             if delta_event is not None:
                 yield delta_event
     except StructuredOutputValidationError as exc:
-        # Log why parsing failed and a bounded head of what the model sent,
-        # so an empty-message turn can be diagnosed from the logs alone.
+        # Log why parsing failed without what the model sent: the reply (and
+        # a pydantic error's text) can echo the user's words or tool data.
         raw = getattr(exc.ai_message, "content", "")
+        source = exc.source
+        errors = (
+            [(e["loc"], e["type"]) for e in source.errors(include_input=False, include_url=False)]
+            if isinstance(source, ValidationError)
+            else None
+        )
         logger.warning(
             "Structured output validation failed; using streamed content "
-            "(error: %s; raw output head: %r)",
-            exc.source,
-            str(raw)[:1000],
+            "(error: %s %s; raw output length: %d)",
+            type(source).__name__,
+            errors,
+            len(str(raw)),
         )
 
 
