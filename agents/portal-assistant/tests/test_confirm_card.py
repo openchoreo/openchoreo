@@ -88,6 +88,17 @@ async def _card(message=_STEP2, scope=_SCOPE, token="issued-for-user", user_sub=
     return await build_confirmation(message, scope, user_sub=user_sub, backstage_token=token)
 
 
+async def test_text_changes_compare_with_the_check_as_saved_now(_backstage):
+    # Someone renamed the check after the drawer opened: the card shows what
+    # the save changes, from the check get_check returned.
+    scope = {**_SCOPE, "check_name": "The name when the drawer opened"}
+
+    card = await _card(scope=scope)
+
+    assert card["text_changes"][0]["old"] == _SCOPE["check_name"]
+    assert card["check_name"] == _SCOPE["check_name"]
+
+
 async def test_builds_a_signed_card_from_the_step2_reply(_backstage):
     card = await _card()
 

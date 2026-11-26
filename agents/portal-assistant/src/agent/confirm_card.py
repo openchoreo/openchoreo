@@ -118,13 +118,17 @@ def _has_condition(rule: Any) -> bool:
     return False
 
 
-def _text_changes(message: str, scope: dict[str, Any]) -> list[dict[str, Any]]:
-    """The suggested text changes after the rule, with the saved text as old."""
+def _text_changes(message: str, check: dict[str, Any]) -> list[dict[str, Any]]:
+    """The suggested text changes after the rule, with the saved text as old.
+
+    ``check`` is the check as get_check returned it, not the drawer's copy:
+    the card must show what the save changes, also when someone else
+    renamed the check since the drawer opened."""
     fence = RULE_FENCE_RE.search(message)
     suggestions = parse_suggestions(message[fence.end() :]) if fence else {}
     saved = {
-        "name": scope.get("check_name"),
-        "description": scope.get("check_description"),
+        "name": check.get("name"),
+        "description": check.get("description"),
     }
     changes = []
     for label, field in _TEXT_FIELDS.items():
@@ -388,7 +392,7 @@ async def _edit_card(
         logger.warning("No confirm card for check %s: %s", check_id, exc)
         return None
 
-    text_changes = _text_changes(message, scope)
+    text_changes = _text_changes(message, saved)
     action = {
         "kind": "update",
         "check_id": check_id,
