@@ -50,6 +50,21 @@ class Settings(CommonSettings):
     # disables registration of the third MCP server (chat falls back to
     # the openchoreo + observability MCPs only).
     rca_agent_api_url: str = ""
+    # Backstage's mcp-actions endpoint serving the check-authoring tools
+    # (list_checks, get_check, list_fact_schemas, get_entity_facts,
+    # dry_run_check, validate_check, and the save tools the confirm card
+    # runs), e.g.
+    # http://localhost:7007/api/mcp-actions/v1/check-authoring. Empty
+    # disables registration of the backstage MCP server.
+    backstage_mcp_url: str = ""
+    # Static token matching a Backstage backend.auth.externalAccess entry.
+    # Sent only to the backstage MCP server — never the user's OpenChoreo
+    # token, which Backstage doesn't accept.
+    backstage_mcp_token: str = ""
+    # Signs the check changes shown on the confirm card, so the confirm
+    # endpoint saves exactly what the user saw. Set the same value on every
+    # replica; empty uses a random per-process secret (single replica only).
+    portal_assistant_action_secret: str = ""
 
     @property
     def openchoreo_mcp_url(self) -> str:

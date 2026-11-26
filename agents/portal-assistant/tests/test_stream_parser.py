@@ -112,3 +112,19 @@ def test_pop_delta_resets_emitted_pointer():
     p.push('{"message": "x"}')
     assert p.pop_delta() == "x"
     assert p.pop_delta() == ""
+
+
+def test_the_parser_reads_the_check_authoring_card():
+    p = ChatResponseParser()
+    p.push('{"message": "Which kind?", "card": {"title": "Which kind?", "summary": "Pick one."')
+
+    assert p.card == {"title": "Which kind?", "summary": "Pick one."}
+    assert p.message == "Which kind?"
+
+
+@pytest.mark.parametrize("payload", ['{"message": "Hi"}', '{"message": "Hi", "card": null}'])
+def test_no_card_when_the_reply_has_none(payload):
+    p = ChatResponseParser()
+    p.push(payload)
+
+    assert p.card is None

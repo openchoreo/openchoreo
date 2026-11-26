@@ -36,6 +36,12 @@ READ_OVERRIDES: frozenset[str] = frozenset(
     {
         "get_component_type_creation_schema",
         "get_trait_creation_schema",
+        # Backstage check-authoring tool: runs an unsaved check against one
+        # entity and saves nothing (it is evaluated in memory).
+        "dry_run_check",
+        # Backstage check-authoring tool: reports what stops a rule from
+        # being evaluated (the dynamic-checks validator); saves nothing.
+        "validate_check",
     }
 )
 

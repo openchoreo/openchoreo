@@ -3,13 +3,16 @@
 
 import asyncio
 import hashlib
+import json
 import logging
 import time
+from typing import Any, Literal
 
 import httpx
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient, StreamableHttpConnection
 
+from common.auth.bearer import BearerTokenAuth
 from src.config import settings
 from src.logging_config import request_id_context
 
@@ -105,7 +108,13 @@ class MCPClient:
     the proposal section "MCP changes: dryRun plumbing only" for the rationale.
     """
 
-    def __init__(self, auth: httpx.Auth) -> None:
+    def __init__(
+        self,
+        auth: httpx.Auth,
+        *,
+        backstage_auth: httpx.Auth | None = None,
+        backstage: Literal["include", "exclude", "only"] = "include",
+    ) -> None:
         # One MultiServerMCPClient per backing server. Each holds a config
         # with a single entry so ``get_tools`` on the instance hits exactly
         # one server — we drive parallelism at this layer instead.
@@ -134,6 +143,30 @@ class MCPClient:
                 "httpx_client_factory": _httpx_client_factory,
                 "auth": auth,
             }
+        # Optional: register Backstage's mcp-actions server when an URL is
+        # configured. Exposes the check-authoring tools used by the
+        # check_authoring case. Backstage doesn't accept OpenChoreo tokens,
+        # so it gets ``backstage_auth`` — a token Backstage issued on the
+        # signed-in user's behalf — or else the static BACKSTAGE_MCP_TOKEN,
+        # with which the check tools are read-only.
+        if backstage_auth is None and settings.backstage_mcp_token.strip():
+            backstage_auth = BearerTokenAuth(settings.backstage_mcp_token)
+        if settings.backstage_mcp_url and backstage_auth is None:
+            logger.warning(
+                "BACKSTAGE_MCP_URL is set but BACKSTAGE_MCP_TOKEN is empty — "
+                "skipping the backstage MCP server"
+            )
+        elif settings.backstage_mcp_url:
+            servers["backstage"] = {
+                "transport": "streamable_http",
+                "url": settings.backstage_mcp_url,
+                "httpx_client_factory": _httpx_client_factory,
+                "auth": backstage_auth,
+            }
+        if backstage == "exclude":
+            servers.pop("backstage", None)
+        elif backstage == "only":
+            servers = {k: v for k, v in servers.items() if k == "backstage"}
         self._clients: dict[str, MultiServerMCPClient] = {
             name: MultiServerMCPClient({name: conn}) for name, conn in servers.items()
         }
@@ -221,7 +254,11 @@ def _cache_key_for(user_sub: str, auth: httpx.Auth) -> str | None:
     return f"{user_sub}:{digest}"
 
 
-async def get_tools_for_user(user_sub: str, auth: httpx.Auth) -> list[BaseTool]:
+async def get_tools_for_user(
+    user_sub: str,
+    auth: httpx.Auth,
+    backstage_auth: httpx.Auth | None = None,
+) -> list[BaseTool]:
     """Return MCP tools for ``user_sub``, hitting an in-process cache.
 
     Cache hit for the same (user, bearer token) within TTL → returns
@@ -232,10 +269,67 @@ async def get_tools_for_user(user_sub: str, auth: httpx.Auth) -> list[BaseTool]:
     Pass an empty user_sub (or an auth object without an inspectable bearer)
     to bypass the cache — useful for the lifespan probe where no real user
     exists.
+
+    ``backstage_auth`` is a token Backstage issued on the user's behalf for
+    this one request. Tools bound to it can't be reused on a later turn, so
+    the Backstage tools are fetched fresh with it while the other servers'
+    tools still come from the cache. If that fetch fails, the Backstage
+    tools fall back to the static, read-only BACKSTAGE_MCP_TOKEN.
     """
+    if backstage_auth is None or not settings.backstage_mcp_url:
+        return await _get_cached_tools(user_sub, auth, backstage="include")
+
+    others, backstage_tools = await asyncio.gather(
+        _get_cached_tools(user_sub, auth, backstage="exclude"),
+        _get_user_backstage_tools(user_sub, auth, backstage_auth),
+    )
+    if backstage_tools is None:
+        return await _get_cached_tools(user_sub, auth, backstage="include")
+    return [*others, *backstage_tools]
+
+
+async def _get_user_backstage_tools(
+    user_sub: str, auth: httpx.Auth, backstage_auth: httpx.Auth,
+) -> list[BaseTool] | None:
+    """Backstage tools bound to the user's token; None if they can't be listed."""
+    try:
+        tools = await MCPClient(
+            auth=auth, backstage_auth=backstage_auth, backstage="only",
+        ).get_tools()
+    except Exception:  # noqa: BLE001 — degrade to read-only, don't fail the turn
+        logger.warning(
+            "Backstage MCP tools with the user's token failed for sub_fp=%s — "
+            "falling back to the read-only token",
+            _sub_fp(user_sub),
+            exc_info=True,
+        )
+        return None
+    logger.info(
+        "Backstage MCP tools bound to the user's token for sub_fp=%s (%d tools)",
+        _sub_fp(user_sub),
+        len(tools),
+    )
+    return tools
+
+
+async def _get_cached_tools(
+    user_sub: str,
+    auth: httpx.Auth,
+    *,
+    backstage: Literal["include", "exclude"],
+) -> list[BaseTool]:
     cache_key = _cache_key_for(user_sub, auth)
+    if cache_key and backstage == "exclude":
+        cache_key = f"{cache_key}:no-backstage"
+
+    def new_client() -> MCPClient:
+        # Keep the default call shape: the cache tests swap MCPClient out.
+        if backstage == "include":
+            return MCPClient(auth=auth)
+        return MCPClient(auth=auth, backstage=backstage)
+
     if not cache_key:
-        return await MCPClient(auth=auth).get_tools()
+        return await new_client().get_tools()
 
     # Fast path: sweep expired entries and check the cache under the
     # coordinating lock. If we miss, claim (or reuse) the per-key fetch
@@ -258,7 +352,7 @@ async def get_tools_for_user(user_sub: str, auth: httpx.Auth) -> list[BaseTool]:
                 return cached[1]
 
         started = time.monotonic()
-        tools = await MCPClient(auth=auth).get_tools()
+        tools = await new_client().get_tools()
         elapsed = time.monotonic() - started
 
         async with _CACHE_LOCK:
@@ -269,7 +363,7 @@ async def get_tools_for_user(user_sub: str, auth: httpx.Auth) -> list[BaseTool]:
         logger.info(
             "MCP tools cache miss for sub_fp=%s token_fp=%s — fetched %d tools in %.2fs",
             sub_fp,
-            cache_key.rsplit(":", 1)[-1],
+            _cache_key_for(user_sub, auth).rsplit(":", 1)[-1],
             len(tools),
             elapsed,
         )
@@ -280,6 +374,49 @@ async def get_tools_for_user(user_sub: str, auth: httpx.Auth) -> list[BaseTool]:
         # doesn't see it, the gap is in the case-type filter.
         logger.debug("MCP tool names for sub_fp=%s: %s", sub_fp, names)
         return tools
+
+
+class BackstageToolError(Exception):
+    """A Backstage check tool refused a call; the message is Backstage's."""
+
+
+async def backstage_tools_as_user(backstage_auth: httpx.Auth) -> dict[str, BaseTool]:
+    """The Backstage check tools bound to the user's token, by name.
+
+    For code that calls the tools itself — building and confirming the
+    confirm card — rather than handing them to the model.
+    """
+    tools = await MCPClient(
+        auth=backstage_auth, backstage_auth=backstage_auth, backstage="only",
+    ).get_tools()
+    return {tool.name: tool for tool in tools}
+
+
+async def call_backstage_tool(
+    tools: dict[str, BaseTool], name: str, args: dict[str, Any],
+) -> dict[str, Any]:
+    """Run one Backstage check tool and return its output object.
+
+    Raises BackstageToolError with Backstage's message when the tool is
+    missing or refuses the call (permission, validation, unknown id).
+    """
+    tool = tools.get(name)
+    if tool is None:
+        raise BackstageToolError(f"The {name} tool isn't available.")
+    # Invoked as a tool call so the result is a ToolMessage: its status tells
+    # an error from a result, and the artifact holds the structured output.
+    result = await tool.ainvoke({"type": "tool_call", "id": name, "name": name, "args": args})
+    content = result.content
+    text = content if isinstance(content, str) else "".join(
+        block.get("text", "") for block in content if isinstance(block, dict)
+    )
+    if getattr(result, "status", "success") == "error":
+        raise BackstageToolError(text or f"{name} failed.")
+    artifact = getattr(result, "artifact", None) or {}
+    output = artifact.get("structured_content")
+    if output is None:
+        output = json.loads(text)
+    return output
 
 
 async def invalidate_tools_cache(user_sub: str | None = None) -> None:
