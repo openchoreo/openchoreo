@@ -364,25 +364,30 @@ async def card_for_save_request(
     user_sub: str,
     backstage_token: str | None,
     practice: bool = False,
+    reply: str | None = None,
 ) -> dict[str, Any] | None:
     """The confirm card again, ready to save, when the user just asks to
     save or to skip the test, or None. ``practice``: the draft is the welcome's
     example, so its card has the example's Description, as before.
 
     Built from the previous assistant reply (the drafted check or edited
-    rule the user is answering), so "save this" gets the card without a
-    model call. The card skips its test step (``test_skipped``): it offers
-    only the save buttons. None when the latest turn says more than that,
-    or the previous reply has no rule.
+    rule the user is answering), or from ``reply`` when the caller found the
+    one to save, so "save this" gets the card without a model call. The card
+    skips its test step (``test_skipped``): it offers only the save buttons.
+    None when the latest turn says more than that, or the reply has no rule.
     """
     if not messages or messages[-1].get("role") != "user":
         return None
     if not is_save_request(messages[-1].get("content") or ""):
         return None
-    previous = next((m for m in reversed(messages[:-1]) if m.get("role") == "assistant"), None)
-    if previous is None:
-        return None
-    reply = previous.get("content") or ""
+    if reply is None:
+        previous = next(
+            (m for m in reversed(messages[:-1]) if m.get("role") == "assistant"),
+            None,
+        )
+        if previous is None:
+            return None
+        reply = previous.get("content") or ""
     card = await build_confirmation(
         with_example_description(reply) if practice else reply,
         scope,

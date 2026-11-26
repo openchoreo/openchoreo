@@ -275,6 +275,117 @@ async def test_save_this_still_returns_the_card_without_a_model_call(monkeypatch
     assert _has_card(events)
 
 
+_TESTED = "Tested on component:default/order-api\n\nOrder-api doesn't meet this rule."
+
+
+async def _save_it_after(monkeypatch, history, scope):
+    """Runs "save it" after ``history`` with no model; returns (events, rebuilt replies)."""
+    built = []
+
+    async def _fake_confirmation(message, _scope, **_kwargs):
+        built.append(message)
+        return _CARD if "```" in message else None
+
+    async def _no_agent(*_args, **_kwargs):
+        raise AssertionError("save it must not call the model")
+
+    monkeypatch.setattr(confirm_card, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(orchestrator, "_build_agent", _no_agent)
+    events = [
+        ev
+        async for ev in orchestrator.stream_chat(
+            messages=[*history, {"role": "user", "content": "save it"}],
+            token="t",
+            user_sub="u",
+            scope=scope,
+            backstage_token="b",
+        )
+    ]
+    return events, built
+
+
+@pytest.mark.parametrize(
+    ("history", "scope"),
+    [
+        pytest.param(
+            [
+                {"role": "user", "content": "Repositories must be private"},
+                {"role": "assistant", "content": _STEP2},
+            ],
+            {"case_type": "check_authoring"},
+            id="a drafted check",
+        ),
+        pytest.param(
+            [
+                {"role": "user", "content": "Change it to 60"},
+                {"role": "assistant", "content": _STEP1},
+                {"role": "user", "content": "yes"},
+                {"role": "assistant", "content": _STEP2},
+            ],
+            _EDIT_SCOPE,
+            id="an approved edit",
+        ),
+    ],
+)
+async def test_save_it_after_a_test_result_saves_the_rule_before_it(monkeypatch, history, scope):
+    # CodeRabbit: a test of another rule ends in its result alone, with no rule
+    # in the reply, so "save it" found nothing to save.
+    tested = [
+        *history,
+        {"role": "user", "content": "test it on order-api"},
+        {"role": "assistant", "content": _TESTED},
+    ]
+
+    events, built = await _save_it_after(monkeypatch, tested, scope)
+
+    assert built == [_STEP2]
+    assert _has_card(events)
+    assert json.loads(events[-1])["message"] == confirm_card.SAVE_REQUEST_REPLY
+
+
+def test_save_it_reaches_back_only_over_test_results():
+    draft = [
+        {"role": "user", "content": "Repositories must be private"},
+        {"role": "assistant", "content": _STEP2},
+    ]
+    scope = {"case_type": "check_authoring"}
+    save = {"role": "user", "content": "save it"}
+    test = {"role": "user", "content": "test it on order-api"}
+
+    def reply(*after):
+        return orchestrator._reply_to_save([*draft, *after, save], scope)
+
+    assert reply(test, {"role": "assistant", "content": _TESTED}) == _STEP2
+    assert (
+        reply(
+            test,
+            {"role": "assistant", "content": _TESTED},
+            test,
+            {"role": "assistant", "content": f"**{_TESTED}"},
+        )
+        == _STEP2
+    )
+    # The previous reply is the rule: card_for_save_request reads it itself.
+    assert reply() is None
+    # Anything else in between: "save it" isn't about that draft any more.
+    assert (
+        reply(
+            {"role": "user", "content": "what does it check?"},
+            {"role": "assistant", "content": "It checks that the repository is private."},
+        )
+        is None
+    )
+    # An edit the user didn't approve isn't saved, tested or not.
+    unapproved = [
+        {"role": "user", "content": "Change it to 60"},
+        {"role": "assistant", "content": _STEP2},
+        test,
+        {"role": "assistant", "content": _TESTED},
+        save,
+    ]
+    assert orchestrator._reply_to_save(unapproved, _EDIT_SCOPE) is None
+
+
 async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch):
     async def _broken(*_args, **_kwargs):
         raise KeyError("valid")

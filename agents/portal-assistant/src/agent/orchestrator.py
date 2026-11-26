@@ -740,6 +740,32 @@ def _unsaved_rule_reply(
     return reply
 
 
+def _is_test_result(reply: str) -> bool:
+    """Whether a reply is a test's result alone, as _tested_reply writes it."""
+    return reply.lstrip("*# ").startswith("Tested on ") and not RULE_FENCE_RE.search(reply)
+
+
+def _reply_to_save(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> str | None:
+    """The reply "save it" saves when it isn't the previous one: the unsaved
+    draft or approved edit that test results followed. A test that ran
+    another rule than the card's ends in its result alone (see _tested_reply),
+    so the previous reply has no rule, but the user still wants to save the
+    rule they have. None when anything else came after it."""
+    earlier = messages[:-1]
+    reply = _unsaved_rule_reply(earlier, scope)
+    if reply is None:
+        return None
+    index = max(
+        i
+        for i, m in enumerate(earlier)
+        if m.get("role") == "assistant" and m.get("content") == reply
+    )
+    after = [m for m in earlier[index + 1 :] if m.get("role") == "assistant"]
+    if not after or not all(_is_test_result(m.get("content") or "") for m in after):
+        return None
+    return reply
+
+
 def _tests_saved_rule(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> bool:
     """Whether this test request in an edit chat runs the saved rule although
     the chat has an edited rule: the user didn't approve that one, so it isn't
@@ -1083,8 +1109,12 @@ async def stream_chat(
         async with _slot_if(is_save_request(latest_text) and not unapproved_edit):
             if not unapproved_edit:
                 save_card = await card_for_save_request(
-                    messages, scope, user_sub=user_sub, backstage_token=backstage_token,
+                    messages,
+                    scope,
+                    user_sub=user_sub,
+                    backstage_token=backstage_token,
                     practice=_is_example(messages, scope, past_save=True),
+                    reply=_reply_to_save(messages, scope),
                 )
     except Exception:  # noqa: BLE001 — answer with the model instead
         logger.warning("Save card shortcut failed; answering with the model", exc_info=True)
