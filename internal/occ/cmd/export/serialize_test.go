@@ -98,8 +98,8 @@ func TestSerialize_RequiredLayout(t *testing.T) {
 		{"Resource", "namespaces/acme/projects/store/resources/sample/resource.yaml"},
 		{"ResourceRelease", "namespaces/acme/projects/store/resources/database/releases/sample.yaml"},
 		{"ResourceReleaseBinding", "namespaces/acme/projects/store/resources/database/release-bindings/sample.yaml"},
-		{endpointKind, "namespaces/acme/projects/store/endpoints/sample/endpoint.yaml"},
-		{endpointReleaseKind, "namespaces/acme/projects/store/endpoints/public-api/releases/sample.yaml"},
+		{"Endpoint", "namespaces/acme/projects/store/endpoints/sample/endpoint.yaml"},
+		{"EndpointRelease", "namespaces/acme/projects/store/endpoints/public-api/releases/sample.yaml"},
 		{"EndpointReleaseBinding", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/sample.yaml"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {

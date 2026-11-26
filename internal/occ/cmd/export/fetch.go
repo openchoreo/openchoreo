@@ -71,11 +71,13 @@ func fetchResources(ctx context.Context, c client.Interface, allReleases bool, c
 			return nil, err
 		}
 		resources = append(resources, items...)
+		// Release Lines require component names from the namespace resource list.
 		lines, err := fetchReleaseLines(ctx, api, name, items)
 		if err != nil {
 			return nil, err
 		}
 		resources = append(resources, lines...)
+		// Release selection requires bindings to identify referenced releases.
 		selection := releaseSelection{
 			all: allReleases, cutoff: cutoff, references: bindingReleaseReferences(items), preservedPaths: preservedPaths,
 		}
@@ -166,7 +168,7 @@ func bindingReleaseReferences(resources []Resource) map[releaseIdentity]bool {
 			}
 		case gen.EndpointReleaseBinding:
 			if binding.Spec != nil && binding.Metadata.DeletionTimestamp == nil {
-				kind, name = endpointReleaseKind, binding.Spec.EndpointRelease
+				kind, name = "EndpointRelease", binding.Spec.EndpointRelease //nolint:goconst
 			}
 		}
 		if name != nil && *name != "" {
@@ -640,7 +642,7 @@ func releaseFetchers(c *gen.ClientWithResponses, selection *releaseSelection) []
 				return item.Metadata, owner
 			}, selection,
 		),
-		newReleaseFetcher(endpointReleaseKind,
+		newReleaseFetcher("EndpointRelease",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.EndpointRelease], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
 				return decodePage[gen.EndpointRelease](c.ListEndpointReleases(ctx, namespace, &gen.ListEndpointReleasesParams{Limit: pageLimit, Cursor: pageCursor}))

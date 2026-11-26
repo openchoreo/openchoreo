@@ -23,11 +23,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
-	endpointKind        = "Endpoint"
-	endpointReleaseKind = "EndpointRelease"
-)
-
 type resourceScope int
 
 const (
@@ -86,8 +81,8 @@ var resourceLayouts = map[string]resourceLayout{
 	"Resource":                               {scope: resourceScopeLevel, filename: "resource.yaml"},
 	"ResourceRelease":                        {scope: resourceScopeLevel, directory: "releases"},
 	"ResourceReleaseBinding":                 {scope: resourceScopeLevel, directory: "release-bindings"},
-	endpointKind:                             {scope: endpointScope, filename: "endpoint.yaml"},
-	endpointReleaseKind:                      {scope: endpointScope, directory: "releases"},
+	"Endpoint":                               {scope: endpointScope, filename: "endpoint.yaml"},
+	"EndpointRelease":                        {scope: endpointScope, directory: "releases"},
 	"EndpointReleaseBinding":                 {scope: endpointScope, directory: "release-bindings"},
 }
 
@@ -334,7 +329,7 @@ func applicationBase(base string, resource Resource, scope resourceScope, owner 
 	}
 	if scope == endpointScope {
 		name := owner.EndpointName
-		if resource.Kind == endpointKind {
+		if resource.Kind == "Endpoint" { //nolint:goconst
 			name = resource.Name
 		}
 		if err := validatePathPart(name, "spec.owner.endpointName"); err != nil {

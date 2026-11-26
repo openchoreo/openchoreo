@@ -111,8 +111,8 @@ func TestRun_ExportsEndpointResourcesAndNotificationChannels(t *testing.T) {
 	expected := []struct{ kind, collection, name string }{
 		{"ClusterEndpointType", "clusterendpointtypes", "platform-shared/endpoint-types/clusterendpointtypes-0.yaml"},
 		{"EndpointType", "endpointtypes", "namespaces/acme/platform/endpoint-types/endpointtypes-0.yaml"},
-		{endpointKind, "endpoints", "namespaces/acme/projects/store/endpoints/endpoints-0/endpoint.yaml"},
-		{endpointReleaseKind, "endpointreleases", "namespaces/acme/projects/store/endpoints/public-api/releases/endpointreleases-0.yaml"},
+		{"Endpoint", "endpoints", "namespaces/acme/projects/store/endpoints/endpoints-0/endpoint.yaml"},
+		{"EndpointRelease", "endpointreleases", "namespaces/acme/projects/store/endpoints/public-api/releases/endpointreleases-0.yaml"},
 		{"EndpointReleaseBinding", "endpointreleasebindings", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/endpointreleasebindings-0.yaml"},
 		{"ObservabilityAlertsNotificationChannel", "observabilityalertsnotificationchannels", "namespaces/acme/platform/infra/observability-alerts-notification-channels/observabilityalertsnotificationchannels-0.yaml"},
 	}
@@ -160,7 +160,7 @@ func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *t
 				return testutil.JSONResp(http.StatusOK, profile), nil
 			}
 			directory := t.TempDir()
-			seedFiles(t, directory, serializedResources(t, manifestResource(endpointKind)))
+			seedFiles(t, directory, serializedResources(t, manifestResource("Endpoint")))
 			before := snapshotTree(t, directory)
 			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.ErrorIs(t, err, errExportPermissionDenied)
@@ -187,8 +187,8 @@ func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 		"ProjectRelease":         {"parameters"},
 		"ResourceType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
 		"ClusterResourceType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		endpointKind:             {"parameters"},
-		endpointReleaseKind:      {"parameters"},
+		"Endpoint":               {"parameters"},
+		"EndpointRelease":        {"parameters"},
 		"EndpointReleaseBinding": {"endpointTypeEnvironmentConfigs"},
 		"EndpointType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
 		"ClusterEndpointType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
