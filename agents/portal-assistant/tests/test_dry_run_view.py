@@ -255,3 +255,36 @@ def test_a_result_keeps_the_retrievers_its_call_ran_with():
     assert read_dry_run({"check": {}}, {"status": "passed"}).fact_ids is None
     assert read_dry_run({"check": {"factIds": "r1"}}, {"status": "passed"}).fact_ids is None
     assert read_dry_run({"check": {"factIds": [1]}}, {"status": "passed"}).fact_ids is None
+
+
+def test_a_failed_required_condition_keeps_its_mark_beside_optional_ones():
+    # CodeRabbit: 1 review fails "at least 2", which the rule needs, however the
+    # either-or conditions on the same fact read.
+    reviews = "githubRequiredApprovingReviewCount"
+    rule = {
+        "all": [
+            {"fact": reviews, "operator": "greaterThanInclusive", "value": 2},
+            {
+                "any": [
+                    {"fact": reviews, "operator": "equal", "value": 0},
+                    {"fact": reviews, "operator": "equal", "value": 1},
+                ]
+            },
+        ]
+    }
+
+    assert _marks(rule, {reviews: 1}) == [False]
+    # Met by the required condition: the optional ones can't take that back.
+    assert _marks(rule, {reviews: 5}) == [True]
+
+
+def test_a_fact_only_in_optional_conditions_stays_unmarked_whatever_they_read():
+    rule = {
+        "any": [
+            {"fact": "githubVisibility", "operator": "equal", "value": "private"},
+            {"fact": "githubVisibility", "operator": "equal", "value": "internal"},
+        ]
+    }
+
+    assert _marks(rule, {"githubVisibility": "public"}) == [None]
+    assert _marks(rule, {"githubVisibility": "private"}) == [None]
