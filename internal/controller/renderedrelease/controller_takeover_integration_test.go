@@ -115,6 +115,8 @@ var _ = Describe("RenderedRelease takeover", func() {
 		f.mustPass()
 
 		Expect(path(f.sentThat(isDryRun))).To(Equal([]string{"services/svc", "deployments/api"}))
+		all := f.writes()
+		Expect(isDryRun(all[0]) && isDryRun(all[1])).To(BeTrue(), "both dry runs come before the first write")
 		writes := stored()
 		Expect(path(writes)).To(Equal([]string{"configmaps/new", "services/svc", "services/svc", "deployments/api", "deployments/api"}))
 		Expect(isLabelRequest(writes[1])).To(BeTrue())

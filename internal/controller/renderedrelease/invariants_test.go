@@ -121,9 +121,12 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, refused bool, 
 		}
 		if r.before != nil && read.Has(r.path) && !hasMarksOf(r.before, release) {
 			tookOver = true
-			if claimOf(r.before, release.Spec.ObservedResources) == nil {
+			switch {
+			case isAnotherReleases(r.before, release):
+				violated("another release's, and written anyway")
+			case claimOf(r.before, release.Spec.ObservedResources) == nil:
 				violated("read, not owned, and written anyway")
-			} else if !dryRun.Has(r.path) {
+			case !dryRun.Has(r.path):
 				violated("taken over without a dry run")
 			}
 		}
@@ -132,19 +135,49 @@ func applyViolations(release *openchoreov1alpha1.RenderedRelease, refused bool, 
 }
 
 // giveBackViolations returns the requests that erase or add the marks of a claimed object
-// and change anything else of it.
+// and change anything else of it: a give back may erase every mark, and a claim's label
+// request may add only the claimed label.
 func giveBackViolations(requests []*planeRequest) []string {
 	var violations []string
 	for _, r := range requests {
-		marks := r.contentType == string(types.JSONPatchType) || strings.Contains(r.query, "fieldManager=renderedrelease-takeover")
-		if !marks || r.status != http.StatusOK || r.before == nil || r.after == nil {
+		claim := strings.Contains(r.query, "fieldManager=renderedrelease-takeover")
+		if !claim && r.contentType != string(types.JSONPatchType) || r.status != http.StatusOK || r.before == nil || r.after == nil {
 			continue
 		}
-		if diff := cmp.Diff(withoutMarks(r.before), withoutMarks(r.after)); diff != "" {
-			violations = append(violations, fmt.Sprintf("%s %s changes more than the marks: %s", r.method, r.path, diff))
+		strip, allowed := withoutMarks, "the marks"
+		if claim {
+			strip, allowed = withoutClaim, "the claimed label"
+		}
+		if diff := cmp.Diff(strip(r.before), strip(r.after)); diff != "" {
+			violations = append(violations, fmt.Sprintf("%s %s changes more than %s: %s", r.method, r.path, allowed, diff))
 		}
 	}
 	return violations
+}
+
+// withoutClaim returns the object without what a claim's label request adds: the claimed
+// label and the entry of its field manager.
+func withoutClaim(obj *unstructured.Unstructured) map[string]any {
+	obj = obj.DeepCopy()
+	obj.SetResourceVersion("")
+	var entries []metav1.ManagedFieldsEntry
+	for _, entry := range obj.GetManagedFields() {
+		if entry.Operation != metav1.ManagedFieldsOperationApply || entry.Manager != takeoverFieldManager {
+			entries = append(entries, entry)
+		}
+	}
+	obj.SetManagedFields(entries)
+	kept := map[string]string{}
+	for key, value := range obj.GetLabels() {
+		if key != labels.LabelKeyClaimed {
+			kept[key] = value
+		}
+	}
+	obj.SetLabels(kept)
+	if len(kept) == 0 {
+		unstructured.RemoveNestedField(obj.Object, "metadata", "labels")
+	}
+	return obj.Object
 }
 
 // withoutMarks returns the object without what a release and a claim leave on it: the
@@ -186,6 +219,13 @@ var markLabels = sets.New(
 func hasMarksOf(obj *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) bool {
 	return obj.GetLabels()[labels.LabelKeyRenderedReleaseName] == release.Name &&
 		obj.GetLabels()[labels.LabelKeyRenderedReleaseNamespace] == release.Namespace && hasApplyEntry(obj)
+}
+
+// isAnotherReleases reports whether another release applied the object: it has the apply
+// entry, and both name labels name a release that is not this one.
+func isAnotherReleases(obj *unstructured.Unstructured, release *openchoreov1alpha1.RenderedRelease) bool {
+	name, namespace := obj.GetLabels()[labels.LabelKeyRenderedReleaseName], obj.GetLabels()[labels.LabelKeyRenderedReleaseNamespace]
+	return hasApplyEntry(obj) && name != "" && namespace != "" && (name != release.Name || namespace != release.Namespace)
 }
 
 // claimOf returns the claim on an object, whatever its API version, and nil without one.
@@ -347,7 +387,7 @@ var _ = Describe("the rules for applies", func() {
 		proxy.reset()
 		read()
 		applyAs("mine")
-		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("read, not owned")))
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("another release's")))
 	})
 
 	It("catch an apply over an object no release applied", func() {
@@ -367,6 +407,16 @@ var _ = Describe("the rules for applies", func() {
 		requests := proxy.requests()
 		Expect(applyViolations(release, false, requests)).To(BeEmpty())
 		Expect(applyViolations(release, false, slices.Delete(requests, 1, 2))).To(ConsistOf(ContainSubstring("without a dry run")))
+	})
+
+	It("catch a takeover of another release's object, even after a dry run", func() {
+		release.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{{ID: "mine", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: name}}
+		applyAs("another")
+		proxy.reset()
+		read()
+		Expect(plane.Patch(ctx, newObj("mine"), client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName), client.DryRunAll)).To(Succeed())
+		applyAs("mine")
+		Expect(applyViolations(release, false, proxy.requests())).To(ConsistOf(ContainSubstring("another release's")))
 	})
 
 	It("catch an object that is created after one was taken over", func() {
@@ -443,6 +493,13 @@ var _ = Describe("the rules for marks", func() {
 		patch(`[{"op": "remove", "path": "/metadata/labels/app"}]`)
 		patch(`[{"op": "replace", "path": "/data/k", "value": "x"}]`)
 		Expect(giveBackViolations(proxy.requests())).To(HaveLen(2))
+	})
+
+	It("catch a claim that also changes another mark", func() {
+		claim := unstructuredObj("v1", "ConfigMap", testNs, "mark-rules")
+		claim.SetLabels(map[string]string{labels.LabelKeyClaimed: "true", labels.LabelKeyRenderedReleaseUID: "another"})
+		Expect(plane.Patch(ctx, claim, client.Apply, client.FieldOwner("renderedrelease-takeover"))).To(Succeed())
+		Expect(giveBackViolations(proxy.requests())).To(ConsistOf(ContainSubstring("more than the claimed label")))
 	})
 
 	It("catch a claim that writes more than its label", func() {
