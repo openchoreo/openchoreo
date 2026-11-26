@@ -3342,9 +3342,18 @@ async def test_a_test_of_another_rule_ends_in_the_test_card_not_a_tested_save_ca
 
     events = await _ended_with_test(monkeypatch, other)
 
+    _assert_ends_in_the_test_result(events)
+
+
+def _assert_ends_in_the_test_result(events):
+    """The turn ends in order-api's own failed result: its test card, no
+    save card, and a reply that says it."""
     assert not [e for e in events if e["type"] == "confirmation_required"]
     (ui,) = [e for e in events if e["type"] == "a2ui"]
-    assert ui["messages"][0]["createSurface"]["components"][0]["component"] != "SaveCard"
+    root = {c["id"]: c for c in ui["messages"][0]["createSurface"]["components"]}["root"]
+    assert (root["component"], root["status"], root["title"]) == ("TestCard", "failed", "order-api")
+    assert events[-1]["type"] == "done"
+    assert events[-1]["message"].startswith("Tested on component:default/order-api")
 
 
 def test_a_test_with_other_retrievers_than_the_cards_is_not_its_result():
@@ -3429,7 +3438,7 @@ async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):
         )
     ]
 
-    assert not [e for e in events if e["type"] == "confirmation_required"]
+    _assert_ends_in_the_test_result(events)
 
 
 @pytest.mark.parametrize("answer", [
