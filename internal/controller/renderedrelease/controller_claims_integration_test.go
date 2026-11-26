@@ -403,6 +403,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			f.change(rendering(configMap("release")), claiming(configMap("")))
 			result := f.mustPass()
 			Expect(f.live(configMap(""))).NotTo(BeNil())
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
 			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
 		})
 
@@ -410,6 +411,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			start("interval-observe", false)
 			f.change(inMode(openchoreov1alpha1.RenderedReleaseModeObserve), claiming(missing()))
 			result := f.mustPass()
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
 			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
 		})
 
@@ -419,6 +421,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			f.proxy.hook(planeHook{match: func(r *planeRequest) bool { return strings.HasSuffix(r.path, "/missing") }, every: true,
 				answer: &planeAnswer{status: http.StatusBadGateway, contentType: "text/plain", body: "no agents"}})
 			result := f.mustPass()
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
 			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
 		})
 
@@ -428,6 +431,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			claim := unstructuredObj("apps/v1", "Deployment", testNs, deployment.Name)
 			f.change(rendering(configMap("release")), claiming(missing(), claim))
 			result := f.mustPass()
+			Expect(result.RequeueAfter).To(BeNumerically(">=", 10*time.Second))
 			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
 		})
 	})

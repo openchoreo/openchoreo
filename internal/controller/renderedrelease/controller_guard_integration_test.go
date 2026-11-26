@@ -558,7 +558,7 @@ var _ = Describe("RenderedRelease guard", func() {
 				spec.Resources[1].ID = "again"
 			})
 			first := true
-			f.proxy.hook(planeHook{match: func(r *planeRequest) bool {
+			operator := f.proxy.hook(planeHook{match: func(r *planeRequest) bool {
 				second := withMethod(http.MethodPatch)(r) && !first
 				first = first && !withMethod(http.MethodPatch)(r)
 				return second
@@ -569,7 +569,10 @@ var _ = Describe("RenderedRelease guard", func() {
 			}})
 
 			expectApplied(f.pass())
-			Expect(f.live(configMap("a", "")).Object).To(HaveKeyWithValue("data", HaveKeyWithValue("by", "2")), "the last one wins")
+			Expect(operator.used).To(BeTrue(), "the operator wrote it in between")
+			live := f.live(configMap("a", ""))
+			Expect(live.Object).To(HaveKeyWithValue("data", HaveKeyWithValue("by", "2")), "the last one wins")
+			Expect(live.GetAnnotations()).To(HaveKeyWithValue("example.com/seen", "yes"))
 		})
 
 		It("adopts an object that appears in its own namespace, as it adopts one that was there", func() {

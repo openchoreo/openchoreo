@@ -374,6 +374,7 @@ var _ = Describe("RenderedRelease takeover", func() {
 		pass(first, ReasonObserveMode)
 		Expect(f.writes()).To(BeEmpty())
 		first.deleteRelease()
+		Expect(first.writes()).To(BeEmpty())
 		first.mustPass()
 		Expect(first.writes()).To(BeEmpty())
 		expectUnchanged(taken)

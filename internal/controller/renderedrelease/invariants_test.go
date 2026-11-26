@@ -44,7 +44,8 @@ func deleteViolations(requests []*planeRequest, claims ...openchoreov1alpha1.Obs
 				listed.Insert(list.Items[i].GetUID())
 			}
 		}
-		if r.method != http.MethodDelete || r.status != http.StatusOK || r.before == nil {
+		accepted := r.status >= http.StatusOK && r.status < http.StatusMultipleChoices
+		if r.method != http.MethodDelete || !accepted || r.before == nil {
 			continue
 		}
 		violated := func(rule string) { violations = append(violations, fmt.Sprintf("DELETE %s: %s", r.path, rule)) }
@@ -283,6 +284,19 @@ var _ = Describe("the rules for deletes", func() {
 		another := openchoreov1alpha1.ObservedResource{ID: "another", APIVersion: "v1", Kind: "ConfigMap", Namespace: testNs, Name: "x"}
 		Expect(deleteViolations(proxy.requests(), claim, another)).To(ConsistOf(
 			ContainSubstring("is labeled as claimed"), ContainSubstring("is claimed as mine")))
+	})
+
+	It("check a delete the plane accepted to finish later, too", func() {
+		claimed := newObj()
+		claimed.SetLabels(map[string]string{labels.LabelKeyClaimed: "yes"})
+		Expect(plane.Patch(ctx, claimed, client.Apply, client.FieldOwner("kubectl"))).To(Succeed())
+		list()
+		Expect(plane.Delete(ctx, obj, client.Preconditions{UID: ptr.To(obj.GetUID())})).To(Succeed())
+		requests := proxy.requests()
+		accepted := *requests[len(requests)-1]
+		accepted.status = http.StatusAccepted
+		requests[len(requests)-1] = &accepted
+		Expect(deleteViolations(requests)).To(ConsistOf(ContainSubstring("is labeled as claimed")))
 	})
 
 	It("leave out a delete the plane rejected", func() {
