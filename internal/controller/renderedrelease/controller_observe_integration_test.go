@@ -226,6 +226,8 @@ var _ = Describe("RenderedRelease observe mode", func() {
 			Expect(applied).NotTo(BeNil())
 			Expect(applied.Status).To(Equal(metav1.ConditionFalse), "nothing in spec.resources is applied")
 			Expect(applied.Reason).To(Equal(ReasonObserveMode), "the reason tells it from an apply failure")
+			Expect(applied.Message).To(Equal("Observe mode: spec.resources are not applied, and anything applied earlier " +
+				"is removed, except objects protected by observedResources, which are given back"))
 			Expect(applied.ObservedGeneration).To(Equal(updated.Generation))
 
 			By("Unknown observed objects are re-read on the progressing interval, at poll priority")

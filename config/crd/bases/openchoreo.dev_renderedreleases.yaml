@@ -73,11 +73,13 @@ spec:
                       the fields in its manifest and leaves the others as they are.
                     - If another release manages it, the release applies nothing.
 
-                  Listing an object also protects it. An object that the release applied while it
-                  was listed is never deleted by the release, even when it is no longer listed. It
-                  has the label openchoreo.dev/claimed. When it is no longer in spec.resources, the
-                  release stops managing it: it removes its labels and its managedFields entry, and
-                  leaves everything else as it is.
+                  Listing an object also protects it. An object that the release applies while it
+                  is listed gets the label openchoreo.dev/claimed: at once if it exists, or on the
+                  next check if the release creates it. From then on the release never deletes it,
+                  even when it is no longer listed. When the release stops applying it (it is
+                  dropped from spec.resources, the release moves to Observe mode, or the release is
+                  deleted), the release removes its labels and its managedFields entry, and leaves
+                  everything else as it is.
                 items:
                   description: |-
                     ObservedResource names an existing object on the target plane for a

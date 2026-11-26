@@ -153,7 +153,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	// The mode only decides what happens to spec.resources. In Observe mode nothing
 	// is desired, so the cleanup below removes whatever this release applied
-	// earlier: that is the rollback when a binding moves back to observing.
+	// earlier, and gives back what is or was claimed: that is the rollback when a
+	// binding moves back to observing.
 	var desiredResources []*unstructured.Unstructured
 	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
 		desiredResources, err = r.makeDesiredResources(release)
@@ -214,7 +215,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// once like an apply failure.
 		controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
 			controller.ConditionReason(ReasonObserveMode),
-			"Observe mode: spec.resources are not applied, and anything applied earlier is removed")
+			"Observe mode: spec.resources are not applied, and anything applied earlier is removed, "+
+				"except objects protected by observedResources, which are given back")
 	}
 
 	// PHASE 2: Discover live resources that we manage in the target plane
