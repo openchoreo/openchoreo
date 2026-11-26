@@ -273,19 +273,36 @@ async def get_tools_for_user(
     ``backstage_auth`` is a token Backstage issued on the user's behalf for
     this one request. Tools bound to it can't be reused on a later turn, so
     the Backstage tools are fetched fresh with it while the other servers'
-    tools still come from the cache. If that fetch fails, the Backstage
-    tools fall back to the static, read-only BACKSTAGE_MCP_TOKEN.
+    tools still come from the cache. If that fetch fails, the turn has no
+    Backstage tools: the static BACKSTAGE_MCP_TOKEN would read as a service,
+    with access the user's own token may not have, and it calls the same
+    server, so it can't help when Backstage is down. If the other servers
+    fail, the Backstage tools are still returned; only when both fail does
+    this raise, as when every server fails.
     """
     if backstage_auth is None or not settings.backstage_mcp_url:
         return await _get_cached_tools(user_sub, auth, backstage="include")
 
     others, backstage_tools = await asyncio.gather(
-        _get_cached_tools(user_sub, auth, backstage="exclude"),
+        _get_other_tools(user_sub, auth),
         _get_user_backstage_tools(user_sub, auth, backstage_auth),
     )
-    if backstage_tools is None:
-        return await _get_cached_tools(user_sub, auth, backstage="include")
-    return [*others, *backstage_tools]
+    if others is None and backstage_tools is None:
+        raise RuntimeError("Failed to fetch tools from any MCP server")
+    return [*(others or []), *(backstage_tools or [])]
+
+
+async def _get_other_tools(user_sub: str, auth: httpx.Auth) -> list[BaseTool] | None:
+    """The cached tools of every server but Backstage; None if none can be listed."""
+    try:
+        return await _get_cached_tools(user_sub, auth, backstage="exclude")
+    except Exception:  # noqa: BLE001 — the Backstage tools may still serve the turn
+        logger.warning(
+            "MCP tools of the other servers failed for sub_fp=%s",
+            _sub_fp(user_sub),
+            exc_info=True,
+        )
+        return None
 
 
 async def _get_user_backstage_tools(
@@ -296,10 +313,10 @@ async def _get_user_backstage_tools(
         tools = await MCPClient(
             auth=auth, backstage_auth=backstage_auth, backstage="only",
         ).get_tools()
-    except Exception:  # noqa: BLE001 — degrade to read-only, don't fail the turn
+    except Exception:  # noqa: BLE001 — no Backstage tools this turn, don't fail it
         logger.warning(
             "Backstage MCP tools with the user's token failed for sub_fp=%s — "
-            "falling back to the read-only token",
+            "no Backstage tools this turn",
             _sub_fp(user_sub),
             exc_info=True,
         )
