@@ -106,6 +106,12 @@ def is_saved_rule(message: str, scope: dict[str, Any] | None) -> bool:
         return False
 
 
+def same_rule(first: str, second: str) -> bool:
+    """Whether two replies show the same rule (both have one)."""
+    rule = _edited_rule(first)
+    return rule is not None and rule == _edited_rule(second)
+
+
 def _has_condition(rule: Any) -> bool:
     """Whether the rule tests at least one fact: ``{"all": []}`` tests none."""
     if isinstance(rule, dict):

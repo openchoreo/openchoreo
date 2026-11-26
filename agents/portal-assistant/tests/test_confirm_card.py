@@ -468,6 +468,23 @@ def _history(last_user, previous_reply=_STEP2):
     ]
 
 
+_STEP1 = (
+    "Proposed rule: `githubDefaultBranchProtected` `equal` `true` AND "
+    "`githubRequiredApprovals` `greaterThanInclusive` `2`. Shall I change it to that?"
+)
+
+
+def _approved_history(*later):
+    """An edit the user approved (Step 1, "yes", Step 2), then ``later``."""
+    return [
+        {"role": "user", "content": "require 2 approvals"},
+        {"role": "assistant", "content": _STEP1},
+        {"role": "user", "content": "yes"},
+        {"role": "assistant", "content": _STEP2},
+        *later,
+    ]
+
+
 async def _save_card(history, scope=_SCOPE, token="issued-for-user"):
     return await card_for_save_request(history, scope, user_sub="user-a", backstage_token=token)
 
@@ -565,7 +582,7 @@ async def test_a_save_request_skips_the_model(monkeypatch):
     events = [
         json.loads(line)
         async for line in orchestrator.stream_chat(
-            messages=_history("save this"),
+            messages=_approved_history({"role": "user", "content": "save this"}),
             token="t",
             user_sub="user-a",
             scope=_SCOPE,
@@ -576,6 +593,80 @@ async def test_a_save_request_skips_the_model(monkeypatch):
     assert [e["type"] for e in events] == ["confirmation_required", "a2ui", "done"]
     assert events[2]["message"] == SAVE_REQUEST_REPLY
     _assert_same_save_card(events)
+
+
+async def _save_turn(monkeypatch, messages):
+    """stream_chat with a model that only asks; returns (events, whether it ran)."""
+    ran = []
+
+    async def _model(*_args, **_kwargs):
+        ran.append(True)
+        raise RuntimeError("model asked")  # the turn ends in its error reply
+
+    monkeypatch.setattr(orchestrator, "_build_agent", _model)
+    events = [
+        json.loads(line)
+        async for line in orchestrator.stream_chat(
+            messages=messages,
+            token="t",
+            user_sub="user-a",
+            scope=_SCOPE,
+            backstage_token="issued-for-user",
+        )
+    ]
+    return events, bool(ran)
+
+
+async def test_save_it_after_an_unapproved_edit_gets_no_card(monkeypatch):
+    # 803: the model wrote an edited rule before the user approved a Step 1
+    # proposal; "save this" must not turn it into a save card.
+    events, model_ran = await _save_turn(monkeypatch, _history("save this"))
+
+    assert model_ran
+    assert not [e for e in events if e["type"] == "confirmation_required"]
+
+
+async def test_save_it_after_a_test_of_an_approved_edit_still_gets_the_card(monkeypatch):
+    # The approved rule shown again after a test is still the approved one.
+    messages = _approved_history(
+        {"role": "user", "content": "Test it on component:default/order-api"},
+        {"role": "assistant", "content": _STEP2},
+        {"role": "user", "content": "save this"},
+    )
+
+    events, model_ran = await _save_turn(monkeypatch, messages)
+
+    assert not model_ran
+    assert [e["type"] for e in events] == ["confirmation_required", "a2ui", "done"]
+
+
+async def test_a_different_rule_after_the_approved_one_is_not_approved(monkeypatch):
+    # The model changed the rule in a later reply: that rule wasn't approved.
+    changed = _STEP2.replace('"value": 2', '"value": 5')
+    assert changed != _STEP2
+    messages = _approved_history(
+        {"role": "user", "content": "Test it on component:default/order-api"},
+        {"role": "assistant", "content": changed},
+        {"role": "user", "content": "save this"},
+    )
+
+    events, model_ran = await _save_turn(monkeypatch, messages)
+
+    assert model_ran
+    assert not [e for e in events if e["type"] == "confirmation_required"]
+
+
+def test_a_test_request_reads_only_an_approved_edit():
+    # The test-only paths (run by code, or the model's test) build the save
+    # card from this reply: an unapproved edit gives none.
+    approved = _approved_history({"role": "user", "content": "test it on order-api"})
+    unapproved = _history("test it on order-api")
+
+    assert orchestrator._unsaved_rule_reply(approved, _SCOPE) == _STEP2
+    assert orchestrator._unsaved_rule_reply(unapproved, _SCOPE) is None
+    # A new check isn't an edit: its draft needs no approval.
+    new_check = {"case_type": "check_authoring"}
+    assert orchestrator._unsaved_rule_reply(unapproved, new_check) == _STEP2
 
 
 # ── V2b: a card whose rule has problems gets one fix round ─────────────

@@ -67,6 +67,7 @@ from src.agent.confirm_card import (
     is_save_request,
     is_saved_rule,
     rule_fix_note,
+    same_rule,
     with_example_description,
 )
 from src.agent.dry_run_view import DryRun, entity_name, read_dry_run
@@ -567,17 +568,55 @@ def _unsaved_rule_reply(
     messages: list[dict[str, str]], scope: dict[str, Any] | None,
 ) -> str | None:
     """The last reply with a rule — a drafted check or an edited rule — when
-    it isn't saved yet (not the check's saved rule), or None."""
+    it isn't saved yet (not the check's saved rule), or None. In an edit
+    chat, also None when the user didn't approve that edit (see
+    _approved_edit): a test or "save it" must not turn it into a save card."""
     if (scope or {}).get("case_type") != "check_authoring":
         return None
-    reply = next(
+    index = next(
         (
-            m.get("content") or "" for m in reversed(messages)
-            if m.get("role") == "assistant" and RULE_FENCE_RE.search(m.get("content") or "")
+            i
+            for i in reversed(range(len(messages)))
+            if messages[i].get("role") == "assistant"
+            and RULE_FENCE_RE.search(messages[i].get("content") or "")
         ),
         None,
     )
-    return reply if reply and not is_saved_rule(reply, scope) else None
+    if index is None:
+        return None
+    reply = messages[index].get("content") or ""
+    if is_saved_rule(reply, scope):
+        return None
+    if (scope or {}).get("check_id") and not _approved_edit(messages, index, scope):
+        logger.info("The last edited rule wasn't approved: no save card from it")
+        return None
+    return reply
+
+
+def _approved_edit(
+    messages: list[dict[str, str]],
+    index: int,
+    scope: dict[str, Any] | None,
+) -> bool:
+    """Whether the edited rule in ``messages[index]`` (an assistant reply) is
+    one the user approved: the reply to an approval of a Step 1 proposal, or
+    the same rule shown again after a test or save request that followed one.
+    A rule the model wrote before approval (it should only ask) never is."""
+    shown = messages[index].get("content") or ""
+    for i in range(index, -1, -1):
+        content = messages[i].get("content") or ""
+        if messages[i].get("role") != "assistant" or not RULE_FENCE_RE.search(content):
+            continue
+        if not same_rule(content, shown):
+            return False
+        asked = messages[:i]
+        if _not_approved_reason(asked, scope) is None:
+            return True
+        said = asked[-1] if asked and asked[-1].get("role") == "user" else {}
+        text = (said.get("content") or "").strip()
+        if not (_TEST_REQUEST_RE.fullmatch(text) or is_save_request(text)):
+            return False
+    return False
 
 
 def _edit_phase(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> str | None:
@@ -612,23 +651,35 @@ def _edit_phase(messages: list[dict[str, str]], scope: dict[str, Any] | None) ->
     ):
         logger.info("Edit phase: discuss")
         return "discuss"
-    previous = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
-    if previous is None:
-        reason = "first message"
-    elif RULE_FENCE_RE.search(previous.get("content") or ""):
-        reason = "the last reply wasn't a question"
-    elif not _proposes_rule(previous.get("content") or ""):
-        reason = "the last reply proposed no rule"
-    elif _shown_as_input_card(previous.get("content") or "", scope):
-        # Its choices weren't shown, so a number can't pick one.
-        reason = "the last reply's choices were shown as the input card"
-    elif _approves(latest.get("content") or "", previous.get("content") or ""):
+    reason = _not_approved_reason(messages, scope)
+    if reason is None:
         logger.info("Edit phase: apply")
         return "apply"
-    else:
-        reason = "not an approval"
     logger.info("Edit phase: propose (%s)", reason)
     return "propose"
+
+
+def _not_approved_reason(
+    messages: list[dict[str, str]],
+    scope: dict[str, Any] | None,
+) -> str | None:
+    """None when the latest message approves the Step 1 proposal before it
+    (Step 2), else why it doesn't. Logs nothing, so _approved_edit can ask
+    it about earlier turns."""
+    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    previous = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
+    if previous is None:
+        return "first message"
+    if RULE_FENCE_RE.search(previous.get("content") or ""):
+        return "the last reply wasn't a question"
+    if not _proposes_rule(previous.get("content") or ""):
+        return "the last reply proposed no rule"
+    if _shown_as_input_card(previous.get("content") or "", scope):
+        # Its choices weren't shown, so a number can't pick one.
+        return "the last reply's choices were shown as the input card"
+    if _approves(latest.get("content") or "", previous.get("content") or ""):
+        return None
+    return "not an approval"
 
 
 def _collects_for_components(check: dict[str, Any], scope: dict[str, Any]) -> bool:
@@ -829,12 +880,21 @@ async def stream_chat(
     request_id_context.set(f"msg_{uuid.uuid4().hex[:12]}")
 
     # "save this" right after a drafted check or edited rule: the confirm
-    # card again, built by code from that reply — no model call needed.
+    # card again, built by code from that reply — no model call needed. Not
+    # for an edited rule the user didn't approve: the model asks first.
+    latest_text = (messages[-1].get("content") or "") if messages else ""
+    unapproved_edit = (
+        bool((scope or {}).get("check_id"))
+        and is_save_request(latest_text)
+        and _unsaved_rule_reply(messages[:-1], scope) is None
+    )
+    save_card = None
     try:
-        save_card = await card_for_save_request(
-            messages, scope, user_sub=user_sub, backstage_token=backstage_token,
-            practice=_is_example(messages, scope, past_save=True),
-        )
+        if not unapproved_edit:
+            save_card = await card_for_save_request(
+                messages, scope, user_sub=user_sub, backstage_token=backstage_token,
+                practice=_is_example(messages, scope, past_save=True),
+            )
     except Exception:  # noqa: BLE001 — answer with the model instead
         logger.warning("Save card shortcut failed; answering with the model", exc_info=True)
         save_card = None
