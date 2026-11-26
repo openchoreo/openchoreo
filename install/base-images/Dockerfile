@@ -10,7 +10,7 @@ RUN apk update && \
    curl=8.23.0-r0 \
    fuse-overlayfs=1.18-r0 \
    jq=1.8.2-r0 \
-   podman=5.8.10-r0 \
+   podman=5.8.11-r0 \
    iptables=1.8.13-r0 \
    yq-go=4.53.3-r2 && \
    rm -rf /var/cache/apk/*
