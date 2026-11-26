@@ -212,6 +212,54 @@ async def test_after_a_failed_save_the_card_can_be_tried_again(backstage):
     assert _names(backstage) == ["update_check", "update_check"]
 
 
+async def test_when_backstage_cant_be_reached_the_card_can_be_tried_again(
+    backstage,
+    monkeypatch,
+):
+    token = sign(_NEW, "user-a")
+
+    async def unreachable(_auth):
+        raise ConnectionError("refused")
+
+    monkeypatch.setattr(confirm_actions, "backstage_tools_as_user", unreachable)
+    with pytest.raises(ConfirmError, match="wasn't saved: Backstage couldn't be reached"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+    assert backstage["calls"] == []
+
+    pending_actions.consume(token, "user-a")  # still usable
+
+
+@pytest.mark.parametrize("output", [{}, {"name": "no id"}])
+async def test_a_create_with_no_clear_answer_uses_up_the_card(backstage, output):
+    """The check may be saved: a retry of the same card could create it twice."""
+    token = sign(_NEW, "user-a")
+    backstage["outputs"]["create_check"] = output
+
+    with pytest.raises(ConfirmError, match="didn't say whether the check was saved"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+    with pytest.raises(InvalidAction, match="already confirmed"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+    assert _names(backstage) == ["create_check"]
+
+
 async def test_after_a_failed_publish_the_saved_card_is_used_up(backstage):
     token = sign(_NEW, "user-a")
     backstage["fail"] = "publish_check"

@@ -28,7 +28,7 @@ _KEEP_METADATA = {"category": "", "rank": 0, "solution": ""}
 
 
 class ConfirmError(Exception):
-    """Nothing was saved; the message says why."""
+    """The change wasn't saved, or it's unknown whether it was; the message says which."""
 
 
 def _save_args(action: dict[str, Any], apply_texts: bool) -> dict[str, Any]:
@@ -58,7 +58,8 @@ async def confirm_check_change(
     """Save the change in ``token`` as ``user_sub`` and end in ``status``.
 
     Returns ``{check_id, status, message}``. Raises InvalidAction for a bad
-    token and ConfirmError when nothing could be saved. When the save works
+    token and ConfirmError when nothing was saved, or when Backstage gave no
+    clear answer (the card is then used up). When the save works
     but the status change doesn't, returns the saved check's real status
     and a message saying what failed.
     """
@@ -70,6 +71,12 @@ async def confirm_check_change(
     action = consume(token, user_sub)
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
+    # No save was sent, so the same card can be tried again.
+    except Exception as exc:  # noqa: BLE001 — transport failure: say so plainly
+        release(token)
+        logger.warning("Confirm: listing the Backstage tools failed", exc_info=True)
+        raise ConfirmError("The check wasn't saved: Backstage couldn't be reached.") from exc
+    try:
         if action["kind"] == "create":
             saved = await call_backstage_tool(
                 tools, "create_check", _save_args(action, apply_texts)
@@ -81,14 +88,18 @@ async def confirm_check_change(
             )
             # The status the check has now, which may have changed since the card was built.
             check_id, current = action["check_id"], saved.get("status", action["status"])
-    # Nothing was saved, so the same card can be tried again.
+    # Backstage refused, so nothing was saved and the same card can be tried again.
     except BackstageToolError as exc:
         release(token)
         raise ConfirmError(f"The check wasn't saved: {exc}") from exc
-    except Exception as exc:  # noqa: BLE001 — transport failure: say so plainly
-        release(token)
-        logger.warning("Confirm: saving check failed", exc_info=True)
-        raise ConfirmError("The check wasn't saved: Backstage couldn't be reached.") from exc
+    # The save was sent and may have worked (a timeout, or a reply that can't
+    # be read): the card stays used, so a retry can't create the check twice.
+    except Exception as exc:  # noqa: BLE001 — unknown outcome: say so plainly
+        logger.warning("Confirm: saving check gave no clear answer", exc_info=True)
+        raise ConfirmError(
+            "Backstage didn't say whether the check was saved. "
+            "Look for it in the checks list before asking the assistant again."
+        ) from exc
 
     saved_as = "Created" if action["kind"] == "create" else "Saved"
     logger.info("Confirm: %s check %s (kind=%s)", saved_as.lower(), check_id, action["kind"])
