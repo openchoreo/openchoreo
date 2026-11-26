@@ -768,6 +768,208 @@ async def test_one_proposal_gets_a_change_card_with_yes_and_no(monkeypatch):
     assert _button_messages(event) == ["yes", "no"]
 
 
+# ── Step 2 writes the rule the user approved ────────────────────────
+
+_AT_MOST_60 = {
+    "all": [{"fact": "githubDaysSinceLastPush", "operator": "lessThanInclusive", "value": 60}]
+}
+_UNDER_60 = {"all": [{"fact": "githubDaysSinceLastPush", "operator": "lessThan", "value": 60}]}
+
+
+def _edited(rule):
+    return f"Edited rule:\n\n```json\n{json.dumps(rule)}\n```"
+
+
+async def _card_of_reply(message, _scope, **_kwargs):
+    """A save card for the rule in ``message``, as build_confirmation makes it."""
+    rule = json.loads(message.split("```json\n", 1)[1].split("\n```", 1)[0])
+    return {**_CARD, "new_rule": json.dumps(rule, indent=2), "problems": []}
+
+
+@pytest.mark.parametrize(
+    ("answer", "written", "card"),
+    [
+        pytest.param("1", _AT_MOST_60, True, id="the picked choice"),
+        pytest.param("2", _UNDER_60, True, id="the other picked choice"),
+        pytest.param("1", _UNDER_60, False, id="the other choice than the picked one"),
+        pytest.param("2", _AT_MOST_60, False, id="the other choice than the picked two"),
+        pytest.param("1, then test it on order-api", _UNDER_60, False, id="picked with a test"),
+    ],
+)
+async def test_step2_gets_the_card_only_for_the_picked_choice(monkeypatch, answer, written, card):
+    events, _built = await _turn(
+        monkeypatch,
+        [
+            *_FIRST,
+            {"role": "assistant", "content": _TWO_CHOICES},
+            {"role": "user", "content": answer},
+        ],
+        _edited(written),
+        confirmation=_card_of_reply,
+    )
+
+    assert _has_card(events) is card
+
+
+async def test_another_rule_than_the_picked_one_is_asked_about_again(monkeypatch):
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": _TWO_CHOICES}, {"role": "user", "content": "1"}],
+        _edited(_UNDER_60),
+        confirmation=_card_of_reply,
+    )
+
+    message = _done_message(events)
+    assert "```" not in message
+    assert "**Proposed rule:** `githubDaysSinceLastPush` `lessThan` `60`" in message
+    assert orchestrator._REPROPOSED in message
+    (event,) = _a2ui(events)
+    assert _components(event)[0]["component"] == "ChangeCard"
+    assert _button_messages(event) == ["yes", "no"]
+
+
+async def test_a_yes_to_the_question_asked_again_gets_the_card(monkeypatch):
+    asked = orchestrator._reproposal(
+        [("githubDaysSinceLastPush", "lessThan", 60)],
+        _EDIT_SCOPE,
+    )
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": asked}, {"role": "user", "content": "yes"}],
+        _edited(_UNDER_60),
+        confirmation=_card_of_reply,
+    )
+
+    assert _has_card(events)
+
+
+async def test_a_rewrite_after_validation_is_compared_too(monkeypatch):
+    async def _invalid_until_rewritten(message, scope, **kwargs):
+        built = await _card_of_reply(message, scope, **kwargs)
+        if "lessThanInclusive" in message:
+            return {**built, "valid": False, "problems": ["Something is wrong"]}
+        return built
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": _TWO_CHOICES}, {"role": "user", "content": "1"}],
+        _edited(_AT_MOST_60),
+        agent=_RewriteAgent(reply=_edited(_UNDER_60)),
+        confirmation=_invalid_until_rewritten,
+    )
+
+    assert not _has_card(events)
+    assert "`lessThan` `60`" in _done_message(events)
+
+
+async def test_a_test_in_a_step2_asked_about_again_shows_the_question(monkeypatch):
+    events, _built = await _turn(
+        monkeypatch,
+        [
+            *_FIRST,
+            {"role": "assistant", "content": _TWO_CHOICES},
+            {"role": "user", "content": "1, then test it on order-api"},
+        ],
+        _edited(_UNDER_60),
+        confirmation=_card_of_reply,
+        dry_run=DryRun(status="passed", entity_ref="component:default/order-api"),
+    )
+
+    (event,) = _a2ui(events)
+    assert _components(event)[0]["component"] == "ChangeCard"
+
+
+async def test_the_same_conditions_in_another_order_get_the_card(monkeypatch):
+    step1 = (
+        '**Proposed rule:** `visibility` `in` `["private", "internal"]` AND `archived` `equal` `false`'
+        "\n\nShall I change it to that?"
+    )
+    written = {
+        "all": [
+            {"fact": "archived", "operator": "equal", "value": False},
+            {"fact": "visibility", "operator": "in", "value": ["internal", "private"]},
+        ]
+    }
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": step1}, {"role": "user", "content": "yes"}],
+        _edited(written),
+        confirmation=_card_of_reply,
+    )
+
+    assert _has_card(events)
+
+
+async def test_a_proposal_code_cant_read_isnt_compared(monkeypatch):
+    # An OR proposal: the card shows the rule it saves, as before.
+    step1 = "**Proposed rule:** `a` `equal` `1` OR `b` `equal` `2`\n\nShall I change it to that?"
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": step1}, {"role": "user", "content": "yes"}],
+        _edited({"all": [{"fact": "a", "operator": "equal", "value": 3}]}),
+        confirmation=_card_of_reply,
+    )
+
+    assert _has_card(events)
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        pytest.param({"all": [{"not": {"fact": "a", "operator": "equal", "value": 1}}]}, id="NOT"),
+        pytest.param(
+            {"all": [{"all": [{"fact": "a", "operator": "equal", "value": 1}]}]}, id="nested"
+        ),
+        pytest.param(
+            {
+                "any": [
+                    {"fact": "a", "operator": "equal", "value": 1},
+                    {"fact": "b", "operator": "equal", "value": 2},
+                ]
+            },
+            id="any of two",
+        ),
+        pytest.param(
+            {"all": [{"fact": "a", "path": "$.length", "operator": "greaterThan", "value": 0}]},
+            id="a path",
+        ),
+        pytest.param({"all": []}, id="empty"),
+        pytest.param("not json", id="not json"),
+    ],
+)
+def test_rules_a_proposal_cant_write_arent_compared(rule):
+    assert (
+        orchestrator._plain_conditions(rule if isinstance(rule, str) else json.dumps(rule)) is None
+    )
+
+
+def test_plain_conditions_read_a_wrapped_rule_and_a_single_any():
+    wrapped = json.dumps({"conditions": {"any": [{"fact": "a", "operator": "equal", "value": 1}]}})
+
+    assert orchestrator._plain_conditions(wrapped) == [("a", "equal", 1)]
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "same"),
+    [
+        pytest.param([("a", "equal", True)], [("a", "equal", 1)], False, id="true is not 1"),
+        pytest.param([("a", "in", ["x", "y"])], [("a", "in", ["y", "x"])], True, id="list order"),
+        pytest.param(
+            [("a", "equal", 1)],
+            [("a", "equal", 1), ("a", "equal", 1)],
+            False,
+            id="a condition more",
+        ),
+        pytest.param([("a", "equal", "1")], [("a", "equal", 1)], False, id="text is not a number"),
+    ],
+)
+def test_same_conditions(first, second, same):
+    assert orchestrator._same_conditions(first, second) is same
+
+
 async def test_choices_the_change_card_can_not_show_get_a_choice_card(monkeypatch):
     reply = (
         "1. **Proposed rule:** `a` `lessThanInclusive` `60` AND (`b` `equal` `1` OR `c` `equal` `2`)"

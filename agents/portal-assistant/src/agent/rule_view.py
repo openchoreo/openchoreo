@@ -318,3 +318,9 @@ def _view(
             ]
             choices.append(Option(number, "; ".join(words)))
     return ChangeView(rows, choices, summary)
+
+
+def proposed_conditions(message: str) -> dict[int, list[Leaf]] | None:
+    """Each proposal of an edit question, by choice number (1 for a single
+    one), or None when one of them isn't a flat AND it can read."""
+    return _proposals(message)

@@ -50,7 +50,7 @@ from src.agent.a2ui import (
     save_card_surface,
 )
 from src.agent.ask_view import ask_view, edit_view
-from src.agent.builder import _build_agent
+from src.agent.builder import _build_agent, _current_rule_summary
 from src.agent.check_reply import (
     RULE_FENCE_RE,
     reply_words,
@@ -83,7 +83,13 @@ from src.agent.existing_check import (
 from src.agent.problem_view import ToolError, failed_test_note, problem_view
 from src.agent.recovery import recover_with_fallback
 from src.agent.reply_view import lacks_alternatives, notice_view
-from src.agent.rule_view import change_view, numbered_choices, understood
+from src.agent.rule_view import (
+    Leaf,
+    change_view,
+    numbered_choices,
+    proposed_conditions,
+    understood,
+)
 from src.agent.stream_events import ConfirmationRequiredEvent
 from src.agent.stream_events import emit as _emit_event
 from src.agent.stream_parser import ChatResponseParser
@@ -580,20 +586,116 @@ def _without_test_request(answer: str) -> str:
     return answer
 
 
-def _approves(answer: str, step1: str) -> bool:
-    """Whether ``answer``, and nothing else in it, approves the ``step1`` reply.
+def _picked_choice(answer: str, step1: str) -> int | None:
+    """The number of the ``step1`` proposal that ``answer``, and nothing else
+    in it, approves (1 for a single one), or None when it approves none.
     A test request after the approval is allowed: the test is part of Step 2."""
     answer = _without_test_request(answer.strip()).strip()
     choices = {int(n) for n in _CHOICE_LINE_RE.findall(step1)}
     if _APPROVAL_ONLY_RE.fullmatch(answer):
         # "yes" to two choices doesn't say which one.
-        return len(choices) <= 1
+        return min(choices, default=1) if len(choices) <= 1 else None
     match = _CHOICE_RE.fullmatch(answer)
     if not match:
-        return False
+        return None
     picked = int(match.group(1)) if match.group(1) else _ORDINALS[match.group(2).lower()]
     # "1" to a single proposal means yes; otherwise it must be a listed choice.
-    return picked in choices if len(choices) > 1 else picked == 1
+    if len(choices) > 1:
+        return picked if picked in choices else None
+    return picked if picked == 1 else None
+
+
+def _approves(answer: str, step1: str) -> bool:
+    """Whether ``answer``, and nothing else in it, approves the ``step1`` reply."""
+    return _picked_choice(answer, step1) is not None
+
+
+def _picked_proposal(messages: list[dict[str, str]]) -> list[Leaf] | None:
+    """The conditions of the Step 1 proposal the latest message approves, or
+    None when code can't read them (an OR, nested groups, no "Proposed rule:"
+    line): the save card then shows the rule without this comparison."""
+    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    step1 = next((m for m in reversed(messages) if m.get("role") == "assistant"), {})
+    proposals = proposed_conditions(step1.get("content") or "")
+    picked = _picked_choice(latest.get("content") or "", step1.get("content") or "")
+    return proposals.get(picked) if proposals and picked else None
+
+
+def _plain_conditions(rule_json: str) -> list[Leaf] | None:
+    """A rule's conditions when it is one "all" group (or a single "any") of
+    plain fact / operator / value conditions, the only rules a proposal
+    writes; None for any other (nested groups, NOT, a path or params)."""
+    try:
+        rule = unwrap(json.loads(rule_json))
+    except TypeError, ValueError:
+        return None
+    if not isinstance(rule, dict) or len(rule) != 1:
+        return None
+    ((joiner, group),) = rule.items()
+    if joiner not in ("all", "any") or not isinstance(group, list) or not group:
+        return None
+    if joiner == "any" and len(group) > 1:
+        return None
+    if not all(isinstance(c, dict) and set(c) == {"fact", "operator", "value"} for c in group):
+        return None
+    return [(c["fact"], c["operator"], c["value"]) for c in group]
+
+
+def _same_value(first: Any, second: Any) -> bool:
+    if isinstance(first, list) and isinstance(second, list):
+        # An `in` list in another order is the same list.
+        return sorted(json.dumps(v, sort_keys=True) for v in first) == sorted(
+            json.dumps(v, sort_keys=True) for v in second
+        )
+    # True == 1 in Python, but not to the rules engine.
+    if isinstance(first, bool) or isinstance(second, bool):
+        return first is second
+    return first == second
+
+
+def _same_conditions(first: list[Leaf], second: list[Leaf]) -> bool:
+    """Whether two flat "all of these" rules have the same conditions, in any order."""
+    left = list(second)
+    for fact, operator, value in first:
+        found = next(
+            (
+                i
+                for i, (f, o, v) in enumerate(left)
+                if f == fact and o == operator and _same_value(v, value)
+            ),
+            None,
+        )
+        if found is None:
+            return False
+        left.pop(found)
+    return not left
+
+
+_REPROPOSED = (
+    "The rule I wrote isn't the one you picked, so please check it before I make the save card."
+)
+
+
+def _reproposal(conditions: list[Leaf], scope: dict[str, Any] | None) -> str:
+    """A Step 1 question for ``conditions``, the rule Step 2 wrote instead of
+    the approved one: a "yes" to it approves this rule, and the card that
+    follows must match it."""
+    rule = " AND ".join(
+        f"`{fact}` `{operator}` `{json.dumps(value, ensure_ascii=False)}`"
+        for fact, operator, value in conditions
+    )
+    summary = _current_rule_summary(scope or {})
+    return "\n\n".join(
+        filter(
+            None,
+            [
+                f"**Current rule:** {summary}" if summary else None,
+                f"**What I understood:** {_REPROPOSED}",
+                f"**Proposed rule:** {rule}",
+                "Shall I change it to that?",
+            ],
+        )
+    )
 
 
 def _unsaved_rule_reply(
@@ -1356,6 +1458,18 @@ async def stream_chat(
                     )
                     if fixed:
                         message, confirmation, card = rewritten, fixed, None
+            # Step 2 must write the rule the user approved in Step 1, also after
+            # the rewrite above: another one ("less than 60" for a picked "60
+            # or less") is asked about again instead of signed. Only rules
+            # code can read on both sides are compared (see _picked_proposal).
+            reproposed = False
+            if confirmation and edit_phase == "apply":
+                picked = _picked_proposal(messages)
+                written = _plain_conditions(confirmation["new_rule"])
+                if picked and written and not _same_conditions(picked, written):
+                    logger.info("Step 2 wrote another rule than the approved one: asking again")
+                    message, confirmation, card = _reproposal(written, scope), None, None
+                    edit_phase, reproposed = "propose", True
             # A drafted new check: first a saved check like it, read as the
             # user. When there is one, its card recommends editing that check
             # and says why, in place of the save card, and the user can still
@@ -1428,8 +1542,13 @@ async def stream_chat(
             check_name = (scope or {}).get("check_name")
             # A turn whose last tool call failed gets the problem card, built
             # from the tool's own error.
-            tested = dry_runs[-1] if dry_runs and not confirmation else None
-            failed = tool_errors[-1] if tool_errors and not tested and not confirmation else None
+            # Not when Step 2 is asked about again: the question is the reply.
+            tested = dry_runs[-1] if dry_runs and not confirmation and not reproposed else None
+            failed = (
+                tool_errors[-1]
+                if tool_errors and not tested and not confirmation and not reproposed
+                else None
+            )
             # The save card of an earlier reply, sent after a test, is this
             # reply's only card: another would replace it in the drawer. So is
             # the card of a saved check like the draft.
