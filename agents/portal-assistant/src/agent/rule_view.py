@@ -310,6 +310,11 @@ def _view(
     choices: list[Option] = []
     if picked:
         for number, rule in zip(proposals, options, strict=True):
-            words = [value_words(*rule[f]) if f in rule else "removed" for f in picked]
+            # Without the condition: "removed" when the rule has it now, else
+            # "not added" (another choice adds it).
+            words = [
+                value_words(*rule[f]) if f in rule else "removed" if f in now else "not added"
+                for f in picked
+            ]
             choices.append(Option(number, "; ".join(words)))
     return ChangeView(rows, choices, summary)

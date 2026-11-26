@@ -347,3 +347,37 @@ Reply with 1 or 2."""  # noqa: E501
 
     assert [row.state for row in view.rows] == ["changed", "pick"]
     assert view.options == [Option(1, "2 or more"), Option(2, "3 or more")]
+
+
+def test_a_choice_without_a_condition_the_other_adds_says_not_added():
+    # Live test 2026-11-26: option 1 read "removed" for githubCodeqlScanned,
+    # a condition the rule never had; only option 2 adds it.
+    scope = {
+        **_SCOPE,
+        "current_rule": json.dumps(
+            {"all": [{"fact": "githubVisibility", "operator": "equal", "value": "private"}]},
+        ),
+    }
+    private = '`githubVisibility` `equal` `"private"`'
+    reply = f"""Please confirm:
+1. **Proposed rule:** {private} AND `githubCodeqlOpenAlertCount` `equal` `0` — no open alerts
+2. **Proposed rule:** {private} AND `githubCodeqlOpenAlertCount` `equal` `0` AND `githubCodeqlScanned` `equal` `true` — no alerts, and scanned
+
+Reply with 1 or 2."""  # noqa: E501
+
+    view = change_view(reply, scope)
+
+    assert view.options[0].value == "not added"
+    assert view.options[1].value == "Yes"
+
+
+def test_a_choice_that_drops_a_current_condition_still_says_removed():
+    reply = f"""Please confirm:
+1. **Proposed rule:** {_PROTECTED} — protection only
+2. **Proposed rule:** {_PROTECTED} AND {_REVIEWS} `greaterThanInclusive` `3` — 3 or more
+
+Reply with 1 or 2."""
+
+    view = change_view(reply, _SCOPE)
+
+    assert view.options[0].value == "removed"
