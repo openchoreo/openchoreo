@@ -121,6 +121,7 @@ spec:
 
             echo ">> Building image with Paketo buildpacks"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
@@ -244,6 +245,7 @@ spec:
 
             echo ">> Building image with GCP buildpacks"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
@@ -375,6 +377,7 @@ spec:
 
             echo ">> Building image with Ballerina buildpack"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \

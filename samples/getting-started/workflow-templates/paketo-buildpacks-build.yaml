@@ -104,6 +104,7 @@ spec:
 
             echo ">> Building image with Paketo buildpacks"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \

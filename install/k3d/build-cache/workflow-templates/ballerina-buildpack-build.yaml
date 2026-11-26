@@ -152,6 +152,7 @@ spec:
               if [ "$CACHE_LAYERS_MODE" = "rebuild" ]; then CLEAR_CACHE_ARG="--clear-cache"; fi
 
               pack build "$PUBLISH_REF" \
+                --network host \
                 --builder "$BUILDER" \
                 --run-image "$RUN_IMAGE" \
                 --path "$WORKDIR/$APP_PATH" \
@@ -170,6 +171,7 @@ spec:
             fi
 
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \

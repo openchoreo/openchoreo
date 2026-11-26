@@ -264,6 +264,8 @@ func TestBuildpackBuilds_Behavior(t *testing.T) {
 				"buildpack build must wait until the podman remote socket exists")
 			requireCallContains(t, res, "pack build example/app:dev-abcdef12", "--docker-host inherit",
 				"buildpack build must let pack use the inherited podman socket")
+			requireCallContains(t, res, "pack build example/app:dev-abcdef12", "--network host",
+				"buildpack build must keep pack on the pod network instead of its own bridge network")
 			requireCallContains(t, res, "pack build example/app:dev-abcdef12", "--pull-policy always",
 				"buildpack build must pull builder/run images according to the template contract")
 			requireCallContains(t, res, "pack build example/app:dev-abcdef12", "--builder",

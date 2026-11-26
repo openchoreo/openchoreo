@@ -110,6 +110,7 @@ spec:
 
             echo ">> Building image with Ballerina buildpack"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
