@@ -279,6 +279,15 @@ class ChatScope(BaseModel):
     # welcome: the prompt suits each reply to it.
     experience: Literal["beginner", "experienced"] | None = None
 
+    @model_validator(mode="after")
+    def _validate_edit_has_its_rule(self) -> ChatScope:
+        """An edit (``check_id``) must carry the saved rule: the guards that
+        make the model ask before changing a saved check need it (see
+        orchestrator._edits_saved_rule). The edit dialog always sends it."""
+        if self.check_id and not (self.current_rule or "").strip():
+            raise ValueError("checkId needs currentRule, the check's saved rule")
+        return self
+
     @field_validator("repo_url")
     @classmethod
     def _validate_repo_url(cls, v: str | None) -> str | None:

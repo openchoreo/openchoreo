@@ -167,6 +167,17 @@ def test_editing_check_fields_accept_camel_case_alias():
     assert scope.current_rule == rule
 
 
+@pytest.mark.parametrize("rule", [None, "", "   "])
+def test_an_edit_without_its_saved_rule_is_rejected(rule):
+    """The guards that make the model ask before changing a saved check
+    need the saved rule, so an edit can't arrive without it (422)."""
+    body = {"caseType": "check_authoring", "checkId": "abc-123"}
+    if rule is not None:
+        body["currentRule"] = rule
+    with pytest.raises(ValidationError, match="checkId needs currentRule"):
+        ChatScope.model_validate(body)
+
+
 def test_current_rule_length_capped():
     """Per the ChatScope.current_rule Field(max_length=8000) — the rule is
     rendered into the system prompt, so it must stay bounded."""

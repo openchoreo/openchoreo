@@ -134,9 +134,12 @@ def test_new_check_has_no_confirmation_step():
     assert "Step 1 — confirm" not in prompt
 
 
-def test_editing_without_current_rule_falls_back_to_get_check():
-    prompt = _render(check_id="abc-123", check_name="Repo must be public")
-    assert "call `get_check` once with id `abc-123`" in prompt
+def test_editing_shows_the_saved_rule_and_never_loads_it():
+    # An edit always carries its saved rule (ChatScope rejects one without):
+    # the model never loads it with get_check.
+    prompt = _render(check_id="abc-123", check_name="Repo must be public", current_rule=_RULE)
+    assert f"- Current rule (its `conditions` object): `{_RULE}`" in prompt
+    assert "call `get_check` once with id `abc-123`" not in prompt
 
 
 def test_editing_step1_options_are_real_alternatives():

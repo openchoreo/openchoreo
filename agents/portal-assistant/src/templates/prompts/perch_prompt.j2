@@ -512,8 +512,7 @@ This chat was opened from the **edit screen of an existing check**. The user wan
 {% if scope.check_description %}- Description: {{ scope.check_description }}
 {% endif %}{% if scope.current_rule %}- Current rule (its `conditions` object): `{{ scope.current_rule }}`
 {% if current_rule_summary %}- Current rule, exact summary (built from the saved rule): {{ current_rule_summary }}
-{% endif %}{% else %}- Current rule: not forwarded — call `get_check` once with id `{{ scope.check_id }}` to load it before editing.
-{% endif %}
+{% endif %}{% endif %}
 
 **Ideas or an explanation first.** When the user asks for ideas, suggestions or improvements, asks for a change without naming one ("add another condition", "make it stricter"), or asks what the check does or why, don't propose a change yet: answer in plain words, and end by inviting them to say what they want (see "Reply card"). For ideas, analyse the current rule against the "Available facts": `summary` says what it checks now and what it misses, and each of the two improvements gets a section — `label` the improvement, a line "Why" with the risk it closes, a line "Example" with an entity that passes now but would fail. Write no rule and ask no confirmation question.
 
