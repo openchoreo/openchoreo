@@ -1241,9 +1241,13 @@ class _DryRunAgent:
         ]), {}
 
 
-async def _tested_turn(monkeypatch, chat, scope=_BRANCH_SCOPE, message="It doesn't meet the rule."):
-    """A turn whose model runs one dry-run on order-api, which fails; returns
-    (events, the phase the agent was built with, the replies cards were built from)."""
+async def _tested_turn(
+    monkeypatch, chat, scope=_BRANCH_SCOPE, message="It doesn't meet the rule.",
+    card_rule=_BRANCH_RULE,
+):
+    """A turn whose model runs one dry-run of _BRANCH_RULE on order-api, which
+    fails; the card built saves ``card_rule``. Returns (events, the phase the
+    agent was built with, the replies cards were built from)."""
     agent = _DryRunAgent(message, {
         "status": "failed", "passed": False, "summary": "…", "reasons": [],
         "factValues": {"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1},
@@ -1256,7 +1260,7 @@ async def _tested_turn(monkeypatch, chat, scope=_BRANCH_SCOPE, message="It doesn
 
     async def _fake_confirmation(message, _scope, **_kwargs):
         built.append(message)
-        return _CARD
+        return {**_CARD, "new_rule": card_rule}
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
@@ -1753,6 +1757,40 @@ async def test_a_check_tested_as_it_is_drafted_gets_a_tested_save_card(monkeypat
     root = _components(_save_cards(events)[0])[0]
     assert root["resultTitle"] == "Tested on order-api"
     assert "Dry-run result" not in root.get("note", "")
+
+
+async def test_a_card_whose_rule_differs_from_the_tested_one_is_not_tested(monkeypatch):
+    # The model tested one rule, then drafted another: the result isn't this
+    # rule's, so the card offers to test it instead of showing that result.
+    drafted = (
+        "**Tested on** `component:default/order-api`\n"
+        "- Dry-run result: **Failed** — it has 1 approval\n\n" + _DRAFTED
+    )
+    other = json.dumps({"all": [{"fact": "githubBranchProtected", "operator": "equal", "value": False}]})
+
+    events, _seen, _built = await _tested_turn(
+        monkeypatch,
+        [{"role": "user", "content": "Repos need a push in 30 days, test it on order-api"}],
+        scope={"case_type": "check_authoring"},
+        message=drafted,
+        card_rule=other,
+    )
+
+    assert "tested" not in _confirmation(events)
+    root = _components(_save_cards(events)[0])[0]
+    assert "resultTitle" not in root
+    assert "Dry-run result" not in root.get("note", "")
+
+
+def test_a_run_matches_the_card_whatever_the_rule_s_layout():
+    run = DryRun(status="passed", rule=json.dumps({"conditions": json.loads(_BRANCH_RULE)}))
+
+    assert orchestrator._run_of_card_rule(
+        [run], {"new_rule": json.dumps(json.loads(_BRANCH_RULE), indent=2)},
+    ) is run
+    assert orchestrator._run_of_card_rule([run], {"new_rule": "{}"}) is None
+    assert orchestrator._run_of_card_rule([DryRun(status="passed")], {"new_rule": "{}"}) is None
+    assert orchestrator._run_of_card_rule([], {"new_rule": "{}"}) is None
 
 
 async def test_a_test_with_nothing_unsaved_shows_the_test_card(monkeypatch):

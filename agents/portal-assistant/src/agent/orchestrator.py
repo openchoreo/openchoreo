@@ -53,6 +53,7 @@ from src.agent.check_reply import (
     RULE_FENCE_RE,
     reply_words,
     strip_step_labels,
+    unwrap,
     without_failed_test_lines,
     without_test_summary,
     without_unrequested_guard,
@@ -697,6 +698,20 @@ async def _tested_reply(
     })})
 
 
+def _run_of_card_rule(dry_runs: list[DryRun], confirmation: dict[str, Any]) -> DryRun | None:
+    """The turn's last test when it ran the rule the card saves, else None:
+    the model may change the rule after testing, or the card's rule may be
+    the validator's rewrite, and the card must not show another rule's result."""
+    if not dry_runs or not dry_runs[-1].rule:
+        return None
+    try:
+        tested = unwrap(json.loads(dry_runs[-1].rule))
+        saved = unwrap(json.loads(confirmation.get("new_rule") or ""))
+    except ValueError:
+        return None
+    return dry_runs[-1] if tested == saved else None
+
+
 def _shows_test_after_failure(dry_runs: list[DryRun], scope: dict[str, Any] | None) -> bool:
     """Whether a check authoring turn whose reply failed or came back empty
     ran a test, so its result is shown instead of an error."""
@@ -1221,22 +1236,26 @@ async def stream_chat(
                 example = _is_example(messages, scope)
                 if example:
                     confirmation = {**confirmation, "example": True}
-                if dry_runs:
+                run = _run_of_card_rule(dry_runs, confirmation)
+                if run:
                     # Tested in this turn: the card says the result in the
                     # test card's words and offers only to save, not to test.
                     confirmation = {**confirmation, "tested": True}
                     note = "\n\n".join(filter(None, [
-                        dry_run_note(dry_runs[-1], scope or {}, example=example),
+                        dry_run_note(run, scope or {}, example=example),
                         None if edit_phase == "test" else without_test_summary(note),
                     ]))
+                elif dry_runs:
+                    # The test ran another rule: its result isn't this rule's,
+                    # so the card offers to test this one.
+                    logger.info("The test ran another rule than the card's; card not marked tested")
+                    note = without_test_summary(note)
                 elif tool_errors and (failed_test := failed_test_note(tool_errors[-1])):
                     # The test of this draft failed: say so from the tool's own
                     # error, not the model's words, and not as "Tested on".
                     note = "\n\n".join(filter(None, [failed_test, without_failed_test_lines(note)]))
                 yield _emit_event(confirmation)
-                yield _emit_event(_save_card_ui(
-                    confirmation, scope, note, dry_runs[-1] if dry_runs else None,
-                ))
+                yield _emit_event(_save_card_ui(confirmation, scope, note, run))
 
             # An edit question waiting for the user's answer: a card that
             # shows the change in plain words, with answer buttons, built by
