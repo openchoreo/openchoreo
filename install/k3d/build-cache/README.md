@@ -550,6 +550,7 @@ Pack CLI Buildpacks builds use `--publish` with `--cache-image`:
 
 ```bash
 pack build "$PUBLISH_REF" \
+  --network host \
   --builder "$BUILDER" \
   --run-image "$RUN_IMG" \
   --publish \

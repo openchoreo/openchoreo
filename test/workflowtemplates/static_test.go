@@ -290,6 +290,9 @@ func TestBuildpackTemplates_Specifics(t *testing.T) {
 				"--run-image",
 				"--pull-policy always",
 				"--docker-host inherit",
+				// pack otherwise creates its own bridge network, whose DNS (aardvark-dns)
+				// fails to start on nodes that are out of inotify instances.
+				"--network host",
 				"APP_PATH",
 			)
 			requireEnvContains(t, env, "APP_PATH", "app-path",

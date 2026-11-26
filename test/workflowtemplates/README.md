@@ -43,7 +43,7 @@ shim, so they behave the same on macOS/dash and on CI.
 | `TestCheckoutSource_SecretWiring` | `git-secret` mounts at `/etc/secrets/git-secret`, workspace at `/mnt/vol`, and the secret volume is `optional` (so public repos work without it). |
 | `TestBuildTemplates_SharedContract` | All 4 build templates: produce `/mnt/vol/app-image.tar`, keep a path-validation guard, and plumb `build-env` JSON → `--env` (skipping empty/`[]`). |
 | `TestContainerfileBuild_Specifics` | `podman build` with dockerfile-path/docker-context, `--build-arg` handling, and `podman save` to the tar. |
-| `TestBuildpackTemplates_Specifics` | `pack build` flags (`--builder`/`--run-image`/`--pull-policy always`/`--docker-host inherit`), builder/run images pinned by `@sha256:` digest, and the podman-socket + image-exists readiness waits. |
+| `TestBuildpackTemplates_Specifics` | `pack build` flags (`--builder`/`--run-image`/`--pull-policy always`/`--docker-host inherit`/`--network host`), builder/run images pinned by `@sha256:` digest, and the podman-socket + image-exists readiness waits. |
 | `TestPublishImage_Cloud` | Pushes to `ttl.sh` with `--tls-verify=true`, loads/tags the tar, writes `/tmp/image.txt`, guards the missing tar, and has the `--authfile` branch. |
 | `TestPublishImage_K3d` | k3d variant pushes to the local registry with `--tls-verify=false` and never uses `--tls-verify=true`. |
 | `TestPublishImage_SecretWiring` | `registry-push-secret` mounts at `/etc/secrets/registry-push-secret` and is `optional` (anonymous push), for both variants. |

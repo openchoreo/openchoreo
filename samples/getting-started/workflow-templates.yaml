@@ -31,7 +31,7 @@ spec:
           emptyDir:
             sizeLimit: 10Gi
       container:
-        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'
@@ -121,6 +121,7 @@ spec:
 
             echo ">> Building image with Paketo buildpacks"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
@@ -156,7 +157,7 @@ spec:
           emptyDir:
             sizeLimit: 10Gi
       container:
-        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'
@@ -244,6 +245,7 @@ spec:
 
             echo ">> Building image with GCP buildpacks"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
@@ -285,7 +287,7 @@ spec:
         - name: generated-artifacts
           emptyDir: {}
       container:
-        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'
@@ -375,6 +377,7 @@ spec:
 
             echo ">> Building image with Ballerina buildpack"
             pack build "$IMAGE" \
+              --network host \
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
@@ -417,7 +420,7 @@ spec:
           emptyDir:
             sizeLimit: 10Gi
       container:
-        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.2
+        image: cr.openchoreo.dev/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'
