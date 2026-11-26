@@ -388,6 +388,33 @@ func TestGetNestedString(t *testing.T) {
 	})
 }
 
+func TestResourceBelongsToComponent(t *testing.T) {
+	podForComponent := func(component string) map[string]any {
+		return map[string]any{
+			"metadata": map[string]any{
+				"labels": map[string]any{"openchoreo.dev/component": component},
+			},
+		}
+	}
+
+	t.Run("matching component label returns true", func(t *testing.T) {
+		assert.True(t, resourceBelongsToComponent(podForComponent("comp-1"), "comp-1"))
+	})
+
+	t.Run("sibling component label returns false", func(t *testing.T) {
+		assert.False(t, resourceBelongsToComponent(podForComponent("comp-2"), "comp-1"))
+	})
+
+	t.Run("missing component label returns false", func(t *testing.T) {
+		obj := map[string]any{"metadata": map[string]any{}}
+		assert.False(t, resourceBelongsToComponent(obj, "comp-1"))
+	})
+
+	t.Run("empty component never matches", func(t *testing.T) {
+		assert.False(t, resourceBelongsToComponent(podForComponent(""), ""))
+	})
+}
+
 func TestGetAPIGroup(t *testing.T) {
 	t.Run("with group", func(t *testing.T) {
 		obj := map[string]any{"apiVersion": "apps/v1"}
