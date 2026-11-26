@@ -93,7 +93,9 @@ async def confirm_check_change(
         release(token)
         raise ConfirmError(f"The check wasn't saved: {exc}") from exc
     # The save was sent and may have worked (a timeout, or a reply that can't
-    # be read): the card stays used, so a retry can't create the check twice.
+    # be read): the card stays used, so a retry on this replica can't create
+    # the check twice. Used cards are kept per process (see pending_actions),
+    # so another replica could still accept it; the README says so.
     except Exception as exc:  # noqa: BLE001 — unknown outcome: say so plainly
         logger.warning("Confirm: saving check gave no clear answer", exc_info=True)
         raise ConfirmError(
