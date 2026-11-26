@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1241,6 +1242,206 @@ func TestInternalListener_MTLSDisabled_AcceptsNoClientCert(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+// --- listener TLS version tests ---
+
+const testServerName = "cluster-gateway.test"
+
+// generateTestServerKeyPair creates a server certificate for testServerName
+// signed by the given CA.
+func generateTestServerKeyPair(t *testing.T, caCert *x509.Certificate, caKey *ecdsa.PrivateKey) tls.Certificate {
+	t.Helper()
+	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	serverTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(4),
+		Subject:      pkix.Name{CommonName: testServerName},
+		DNSNames:     []string{testServerName},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverTemplate, caCert, &serverKey.PublicKey, caKey)
+	require.NoError(t, err)
+
+	return tls.Certificate{Certificate: [][]byte{serverDER}, PrivateKey: serverKey}
+}
+
+// tlsHandshake runs a TLS handshake over loopback TCP and returns the client's
+// connection state with the errors from both sides. Loopback rather than
+// net.Pipe because a TLS 1.3 server that requests client certificates writes
+// session tickets after the client's handshake has already returned.
+func tlsHandshake(t *testing.T, serverCfg, clientCfg *tls.Config) (tls.ConnectionState, error) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer conn.Close()
+		serverErr <- tls.Server(conn, serverCfg).HandshakeContext(ctx)
+	}()
+
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", ln.Addr().String())
+	require.NoError(t, err)
+	defer conn.Close()
+
+	client := tls.Client(conn, clientCfg)
+	clientErr := client.HandshakeContext(ctx)
+	if clientErr != nil {
+		_ = conn.Close()
+	}
+	return client.ConnectionState(), errors.Join(clientErr, <-serverErr)
+}
+
+// TestListenerTLSConfigs_MinimumVersion checks every listener against a client
+// capped at TLS 1.2 and a default client. Only the public listener in
+// forwarded-header mode, where a TLS-terminating proxy is the peer, accepts
+// TLS 1.2; everything else requires TLS 1.3. The internal listener is derived
+// from a TLS 1.2 base to show it never inherits the lower floor.
+func TestListenerTLSConfigs_MinimumVersion(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	caPool := x509.NewCertPool()
+	caPool.AddCert(caCert)
+
+	base := baseTestTLSConfig()
+	base.Certificates = []tls.Certificate{generateTestServerKeyPair(t, caCert, caKey)}
+
+	internalConfig := func(t *testing.T, cfg *Config) *tls.Config {
+		t.Helper()
+		tlsConfig, err := buildInternalTLSConfig(base, cfg)
+		require.NoError(t, err)
+		return tlsConfig
+	}
+	internalMTLS := func(mode AgentAuthMode) *Config {
+		return &Config{
+			AgentAuthMode:        mode,
+			InternalMTLSEnabled:  true,
+			InternalClientCAPath: writeTestCAFile(t, caCert),
+		}
+	}
+
+	tests := []struct {
+		name         string
+		serverCfg    *tls.Config
+		acceptsTLS12 bool
+	}{
+		{name: "public listener, default agent auth mode", serverCfg: buildPublicTLSConfig(base, "")},
+		{name: "public listener, mtls", serverCfg: buildPublicTLSConfig(base, AgentAuthModeMTLS)},
+		{name: "public listener, forwarded-header", serverCfg: buildPublicTLSConfig(base, AgentAuthModeForwardedHeader), acceptsTLS12: true},
+		{name: "internal listener, mtls", serverCfg: internalConfig(t, &Config{AgentAuthMode: AgentAuthModeMTLS})},
+		{name: "internal listener, forwarded-header", serverCfg: internalConfig(t, &Config{AgentAuthMode: AgentAuthModeForwardedHeader})},
+		{name: "internal listener with mTLS, mtls", serverCfg: internalConfig(t, internalMTLS(AgentAuthModeMTLS))},
+		{name: "internal listener with mTLS, forwarded-header", serverCfg: internalConfig(t, internalMTLS(AgentAuthModeForwardedHeader))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientCfg := &tls.Config{
+				Certificates: []tls.Certificate{generateTestClientKeyPair(t, caCert, caKey)},
+				RootCAs:      caPool,
+				ServerName:   testServerName,
+				MinVersion:   tls.VersionTLS12,
+			}
+
+			state, err := tlsHandshake(t, tt.serverCfg, clientCfg)
+			require.NoError(t, err)
+			assert.Equal(t, uint16(tls.VersionTLS13), state.Version)
+
+			tls12Client := clientCfg.Clone()
+			tls12Client.MaxVersion = tls.VersionTLS12
+			state, err = tlsHandshake(t, tt.serverCfg, tls12Client)
+			if tt.acceptsTLS12 {
+				require.NoError(t, err)
+				assert.Equal(t, uint16(tls.VersionTLS12), state.Version)
+				return
+			}
+			require.Error(t, err, "a client capped at TLS 1.2 must be rejected")
+			assert.Contains(t, err.Error(), "protocol version")
+		})
+	}
+}
+
+// TestPublicListener_AgentNegotiatesHybridKeyExchange handshakes a client
+// configured like the cluster-agent dialer (TLS 1.2 floor, default curve
+// preferences) with the public listener and expects the hybrid post-quantum
+// key exchange in every agent auth mode.
+func TestPublicListener_AgentNegotiatesHybridKeyExchange(t *testing.T) {
+	caCert, caKey := generateTestCA(t)
+	caPool := x509.NewCertPool()
+	caPool.AddCert(caCert)
+
+	base := baseTestTLSConfig()
+	base.Certificates = []tls.Certificate{generateTestServerKeyPair(t, caCert, caKey)}
+
+	tests := []struct {
+		name string
+		mode AgentAuthMode
+	}{
+		{name: "default agent auth mode", mode: ""},
+		{name: "mtls", mode: AgentAuthModeMTLS},
+		{name: "forwarded-header", mode: AgentAuthModeForwardedHeader},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agentCfg := &tls.Config{
+				Certificates: []tls.Certificate{generateTestClientKeyPair(t, caCert, caKey)},
+				RootCAs:      caPool,
+				ServerName:   testServerName,
+				MinVersion:   tls.VersionTLS12,
+			}
+
+			state, err := tlsHandshake(t, buildPublicTLSConfig(base, tt.mode), agentCfg)
+			require.NoError(t, err)
+			assert.Equal(t, uint16(tls.VersionTLS13), state.Version)
+			assert.Equal(t, tls.X25519MLKEM768, state.CurveID)
+		})
+	}
+}
+
+// TestBuildListeners_TLSMinVersion checks the TLS floors on the servers Start
+// installs for each agent auth mode, without binding any port.
+func TestBuildListeners_TLSMinVersion(t *testing.T) {
+	tests := []struct {
+		name            string
+		mode            AgentAuthMode
+		wantPublicMin   uint16
+		wantInternalMin uint16
+	}{
+		{name: "default agent auth mode", mode: "", wantPublicMin: tls.VersionTLS13, wantInternalMin: tls.VersionTLS13},
+		{name: "mtls", mode: AgentAuthModeMTLS, wantPublicMin: tls.VersionTLS13, wantInternalMin: tls.VersionTLS13},
+		{name: "forwarded-header", mode: AgentAuthModeForwardedHeader, wantPublicMin: tls.VersionTLS12, wantInternalMin: tls.VersionTLS13},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := New(&Config{AgentAuthMode: tt.mode}, nil, testLogger())
+
+			require.NoError(t, s.buildListeners(&tls.Config{
+				ClientAuth: tls.RequestClientCert,
+				MinVersion: tls.VersionTLS13,
+			}))
+			require.NotNil(t, s.httpServer.TLSConfig)
+			require.NotNil(t, s.internalServer.TLSConfig)
+			assert.Equal(t, tt.wantPublicMin, s.httpServer.TLSConfig.MinVersion, "public listener MinVersion")
+			assert.Equal(t, tt.wantInternalMin, s.internalServer.TLSConfig.MinVersion, "internal listener MinVersion")
+		})
+	}
 }
 
 // --- handleWebSocket tests ---
