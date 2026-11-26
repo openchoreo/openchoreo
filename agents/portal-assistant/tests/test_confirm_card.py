@@ -996,6 +996,32 @@ def test_a_test_after_an_unapproved_edit_runs_the_saved_rule_and_says_so():
     assert orchestrator._tests_saved_rule(_history("save it"), _SCOPE) is False
 
 
+def test_a_test_after_a_proposal_that_isnt_approved_says_the_saved_rule_ran():
+    # CodeRabbit: a Step 1 question has no rule block, so the flag missed it.
+    from src.agent.a2ui import dry_run_card_surface
+    from src.agent.dry_run_view import DryRun
+
+    asked = _history("test it on order-api", previous_reply=_STEP1)
+
+    assert orchestrator._tests_saved_rule(asked, _SCOPE) is True
+    run = DryRun(
+        status="failed",
+        entity_ref="component:default/order-api",
+        rule=json.dumps({"conditions": _SAVED_RULE}),
+    )
+    card = dry_run_card_surface(run, {**_SCOPE, "tests_saved_rule": True})
+    summary = card["createSurface"]["components"][0]["summary"]
+    assert "This ran the saved rule, as the change isn't approved yet." in summary
+    # Approved, the edit is what's tested: nothing to say.
+    approved = [
+        *asked[:2],
+        {"role": "user", "content": "yes"},
+        {"role": "assistant", "content": _STEP2},
+    ]
+    approved.append({"role": "user", "content": "test it on order-api"})
+    assert orchestrator._tests_saved_rule(approved, _SCOPE) is False
+
+
 async def _note_the_model_got(monkeypatch, messages):
     """The last message the model is sent for ``messages`` (the user's, with the note)."""
     seen = {}

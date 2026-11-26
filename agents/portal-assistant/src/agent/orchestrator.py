@@ -768,8 +768,9 @@ def _reply_to_save(messages: list[dict[str, str]], scope: dict[str, Any] | None)
 
 def _tests_saved_rule(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> bool:
     """Whether this test request in an edit chat runs the saved rule although
-    the chat has an edited rule: the user didn't approve that one, so it isn't
-    tested (see _unsaved_rule_reply). The result says which rule ran."""
+    the chat has an edited or proposed rule: the user didn't approve that one,
+    so it isn't tested (see _unsaved_rule_reply). The result says which rule
+    ran, when it was the saved one (see a2ui)."""
     if not (scope or {}).get("check_id"):
         return False
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
@@ -779,8 +780,12 @@ def _tests_saved_rule(messages: list[dict[str, str]], scope: dict[str, Any] | No
         return False
     return any(
         m.get("role") == "assistant"
-        and RULE_FENCE_RE.search(m.get("content") or "")
-        and not is_saved_rule(m.get("content") or "", scope)
+        and (
+            # An edited rule, or a Step 1 question that proposes one.
+            not is_saved_rule(m.get("content") or "", scope)
+            if RULE_FENCE_RE.search(m.get("content") or "")
+            else _proposes_rule(m.get("content") or "")
+        )
         for m in messages
     )
 
@@ -866,6 +871,12 @@ def _not_approved_reason(
         return "the last reply wasn't a question"
     if not _proposes_rule(previous.get("content") or ""):
         return "the last reply proposed no rule"
+    if not _PROPOSED_RULE_RE.search(previous.get("content") or "") and (
+        proposed_conditions(previous.get("content") or "") is None
+    ):
+        # Without its label, a proposal code can't read couldn't be compared
+        # with the rule Step 2 writes (see _picked_proposal): ask again.
+        return "the last reply's unlabeled proposal can't be read"
     if _shown_as_input_card(previous.get("content") or "", scope):
         # Its choices weren't shown, so a number can't pick one.
         return "the last reply's choices were shown as the input card"

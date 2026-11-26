@@ -343,6 +343,25 @@ async def test_save_it_after_a_test_result_saves_the_rule_before_it(monkeypatch,
     assert json.loads(events[-1])["message"] == confirm_card.SAVE_REQUEST_REPLY
 
 
+async def test_save_it_after_the_real_result_of_a_mismatched_test(monkeypatch):
+    # CodeRabbit: both turns together, with the reply the test turn wrote.
+    other = {"all": [{"fact": "githubVisibility", "operator": "equal", "value": "internal"}]}
+    tested = await _ended_with_test(monkeypatch, other)
+    _assert_ends_in_the_test_result(tested)
+    history = [
+        {"role": "user", "content": "Repositories must be private"},
+        {"role": "assistant", "content": _PRIVATE_DRAFT},
+        {"role": "user", "content": _PICKED},
+        {"role": "assistant", "content": tested[-1]["message"]},
+    ]
+
+    events, built = await _save_it_after(monkeypatch, history, {"case_type": "check_authoring"})
+
+    assert built == [_PRIVATE_DRAFT]
+    (card,) = [json.loads(ev) for ev in events if '"confirmation_required"' in ev]
+    assert card["test_skipped"] is True and "tested" not in card
+
+
 def test_save_it_reaches_back_only_over_test_results():
     draft = [
         {"role": "user", "content": "Repositories must be private"},
@@ -979,6 +998,34 @@ async def test_an_unlabeled_proposal_is_compared_too(monkeypatch):
         confirmation=_card_of_reply,
     )
     assert _has_card(events)
+
+
+@pytest.mark.parametrize(
+    ("step1", "phase"),
+    [
+        # CodeRabbit: conditions on two loose lines, no label: which one is
+        # proposed can't be told, so a yes to it couldn't be compared.
+        pytest.param(
+            "I could make it `githubDaysSinceLastPush` `lessThanInclusive` `60`.\n"
+            "Or `githubDaysSinceLastPush` `lessThan` `60`. Shall I?",
+            "propose",
+            id="unlabeled on two lines",
+        ),
+        pytest.param(
+            "Shall I make it `githubDaysSinceLastPush` `lessThanInclusive` `60`?",
+            "apply",
+            id="unlabeled on one line",
+        ),
+        # Labeled ones are approved as before, read or not (an OR isn't compared).
+        pytest.param(
+            "**Proposed rule:** `a` `equal` `1` OR `b` `equal` `2`\n\nShall I change it to that?",
+            "apply",
+            id="labeled OR",
+        ),
+    ],
+)
+def test_a_yes_approves_an_unlabeled_proposal_only_when_it_can_be_read(step1, phase):
+    assert _phase(step1, "yes") == phase
 
 
 async def test_a_rewrite_after_validation_is_compared_too(monkeypatch):
