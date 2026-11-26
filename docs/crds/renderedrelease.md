@@ -212,11 +212,11 @@ An object belongs to a RenderedRelease when its `managedFields` have an apply en
 - Any other release reads its objects before it writes anything. If one exists that does not belong to it
   and is not listed in `spec.observedResources`, nothing is applied, and `ResourcesApplied` is False with the
   reason `ApplyRefused` and a message that names the objects. The release is checked again at its progressing
-  interval
+  interval, or at its next change when that interval is 0
 - An existing object that is also listed in `spec.observedResources` is taken over in Manage mode. Fields the
   manifest sets are changed, and the others are left as they are. Takeovers are dry-run before anything is
   written, and come after all other resources are applied
-- An object that belongs to another release is never taken over. A listed one is refused too, in any namespace
+- A listed object that belongs to another release is never taken over. It is refused, in any namespace
 
 ### Protected Objects
 - An object that is applied while it is listed in `spec.observedResources` gets the label

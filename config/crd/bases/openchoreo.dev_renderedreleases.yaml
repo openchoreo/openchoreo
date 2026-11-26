@@ -70,7 +70,9 @@ spec:
                   release then applies it:
                     - If it does not exist, it is created.
                     - If it exists and no release manages it, the release takes it over. It sets
-                      the fields in its manifest and leaves the others as they are.
+                      the fields in its manifest and leaves the others as they are. The takeover is
+                      dry-run first, and if the API server rejects it, for example because it
+                      changes an immutable field, the release applies nothing.
                     - If another release manages it, the release applies nothing.
 
                   Listing an object also protects it. An object that the release applies while it
