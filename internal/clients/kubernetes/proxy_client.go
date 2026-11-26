@@ -358,9 +358,22 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, nil)
+	// The API server reads the options from the body. Without options there is none.
+	var body io.Reader
+	if len(opts) > 0 {
+		data, err := json.Marshal((&client.DeleteOptions{}).ApplyOptions(opts).AsDeleteOptions())
+		if err != nil {
+			return fmt.Errorf("failed to marshal delete options: %w", err)
+		}
+		body = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
 
@@ -708,6 +721,11 @@ func (pc *ProxyClient) buildPatchQueryParams(opts *client.PatchOptions) string {
 	// force is used to force ownership transfer for Server-Side Apply
 	if opts.Force != nil && *opts.Force {
 		params = append(params, "force=true")
+	}
+
+	// dryRun makes the server run the whole request without storing the result
+	for _, dryRun := range opts.DryRun {
+		params = append(params, "dryRun="+dryRun)
 	}
 
 	return strings.Join(params, "&")

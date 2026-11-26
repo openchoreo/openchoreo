@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -692,6 +693,11 @@ func TestBuildPatchQueryParams(t *testing.T) {
 			opts:         &client.PatchOptions{FieldManager: "mgr", Force: boolPtr(true)},
 			wantContains: []string{"fieldManager=mgr", "force=true"},
 		},
+		{
+			name:         "dry run",
+			opts:         &client.PatchOptions{DryRun: []string{metav1.DryRunAll}},
+			wantContains: []string{"dryRun=All"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1040,6 +1046,24 @@ func TestProxyClientPatch(t *testing.T) {
 		require.NoError(t, err)
 		assert.Contains(t, capturedQuery, "fieldManager=test-ctrl")
 	})
+
+	t.Run("a dry run is sent as one", func(t *testing.T) {
+		var capturedQuery string
+		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+			capturedQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(testPodJSON))
+		})
+
+		pod := &corev1.Pod{}
+		pod.Name = testPodName
+		pod.Namespace = testPodNamespace
+		err := pc.Patch(context.Background(), pod, client.Apply, client.ForceOwnership, client.FieldOwner("test-ctrl"), client.DryRunAll)
+
+		require.NoError(t, err)
+		assert.Equal(t, "fieldManager=test-ctrl&force=true&dryRun=All", capturedQuery)
+	})
 }
 
 func TestProxyClientDelete(t *testing.T) {
@@ -1082,6 +1106,53 @@ func TestProxyClientDelete(t *testing.T) {
 		pod.Namespace = testPodNamespace
 		require.Error(t, pc.Delete(context.Background(), pod))
 	})
+
+	options := []struct {
+		name     string
+		opts     []client.DeleteOption
+		wantType string
+		wantBody string
+	}{
+		{name: "no options"},
+		{
+			name:     "a UID",
+			opts:     []client.DeleteOption{client.Preconditions{UID: ptr.To(types.UID("1234"))}},
+			wantType: "application/json",
+			wantBody: `{"preconditions":{"uid":"1234"}}`,
+		},
+		{
+			name:     "a resourceVersion",
+			opts:     []client.DeleteOption{client.Preconditions{ResourceVersion: ptr.To("42")}},
+			wantType: "application/json",
+			wantBody: `{"preconditions":{"resourceVersion":"42"}}`,
+		},
+		{
+			name: "several options",
+			opts: []client.DeleteOption{client.GracePeriodSeconds(0),
+				client.PropagationPolicy(metav1.DeletePropagationForeground), client.DryRunAll},
+			wantType: "application/json",
+			wantBody: `{"gracePeriodSeconds":0,"propagationPolicy":"Foreground","dryRun":["All"]}`,
+		},
+	}
+	for _, tt := range options {
+		t.Run("sends "+tt.name, func(t *testing.T) {
+			var capturedType, capturedBody string
+			pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+				body, err := io.ReadAll(r.Body)
+				assert.NoError(t, err)
+				capturedType, capturedBody = r.Header.Get("Content-Type"), string(body)
+				w.WriteHeader(http.StatusOK)
+			})
+
+			pod := &corev1.Pod{}
+			pod.Name = testPodName
+			pod.Namespace = testPodNamespace
+			require.NoError(t, pc.Delete(context.Background(), pod, tt.opts...))
+
+			assert.Equal(t, tt.wantType, capturedType)
+			assert.Equal(t, tt.wantBody, capturedBody)
+		})
+	}
 }
 
 func TestProxyClientStatusUpdate(t *testing.T) {
