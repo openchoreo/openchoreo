@@ -748,7 +748,9 @@ async def _tested_reply(
 ) -> AsyncIterator[str]:
     """How a turn with a test result ends, so the result is always a card:
     the save card again, tested, for a draft or edit that isn't saved yet
-    (``reply``), else the test card; and the result's words as the reply."""
+    (``reply``), else the test card; and the result's words as the reply.
+    When the test ran another rule than the card saves, the test card: the
+    card must not show that result as its own."""
     scope = scope or {}
     example = _is_example(messages, scope)
     if reply is not None:
@@ -757,6 +759,9 @@ async def _tested_reply(
         with_example_description(reply) if example else reply,
         scope, user_sub=user_sub, backstage_token=backstage_token,
     )
+    if confirmation and not _run_of_card_rule([run], confirmation):
+        logger.info("The test ran another rule than the card's; the test card instead")
+        confirmation = None
     if confirmation:
         confirmation = {**confirmation, "tested": True}
         if example:

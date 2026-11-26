@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.agent import existing_check, orchestrator
+from src.agent import confirm_card, existing_check, orchestrator
 from src.agent.dry_run_view import DryRun
 from src.agent.orchestrator import _stamp_current_time
 from src.agent.stream_parser import ChatResponseParser
@@ -1533,7 +1533,9 @@ async def _picked_turn(monkeypatch, chat, scope, result=_FAILED_RUN, error=None)
 
     async def _fake_confirmation(message, _scope, **_kwargs):
         built.append(message)
-        return {**_CARD, "kind": "create"}
+        # Like the real card: it saves the reply's rule, the rule code tested.
+        rule = confirm_card._edited_rule(message)
+        return {**_CARD, "kind": "create", "new_rule": json.dumps(rule)}
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "backstage_tools_as_user", _fake_tools)
@@ -2965,3 +2967,38 @@ async def test_a_shortcut_that_calls_backstage_takes_a_chat_slot(monkeypatch, na
 async def test_any_other_message_takes_no_slot_for_the_shortcuts(monkeypatch, name):
     # The shortcut returns at once: it mustn't wait for a slot it doesn't need.
     assert await _slot_seen_by(monkeypatch, name, "make it stricter") == [False]
+
+
+async def _ended_with_test(monkeypatch, card_rule):
+    """How _tested_reply ends a turn whose test ran _PRIVATE and whose card saves card_rule."""
+    async def _card(_message, _scope, **_kwargs):
+        return {**_CARD, "kind": "create", "new_rule": json.dumps(card_rule)}
+
+    monkeypatch.setattr(orchestrator, "build_confirmation", _card)
+    run = DryRun(status="failed", entity_ref="component:default/order-api",
+                 fact_values={"githubVisibility": "public"}, rule=json.dumps(_PRIVATE))
+    return [
+        json.loads(ev) async for ev in orchestrator._tested_reply(
+            run, _PRIVATE_DRAFT, [{"role": "user", "content": _PICKED}],
+            {"case_type": "check_authoring"}, user_sub="u", backstage_token="b",
+        )
+    ]
+
+
+async def test_a_test_of_the_cards_rule_ends_in_the_tested_save_card(monkeypatch):
+    events = await _ended_with_test(monkeypatch, _PRIVATE)
+
+    (card,) = [e for e in events if e["type"] == "confirmation_required"]
+    assert card["tested"] is True
+
+
+async def test_a_test_of_another_rule_ends_in_the_test_card_not_a_tested_save_card(monkeypatch):
+    # The model's test ran one rule and its reply failed: the card of another
+    # rule must not show that result as its own.
+    other = {"all": [{"fact": "githubVisibility", "operator": "equal", "value": "internal"}]}
+
+    events = await _ended_with_test(monkeypatch, other)
+
+    assert not [e for e in events if e["type"] == "confirmation_required"]
+    (ui,) = [e for e in events if e["type"] == "a2ui"]
+    assert ui["messages"][0]["createSurface"]["components"][0]["component"] != "SaveCard"
