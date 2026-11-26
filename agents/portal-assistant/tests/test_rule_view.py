@@ -12,6 +12,7 @@ from src.agent.rule_view import (
     Option,
     change_view,
     numbered_choices,
+    proposed_conditions,
     rule_lines,
     saved_change_view,
     understood,
@@ -381,3 +382,50 @@ Reply with 1 or 2."""
     view = change_view(reply, _SCOPE)
 
     assert view.options[0].value == "removed"
+
+
+@pytest.mark.parametrize(
+    ("message", "proposals"),
+    [
+        pytest.param(
+            "**Current rule:** `a` `lessThanInclusive` `30`\n\nShall I make it `a` `lessThanInclusive` `60`?",
+            {1: [("a", "lessThanInclusive", 60)]},
+            id="in a question",
+        ),
+        pytest.param(
+            "Current rule: `a lessThanInclusive 30`\n\nI'd change it to `a lessThan 60`. OK?",
+            {1: [("a", "lessThan", 60)]},
+            id="in one pair of backticks",
+        ),
+        pytest.param(
+            "Shall I change it to `a` `equal` `1` AND `b` `equal` `true`?",
+            {1: [("a", "equal", 1), ("b", "equal", True)]},
+            id="two conditions",
+        ),
+        pytest.param(
+            "Which?\n1. `a` `lessThanInclusive` `60` — 60 or less\n2. `a` `lessThan` `60` — less than 60",
+            {1: [("a", "lessThanInclusive", 60)], 2: [("a", "lessThan", 60)]},
+            id="numbered choices",
+        ),
+    ],
+)
+def test_a_proposal_without_its_label_is_read(message, proposals):
+    # CodeRabbit: approved like a labeled one, so it must be compared like one.
+    assert proposed_conditions(message) == proposals
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        # Which line is the proposal can't be told.
+        "Maybe `a` `equal` `1`.\nOr `a` `equal` `2`?",
+        # Not a flat AND.
+        "Shall I make it `a` `equal` `1` OR `b` `equal` `2`?",
+        # Labeled ones decide: one that can't be read isn't read around.
+        "**Proposed rule:** `a` `equal` `1` OR `b` `equal` `2`\n\nAlso `c` `equal` `3`?",
+        # Only the current rule.
+        "**Current rule:** `a` `equal` `1`\n\nWhat should it be instead?",
+    ],
+)
+def test_a_proposal_that_cant_be_told_is_not_read(message):
+    assert proposed_conditions(message) is None

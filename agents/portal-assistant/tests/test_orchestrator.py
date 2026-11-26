@@ -955,6 +955,32 @@ async def test_a_yes_to_the_question_asked_again_gets_the_card(monkeypatch):
     assert _has_card(events)
 
 
+async def test_an_unlabeled_proposal_is_compared_too(monkeypatch):
+    # CodeRabbit: approved without a "Proposed rule:" label, then another rule written.
+    step1 = (
+        "**Current rule:** `githubDaysSinceLastPush` `lessThanInclusive` `30`\n\n"
+        "Shall I make it `githubDaysSinceLastPush` `lessThanInclusive` `60` (60 or less)?"
+    )
+    history = [*_FIRST, {"role": "assistant", "content": step1}, {"role": "user", "content": "yes"}]
+
+    events, _built = await _turn(
+        monkeypatch,
+        history,
+        _edited(_UNDER_60),
+        confirmation=_card_of_reply,
+    )
+    assert not _has_card(events)
+    assert "`lessThan` `60`" in _done_message(events)
+
+    events, _built = await _turn(
+        monkeypatch,
+        history,
+        _edited(_AT_MOST_60),
+        confirmation=_card_of_reply,
+    )
+    assert _has_card(events)
+
+
 async def test_a_rewrite_after_validation_is_compared_too(monkeypatch):
     async def _invalid_until_rewritten(message, scope, **kwargs):
         built = await _card_of_reply(message, scope, **kwargs)

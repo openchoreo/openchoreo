@@ -320,7 +320,49 @@ def _view(
     return ChangeView(rows, choices, summary)
 
 
+_CURRENT_LINE_RE = re.compile(r"Current rule\**[ \t]*:", re.IGNORECASE)
+_NUMBERED_RE = re.compile(r"^[ \t]*([1-9])[.)]")
+
+
+def _has_leaf(line: str) -> bool:
+    return any(r.search(line) for r in (_LEAF_RE, _ONE_SPAN_LEAF_RE, _BARE_VALUE_LEAF_RE))
+
+
+def _unlabeled(line: str) -> list[Leaf] | None:
+    """The conditions in a line of words ("Shall I make it `a` `lessThan`
+    `60`?"): from the first to the last, which _leaves then reads."""
+    text = _NAMED_RE.split(line, maxsplit=1)[0]
+    for leaf_re in (_LEAF_RE, _ONE_SPAN_LEAF_RE, _BARE_VALUE_LEAF_RE):
+        matches = list(leaf_re.finditer(text))
+        if matches:
+            return _leaves(text[matches[0].start() : matches[-1].end()])
+    return None
+
+
 def proposed_conditions(message: str) -> dict[int, list[Leaf]] | None:
     """Each proposal of an edit question, by choice number (1 for a single
-    one), or None when one of them isn't a flat AND it can read."""
-    return _proposals(message)
+    one), or None when one of them isn't a flat AND it can read. A proposal
+    the model wrote without its "Proposed rule:" label is read too, when
+    which line it is can be told: the only line with conditions besides the
+    current rule's, or one numbered line per choice."""
+    labeled = _proposals(message)
+    if labeled is not None or _PROPOSAL_RE.search(message):
+        return labeled
+    lines = [
+        line
+        for line in message.splitlines()
+        if _has_leaf(line) and not _CURRENT_LINE_RE.search(line)
+    ]
+    numbered = [(_NUMBERED_RE.match(line), line) for line in lines]
+    if len(lines) > 1 and all(number for number, _ in numbered):
+        found: dict[int, list[Leaf]] = {}
+        for number, line in numbered:
+            leaves = _unlabeled(line[number.end() :])
+            if leaves is None or int(number[1]) in found:
+                return None
+            found[int(number[1])] = leaves
+        return found
+    if len(lines) != 1:
+        return None
+    leaves = _unlabeled(lines[0])
+    return {1: leaves} if leaves else None

@@ -460,10 +460,14 @@ async def test_the_card_is_sent_before_done(monkeypatch):
         json.loads(line)
         async for line in orchestrator.stream_chat(
             messages=[
-                {"role": "user", "content": "Allow internal too"},
+                {"role": "user", "content": "Require 2 approvals instead of pull requests"},
                 {
                     "role": "assistant",
-                    "content": 'Shall I change it to `githubVisibility in ["private","internal"]`?',
+                    # The rule _STEP2 writes: Step 2 must write the one approved.
+                    "content": (
+                        "Shall I change it to `githubDefaultBranchProtected` `equal` `true` AND "
+                        "`githubRequiredApprovals` `greaterThanInclusive` `2`?"
+                    ),
                 },
                 {"role": "user", "content": "yes"},
             ],
