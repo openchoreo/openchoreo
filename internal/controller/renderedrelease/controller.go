@@ -412,7 +412,7 @@ func applyResource(ctx context.Context, planeClient client.Client, resource chec
 	if resource.live != nil {
 		// The label comes first, so a claimed object is protected before the release owns it,
 		// and a crash in between leaves an object that nobody took over. One that is created now
-		// is labeled by the next pass, and protected by its claim until then.
+		// is labeled right after it.
 		if resource.claimed && !hasClaimedLabel(resource.live) {
 			if _, err := addClaimedLabel(ctx, planeClient, resource.live); err != nil {
 				return err
@@ -430,13 +430,20 @@ func applyResource(ctx context.Context, planeClient client.Client, resource chec
 		}
 		return err
 	}
-	if !resource.missing || !hasOtherManager(obj) {
-		return nil
+	if resource.missing && hasOtherManager(obj) {
+		if err := giveBack(ctx, planeClient, obj); err != nil {
+			return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+		}
+		return fmt.Errorf("%s appeared while it was being created, and was given back", describeObject(obj))
 	}
-	if err := giveBack(ctx, planeClient, obj); err != nil {
-		return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+	// A claimed object this pass created is protected from the start. If the label fails,
+	// the next pass adds it before it applies the object again.
+	if resource.missing && resource.claimed {
+		if _, err := addClaimedLabel(ctx, planeClient, obj); err != nil {
+			return err
+		}
 	}
-	return fmt.Errorf("%s appeared while it was being created, and was given back", describeObject(obj))
+	return nil
 }
 
 // hasOtherManager reports whether anything but an apply of this controller has an entry in an

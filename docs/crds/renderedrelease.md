@@ -220,8 +220,8 @@ An object belongs to a RenderedRelease when its `managedFields` have an apply en
 
 ### Protected Objects
 - An object that is applied while it is listed in `spec.observedResources` gets the label
-  `openchoreo.dev/claimed`: at once if it exists, or on the next check if the release creates it. From then on
-  the controller never deletes it
+  `openchoreo.dev/claimed`, before the apply if it exists, or right after it if the release creates it. From
+  then on the controller never deletes it
 - When the release stops rendering such an object, moves to Observe mode or is deleted, the object is given
   back: the tracking labels, the claimed label and the controller's `managedFields` entry are removed, and
   nothing else changes

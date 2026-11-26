@@ -112,22 +112,32 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 	for _, guarded := range []bool{false, true} {
 		where := map[bool]string{false: "in its own namespace", true: "elsewhere"}[guarded]
 
-		It(where+": creates it when it is missing, and labels it on the next pass", func() {
+		It(where+": creates it when it is missing, and labels it at once", func() {
 			start("missing", guarded)
 			f.change(rendering(configMap("release")), claiming(configMap("")))
 
 			f.mustPass()
-			Expect(sent()).To(Equal([]string{"read", "read", "create"}), "the claim's read, the check, the apply")
-			Expect(expectApplied("release").GetLabels()).NotTo(HaveKey(labels.LabelKeyClaimed))
+			Expect(sent()).To(Equal([]string{"read", "read", "create", "label by UID"}), "the claim's read, the check, the apply, the label")
+			Expect(expectApplied("release").GetLabels()).To(HaveKeyWithValue(labels.LabelKeyClaimed, "true"))
 			Expect(fetchRelease(f.name).Status.ObservedResources).To(HaveLen(1))
+
+			f.mustPass()
+			Expect(sent()).To(Equal([]string{"read", "read", "apply by UID"}))
+			Expect(fetchRelease(f.name).Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
+		})
+
+		It(where+": labels on the next pass what it created but could not label", func() {
+			start("label-after-create-fails", guarded)
+			f.change(rendering(configMap("release")), claiming(configMap("")))
+			f.proxy.hook(planeHook{match: isLabelRequest, answer: &planeAnswer{status: http.StatusBadGateway, contentType: "text/plain", body: "no agents"}})
+
+			_, err := f.pass()
+			Expect(err).To(MatchError(ContainSubstring("failed to label")))
+			Expect(f.live(configMap("")).GetLabels()).NotTo(HaveKey(labels.LabelKeyClaimed))
 
 			f.mustPass()
 			Expect(sent()).To(Equal([]string{"read", "read", "label by UID", "apply by UID"}))
 			Expect(expectApplied("release").GetLabels()).To(HaveKeyWithValue(labels.LabelKeyClaimed, "true"))
-			Expect(fetchRelease(f.name).Status.ObservedResources[0].HealthStatus).To(Equal(openchoreov1alpha1.HealthStatusHealthy))
-
-			f.mustPass()
-			Expect(sent()).To(Equal([]string{"read", "read", "apply by UID"}))
 		})
 
 		It(where+": labels what it applied when it is claimed later, and goes on applying it", func() {
@@ -220,7 +230,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 		other := f.object("other")
 		f.change(rendering(configMap("release"), other), claiming(configMap("")))
 		f.mustPass()
-		Expect(sent()).To(Equal([]string{"read", "read", "create", "create"}))
+		Expect(sent()).To(Equal([]string{"read", "read", "create", "label by UID", "create"}))
 		Expect(f.reads()[1].path).To(HaveSuffix("/a"))
 	})
 
@@ -397,7 +407,7 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 		})
 
 		// The claims are read before the apply, so one the pass creates is reported missing
-		// until the next check, which labels it too.
+		// until the next check.
 		It("comes soon after it creates an object it claims", func() {
 			start("interval-created", false)
 			f.change(rendering(configMap("release")), claiming(configMap("")))
