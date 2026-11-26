@@ -16,6 +16,7 @@ import logging
 from typing import Any, Literal
 
 from common.auth.bearer import BearerTokenAuth
+from src.agent.confirm_card import check_baseline, same_baseline
 from src.agent.pending_actions import consume, release
 from src.clients.mcp import BackstageToolError, backstage_tools_as_user, call_backstage_tool
 
@@ -47,6 +48,31 @@ def _save_args(action: dict[str, Any], apply_texts: bool) -> dict[str, Any]:
     }
 
 
+async def _refuse_if_changed(tools: Any, action: dict[str, Any], token: str) -> None:
+    """Raise ConfirmError when the check's rule or retrievers changed since the
+    edit card was built: update_check replaces the whole rule, so saving
+    would undo someone else's change without a word. The check is read just
+    before the save; a change in between those two calls isn't caught."""
+    try:
+        now = await call_backstage_tool(tools, "get_check", {"id": action["check_id"]})
+        current = check_baseline(now["check"])
+    # Nothing was sent, so the same card can be tried again.
+    except BackstageToolError as exc:
+        release(token)
+        raise ConfirmError(f"The check wasn't saved: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001 — transport failure: say so plainly
+        release(token)
+        logger.warning("Confirm: reading check %s failed", action["check_id"], exc_info=True)
+        raise ConfirmError("The check wasn't saved: Backstage couldn't be reached.") from exc
+    if not same_baseline(current, action["baseline"]):
+        # The card can't become right again, so it stays used.
+        logger.info("Confirm: check %s changed since its card; not saved", action["check_id"])
+        raise ConfirmError(
+            "This check changed since this card was made, so nothing was saved. "
+            "Ask the assistant again for a card based on the check as it is now."
+        )
+
+
 async def confirm_check_change(
     token: str,
     *,
@@ -76,6 +102,8 @@ async def confirm_check_change(
         release(token)
         logger.warning("Confirm: listing the Backstage tools failed", exc_info=True)
         raise ConfirmError("The check wasn't saved: Backstage couldn't be reached.") from exc
+    if action["kind"] == "update" and "baseline" in action:
+        await _refuse_if_changed(tools, action, token)
     try:
         if action["kind"] == "create":
             saved = await call_backstage_tool(

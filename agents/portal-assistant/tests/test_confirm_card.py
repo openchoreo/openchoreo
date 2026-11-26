@@ -155,6 +155,8 @@ async def test_the_token_carries_exactly_the_change_on_the_card():
             "rule": {"conditions": json.dumps(_NEW_RULE, separators=(",", ":"))},
         },
         "texts": {"name": "Default branch protection with 2 approvals"},
+        # The check as the card saw it, for the save to compare.
+        "baseline": {"rule": _SAVED_RULE, "factIds": ["githubRepositoryFactRetriever"]},
     }
 
 
@@ -1155,3 +1157,11 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
     ]
 
     assert sent["dry_run_check"]["check"]["factIds"] == _BOTH
+
+
+async def test_an_edit_card_signs_the_saved_rule_it_was_built_from(_backstage):
+    # So the save can refuse when someone changed the check in between.
+    card = await _card()
+
+    baseline = consume(card["token"], "user-a")["baseline"]
+    assert baseline == {"rule": _SAVED_RULE, "factIds": ["githubRepositoryFactRetriever"]}

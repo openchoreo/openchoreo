@@ -17,6 +17,7 @@ the rule into the form as before.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -110,6 +111,23 @@ def same_rule(first: str, second: str) -> bool:
     """Whether two replies show the same rule (both have one)."""
     rule = _edited_rule(first)
     return rule is not None and rule == _edited_rule(second)
+
+
+def check_baseline(check: dict[str, Any]) -> dict[str, Any]:
+    """A saved check's rule and retrievers, as an edit card signs them: the
+    save compares them with the check then, so it never replaces a change
+    someone made after the card (see confirm_actions)."""
+    conditions = unwrap(check.get("rule"))
+    if isinstance(conditions, str):
+        with contextlib.suppress(ValueError):
+            conditions = json.loads(conditions)
+    return {"rule": conditions, "factIds": list(check.get("factIds") or [])}
+
+
+def same_baseline(first: dict[str, Any], second: dict[str, Any]) -> bool:
+    """Whether two baselines are the same check, whatever the retrievers' order."""
+    same_retrievers = sorted(first["factIds"]) == sorted(second["factIds"])
+    return first["rule"] == second["rule"] and same_retrievers
 
 
 def _has_condition(rule: Any) -> bool:
@@ -463,6 +481,8 @@ async def _edit_card(
             "rule": {"conditions": conditions},
         },
         "texts": {change["field"]: change["new"] for change in text_changes},
+        # The check as this card saw it: the save refuses if it changed since.
+        "baseline": check_baseline(saved),
     }
     logger.info(
         "Confirm card for check %s: valid=%s, %d text change(s)",

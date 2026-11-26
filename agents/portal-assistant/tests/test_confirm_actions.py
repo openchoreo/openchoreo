@@ -374,3 +374,105 @@ def test_the_route_answers_400_with_the_reason():
 def test_the_request_accepts_only_the_cards_choices(body):
     with pytest.raises(ValidationError):
         ConfirmRequest(**body)
+
+
+# ── an edit card made from a check that changed since ──────────────────
+
+_BASELINE = {"rule": {"all": []}, "factIds": ["r"]}
+_GUARDED_EDIT = {**_EDIT, "baseline": _BASELINE}
+
+
+def _saved_now(rule=None, fact_ids=None):
+    return {
+        "check": {
+            "id": "c1",
+            "status": "draft",
+            "factIds": fact_ids or ["r"],
+            "rule": {"conditions": rule if rule is not None else {"all": []}},
+        }
+    }
+
+
+async def test_an_edit_saves_when_the_check_is_as_the_card_saw_it(backstage):
+    backstage["outputs"]["get_check"] = _saved_now()
+
+    result = await _confirm(_GUARDED_EDIT, "draft")
+
+    assert result["message"] == "Saved as a draft."
+    assert _names(backstage) == ["get_check", "update_check"]
+
+
+@pytest.mark.parametrize(
+    "now",
+    [
+        # Someone else changed the rule, or the retrievers, since the card.
+        _saved_now(rule={"all": [{"fact": "x", "operator": "equal", "value": 1}]}),
+        _saved_now(fact_ids=["r", "other"]),
+    ],
+)
+async def test_an_edit_of_a_check_that_changed_since_saves_nothing(backstage, now):
+    # Saving would replace the other change with the card's rule.
+    backstage["outputs"]["get_check"] = now
+    token = sign(_GUARDED_EDIT, "user-a")
+
+    with pytest.raises(ConfirmError, match="changed since this card was made"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+    assert _names(backstage) == ["get_check"]
+    # The card can't become right again: it stays used.
+    with pytest.raises(InvalidAction, match="already confirmed"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+
+
+async def test_the_comparison_ignores_retriever_order_and_rule_encoding(backstage):
+    # Backstage may return the conditions as a JSON string, the retrievers in any order.
+    action = {**_EDIT, "baseline": {"rule": {"all": []}, "factIds": ["a", "b"]}}
+    backstage["outputs"]["get_check"] = _saved_now(rule='{"all": []}', fact_ids=["b", "a"])
+
+    result = await _confirm(action, "draft")
+
+    assert result["message"] == "Saved as a draft."
+
+
+async def test_when_the_check_cant_be_read_nothing_is_saved_and_the_card_can_retry(backstage):
+    backstage["fail"] = "get_check"
+    token = sign(_GUARDED_EDIT, "user-a")
+
+    with pytest.raises(ConfirmError, match="wasn't saved"):
+        await confirm_check_change(
+            token,
+            user_sub="user-a",
+            backstage_token="t",
+            status="draft",
+            apply_texts=True,
+        )
+    assert _names(backstage) == ["get_check"]
+
+    backstage["fail"] = None
+    backstage["outputs"]["get_check"] = _saved_now()
+    result = await confirm_check_change(
+        token,
+        user_sub="user-a",
+        backstage_token="t",
+        status="draft",
+        apply_texts=True,
+    )
+    assert result["message"] == "Saved as a draft."
+
+
+async def test_a_card_without_a_baseline_saves_as_before(backstage):
+    # Cards signed before this change (they live 5 minutes) carry none.
+    await _confirm(_EDIT, "draft")
+
+    assert _names(backstage) == ["update_check"]
