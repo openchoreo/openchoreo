@@ -12,6 +12,7 @@ from src.agent.dry_run_view import (
     actual_lines,
     actual_words,
     entity_name,
+    fact_results,
     missing_facts,
     needed_lines,
     read_dry_run,
@@ -185,3 +186,60 @@ def test_facts_that_were_not_reported_are_listed():
 
     assert missing_facts(run) == ["githubRequiredApprovingReviewCount"]
     assert actual_lines(run, _SCOPE) == [("Required approving review count", "not reported")]
+
+
+def _marks(rule, values):
+    run = DryRun(status="passed", fact_values=values, rule=json.dumps(rule))
+    return [follows for _label, _value, follows, _wants in fact_results(run, {})]
+
+
+def test_a_fact_is_marked_by_each_condition_the_rule_needs():
+    assert _marks(
+        json.loads(_RULE),
+        {
+            "githubBranchProtected": True,
+            "githubRequiredApprovingReviewCount": 1,
+        },
+    ) == [True, False]
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        # private OR internal: "private" fails one choice, yet the check passes.
+        {
+            "any": [
+                {"fact": "githubVisibility", "operator": "equal", "value": "private"},
+                {"fact": "githubVisibility", "operator": "equal", "value": "internal"},
+            ]
+        },
+        # not (public AND internal) is "not public OR not internal".
+        {
+            "not": {
+                "all": [
+                    {"fact": "githubVisibility", "operator": "equal", "value": "public"},
+                    {"fact": "githubVisibility", "operator": "equal", "value": "internal"},
+                ]
+            }
+        },
+    ],
+)
+def test_a_fact_in_one_of_several_choices_gets_no_mark(rule):
+    assert _marks(rule, {"githubVisibility": "private"}) == [None]
+
+
+def test_an_any_of_one_condition_still_marks_it():
+    rule = {"any": [{"fact": "githubVisibility", "operator": "equal", "value": "public"}]}
+    assert _marks(rule, {"githubVisibility": "private"}) == [False]
+
+
+def test_not_any_needs_every_condition_turned_around():
+    rule = {
+        "not": {
+            "any": [
+                {"fact": "githubVisibility", "operator": "equal", "value": "public"},
+                {"fact": "githubArchived", "operator": "equal", "value": True},
+            ]
+        }
+    }
+    assert _marks(rule, {"githubVisibility": "private", "githubArchived": True}) == [True, False]

@@ -166,18 +166,23 @@ _OPERATORS = {
 }
 
 
-def _leaves(node: Any, negated: bool = False):
-    """Each condition of a rule, and whether a `not` turns it around."""
+def _leaves(node: Any, negated: bool = False, required: bool = True):
+    """Each condition of a rule, whether a `not` turns it around, and whether
+    the rule needs it met (only "all of these" above it): a condition that is
+    one of several choices can fail while the rule passes."""
     if not isinstance(node, dict):
         return
     for key in ("all", "any"):
         children = node.get(key)
-        for child in children if isinstance(children, list) else []:
-            yield from _leaves(child, negated)
+        children = children if isinstance(children, list) else []
+        # `not` turns "all" into "any" of the opposites, and back.
+        choice = (key == "any") != negated and len(children) > 1
+        for child in children:
+            yield from _leaves(child, negated, required and not choice)
     if "not" in node:
-        yield from _leaves(node["not"], not negated)
+        yield from _leaves(node["not"], not negated, required)
     if isinstance(node.get("fact"), str):
-        yield node, negated
+        yield node, negated, required
 
 
 def _follows(value: Any, leaf: dict[str, Any], negated: bool) -> bool | None:
@@ -201,9 +206,11 @@ def fact_results(
     what the rule wants when it doesn't."""
     wants = dict(needed_lines(run, scope))
     checks: dict[str, list[bool | None]] = {}
-    for leaf, negated in _leaves(_json(run.rule or "")):
+    for leaf, negated, required in _leaves(_json(run.rule or "")):
         fact = leaf["fact"]
-        checks.setdefault(fact, []).append(_follows(run.fact_values.get(fact), leaf, negated))
+        # One of several choices: the fact alone can't say whether it follows.
+        follows = _follows(run.fact_values.get(fact), leaf, negated) if required else None
+        checks.setdefault(fact, []).append(follows)
     rows: list[tuple[str, str, bool | None, str | None]] = []
     for fact, value in run.fact_values.items():
         results = checks.get(fact) or [None]
