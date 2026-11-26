@@ -303,6 +303,11 @@ def existing_check_view(
     )
 
 
+def is_separate_request(text: str) -> bool:
+    """Whether ``text`` is the "Create a separate check" button's message."""
+    return bool(_SEPARATE_RE.fullmatch(text.strip()))
+
+
 async def card_for_separate_check(
     messages: list[dict[str, str]],
     scope: dict[str, Any] | None,
@@ -318,7 +323,7 @@ async def card_for_separate_check(
     """
     if not messages or messages[-1].get("role") != "user" or (scope or {}).get("check_id"):
         return None
-    if not _SEPARATE_RE.fullmatch((messages[-1].get("content") or "").strip()):
+    if not is_separate_request(messages[-1].get("content") or ""):
         return None
     draft = next(
         (m.get("content") or "" for m in reversed(messages[:-1]) if m.get("role") == "assistant"),

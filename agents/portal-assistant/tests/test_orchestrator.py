@@ -2919,3 +2919,49 @@ async def test_the_beginners_example_takes_a_chat_slot(monkeypatch):
 
     assert held == [True]
     assert not slot.locked()
+
+
+async def _slot_seen_by(monkeypatch, name, latest):
+    """Whether a chat slot was held while ``name`` built its card for ``latest``."""
+    import asyncio
+
+    slot = asyncio.Semaphore(1)
+    held = []
+    monkeypatch.setattr(orchestrator, "_semaphore", slot)
+
+    async def _shortcut(*_args, **_kwargs):
+        held.append(slot.locked())
+        return None
+
+    async def _no_model(*_args, **_kwargs):
+        raise RuntimeError("stop after the shortcuts")
+
+    monkeypatch.setattr(orchestrator, name, _shortcut)
+    monkeypatch.setattr(orchestrator, "_build_agent", _no_model)
+    chat = [
+        {"role": "user", "content": "Repos must be private"},
+        {"role": "assistant", "content": _PRIVATE_DRAFT},
+        {"role": "user", "content": latest},
+    ]
+    _ = [
+        ev async for ev in orchestrator.stream_chat(
+            messages=chat, token="t", user_sub="u", scope={"case_type": "check_authoring"},
+            backstage_token="b",
+        )
+    ]
+    return held
+
+
+@pytest.mark.parametrize(("name", "latest"), [
+    ("card_for_save_request", "save it"),
+    ("card_for_separate_check", "Create a separate check instead of editing Repo is private"),
+])
+async def test_a_shortcut_that_calls_backstage_takes_a_chat_slot(monkeypatch, name, latest):
+    # Like a model turn, so max_concurrent_chats holds for it.
+    assert await _slot_seen_by(monkeypatch, name, latest) == [True]
+
+
+@pytest.mark.parametrize("name", ["card_for_save_request", "card_for_separate_check"])
+async def test_any_other_message_takes_no_slot_for_the_shortcuts(monkeypatch, name):
+    # The shortcut returns at once: it mustn't wait for a slot it doesn't need.
+    assert await _slot_seen_by(monkeypatch, name, "make it stricter") == [False]

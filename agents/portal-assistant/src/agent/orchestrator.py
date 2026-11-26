@@ -20,11 +20,13 @@ LLM tries.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import re
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager
 from typing import Any
 
 from langchain.agents.structured_output import StructuredOutputValidationError
@@ -75,6 +77,7 @@ from src.agent.existing_check import (
     card_for_separate_check,
     existing_check_view,
     find_existing_check,
+    is_separate_request,
 )
 from src.agent.problem_view import ToolError, failed_test_note, problem_view
 from src.agent.recovery import recover_with_fallback
@@ -101,6 +104,11 @@ def _get_semaphore() -> asyncio.Semaphore:
     if _semaphore is None:
         _semaphore = asyncio.Semaphore(settings.max_concurrent_chats)
     return _semaphore
+
+
+def _slot_if(needed: bool) -> AbstractAsyncContextManager[Any]:
+    """A chat slot when ``needed`` (the step calls Backstage), else nothing to wait for."""
+    return _get_semaphore() if needed else contextlib.nullcontext()
 
 
 def _stamp_current_time(messages: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -890,11 +898,14 @@ async def stream_chat(
     )
     save_card = None
     try:
-        if not unapproved_edit:
-            save_card = await card_for_save_request(
-                messages, scope, user_sub=user_sub, backstage_token=backstage_token,
-                practice=_is_example(messages, scope, past_save=True),
-            )
+        # A save request calls Backstage, so it takes a chat slot like a model
+        # turn; any other message returns at once and takes none.
+        async with _slot_if(is_save_request(latest_text) and not unapproved_edit):
+            if not unapproved_edit:
+                save_card = await card_for_save_request(
+                    messages, scope, user_sub=user_sub, backstage_token=backstage_token,
+                    practice=_is_example(messages, scope, past_save=True),
+                )
     except Exception:  # noqa: BLE001 — answer with the model instead
         logger.warning("Save card shortcut failed; answering with the model", exc_info=True)
         save_card = None
@@ -909,9 +920,10 @@ async def stream_chat(
     # by code from that reply. The reply is the draft again, so later turns
     # read it as before.
     try:
-        separate = await card_for_separate_check(
-            messages, scope, user_sub=user_sub, backstage_token=backstage_token,
-        )
+        async with _slot_if(is_separate_request(latest_text)):
+            separate = await card_for_separate_check(
+                messages, scope, user_sub=user_sub, backstage_token=backstage_token,
+            )
     except Exception:  # noqa: BLE001 — answer with the model instead
         logger.warning("Separate check shortcut failed; answering with the model", exc_info=True)
         separate = None
