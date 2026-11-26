@@ -148,12 +148,13 @@ _CARD = {
 
 async def _turn(
     monkeypatch, messages, reply, scope=_EDIT_SCOPE, agent=None, seen=None, card=None,
-    dry_run=None,
+    dry_run=None, confirmation=None,
 ):
     """Runs stream_chat with a model that replies ``reply``; returns (events, card calls).
 
     ``seen`` gets the edit phase the agent was built with and the messages the
-    model was sent.
+    model was sent. ``confirmation`` builds the save card instead of the fake
+    one that returns _CARD for any chat (e.g. the real build_confirmation).
     """
     built = []
     seen = {} if seen is None else seen
@@ -175,7 +176,7 @@ async def _turn(
 
     async def _fake_confirmation(message, _scope, **_kwargs):
         built.append(message)
-        return _CARD
+        return _CARD if confirmation is None else await confirmation(message, _scope, **_kwargs)
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _fake_chunks)
@@ -976,15 +977,30 @@ async def test_a_tested_edit_shows_the_test_summary_in_the_save_card(monkeypatch
     pytest.param(None, id="no scope"),
 ])
 async def test_other_chats_get_no_cards(monkeypatch, scope):
+    # The real save step, a Backstage that would validate the rule, and a
+    # reply with a rule in it: only the save step's scope gate stands between
+    # these chats and a save card, whatever the model writes.
+    from src.agent import confirm_card
+    from src.agent.confirm_card import build_confirmation
+
+    async def _tools(_auth):
+        return {}
+
+    async def _call(_tools, _name, _args):
+        return {"valid": True, "problems": [], "kinds": []}
+
+    monkeypatch.setattr(confirm_card, "backstage_tools_as_user", _tools)
+    monkeypatch.setattr(confirm_card, "call_backstage_tool", _call)
     events, _built = await _turn(
         monkeypatch,
         [{"role": "user", "content": "Is it OK?"}],
-        "Shall I look at the logs?",
+        _GUARDED_DRAFT,
         scope=scope,
+        confirmation=build_confirmation,
     )
 
-    # (The fake save step returns a card for any chat; _questions skips it.)
-    assert _questions(events) == []
+    assert not [ev for ev in events if '"confirmation_required"' in ev]
+    assert _a2ui(events) == []
 
 
 _MODEL_CARD = {
@@ -2775,14 +2791,32 @@ async def test_a_new_checks_card_is_built_without_the_guard_nobody_asked_for(mon
 
 
 async def test_an_edit_keeps_every_condition_of_the_saved_rule(monkeypatch):
-    # Only a new check loses the guard: an edit starts from the saved rule.
-    chat = [{"role": "user", "content": "Repositories must be private"}]
-
-    _events, built = await _turn(
-        monkeypatch, chat, _GUARDED_DRAFT, scope={**_EDIT_SCOPE, "check_id": "c1"},
+    # Only a new check loses the guard: an edit starts from the saved rule,
+    # here one with the guard, changed from public to private and approved.
+    scope = {
+        **_EDIT_SCOPE,
+        "current_rule": json.dumps({"all": [
+            {"fact": "githubRepositoryResolved", "operator": "equal", "value": True},
+            {"fact": "githubVisibility", "operator": "equal", "value": "public"},
+        ]}),
+    }
+    step1 = (
+        "Proposed rule: `githubRepositoryResolved equal true` AND "
+        '`githubVisibility equal "private"`. Shall I change it to that?'
     )
+    chat = [
+        {"role": "user", "content": "Repositories must be private"},
+        {"role": "assistant", "content": step1},
+        {"role": "user", "content": "yes"},
+    ]
+    seen = {}
 
-    assert not built or "githubRepositoryResolved" in built[0]
+    _events, built = await _turn(monkeypatch, chat, _GUARDED_DRAFT, scope=scope, seen=seen)
+
+    assert seen["edit_phase"] == "apply"
+    assert len(built) == 1
+    assert "githubRepositoryResolved" in built[0]
+    assert '"private"' in built[0]
 
 
 
