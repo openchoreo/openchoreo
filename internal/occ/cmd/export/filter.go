@@ -56,7 +56,7 @@ func copyResourceDocument(resource Resource) (resourceDocument, error) {
 		return nil, fmt.Errorf("API object is required")
 	}
 	// Set the Namespace type metadata.
-	if resource.Kind == "Namespace" {
+	if resource.Kind == namespaceKind {
 		document["apiVersion"] = "v1"
 		document["kind"] = resource.Kind
 	}

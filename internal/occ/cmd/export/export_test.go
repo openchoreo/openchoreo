@@ -71,7 +71,7 @@ func TestRun_ExportsFilteredObjects(t *testing.T) {
 	}
 	require.NoError(t, yaml.Unmarshal(data, &namespace))
 	assert.Equal(t, "v1", namespace.APIVersion)
-	assert.Equal(t, testNamespaceKind, namespace.Kind)
+	assert.Equal(t, namespaceKind, namespace.Kind)
 }
 
 func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
@@ -80,7 +80,7 @@ func TestRun_PreservesComponentNumbersFromHTTP(t *testing.T) {
 		if req.URL.Path != testComponentsPath {
 			return nil, nil
 		}
-		object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+		object := fixtureObject(collectionFixture{kind: componentKind, path: "components"}, req.URL.Path, 0)
 		object["spec"].(map[string]any)["parameters"] = map[string]any{
 			"decimal": json.Number("1.234567890123456789"),
 			"large":   json.Number("9007199254740993"),
@@ -109,12 +109,12 @@ func TestRun_ExportsEndpointResourcesAndNotificationChannels(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, FileCounts{Created: len(result.Files)}, result.Counts)
 	expected := []struct{ kind, collection, name string }{
-		{"ClusterEndpointType", "clusterendpointtypes", "platform-shared/endpoint-types/clusterendpointtypes-0.yaml"},
-		{"EndpointType", "endpointtypes", "namespaces/acme/platform/endpoint-types/endpointtypes-0.yaml"},
-		{"Endpoint", "endpoints", "namespaces/acme/projects/store/endpoints/endpoints-0/endpoint.yaml"},
-		{"EndpointRelease", "endpointreleases", "namespaces/acme/projects/store/endpoints/public-api/releases/endpointreleases-0.yaml"},
-		{"EndpointReleaseBinding", "endpointreleasebindings", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/endpointreleasebindings-0.yaml"},
-		{"ObservabilityAlertsNotificationChannel", "observabilityalertsnotificationchannels", "namespaces/acme/platform/infra/observability-alerts-notification-channels/observabilityalertsnotificationchannels-0.yaml"},
+		{clusterEndpointTypeKind, "clusterendpointtypes", "platform-shared/endpoint-types/clusterendpointtypes-0.yaml"},
+		{endpointTypeKind, "endpointtypes", "namespaces/acme/platform/endpoint-types/endpointtypes-0.yaml"},
+		{endpointKind, "endpoints", "namespaces/acme/projects/store/endpoints/endpoints-0/endpoint.yaml"},
+		{endpointReleaseKind, "endpointreleases", "namespaces/acme/projects/store/endpoints/public-api/releases/endpointreleases-0.yaml"},
+		{endpointReleaseBindingKind, "endpointreleasebindings", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/endpointreleasebindings-0.yaml"},
+		{observabilityAlertsNotificationChannelKind, "observabilityalertsnotificationchannels", "namespaces/acme/platform/infra/observability-alerts-notification-channels/observabilityalertsnotificationchannels-0.yaml"},
 	}
 	for _, tc := range expected {
 		data, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(tc.name)))
@@ -123,7 +123,7 @@ func TestRun_ExportsEndpointResourcesAndNotificationChannels(t *testing.T) {
 		require.NoError(t, yaml.UnmarshalStrict(data, &document), tc.kind)
 		assert.NotContains(t, document, "status")
 		path := "/api/v1/namespaces/acme/" + tc.collection
-		if tc.kind == "ClusterEndpointType" {
+		if tc.kind == clusterEndpointTypeKind {
 			path = "/api/v1/" + tc.collection
 		}
 		object := fixtureObject(collectionFixture{kind: tc.kind, path: tc.collection}, path, 0)
@@ -160,7 +160,7 @@ func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *t
 				return testutil.JSONResp(http.StatusOK, profile), nil
 			}
 			directory := t.TempDir()
-			seedFiles(t, directory, serializedResources(t, manifestResource("Endpoint")))
+			seedFiles(t, directory, serializedResources(t, manifestResource(endpointKind)))
 			before := snapshotTree(t, directory)
 			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
 			require.ErrorIs(t, err, errExportPermissionDenied)
@@ -174,24 +174,24 @@ func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *t
 func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 	// Free-form fields include nested schema defaults.
 	fields := map[string][]string{
-		testComponentKind:        {"parameters"},
-		"ReleaseBinding":         {"componentTypeEnvironmentConfigs"},
-		testReleaseLineKind:      {"parameters"},
-		testComponentReleaseKind: {"componentProfile", "parameters"},
-		"ComponentType":          {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"ClusterComponentType":   {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"Trait":                  {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"ClusterTrait":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"Resource":               {"parameters"},
-		"ResourceRelease":        {"parameters"},
-		"ProjectRelease":         {"parameters"},
-		"ResourceType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"ClusterResourceType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"Endpoint":               {"parameters"},
-		"EndpointRelease":        {"parameters"},
-		"EndpointReleaseBinding": {"endpointTypeEnvironmentConfigs"},
-		"EndpointType":           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
-		"ClusterEndpointType":    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		componentKind:              {"parameters"},
+		releaseBindingKind:         {"componentTypeEnvironmentConfigs"},
+		releaseLineKind:            {"parameters"},
+		componentReleaseKind:       {"componentProfile", "parameters"},
+		componentTypeKind:          {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		clusterComponentTypeKind:   {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		traitKind:                  {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		clusterTraitKind:           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		resourceKind:               {"parameters"},
+		resourceReleaseKind:        {"parameters"},
+		projectReleaseKind:         {"parameters"},
+		resourceTypeKind:           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		clusterResourceTypeKind:    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		endpointKind:               {"parameters"},
+		endpointReleaseKind:        {"parameters"},
+		endpointReleaseBindingKind: {"endpointTypeEnvironmentConfigs"},
+		endpointTypeKind:           {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
+		clusterEndpointTypeKind:    {"parameters", "openAPIV3Schema", "properties", "payload", "default"},
 	}
 	f := newFetchFixture(t, true)
 	f.override = func(req *http.Request) (*http.Response, error) {
@@ -212,7 +212,7 @@ func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 			spec = make(map[string]any)
 			object["spec"] = spec
 		}
-		if collection.kind == testReleaseLineKind {
+		if collection.kind == releaseLineKind {
 			spec["owner"] = map[string]string{"projectName": "store", "componentName": strings.Split(req.URL.Path, "/")[6]}
 		}
 		container := spec
@@ -282,7 +282,7 @@ func TestRun_PreservesLiteralMergeKeys(t *testing.T) {
 				if req.URL.Path != testComponentsPath {
 					return nil, nil
 				}
-				object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+				object := fixtureObject(collectionFixture{kind: componentKind, path: "components"}, req.URL.Path, 0)
 				object["spec"].(map[string]any)["parameters"] = parameters
 				return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
 			}
@@ -354,7 +354,7 @@ func TestRun_RejectsIncompleteReadAccessBeforeFetching(t *testing.T) {
 				return testutil.JSONResp(http.StatusOK, profile), nil
 			}
 			directory := t.TempDir()
-			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+			seedFiles(t, directory, serializedResources(t, manifestResource(componentKind)))
 			before := snapshotTree(t, directory)
 			homeDir, err := os.UserHomeDir()
 			require.NoError(t, err)
@@ -448,7 +448,7 @@ func TestRun_RequiresGeneratedClientAccess(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFetchFixture(t, false)
 			directory := t.TempDir()
-			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
+			seedFiles(t, directory, serializedResources(t, manifestResource(componentKind)))
 			before := snapshotTree(t, directory)
 			result, err := Run(context.Background(), tc.wrap(f.client), Params{OutputDir: directory})
 			require.ErrorContains(t, err, tc.wantErr)
@@ -516,7 +516,7 @@ func TestRun_SerializationErrorDoesNotCreateOutput(t *testing.T) {
 	f := newFetchFixture(t, false)
 	f.override = func(req *http.Request) (*http.Response, error) {
 		if req.URL.Path == testComponentsPath {
-			object := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+			object := fixtureObject(collectionFixture{kind: componentKind, path: "components"}, req.URL.Path, 0)
 			delete(object, "spec")
 			return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{object}, "pagination": map[string]any{}}), nil
 		}
@@ -575,9 +575,9 @@ func TestRun_DeletingObjectsAreNotSerialized(t *testing.T) {
 		var collection collectionFixture
 		switch req.URL.Path {
 		case "/api/v1/clustertraits":
-			collection = collectionFixture{kind: "ClusterTrait", path: "clustertraits"}
+			collection = collectionFixture{kind: clusterTraitKind, path: "clustertraits"}
 		case testComponentsPath:
-			collection = collectionFixture{kind: testComponentKind, path: "components"}
+			collection = collectionFixture{kind: componentKind, path: "components"}
 		default:
 			return nil, nil
 		}
@@ -705,7 +705,7 @@ func TestRun_ExportsReleaseLineConfigurationAndSynchronizesItsFile(t *testing.T)
 	f.override = func(req *http.Request) (*http.Response, error) {
 		switch req.URL.Path {
 		case testComponentsPath:
-			component := fixtureObject(collectionFixture{kind: testComponentKind, path: "components"}, req.URL.Path, 0)
+			component := fixtureObject(collectionFixture{kind: componentKind, path: "components"}, req.URL.Path, 0)
 			component["metadata"].(map[string]any)["name"] = "backend"
 			return testutil.JSONResp(http.StatusOK, map[string]any{"items": []any{component}, "pagination": map[string]any{}}), nil
 		case "/api/v1/namespaces/acme/components/backend/releaselines":
@@ -734,7 +734,7 @@ func TestRun_ExportsReleaseLineConfigurationAndSynchronizesItsFile(t *testing.T)
 	require.NoError(t, err)
 	var document map[string]any
 	require.NoError(t, yaml.Unmarshal(data, &document))
-	assert.Equal(t, testReleaseLineKind, document["kind"])
+	assert.Equal(t, releaseLineKind, document["kind"])
 	assert.Equal(t, map[string]any{
 		"owner":      map[string]any{"projectName": "store", "componentName": "backend"},
 		"autoDeploy": false,

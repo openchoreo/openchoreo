@@ -36,7 +36,7 @@ const (
 
 func manifestResource(kind string) Resource {
 	namespace := testExportNamespace
-	if kind == testNamespaceKind || strings.HasPrefix(kind, "Cluster") {
+	if kind == namespaceKind || strings.HasPrefix(kind, "Cluster") {
 		namespace = ""
 	}
 	metadata := map[string]any{"name": testExportName}
@@ -44,7 +44,7 @@ func manifestResource(kind string) Resource {
 		metadata["namespace"] = namespace
 	}
 	version := testExportVersion
-	if kind == testNamespaceKind {
+	if kind == namespaceKind {
 		version = "v1"
 	}
 	return Resource{
@@ -60,47 +60,47 @@ func manifestResource(kind string) Resource {
 
 func TestSerialize_RequiredLayout(t *testing.T) {
 	for _, tc := range []struct{ kind, path string }{
-		{"ClusterProjectType", "platform-shared/project-types/sample.yaml"},
-		{"ClusterComponentType", "platform-shared/component-types/sample.yaml"},
-		{"ClusterResourceType", "platform-shared/resource-types/sample.yaml"},
-		{"ClusterEndpointType", "platform-shared/endpoint-types/sample.yaml"},
-		{"ClusterTrait", "platform-shared/traits/sample.yaml"},
-		{"ClusterWorkflow", "platform-shared/workflows/sample.yaml"},
-		{"ClusterDataPlane", "platform-shared/infra/data-planes/sample.yaml"},
-		{"ClusterWorkflowPlane", "platform-shared/infra/workflow-planes/sample.yaml"},
-		{"ClusterObservabilityPlane", "platform-shared/infra/observability-planes/sample.yaml"},
-		{"ClusterAuthzRole", "platform-shared/authz/roles/sample.yaml"},
-		{"ClusterAuthzRoleBinding", "platform-shared/authz/role-bindings/sample.yaml"},
-		{testNamespaceKind, "namespaces/sample/namespace.yaml"},
-		{"DeploymentPipeline", "namespaces/acme/platform/infra/deployment-pipelines/sample.yaml"},
-		{"Environment", "namespaces/acme/platform/infra/environments/sample.yaml"},
-		{"DataPlane", "namespaces/acme/platform/infra/data-planes/sample.yaml"},
-		{"WorkflowPlane", "namespaces/acme/platform/infra/workflow-planes/sample.yaml"},
-		{"ObservabilityPlane", "namespaces/acme/platform/infra/observability-planes/sample.yaml"},
-		{"ObservabilityAlertsNotificationChannel", "namespaces/acme/platform/infra/observability-alerts-notification-channels/sample.yaml"},
-		{"ProjectType", "namespaces/acme/platform/project-types/sample.yaml"},
-		{"ComponentType", "namespaces/acme/platform/component-types/sample.yaml"},
-		{"ResourceType", "namespaces/acme/platform/resource-types/sample.yaml"},
-		{"EndpointType", "namespaces/acme/platform/endpoint-types/sample.yaml"},
-		{"Trait", "namespaces/acme/platform/traits/sample.yaml"},
-		{"Workflow", "namespaces/acme/platform/workflows/sample.yaml"},
-		{"AuthzRole", "namespaces/acme/platform/authz/roles/sample.yaml"},
-		{"AuthzRoleBinding", "namespaces/acme/platform/authz/role-bindings/sample.yaml"},
-		{"SecretReference", "namespaces/acme/platform/secret-references/sample.yaml"},
-		{"Project", "namespaces/acme/projects/sample/project.yaml"},
-		{"ProjectRelease", "namespaces/acme/projects/store/releases/sample.yaml"},
-		{"ProjectReleaseBinding", "namespaces/acme/projects/store/release-bindings/sample.yaml"},
-		{testComponentKind, "namespaces/acme/projects/store/components/sample/component.yaml"},
-		{testReleaseLineKind, "namespaces/acme/projects/store/components/backend/release-lines/sample.yaml"},
-		{testWorkloadKind, "namespaces/acme/projects/store/components/backend/workloads/sample.yaml"},
-		{"ComponentRelease", "namespaces/acme/projects/store/components/backend/releases/sample.yaml"},
-		{"ReleaseBinding", "namespaces/acme/projects/store/components/backend/release-bindings/sample.yaml"},
-		{"Resource", "namespaces/acme/projects/store/resources/sample/resource.yaml"},
-		{"ResourceRelease", "namespaces/acme/projects/store/resources/database/releases/sample.yaml"},
-		{"ResourceReleaseBinding", "namespaces/acme/projects/store/resources/database/release-bindings/sample.yaml"},
-		{"Endpoint", "namespaces/acme/projects/store/endpoints/sample/endpoint.yaml"},
-		{"EndpointRelease", "namespaces/acme/projects/store/endpoints/public-api/releases/sample.yaml"},
-		{"EndpointReleaseBinding", "namespaces/acme/projects/store/endpoints/public-api/release-bindings/sample.yaml"},
+		{clusterProjectTypeKind, "platform-shared/project-types/sample.yaml"},
+		{clusterComponentTypeKind, "platform-shared/component-types/sample.yaml"},
+		{clusterResourceTypeKind, "platform-shared/resource-types/sample.yaml"},
+		{clusterEndpointTypeKind, "platform-shared/endpoint-types/sample.yaml"},
+		{clusterTraitKind, "platform-shared/traits/sample.yaml"},
+		{clusterWorkflowKind, "platform-shared/workflows/sample.yaml"},
+		{clusterDataPlaneKind, "platform-shared/infra/data-planes/sample.yaml"},
+		{clusterWorkflowPlaneKind, "platform-shared/infra/workflow-planes/sample.yaml"},
+		{clusterObservabilityPlaneKind, "platform-shared/infra/observability-planes/sample.yaml"},
+		{clusterAuthzRoleKind, "platform-shared/authz/roles/sample.yaml"},
+		{clusterAuthzRoleBindingKind, "platform-shared/authz/role-bindings/sample.yaml"},
+		{namespaceKind, "namespaces/sample/namespace.yaml"},
+		{deploymentPipelineKind, "namespaces/acme/platform/infra/deployment-pipelines/sample.yaml"},
+		{environmentKind, "namespaces/acme/platform/infra/environments/sample.yaml"},
+		{dataPlaneKind, "namespaces/acme/platform/infra/data-planes/sample.yaml"},
+		{workflowPlaneKind, "namespaces/acme/platform/infra/workflow-planes/sample.yaml"},
+		{observabilityPlaneKind, "namespaces/acme/platform/infra/observability-planes/sample.yaml"},
+		{observabilityAlertsNotificationChannelKind, "namespaces/acme/platform/infra/observability-alerts-notification-channels/sample.yaml"},
+		{projectTypeKind, "namespaces/acme/platform/project-types/sample.yaml"},
+		{componentTypeKind, "namespaces/acme/platform/component-types/sample.yaml"},
+		{resourceTypeKind, "namespaces/acme/platform/resource-types/sample.yaml"},
+		{endpointTypeKind, "namespaces/acme/platform/endpoint-types/sample.yaml"},
+		{traitKind, "namespaces/acme/platform/traits/sample.yaml"},
+		{workflowKind, "namespaces/acme/platform/workflows/sample.yaml"},
+		{authzRoleKind, "namespaces/acme/platform/authz/roles/sample.yaml"},
+		{authzRoleBindingKind, "namespaces/acme/platform/authz/role-bindings/sample.yaml"},
+		{secretReferenceKind, "namespaces/acme/platform/secret-references/sample.yaml"},
+		{projectKind, "namespaces/acme/projects/sample/project.yaml"},
+		{projectReleaseKind, "namespaces/acme/projects/store/releases/sample.yaml"},
+		{projectReleaseBindingKind, "namespaces/acme/projects/store/release-bindings/sample.yaml"},
+		{componentKind, "namespaces/acme/projects/store/components/sample/component.yaml"},
+		{releaseLineKind, "namespaces/acme/projects/store/components/backend/release-lines/sample.yaml"},
+		{workloadKind, "namespaces/acme/projects/store/components/backend/workloads/sample.yaml"},
+		{componentReleaseKind, "namespaces/acme/projects/store/components/backend/releases/sample.yaml"},
+		{releaseBindingKind, "namespaces/acme/projects/store/components/backend/release-bindings/sample.yaml"},
+		{resourceKind, "namespaces/acme/projects/store/resources/sample/resource.yaml"},
+		{resourceReleaseKind, "namespaces/acme/projects/store/resources/database/releases/sample.yaml"},
+		{resourceReleaseBindingKind, "namespaces/acme/projects/store/resources/database/release-bindings/sample.yaml"},
+		{endpointKind, "namespaces/acme/projects/store/endpoints/sample/endpoint.yaml"},
+		{endpointReleaseKind, "namespaces/acme/projects/store/endpoints/public-api/releases/sample.yaml"},
+		{endpointReleaseBindingKind, "namespaces/acme/projects/store/endpoints/public-api/release-bindings/sample.yaml"},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			resource := manifestResource(tc.kind)
@@ -143,15 +143,15 @@ func TestPortablePathPart(t *testing.T) {
 
 func TestSerialize_PortableNames(t *testing.T) {
 	for _, tc := range []struct{ kind, name, namespace, path string }{
-		{testComponentKind, "nul", "acme", "namespaces/acme/projects/~con/components/~nul/component.yaml"},
-		{testComponentKind, "~nul", "acme", "namespaces/acme/projects/~con/components/~~nul/component.yaml"},
-		{testWorkloadKind, "LPT9", "nul", "namespaces/~nul/projects/~con/components/~aux/workloads/~LPT9.yaml"},
-		{testNamespaceKind, "aux", "", "namespaces/~aux/namespace.yaml"},
-		{"Project", "prn", "acme", "namespaces/acme/projects/~prn/project.yaml"},
-		{"Resource", "con", "acme", "namespaces/acme/projects/~con/resources/~con/resource.yaml"},
-		{"ResourceRelease", "nul.txt", "acme", "namespaces/acme/projects/~con/resources/~prn/releases/~nul.txt.yaml"},
-		{"ProjectRelease", "lpt1", "acme", "namespaces/acme/projects/~con/releases/~lpt1.yaml"},
-		{"ClusterTrait", "aux", "", "platform-shared/traits/~aux.yaml"},
+		{componentKind, "nul", "acme", "namespaces/acme/projects/~con/components/~nul/component.yaml"},
+		{componentKind, "~nul", "acme", "namespaces/acme/projects/~con/components/~~nul/component.yaml"},
+		{workloadKind, "LPT9", "nul", "namespaces/~nul/projects/~con/components/~aux/workloads/~LPT9.yaml"},
+		{namespaceKind, "aux", "", "namespaces/~aux/namespace.yaml"},
+		{projectKind, "prn", "acme", "namespaces/acme/projects/~prn/project.yaml"},
+		{resourceKind, "con", "acme", "namespaces/acme/projects/~con/resources/~con/resource.yaml"},
+		{resourceReleaseKind, "nul.txt", "acme", "namespaces/acme/projects/~con/resources/~prn/releases/~nul.txt.yaml"},
+		{projectReleaseKind, "lpt1", "acme", "namespaces/acme/projects/~con/releases/~lpt1.yaml"},
+		{clusterTraitKind, "aux", "", "platform-shared/traits/~aux.yaml"},
 	} {
 		t.Run(tc.kind+"/"+tc.name, func(t *testing.T) {
 			resource := manifestResource(tc.kind)
@@ -180,13 +180,13 @@ func TestSerialize_PortableNames(t *testing.T) {
 
 func TestWriteFiles_SynchronizesPortableNames(t *testing.T) {
 	const componentName = "nul"
-	component := manifestResource(testComponentKind)
+	component := manifestResource(componentKind)
 	component.Name = componentName
 	component.Object.(map[string]any)["metadata"].(map[string]any)["name"] = componentName
-	collision := manifestResource(testComponentKind)
+	collision := manifestResource(componentKind)
 	collision.Name = "~nul"
 	collision.Object.(map[string]any)["metadata"].(map[string]any)["name"] = "~nul"
-	workload := manifestResource(testWorkloadKind)
+	workload := manifestResource(workloadKind)
 	workload.Name = "aux"
 	workload.Object.(map[string]any)["metadata"].(map[string]any)["name"] = "aux"
 	workload.Object.(map[string]any)["spec"].(map[string]any)["owner"].(map[string]any)["componentName"] = componentName
@@ -226,7 +226,7 @@ func TestSerialize_RejectsInvalidResources(t *testing.T) {
 		{"unencodable object", func(r *Resource, _ map[string]any) { r.Object = make(chan int) }, "copy API object"},
 		{"mismatched name", func(_ *Resource, object map[string]any) { object["metadata"].(map[string]any)["name"] = "other" }, "metadata does not match"},
 		{"mismatched namespace", func(_ *Resource, object map[string]any) { object["metadata"].(map[string]any)["namespace"] = "other" }, "metadata does not match"},
-		{"mismatched kind", func(_ *Resource, object map[string]any) { object["kind"] = "Project" }, "matching kind"},
+		{"mismatched kind", func(_ *Resource, object map[string]any) { object["kind"] = projectKind }, "matching kind"},
 		{"missing version", func(_ *Resource, object map[string]any) { delete(object, "apiVersion") }, "apiVersion"},
 		{"invalid spec", func(_ *Resource, object map[string]any) { object["spec"] = []any{} }, "must be within JSON objects"},
 		{"invalid owner", func(_ *Resource, object map[string]any) { object["spec"].(map[string]any)["owner"] = true }, "must be within JSON objects"},
@@ -248,9 +248,9 @@ func TestSerialize_RejectsInvalidResources(t *testing.T) {
 		}, "safe path component"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resource := manifestResource(testComponentKind)
+			resource := manifestResource(componentKind)
 			tc.change(&resource, resource.Object.(map[string]any))
-			files, err := Serialize(context.Background(), []Resource{manifestResource("Environment"), resource})
+			files, err := Serialize(context.Background(), []Resource{manifestResource(environmentKind), resource})
 			require.ErrorContains(t, err, tc.want)
 			assert.Nil(t, files, "a serialization error must discard prepared results")
 		})
@@ -258,14 +258,14 @@ func TestSerialize_RejectsInvalidResources(t *testing.T) {
 }
 
 func TestSerialize_DuplicatePaths(t *testing.T) {
-	resource := manifestResource(testWorkloadKind)
+	resource := manifestResource(workloadKind)
 	files, err := Serialize(context.Background(), []Resource{resource, resource})
 	require.ErrorContains(t, err, "duplicate export path")
 	assert.Nil(t, files)
 }
 
 func TestSerialize_MultipleWorkloadsAndStableOrder(t *testing.T) {
-	first, second := manifestResource(testWorkloadKind), manifestResource(testWorkloadKind)
+	first, second := manifestResource(workloadKind), manifestResource(workloadKind)
 	second.Name = "another"
 	second.Object.(map[string]any)["metadata"].(map[string]any)["name"] = second.Name
 	files, err := Serialize(context.Background(), []Resource{first, second})
@@ -287,7 +287,7 @@ func TestSerialize_FetchedTypedObjects(t *testing.T) {
 	require.Len(t, files, len(resources))
 	var component Resource
 	for _, resource := range resources {
-		if resource.Kind == testComponentKind && resource.Namespace == testExportNamespace {
+		if resource.Kind == componentKind && resource.Namespace == testExportNamespace {
 			component = resource
 			break
 		}
@@ -307,7 +307,7 @@ func TestSerialize_FetchedTypedObjects(t *testing.T) {
 }
 
 func TestSerialize_PreservesValueTypes(t *testing.T) {
-	resource := manifestResource(testComponentKind)
+	resource := manifestResource(componentKind)
 	object := resource.Object.(map[string]any)
 	object["spec"].(map[string]any)["parameters"] = map[string]any{
 		"text": "yes", "numberText": "123", "nullText": "null", "enabled": false,
@@ -325,7 +325,7 @@ func TestSerialize_PreservesValueTypes(t *testing.T) {
 }
 
 func TestSerialize_PreservesNumberLiterals(t *testing.T) {
-	resource := manifestResource(testComponentKind)
+	resource := manifestResource(componentKind)
 	resource.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{
 		"decimal":  json.Number("1.234567890123456789"),
 		"large":    json.Number("9007199254740993"),
@@ -370,7 +370,7 @@ func TestSerialize_PreservesNumberLiterals(t *testing.T) {
 func TestSerialize_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	files, err := Serialize(ctx, []Resource{manifestResource(testComponentKind)})
+	files, err := Serialize(ctx, []Resource{manifestResource(componentKind)})
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Nil(t, files)
 }
@@ -379,7 +379,7 @@ func TestSerialize_NamespaceEnvelopePreservesAPIFields(t *testing.T) {
 	uid := "namespace-uid"
 	phase := gen.NamespaceStatusPhase("Active")
 	resource := Resource{
-		Kind: testNamespaceKind, Name: testExportNamespace,
+		Kind: namespaceKind, Name: testExportNamespace,
 		Object: gen.Namespace{
 			Metadata: gen.ObjectMeta{Name: testExportNamespace, Uid: &uid},
 			Status:   &gen.NamespaceStatus{Phase: &phase},
@@ -509,9 +509,9 @@ func snapshotTree(t *testing.T, directory string) map[string]treeEntry {
 
 func TestWriteFiles_SynchronizesOnlyLayoutManagedManifests(t *testing.T) {
 	directory := t.TempDir()
-	component := manifestResource(testComponentKind)
-	project := manifestResource("Project")
-	old := serializedResources(t, component, project, manifestResource(testWorkloadKind))
+	component := manifestResource(componentKind)
+	project := manifestResource(projectKind)
+	old := serializedResources(t, component, project, manifestResource(workloadKind))
 	seedFiles(t, directory, old)
 	unrelated := []SerializedFile{
 		{Path: ".github/workflows/ci.yaml", Data: []byte("name: CI\n")},
@@ -526,7 +526,7 @@ func TestWriteFiles_SynchronizesOnlyLayoutManagedManifests(t *testing.T) {
 	before, err := os.Stat(projectPath)
 	require.NoError(t, err)
 	component.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 3}
-	current := serializedResources(t, component, project, manifestResource("Environment"))
+	current := serializedResources(t, component, project, manifestResource(environmentKind))
 	counts, err := writeFiles(context.Background(), directory, current, writeOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, FileCounts{Created: 1, Updated: 1, Unchanged: 1, Deleted: 1}, counts)
@@ -572,7 +572,7 @@ func TestWriteFiles_PermissionsRespectUmask(t *testing.T) {
 	require.NoError(t, os.Mkdir(parent, 0o750))
 	require.NoError(t, os.Chmod(parent, 0o750))
 	directory := filepath.Join(parent, "nested", "export")
-	files := serializedResources(t, manifestResource(testNamespaceKind))
+	files := serializedResources(t, manifestResource(namespaceKind))
 	_, err = writeFiles(context.Background(), directory, files, writeOptions{})
 	require.NoError(t, err)
 	for _, name := range []string{filepath.Dir(directory), directory,
@@ -608,7 +608,7 @@ func TestWriteFiles_PermissionsRespectUmask(t *testing.T) {
 }
 
 func TestManagedManifest_RequiresExactLayoutIdentityAndSingleDocument(t *testing.T) {
-	file := serializedResources(t, manifestResource(testComponentKind))[0]
+	file := serializedResources(t, manifestResource(componentKind))[0]
 	for _, tc := range []struct {
 		name string
 		path string
@@ -634,12 +634,12 @@ func TestManagedManifest_RequiresExactLayoutIdentityAndSingleDocument(t *testing
 
 func TestFileTransaction_RollsBackCreatesUpdatesDeletesAndDirectories(t *testing.T) {
 	directory := t.TempDir()
-	component := manifestResource(testComponentKind)
-	seedFiles(t, directory, serializedResources(t, component, manifestResource(testWorkloadKind)))
+	component := manifestResource(componentKind)
+	seedFiles(t, directory, serializedResources(t, component, manifestResource(workloadKind)))
 	seedFiles(t, directory, []SerializedFile{{Path: "README.md", Data: []byte("unrelated\n")}})
 	before := snapshotTree(t, directory)
 	component.Object.(map[string]any)["spec"].(map[string]any)["parameters"] = map[string]any{"replicas": 5}
-	files := serializedResources(t, component, manifestResource("Environment"))
+	files := serializedResources(t, component, manifestResource(environmentKind))
 	root, err := os.OpenRoot(directory)
 	require.NoError(t, err)
 	defer root.Close()
@@ -661,7 +661,7 @@ func TestFileTransaction_RollsBackCreatesUpdatesDeletesAndDirectories(t *testing
 
 func TestFileTransaction_RollsBackMidApplyFailure(t *testing.T) {
 	directory := t.TempDir()
-	resources := []Resource{manifestResource("Project"), manifestResource(testComponentKind)}
+	resources := []Resource{manifestResource(projectKind), manifestResource(componentKind)}
 	seedFiles(t, directory, serializedResources(t, resources...))
 	before := snapshotTree(t, directory)
 	for _, resource := range resources {
@@ -886,7 +886,7 @@ func TestFileTransaction_RollbackPreservesConcurrentChanges(t *testing.T) {
 
 func TestWriteFiles_EmptyExportDeletesManagedManifests(t *testing.T) {
 	directory := t.TempDir()
-	seedFiles(t, directory, serializedResources(t, manifestResource("Project")))
+	seedFiles(t, directory, serializedResources(t, manifestResource(projectKind)))
 	seedFiles(t, directory, []SerializedFile{{Path: "README.md", Data: []byte("keep\n")}})
 	counts, err := writeFiles(context.Background(), directory, nil, writeOptions{})
 	require.NoError(t, err)

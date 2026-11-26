@@ -43,47 +43,47 @@ type resourceLayout struct {
 
 // resourceLayouts maps supported kinds to export scopes and paths.
 var resourceLayouts = map[string]resourceLayout{
-	"ClusterProjectType":                     {scope: clusterScope, directory: "project-types"},
-	"ClusterComponentType":                   {scope: clusterScope, directory: "component-types"},
-	"ClusterResourceType":                    {scope: clusterScope, directory: "resource-types"},
-	"ClusterEndpointType":                    {scope: clusterScope, directory: "endpoint-types"},
-	"ClusterTrait":                           {scope: clusterScope, directory: "traits"},
-	"ClusterWorkflow":                        {scope: clusterScope, directory: "workflows"},
-	"ClusterDataPlane":                       {scope: clusterScope, directory: "infra/data-planes"},
-	"ClusterWorkflowPlane":                   {scope: clusterScope, directory: "infra/workflow-planes"},
-	"ClusterObservabilityPlane":              {scope: clusterScope, directory: "infra/observability-planes"},
-	"ClusterAuthzRole":                       {scope: clusterScope, directory: "authz/roles"},
-	"ClusterAuthzRoleBinding":                {scope: clusterScope, directory: "authz/role-bindings"},
-	"Namespace":                              {scope: namespaceScope, filename: "namespace.yaml"},
-	"DeploymentPipeline":                     {scope: platformScope, directory: "infra/deployment-pipelines"},
-	"Environment":                            {scope: platformScope, directory: "infra/environments"},
-	"DataPlane":                              {scope: platformScope, directory: "infra/data-planes"},
-	"WorkflowPlane":                          {scope: platformScope, directory: "infra/workflow-planes"},
-	"ObservabilityPlane":                     {scope: platformScope, directory: "infra/observability-planes"},
-	"ObservabilityAlertsNotificationChannel": {scope: platformScope, directory: "infra/observability-alerts-notification-channels"},
-	"ProjectType":                            {scope: platformScope, directory: "project-types"},
-	"ComponentType":                          {scope: platformScope, directory: "component-types"},
-	"ResourceType":                           {scope: platformScope, directory: "resource-types"},
-	"EndpointType":                           {scope: platformScope, directory: "endpoint-types"},
-	"Trait":                                  {scope: platformScope, directory: "traits"},
-	"Workflow":                               {scope: platformScope, directory: "workflows"},
-	"AuthzRole":                              {scope: platformScope, directory: "authz/roles"},
-	"AuthzRoleBinding":                       {scope: platformScope, directory: "authz/role-bindings"},
-	"SecretReference":                        {scope: platformScope, directory: "secret-references"},
-	"Project":                                {scope: projectScope, filename: "project.yaml"},
-	"ProjectRelease":                         {scope: projectScope, directory: "releases"},
-	"ProjectReleaseBinding":                  {scope: projectScope, directory: "release-bindings"},
-	"Component":                              {scope: componentScope, filename: "component.yaml"},
-	"ReleaseLine":                            {scope: componentScope, directory: "release-lines"},
-	"Workload":                               {scope: componentScope, directory: "workloads"},
-	"ComponentRelease":                       {scope: componentScope, directory: "releases"},
-	"ReleaseBinding":                         {scope: componentScope, directory: "release-bindings"},
-	"Resource":                               {scope: resourceScopeLevel, filename: "resource.yaml"},
-	"ResourceRelease":                        {scope: resourceScopeLevel, directory: "releases"},
-	"ResourceReleaseBinding":                 {scope: resourceScopeLevel, directory: "release-bindings"},
-	"Endpoint":                               {scope: endpointScope, filename: "endpoint.yaml"},
-	"EndpointRelease":                        {scope: endpointScope, directory: "releases"},
-	"EndpointReleaseBinding":                 {scope: endpointScope, directory: "release-bindings"},
+	clusterProjectTypeKind:                     {scope: clusterScope, directory: "project-types"},
+	clusterComponentTypeKind:                   {scope: clusterScope, directory: "component-types"},
+	clusterResourceTypeKind:                    {scope: clusterScope, directory: "resource-types"},
+	clusterEndpointTypeKind:                    {scope: clusterScope, directory: "endpoint-types"},
+	clusterTraitKind:                           {scope: clusterScope, directory: "traits"},
+	clusterWorkflowKind:                        {scope: clusterScope, directory: "workflows"},
+	clusterDataPlaneKind:                       {scope: clusterScope, directory: "infra/data-planes"},
+	clusterWorkflowPlaneKind:                   {scope: clusterScope, directory: "infra/workflow-planes"},
+	clusterObservabilityPlaneKind:              {scope: clusterScope, directory: "infra/observability-planes"},
+	clusterAuthzRoleKind:                       {scope: clusterScope, directory: "authz/roles"},
+	clusterAuthzRoleBindingKind:                {scope: clusterScope, directory: "authz/role-bindings"},
+	namespaceKind:                              {scope: namespaceScope, filename: "namespace.yaml"},
+	deploymentPipelineKind:                     {scope: platformScope, directory: "infra/deployment-pipelines"},
+	environmentKind:                            {scope: platformScope, directory: "infra/environments"},
+	dataPlaneKind:                              {scope: platformScope, directory: "infra/data-planes"},
+	workflowPlaneKind:                          {scope: platformScope, directory: "infra/workflow-planes"},
+	observabilityPlaneKind:                     {scope: platformScope, directory: "infra/observability-planes"},
+	observabilityAlertsNotificationChannelKind: {scope: platformScope, directory: "infra/observability-alerts-notification-channels"},
+	projectTypeKind:                            {scope: platformScope, directory: "project-types"},
+	componentTypeKind:                          {scope: platformScope, directory: "component-types"},
+	resourceTypeKind:                           {scope: platformScope, directory: "resource-types"},
+	endpointTypeKind:                           {scope: platformScope, directory: "endpoint-types"},
+	traitKind:                                  {scope: platformScope, directory: "traits"},
+	workflowKind:                               {scope: platformScope, directory: "workflows"},
+	authzRoleKind:                              {scope: platformScope, directory: "authz/roles"},
+	authzRoleBindingKind:                       {scope: platformScope, directory: "authz/role-bindings"},
+	secretReferenceKind:                        {scope: platformScope, directory: "secret-references"},
+	projectKind:                                {scope: projectScope, filename: "project.yaml"},
+	projectReleaseKind:                         {scope: projectScope, directory: "releases"},
+	projectReleaseBindingKind:                  {scope: projectScope, directory: "release-bindings"},
+	componentKind:                              {scope: componentScope, filename: "component.yaml"},
+	releaseLineKind:                            {scope: componentScope, directory: "release-lines"},
+	workloadKind:                               {scope: componentScope, directory: "workloads"},
+	componentReleaseKind:                       {scope: componentScope, directory: "releases"},
+	releaseBindingKind:                         {scope: componentScope, directory: "release-bindings"},
+	resourceKind:                               {scope: resourceScopeLevel, filename: "resource.yaml"},
+	resourceReleaseKind:                        {scope: resourceScopeLevel, directory: "releases"},
+	resourceReleaseBindingKind:                 {scope: resourceScopeLevel, directory: "release-bindings"},
+	endpointKind:                               {scope: endpointScope, filename: "endpoint.yaml"},
+	endpointReleaseKind:                        {scope: endpointScope, directory: "releases"},
+	endpointReleaseBindingKind:                 {scope: endpointScope, directory: "release-bindings"},
 }
 
 type resourceOwner struct {
@@ -307,7 +307,7 @@ func layoutBase(resource Resource, scope resourceScope, owner resourceOwner) (st
 
 func applicationBase(base string, resource Resource, scope resourceScope, owner resourceOwner) (string, error) {
 	projectName := owner.ProjectName
-	if resource.Kind == "Project" {
+	if resource.Kind == projectKind {
 		projectName = resource.Name
 	}
 	if err := validatePathPart(projectName, "spec.owner.projectName"); err != nil {
@@ -319,7 +319,7 @@ func applicationBase(base string, resource Resource, scope resourceScope, owner 
 	}
 	if scope == componentScope {
 		name := owner.ComponentName
-		if resource.Kind == "Component" {
+		if resource.Kind == componentKind {
 			name = resource.Name
 		}
 		if err := validatePathPart(name, "spec.owner.componentName"); err != nil {
@@ -329,7 +329,7 @@ func applicationBase(base string, resource Resource, scope resourceScope, owner 
 	}
 	if scope == endpointScope {
 		name := owner.EndpointName
-		if resource.Kind == "Endpoint" { //nolint:goconst
+		if resource.Kind == endpointKind {
 			name = resource.Name
 		}
 		if err := validatePathPart(name, "spec.owner.endpointName"); err != nil {
@@ -338,7 +338,7 @@ func applicationBase(base string, resource Resource, scope resourceScope, owner 
 		return path.Join(base, "endpoints", name), nil
 	}
 	name := owner.ResourceName
-	if resource.Kind == "Resource" {
+	if resource.Kind == resourceKind {
 		name = resource.Name
 	}
 	if err := validatePathPart(name, "spec.owner.resourceName"); err != nil {
@@ -595,7 +595,7 @@ func isManagedManifest(name string, data []byte) bool {
 		return false
 	}
 	version := "openchoreo.dev/v1alpha1"
-	if identity.Kind == "Namespace" {
+	if identity.Kind == namespaceKind {
 		version = "v1"
 	}
 	if identity.APIVersion != version {

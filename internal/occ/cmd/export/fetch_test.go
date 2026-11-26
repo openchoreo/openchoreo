@@ -24,14 +24,6 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
 
-const (
-	testComponentKind        = "Component"
-	testComponentReleaseKind = "ComponentRelease"
-	testReleaseLineKind      = "ReleaseLine"
-	testNamespaceKind        = "Namespace"
-	testWorkloadKind         = "Workload"
-)
-
 // collectionFixture defines the expected API collection inventory.
 type collectionFixture struct {
 	kind string
@@ -41,52 +33,52 @@ type collectionFixture struct {
 type fetchContextKey struct{}
 
 var requiredClusterCollections = []collectionFixture{
-	{kind: "ClusterProjectType", path: "clusterprojecttypes"},
-	{kind: "ClusterComponentType", path: "clustercomponenttypes"},
-	{kind: "ClusterResourceType", path: "clusterresourcetypes"},
-	{kind: "ClusterEndpointType", path: "clusterendpointtypes"},
-	{kind: "ClusterTrait", path: "clustertraits"},
-	{kind: "ClusterWorkflow", path: "clusterworkflows"},
-	{kind: "ClusterDataPlane", path: "clusterdataplanes"},
-	{kind: "ClusterWorkflowPlane", path: "clusterworkflowplanes"},
-	{kind: "ClusterObservabilityPlane", path: "clusterobservabilityplanes"},
-	{kind: "ClusterAuthzRole", path: "clusterauthzroles"},
-	{kind: "ClusterAuthzRoleBinding", path: "clusterauthzrolebindings"},
+	{kind: clusterProjectTypeKind, path: "clusterprojecttypes"},
+	{kind: clusterComponentTypeKind, path: "clustercomponenttypes"},
+	{kind: clusterResourceTypeKind, path: "clusterresourcetypes"},
+	{kind: clusterEndpointTypeKind, path: "clusterendpointtypes"},
+	{kind: clusterTraitKind, path: "clustertraits"},
+	{kind: clusterWorkflowKind, path: "clusterworkflows"},
+	{kind: clusterDataPlaneKind, path: "clusterdataplanes"},
+	{kind: clusterWorkflowPlaneKind, path: "clusterworkflowplanes"},
+	{kind: clusterObservabilityPlaneKind, path: "clusterobservabilityplanes"},
+	{kind: clusterAuthzRoleKind, path: "clusterauthzroles"},
+	{kind: clusterAuthzRoleBindingKind, path: "clusterauthzrolebindings"},
 }
 
 var requiredNamespacedCollections = []collectionFixture{
-	{kind: "DeploymentPipeline", path: "deploymentpipelines"},
-	{kind: "Environment", path: "environments"},
-	{kind: "DataPlane", path: "dataplanes"},
-	{kind: "WorkflowPlane", path: "workflowplanes"},
-	{kind: "ObservabilityPlane", path: "observabilityplanes"},
-	{kind: "ProjectType", path: "projecttypes"},
-	{kind: "ComponentType", path: "componenttypes"},
-	{kind: "ResourceType", path: "resourcetypes"},
-	{kind: "EndpointType", path: "endpointtypes"},
-	{kind: "Trait", path: "traits"},
-	{kind: "Workflow", path: "workflows"},
-	{kind: "AuthzRole", path: "authzroles"},
-	{kind: "AuthzRoleBinding", path: "authzrolebindings"},
-	{kind: "SecretReference", path: "secretreferences"},
-	{kind: "Project", path: "projects"},
-	{kind: "ProjectRelease", path: "projectreleases"},
-	{kind: "ProjectReleaseBinding", path: "projectreleasebindings"},
-	{kind: testComponentKind, path: "components"},
-	{kind: testWorkloadKind, path: "workloads"},
-	{kind: testComponentReleaseKind, path: "componentreleases"},
-	{kind: "ReleaseBinding", path: "releasebindings"},
-	{kind: "Resource", path: "resources"},
-	{kind: "ResourceRelease", path: "resourcereleases"},
-	{kind: "ResourceReleaseBinding", path: "resourcereleasebindings"},
-	{kind: "Endpoint", path: "endpoints"},
-	{kind: "EndpointRelease", path: "endpointreleases"},
-	{kind: "EndpointReleaseBinding", path: "endpointreleasebindings"},
-	{kind: "ObservabilityAlertsNotificationChannel", path: "observabilityalertsnotificationchannels"},
+	{kind: deploymentPipelineKind, path: "deploymentpipelines"},
+	{kind: environmentKind, path: "environments"},
+	{kind: dataPlaneKind, path: "dataplanes"},
+	{kind: workflowPlaneKind, path: "workflowplanes"},
+	{kind: observabilityPlaneKind, path: "observabilityplanes"},
+	{kind: projectTypeKind, path: "projecttypes"},
+	{kind: componentTypeKind, path: "componenttypes"},
+	{kind: resourceTypeKind, path: "resourcetypes"},
+	{kind: endpointTypeKind, path: "endpointtypes"},
+	{kind: traitKind, path: "traits"},
+	{kind: workflowKind, path: "workflows"},
+	{kind: authzRoleKind, path: "authzroles"},
+	{kind: authzRoleBindingKind, path: "authzrolebindings"},
+	{kind: secretReferenceKind, path: "secretreferences"},
+	{kind: projectKind, path: "projects"},
+	{kind: projectReleaseKind, path: "projectreleases"},
+	{kind: projectReleaseBindingKind, path: "projectreleasebindings"},
+	{kind: componentKind, path: "components"},
+	{kind: workloadKind, path: "workloads"},
+	{kind: componentReleaseKind, path: "componentreleases"},
+	{kind: releaseBindingKind, path: "releasebindings"},
+	{kind: resourceKind, path: "resources"},
+	{kind: resourceReleaseKind, path: "resourcereleases"},
+	{kind: resourceReleaseBindingKind, path: "resourcereleasebindings"},
+	{kind: endpointKind, path: "endpoints"},
+	{kind: endpointReleaseKind, path: "endpointreleases"},
+	{kind: endpointReleaseBindingKind, path: "endpointreleasebindings"},
+	{kind: observabilityAlertsNotificationChannelKind, path: "observabilityalertsnotificationchannels"},
 }
 
 var requiredComponentCollections = []collectionFixture{
-	{kind: testReleaseLineKind, path: "releaselines"},
+	{kind: releaseLineKind, path: "releaselines"},
 }
 
 type fetchFixture struct {
@@ -129,7 +121,7 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 			}
 		}
 	}
-	f.collections["/api/v1/namespaces"] = collectionFixture{kind: testNamespaceKind, path: "namespaces"}
+	f.collections["/api/v1/namespaces"] = collectionFixture{kind: namespaceKind, path: "namespaces"}
 
 	testHome := testutil.SetupTestHome(t)
 	testutil.WriteOCConfig(t, testHome, config.StoredConfig{
@@ -191,13 +183,13 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	items := make([]any, 0)
 	pagination := make(map[string]any)
 	if !f.empty {
-		if collection.kind == testNamespaceKind {
+		if collection.kind == namespaceKind {
 			for i, namespace := range []string{"acme", "payments"} {
 				if !f.paginated || i == page {
 					items = append(items, map[string]any{"metadata": map[string]any{"name": namespace}})
 				}
 			}
-		} else if collection.kind == testReleaseLineKind {
+		} else if collection.kind == releaseLineKind {
 			// Add the implicit main entry on the first page.
 			if page == 0 {
 				component := strings.Split(path, "/")[6]
@@ -216,7 +208,7 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 func fullExportProfile() gen.UserCapabilitiesResponse {
 	wildcard := "*"
 	capabilities := make(map[string]gen.ActionCapability)
-	collections := append([]collectionFixture{{kind: testNamespaceKind}}, requiredClusterCollections...)
+	collections := append([]collectionFixture{{kind: namespaceKind}}, requiredClusterCollections...)
 	collections = append(collections, requiredNamespacedCollections...)
 	collections = append(collections, requiredComponentCollections...)
 	for _, collection := range collections {
@@ -244,15 +236,15 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 	}
 	// Add ownership fields to application fixtures.
 	switch collection.kind {
-	case "ProjectRelease", "ProjectReleaseBinding", "Resource", "Endpoint":
+	case projectReleaseKind, projectReleaseBindingKind, resourceKind, endpointKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store"}}
-	case testWorkloadKind, testComponentReleaseKind, "ReleaseBinding", testReleaseLineKind:
+	case workloadKind, componentReleaseKind, releaseBindingKind, releaseLineKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "componentName": "checkout"}}
-	case "ResourceRelease", "ResourceReleaseBinding":
+	case resourceReleaseKind, resourceReleaseBindingKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "resourceName": "database"}}
-	case "EndpointRelease", "EndpointReleaseBinding":
+	case endpointReleaseKind, endpointReleaseBindingKind:
 		object["spec"] = map[string]any{"owner": map[string]string{"projectName": "store", "endpointName": "public-api"}}
-	case "ObservabilityAlertsNotificationChannel":
+	case observabilityAlertsNotificationChannelKind:
 		object["spec"] = map[string]any{
 			"environment": "development", "type": "webhook", "isEnvDefault": true,
 			"webhookConfig": map[string]any{
@@ -269,28 +261,28 @@ func fixtureObject(collection collectionFixture, path string, page int) map[stri
 		},
 	}}}
 	switch collection.kind {
-	case "EndpointType", "ClusterEndpointType":
+	case endpointTypeKind, clusterEndpointTypeKind:
 		object["spec"] = endpointTypeSpec
-	case "Endpoint", "EndpointRelease":
+	case endpointKind, endpointReleaseKind:
 		spec := object["spec"].(map[string]any)
 		spec["parameters"] = map[string]any{"path": "/api"}
 		spec["visibility"] = []string{"external"}
 		spec["backendRefs"] = []any{map[string]any{
-			"name": "backend", "kind": "Component", "weight": 100,
+			"name": "backend", "kind": componentKind, "weight": 100,
 			"component": map[string]any{"name": "checkout", "endpoint": "http"},
 		}}
-		if collection.kind == "Endpoint" {
-			spec["type"] = map[string]any{"kind": "ClusterEndpointType", "name": "http-route"}
+		if collection.kind == endpointKind {
+			spec["type"] = map[string]any{"kind": clusterEndpointTypeKind, "name": "http-route"}
 		} else {
-			spec["endpointType"] = map[string]any{"kind": "ClusterEndpointType", "name": "http-route", "spec": endpointTypeSpec}
+			spec["endpointType"] = map[string]any{"kind": clusterEndpointTypeKind, "name": "http-route", "spec": endpointTypeSpec}
 		}
-	case "EndpointReleaseBinding":
+	case endpointReleaseBindingKind:
 		object["spec"].(map[string]any)["environment"] = "development"
 	}
-	if collection.kind == testComponentKind {
+	if collection.kind == componentKind {
 		object["spec"] = map[string]any{
 			"owner":         map[string]string{"projectName": "store"},
-			"componentType": map[string]string{"kind": "ClusterComponentType", "name": "deployment/service"},
+			"componentType": map[string]string{"kind": clusterComponentTypeKind, "name": "deployment/service"},
 			"autoDeploy":    true,
 			"parameters":    map[string]any{"replicas": 3, "nested": map[string]any{"keep": "value"}},
 		}
@@ -313,7 +305,7 @@ func TestFetch_AllRequiredResourcesAndPages(t *testing.T) {
 	for _, resource := range resources {
 		counts[resource.Kind+"/"+resource.Namespace]++
 		assert.NotEmpty(t, resource.Name)
-		if resource.Kind != testComponentKind {
+		if resource.Kind != componentKind {
 			continue
 		}
 		component, ok := resource.Object.(gen.Component)
@@ -323,7 +315,7 @@ func TestFetch_AllRequiredResourcesAndPages(t *testing.T) {
 		assert.Equal(t, resource.Namespace, *component.Metadata.Namespace)
 		page, err := strconv.Atoi(strings.TrimPrefix(resource.Name, "components-"))
 		require.NoError(t, err)
-		body, err := json.Marshal(fixtureObject(collectionFixture{kind: testComponentKind, path: "components"},
+		body, err := json.Marshal(fixtureObject(collectionFixture{kind: componentKind, path: "components"},
 			"/api/v1/namespaces/"+resource.Namespace+"/components", page))
 		require.NoError(t, err)
 		var expected gen.Component
@@ -366,7 +358,7 @@ func TestFetch_EmptyPageWithNextCursor(t *testing.T) {
 	require.NoError(t, err)
 	var names []string
 	for _, resource := range resources {
-		if resource.Kind == testComponentReleaseKind && resource.Namespace == "acme" {
+		if resource.Kind == componentReleaseKind && resource.Namespace == "acme" {
 			names = append(names, resource.Name)
 		}
 	}
@@ -380,22 +372,22 @@ func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {
 		status                      int
 		laterPage                   bool
 	}{
-		{name: "cluster collection", path: "/api/v1/clustertraits", kind: "ClusterTrait", status: http.StatusForbidden},
-		{name: "namespace discovery", path: "/api/v1/namespaces", kind: testNamespaceKind, status: http.StatusForbidden},
-		{name: "namespaced collection", path: "/api/v1/namespaces/acme/resources", kind: "Resource", namespace: "acme", status: http.StatusInternalServerError},
-		{name: "component collection", path: testComponentsPath, kind: testComponentKind, namespace: "acme", status: http.StatusForbidden},
-		{name: "later component page", path: testComponentsPath, kind: testComponentKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
-		{name: "component release lines", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
+		{name: "cluster collection", path: "/api/v1/clustertraits", kind: clusterTraitKind, status: http.StatusForbidden},
+		{name: "namespace discovery", path: "/api/v1/namespaces", kind: namespaceKind, status: http.StatusForbidden},
+		{name: "namespaced collection", path: "/api/v1/namespaces/acme/resources", kind: resourceKind, namespace: "acme", status: http.StatusInternalServerError},
+		{name: "component collection", path: testComponentsPath, kind: componentKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "later component page", path: testComponentsPath, kind: componentKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
+		{name: "component release lines", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: releaseLineKind,
 			namespace: "acme", status: http.StatusForbidden},
-		{name: "later release line page", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: testReleaseLineKind,
+		{name: "later release line page", path: "/api/v1/namespaces/acme/components/components-0/releaselines", kind: releaseLineKind,
 			namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
-		{name: "later release page", path: "/api/v1/namespaces/acme/resourcereleases", kind: "ResourceRelease", namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
-		{name: "cluster endpoint types", path: "/api/v1/clusterendpointtypes", kind: "ClusterEndpointType", status: http.StatusForbidden},
-		{name: "endpoints", path: "/api/v1/namespaces/acme/endpoints", kind: "Endpoint", namespace: "acme", status: http.StatusForbidden},
-		{name: "endpoint types", path: "/api/v1/namespaces/acme/endpointtypes", kind: "EndpointType", namespace: "acme", status: http.StatusForbidden},
-		{name: "notification channels", path: "/api/v1/namespaces/acme/observabilityalertsnotificationchannels", kind: "ObservabilityAlertsNotificationChannel", namespace: "acme", status: http.StatusForbidden},
-		{name: "endpoint release bindings", path: "/api/v1/namespaces/acme/endpointreleasebindings", kind: "EndpointReleaseBinding", namespace: "acme", status: http.StatusForbidden},
-		{name: "later endpoint release page", path: "/api/v1/namespaces/acme/endpointreleases", kind: "EndpointRelease", namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
+		{name: "later release page", path: "/api/v1/namespaces/acme/resourcereleases", kind: resourceReleaseKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
+		{name: "cluster endpoint types", path: "/api/v1/clusterendpointtypes", kind: clusterEndpointTypeKind, status: http.StatusForbidden},
+		{name: "endpoints", path: "/api/v1/namespaces/acme/endpoints", kind: endpointKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "endpoint types", path: "/api/v1/namespaces/acme/endpointtypes", kind: endpointTypeKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "notification channels", path: "/api/v1/namespaces/acme/observabilityalertsnotificationchannels", kind: observabilityAlertsNotificationChannelKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "endpoint release bindings", path: "/api/v1/namespaces/acme/endpointreleasebindings", kind: endpointReleaseBindingKind, namespace: "acme", status: http.StatusForbidden},
+		{name: "later endpoint release page", path: "/api/v1/namespaces/acme/endpointreleases", kind: endpointReleaseKind, namespace: "acme", status: http.StatusServiceUnavailable, laterPage: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFetchFixture(t, true)
@@ -430,14 +422,14 @@ func TestFetch_TransportError(t *testing.T) {
 
 func TestFetch_MalformedResponse(t *testing.T) {
 	for _, tc := range []struct{ name, path, kind, body string }{
-		{"cluster collection", "/api/v1/clustertraits", "ClusterTrait", "{invalid-json"},
-		{"trailing cluster data", "/api/v1/clustertraits", "ClusterTrait", `{"items":[],"pagination":{}} {}`},
-		{"namespace discovery", "/api/v1/namespaces", testNamespaceKind, "{invalid-json"},
-		{"component collection", testComponentsPath, testComponentKind, "{invalid-json"},
-		{"trailing component data", testComponentsPath, testComponentKind, `{"items":[],"pagination":{}} {}`},
-		{"binding collection", "/api/v1/namespaces/acme/releasebindings", "ReleaseBinding", "{invalid-json"},
-		{"trailing release data", "/api/v1/namespaces/acme/componentreleases", testComponentReleaseKind, `{"items":[],"pagination":{}} {}`},
-		{"trailing release line data", "/api/v1/namespaces/acme/components/components-0/releaselines", testReleaseLineKind, `{"items":[],"pagination":{}} {}`},
+		{"cluster collection", "/api/v1/clustertraits", clusterTraitKind, "{invalid-json"},
+		{"trailing cluster data", "/api/v1/clustertraits", clusterTraitKind, `{"items":[],"pagination":{}} {}`},
+		{"namespace discovery", "/api/v1/namespaces", namespaceKind, "{invalid-json"},
+		{"component collection", testComponentsPath, componentKind, "{invalid-json"},
+		{"trailing component data", testComponentsPath, componentKind, `{"items":[],"pagination":{}} {}`},
+		{"binding collection", "/api/v1/namespaces/acme/releasebindings", releaseBindingKind, "{invalid-json"},
+		{"trailing release data", "/api/v1/namespaces/acme/componentreleases", componentReleaseKind, `{"items":[],"pagination":{}} {}`},
+		{"trailing release line data", "/api/v1/namespaces/acme/components/components-0/releaselines", releaseLineKind, `{"items":[],"pagination":{}} {}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFetchFixture(t, false)
@@ -521,7 +513,7 @@ func TestFetch_InvalidIdentity(t *testing.T) {
 }
 
 func TestFetch_NilListResponse(t *testing.T) {
-	resources, err := fetchAll(context.Background(), "ClusterProjectType", "", func(int, string) (*resourcePage[gen.ClusterProjectType], error) {
+	resources, err := fetchAll(context.Background(), clusterProjectTypeKind, "", func(int, string) (*resourcePage[gen.ClusterProjectType], error) {
 		return nil, nil
 	})
 	require.ErrorContains(t, err, "nil list response")
@@ -585,10 +577,10 @@ type releaseTestCase struct {
 }
 
 var releaseTestCases = []releaseTestCase{
-	{testComponentReleaseKind, "componentreleases", "ReleaseBinding", "releasebindings", "releaseName", "components/checkout/releases"},
-	{"ProjectRelease", "projectreleases", "ProjectReleaseBinding", "projectreleasebindings", "projectRelease", "releases"},
-	{"ResourceRelease", "resourcereleases", "ResourceReleaseBinding", "resourcereleasebindings", "resourceRelease", "resources/database/releases"},
-	{"EndpointRelease", "endpointreleases", "EndpointReleaseBinding", "endpointreleasebindings", "endpointRelease", "endpoints/public-api/releases"},
+	{componentReleaseKind, "componentreleases", releaseBindingKind, "releasebindings", "releaseName", "components/checkout/releases"},
+	{projectReleaseKind, "projectreleases", projectReleaseBindingKind, "projectreleasebindings", "projectRelease", "releases"},
+	{resourceReleaseKind, "resourcereleases", resourceReleaseBindingKind, "resourcereleasebindings", "resourceRelease", "resources/database/releases"},
+	{endpointReleaseKind, "endpointreleases", endpointReleaseBindingKind, "endpointreleasebindings", "endpointRelease", "endpoints/public-api/releases"},
 }
 
 func releaseTestObject(tc releaseTestCase, namespace, name string, created *time.Time) map[string]any {
@@ -743,7 +735,7 @@ func TestReleaseCutoff_CalendarMonthsAndUTC(t *testing.T) {
 }
 
 func releaseLineTestObject(namespace, component, name string) map[string]any {
-	object := fixtureObject(collectionFixture{kind: testReleaseLineKind, path: "releaselines"},
+	object := fixtureObject(collectionFixture{kind: releaseLineKind, path: "releaselines"},
 		"/api/v1/namespaces/"+namespace+"/components/"+component+"/releaselines", 0)
 	object["metadata"].(map[string]any)["name"] = name
 	object["spec"].(map[string]any)["owner"] = map[string]string{"projectName": "store", "componentName": component}
@@ -779,7 +771,7 @@ func TestFetch_ReleaseLinesForEveryComponentAndPage(t *testing.T) {
 	require.NoError(t, err)
 	var lines []Resource
 	for _, resource := range result.Resources {
-		if resource.Kind == testReleaseLineKind {
+		if resource.Kind == releaseLineKind {
 			lines = append(lines, resource)
 		}
 	}
@@ -813,7 +805,7 @@ func TestFetch_NoReleaseLineCallsWithoutComponents(t *testing.T) {
 	result, err := Fetch(context.Background(), f.client, false)
 	require.NoError(t, err)
 	for _, resource := range result.Resources {
-		assert.NotEqual(t, testReleaseLineKind, resource.Kind)
+		assert.NotEqual(t, releaseLineKind, resource.Kind)
 	}
 	for path := range f.calls {
 		assert.False(t, strings.HasSuffix(path, "/releaselines"), path)

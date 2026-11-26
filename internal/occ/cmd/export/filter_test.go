@@ -51,7 +51,7 @@ const filterFixtureJSON = `{
 
 func TestFilter_ApprovedPolicyAndNumberPreservation(t *testing.T) {
 	resource := Resource{
-		Kind: testComponentKind, Name: "backend", Namespace: testExportNamespace,
+		Kind: componentKind, Name: "backend", Namespace: testExportNamespace,
 		Object: json.RawMessage(filterFixtureJSON),
 	}
 	filtered, err := Filter(context.Background(), []Resource{resource})
@@ -90,7 +90,7 @@ func TestFilter_TypedInputsRemainUnchanged(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(filterFixtureJSON), &component))
 	before, err := json.Marshal(component)
 	require.NoError(t, err)
-	resource := Resource{Kind: testComponentKind, Name: component.Metadata.Name, Namespace: testExportNamespace, Object: component}
+	resource := Resource{Kind: componentKind, Name: component.Metadata.Name, Namespace: testExportNamespace, Object: component}
 	filtered, err := Filter(context.Background(), []Resource{resource})
 	require.NoError(t, err)
 	require.Len(t, filtered, 1)
@@ -105,7 +105,7 @@ func TestFilter_TypedInputsRemainUnchanged(t *testing.T) {
 }
 
 func TestFilter_PreservesNestedTemplatesAndSchemas(t *testing.T) {
-	resource := manifestResource("Workflow")
+	resource := manifestResource(workflowKind)
 	object := resource.Object.(map[string]any)
 	object["spec"] = map[string]any{
 		"runTemplate": map[string]any{
@@ -135,7 +135,7 @@ func TestFilter_DeletionMarkers(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			resource := Resource{
-				Kind: testNamespaceKind, Name: testExportNamespace,
+				Kind: namespaceKind, Name: testExportNamespace,
 				Object: json.RawMessage(`{"metadata":{"name":"acme"` + tc.marker + `}}`),
 			}
 			filtered, err := Filter(context.Background(), []Resource{resource})
@@ -148,7 +148,7 @@ func TestFilter_DeletionMarkers(t *testing.T) {
 func TestFilter_AnnotationContainersAndNamespaceLabels(t *testing.T) {
 	for _, annotations := range []string{"", `,"annotations":null`, `,"annotations":{}`, `,"annotations":{"openchoreo.dev/restartedAt":"old"}`} {
 		resource := Resource{
-			Kind: testNamespaceKind, Name: testExportNamespace,
+			Kind: namespaceKind, Name: testExportNamespace,
 			Object: json.RawMessage(`{"metadata":{"name":"acme","labels":{"openchoreo.dev/control-plane":"true"}` + annotations + `}}`),
 		}
 		filtered, err := Filter(context.Background(), []Resource{resource})
@@ -177,10 +177,10 @@ func TestFilter_RejectsInvalidDocumentsWithoutPartialResults(t *testing.T) {
 		{name: "invalid annotations", data: json.RawMessage(`{"metadata":{"annotations":[]}}`), want: "read metadata.annotations"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			resource := Resource{Kind: testComponentKind, Name: "invalid", Namespace: testExportNamespace, Object: tc.data}
-			filtered, err := Filter(context.Background(), []Resource{manifestResource("Environment"), resource})
+			resource := Resource{Kind: componentKind, Name: "invalid", Namespace: testExportNamespace, Object: tc.data}
+			filtered, err := Filter(context.Background(), []Resource{manifestResource(environmentKind), resource})
 			require.ErrorContains(t, err, tc.want)
-			assert.Contains(t, err.Error(), testComponentKind)
+			assert.Contains(t, err.Error(), componentKind)
 			assert.Contains(t, err.Error(), resource.Name)
 			assert.Contains(t, err.Error(), resource.Namespace)
 			assert.Nil(t, filtered)
@@ -200,7 +200,7 @@ func (c cancelDuringFilter) MarshalJSON() ([]byte, error) {
 func TestFilter_Cancellation(t *testing.T) {
 	for _, duringCopy := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(context.Background())
-		resource := manifestResource(testComponentKind)
+		resource := manifestResource(componentKind)
 		if duringCopy {
 			resource.Object = cancelDuringFilter{cancel: cancel}
 		} else {
@@ -220,8 +220,8 @@ func TestFilter_EmptyInventory(t *testing.T) {
 }
 
 func TestFilter_EquivalentDocumentsProduceIdenticalFiles(t *testing.T) {
-	first := manifestResource(testComponentKind)
-	second := manifestResource(testComponentKind)
+	first := manifestResource(componentKind)
+	second := manifestResource(componentKind)
 	first.Object = json.RawMessage(`{
 		"spec":{"parameters":{"z":true,"a":"123"},"owner":{"projectName":"store"}},
 		"metadata":{"namespace":"acme","name":"sample"},
@@ -242,7 +242,7 @@ func TestFilter_EquivalentDocumentsProduceIdenticalFiles(t *testing.T) {
 }
 
 func TestFilter_PreservesNumbersArraysAndOriginalDocuments(t *testing.T) {
-	resource := manifestResource(testComponentKind)
+	resource := manifestResource(componentKind)
 	document := resource.Object.(map[string]any)
 	document["spec"].(map[string]any)["parameters"] = json.RawMessage(
 		`{"large":9007199254740993,"decimal":1.234567890123456789,"args":["sh","-c","./start.sh"],"empty":null}`)
