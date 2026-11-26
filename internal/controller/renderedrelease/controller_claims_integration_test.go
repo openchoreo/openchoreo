@@ -179,18 +179,19 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			Expect(sent()).To(Equal([]string{"read", "read", "apply by UID"}), "only the first pass takes it over")
 		})
 
-		It(where+": gives back what appears while it creates it", func() {
+		It(where+": leaves what appears while it creates it, and takes it over on the next pass", func() {
 			start("appears", guarded)
 			f.change(rendering(configMap("release")), claiming(configMap("")))
-			f.proxy.hook(planeHook{match: withMethod(http.MethodPatch), before: func() { outside(configMap("theirs")) }})
+			var theirs *unstructured.Unstructured
+			f.proxy.hook(planeHook{match: withMethod(http.MethodPatch), before: func() { theirs = outside(configMap("theirs")) }})
 
 			_, err := f.pass()
-			Expect(err).To(MatchError(ContainSubstring("appeared while it was being created, and was given back")))
-			after := f.live(configMap(""))
-			Expect(hasApplyEntry(after)).To(BeFalse())
-			for key := range after.GetLabels() {
-				Expect(markLabels.Has(key)).To(BeFalse(), "label %s is left", key)
-			}
+			Expect(err).To(MatchError(ContainSubstring("appeared while it was being created")))
+			expectUnchanged(theirs)
+
+			f.mustPass()
+			Expect(sent()).To(Equal([]string{"read", "read", "dry run by UID", "label by UID", "apply by UID"}))
+			Expect(expectApplied("release").GetUID()).To(Equal(theirs.GetUID()))
 		})
 
 		for _, answer := range []*planeAnswer{

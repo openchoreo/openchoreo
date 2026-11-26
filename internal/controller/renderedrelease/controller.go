@@ -399,9 +399,11 @@ func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Clie
 // An object the check found is named by its UID, so the apply is rejected when it has been
 // recreated or deleted, instead of writing over the new one or creating it again.
 //
-// Where the check found none, one may have appeared. The apply merges into it and succeeds,
-// but then its answer shows another field manager, while a new object has only ours. Such an
-// object is given back, and the apply fails.
+// Where the check found none, one may have appeared. So the object is created without force:
+// a value of the one that appeared that differs from the manifest fails the apply, and nothing
+// is written. When none differs, the apply merges into it and succeeds, but then its answer
+// shows another field manager, while a new object has only ours. Such an object is given back,
+// and the apply fails.
 func applyResource(ctx context.Context, planeClient client.Client, resource checkedResource) error {
 	obj := resource.desired
 	if resource.live != nil {
@@ -415,7 +417,14 @@ func applyResource(ctx context.Context, planeClient client.Client, resource chec
 		}
 		obj.SetUID(resource.live.GetUID())
 	}
-	if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
+	opts := []client.PatchOption{client.FieldOwner(ControllerName)}
+	if !resource.missing {
+		opts = append(opts, client.ForceOwnership)
+	}
+	if err := planeClient.Patch(ctx, obj, client.Apply, opts...); err != nil {
+		if resource.missing && apierrors.IsConflict(err) {
+			return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+		}
 		return err
 	}
 	if !resource.missing || !hasOtherManager(obj) {

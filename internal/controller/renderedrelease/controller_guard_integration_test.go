@@ -335,6 +335,17 @@ var _ = Describe("RenderedRelease guard", func() {
 			Expect(f.live(configMap("a", ""))).NotTo(BeNil())
 		})
 
+		It("changes nothing of an object that exists when its read answers 404", func() {
+			start("read-404-exists")
+			theirs := outside(configMap("a", "helm"))
+			f.render(configMap("a", "1"))
+			f.proxy.hook(planeHook{match: isRead, answer: &planeAnswer{status: http.StatusNotFound, contentType: "text/plain", body: "404 page not found"}})
+
+			_, err := f.pass()
+			Expect(err).To(MatchError(ContainSubstring("/a appeared while it was being created")))
+			expectUnchanged(theirs)
+		})
+
 		It("wins over a refusal, since more may be refused", func() {
 			start("read-and-refusal")
 			outside(configMap("a", "helm"))
@@ -446,14 +457,24 @@ var _ = Describe("RenderedRelease guard", func() {
 				return obj
 			}
 		}
-		DescribeTable("gives back an object that appears where there was none",
-			func(name string, theirs, rendered func() *unstructured.Unstructured) {
+		// An object that appears where the check found none is created by someone else in
+		// between. Its values are kept: one that differs from the manifest fails the apply,
+		// and nothing is written. When none differs, the apply merges into it, and it is
+		// given back.
+		DescribeTable("keeps an object that appears where there was none",
+			func(name string, differs bool, theirs, rendered func() *unstructured.Unstructured) {
 				start("appears-" + name)
 				f.render(rendered())
-				beforeApplying(rendered(), func() { outside(theirs()) })
+				var created *unstructured.Unstructured
+				beforeApplying(rendered(), func() { created = outside(theirs()) })
 
 				_, err := f.pass()
-				expectFailed(err, describeObject(rendered())+" appeared while it was being created, and was given back")
+				if differs {
+					expectFailed(err, describeObject(rendered())+" appeared while it was being created", "conflict")
+					expectUnchanged(created)
+				} else {
+					expectFailed(err, describeObject(rendered())+" appeared while it was being created, and was given back")
+				}
 				after := f.live(rendered())
 				for key := range after.GetLabels() {
 					Expect(markLabels.Has(key)).To(BeFalse(), "label %s is left", key)
@@ -470,20 +491,25 @@ var _ = Describe("RenderedRelease guard", func() {
 				f.mustPass()
 				Expect(f.live(rendered()).GetUID()).To(Equal(after.GetUID()))
 			},
-			Entry("ConfigMap", "cm",
+			Entry("ConfigMap with other values", "cm", true,
 				withSpec("v1", "ConfigMap", `{"data": {"by": "helm", "theirs": "kept"}}`),
 				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`)),
-			Entry("ConfigMap with the same values", "cm-same",
+			Entry("ConfigMap with the same values", "cm-same", false,
 				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`),
 				withSpec("v1", "ConfigMap", `{"data": {"by": "release"}}`)),
-			Entry("Deployment", "deployment",
+			Entry("Deployment with other values", "deployment", true,
 				withSpec("apps/v1", "Deployment", `{"spec": {"replicas": 1, "selector": {"matchLabels": {"app": "api"}},
 					"template": {"metadata": {"labels": {"app": "api"}}, "spec": {"containers": [{"name": "api", "image": "api:1"}]}}}}`),
 				withSpec("apps/v1", "Deployment", `{"spec": {"replicas": 2, "selector": {"matchLabels": {"app": "api"}},
 					"template": {"metadata": {"labels": {"app": "api"}}, "spec": {"containers": [{"name": "api", "image": "api:2"}]}}}}`)),
-			Entry("PersistentVolumeClaim", "pvc",
+			Entry("PersistentVolumeClaim with the same values", "pvc", false,
 				withSpec("v1", "PersistentVolumeClaim", `{"spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "1Gi"}}}}`),
 				withSpec("v1", "PersistentVolumeClaim", `{"spec": {"accessModes": ["ReadWriteOnce"], "resources": {"requests": {"storage": "1Gi"}}}}`)),
+			// The apply would take every field its creator set, and leave it no managedFields
+			// entry to tell it apart from a new object.
+			Entry("ServiceAccount whose only field the release sets too", "sa", true,
+				withSpec("v1", "ServiceAccount", `{"automountServiceAccountToken": false}`),
+				withSpec("v1", "ServiceAccount", `{"automountServiceAccountToken": true}`)),
 		)
 
 		It("stops at the object that appeared, and keeps what it created before it", func() {
@@ -501,7 +527,7 @@ var _ = Describe("RenderedRelease guard", func() {
 		It("says so when an object that appeared can't be given back", func() {
 			start("appears-kept")
 			f.render(configMap("a", "1"))
-			beforeApplying(configMap("a", ""), func() { outside(configMap("a", "helm")) })
+			beforeApplying(configMap("a", ""), func() { outside(configMap("a", "1")) })
 			f.proxy.hook(planeHook{match: func(r *planeRequest) bool { return r.contentType == string(types.JSONPatchType) },
 				answer: &planeAnswer{status: http.StatusBadGateway, contentType: "text/plain", body: "no agents"}})
 
