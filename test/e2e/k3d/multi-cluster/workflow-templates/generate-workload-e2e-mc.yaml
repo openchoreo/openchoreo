@@ -38,7 +38,7 @@ spec:
           - name: api-server-host-header
             default: "api.e2e-mc-cp.local"
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.1
+        image: ghcr.io/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE
             value: '{{inputs.parameters.image}}'

@@ -28,7 +28,7 @@ spec:
             name: "{{workflow.parameters.workflowrun-name}}-registries-conf"
             optional: true
       container:
-        image: ghcr.io/openchoreo/podman-runner:v1.2
+        image: ghcr.io/openchoreo/podman-runner:v1.3
         env:
           - name: IMAGE_NAME
             value: '{{workflow.parameters.image-name}}'

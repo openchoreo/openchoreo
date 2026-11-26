@@ -17,7 +17,7 @@ spec:
 
       containers:
         - name: pull
-          image: ghcr.io/openchoreo/podman-runner:v1.1
+          image: ghcr.io/openchoreo/podman-runner:v1.3
           command: ["sh", "-c"]
           args:
             - |-

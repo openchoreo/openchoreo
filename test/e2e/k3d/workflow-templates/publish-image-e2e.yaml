@@ -34,7 +34,7 @@ spec:
             optional: true
             secretName: '{{workflow.parameters.registry-push-secret}}'
       container:
-        image: ghcr.io/openchoreo/podman-runner@sha256:2165f0d5ca5c8286c234388d542f50ede8f38108fc25a57ce141fcdf5cc87b00
+        image: ghcr.io/openchoreo/podman-runner@sha256:8774791f31e8f120ab80cf0a6ff4751e4ea4186b6ec68ac62742cea82f6d3bb6
         env:
           - name: GIT_REVISION
             value: '{{inputs.parameters.git-revision}}'
