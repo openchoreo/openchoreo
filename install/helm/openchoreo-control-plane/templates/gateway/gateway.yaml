@@ -49,6 +49,23 @@ spec:
             namespace: {{ . }}
             {{- end }}
           {{- end }}
+        {{- $tlsOptions := dict }}
+        {{- if eq (.Values.gateway.gatewayClassName | default "kgateway") "kgateway" }}
+        {{- $_ := set $tlsOptions "kgateway.dev/ecdh-curves" "X25519MLKEM768,X25519,P-256" }}
+        {{- end }}
+        {{- range $key, $value := .Values.gateway.tls.options | default dict }}
+        {{- if $value }}
+        {{- $_ := set $tlsOptions $key $value }}
+        {{- else }}
+        {{- $_ := unset $tlsOptions $key }}
+        {{- end }}
+        {{- end }}
+        {{- with $tlsOptions }}
+        options:
+          {{- range $key, $value := . }}
+          {{ $key | quote }}: {{ $value | quote }}
+          {{- end }}
+        {{- end }}
 {{- end }}
 {{- if .Values.clusterGateway.tlsRoute.enabled }}
     - name: tls-passthrough
