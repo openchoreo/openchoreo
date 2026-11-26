@@ -68,6 +68,7 @@ def test_a_result_is_read_with_the_component_and_rule_of_its_call():
         fact_values={"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1},
         reasons=[],
         rule=_RULE,
+        fact_ids=["r"],
     )
 
 
@@ -243,3 +244,14 @@ def test_not_any_needs_every_condition_turned_around():
         }
     }
     assert _marks(rule, {"githubVisibility": "private", "githubArchived": True}) == [True, False]
+
+
+def test_a_result_keeps_the_retrievers_its_call_ran_with():
+    args = {"entityRef": "component:default/a", "check": {"factIds": ["r1", "r2"], "rule": {}}}
+    run = read_dry_run(args, {"status": "passed"})
+
+    assert run.fact_ids == ["r1", "r2"]
+    # Missing or malformed: unknown, not an empty list.
+    assert read_dry_run({"check": {}}, {"status": "passed"}).fact_ids is None
+    assert read_dry_run({"check": {"factIds": "r1"}}, {"status": "passed"}).fact_ids is None
+    assert read_dry_run({"check": {"factIds": [1]}}, {"status": "passed"}).fact_ids is None

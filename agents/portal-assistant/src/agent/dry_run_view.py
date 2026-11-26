@@ -36,6 +36,8 @@ class DryRun:
     reasons: list[tuple[str, str]] = field(default_factory=list)
     # The conditions it ran, as JSON.
     rule: str | None = None
+    # The retrievers it ran with; None when the call didn't say.
+    fact_ids: list[str] | None = None
 
 
 def _json(raw: Any) -> Any:
@@ -61,6 +63,7 @@ def read_dry_run(args: Any, content: Any) -> DryRun | None:
         (check.get("rule") or {}).get("conditions") if isinstance(check.get("rule"), dict) else None
     )
     values = payload.get("factValues")
+    fact_ids = check.get("factIds")
     return DryRun(
         status=payload["status"],
         entity_ref=call.get("entityRef") if isinstance(call.get("entityRef"), str) else None,
@@ -71,6 +74,9 @@ def read_dry_run(args: Any, content: Any) -> DryRun | None:
             if isinstance(r, dict) and isinstance(r.get("message"), str) and r["message"]
         ],
         rule=rule if isinstance(rule, str) else None,
+        fact_ids=fact_ids
+        if isinstance(fact_ids, list) and all(isinstance(i, str) for i in fact_ids)
+        else None,
     )
 
 

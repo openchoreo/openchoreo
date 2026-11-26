@@ -808,17 +808,23 @@ async def _tested_reply(
 
 
 def _run_of_card_rule(dry_runs: list[DryRun], confirmation: dict[str, Any]) -> DryRun | None:
-    """The turn's last test when it ran the rule the card saves, else None:
-    the model may change the rule after testing, or the card's rule may be
-    the validator's rewrite, and the card must not show another rule's result."""
+    """The turn's last test when it ran the rule the card saves, with the
+    retrievers the card signs, else None: the model may change the rule after
+    testing, the card's rule may be the validator's rewrite, and the test's
+    retrievers come from the drawer's copy of the check while the card's come
+    from the saved one. The card must not show another rule's result."""
     if not dry_runs or not dry_runs[-1].rule:
         return None
+    run = dry_runs[-1]
     try:
-        tested = unwrap(json.loads(dry_runs[-1].rule))
+        tested = unwrap(json.loads(run.rule))
         saved = unwrap(json.loads(confirmation.get("new_rule") or ""))
     except ValueError:
         return None
-    return dry_runs[-1] if tested == saved else None
+    signed = confirmation.get("fact_ids")
+    if run.fact_ids is not None and signed and sorted(run.fact_ids) != sorted(signed):
+        return None
+    return run if tested == saved else None
 
 
 def _shows_test_after_failure(dry_runs: list[DryRun], scope: dict[str, Any] | None) -> bool:

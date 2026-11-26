@@ -3002,3 +3002,39 @@ async def test_a_test_of_another_rule_ends_in_the_test_card_not_a_tested_save_ca
     assert not [e for e in events if e["type"] == "confirmation_required"]
     (ui,) = [e for e in events if e["type"] == "a2ui"]
     assert ui["messages"][0]["createSurface"]["components"][0]["component"] != "SaveCard"
+
+
+def test_a_test_with_other_retrievers_than_the_cards_is_not_its_result():
+    # The drawer's copy of the check can be stale: the test ran with its
+    # retrievers while the card signs the saved check's.
+    rule = json.dumps(_PRIVATE)
+    run = DryRun(status="passed", rule=rule, fact_ids=["githubRepositoryFactRetriever"])
+    card = {"new_rule": rule, "fact_ids": ["githubRepositoryFactRetriever"]}
+
+    assert orchestrator._run_of_card_rule([run], card) is run
+    assert orchestrator._run_of_card_rule([run], {**card, "fact_ids": ["other"]}) is None
+    # Order doesn't matter; a run that doesn't say, or a card with none, can't differ.
+    two = DryRun(status="passed", rule=rule, fact_ids=["a", "b"])
+    assert orchestrator._run_of_card_rule([two], {**card, "fact_ids": ["b", "a"]}) is two
+    unknown = DryRun(status="passed", rule=rule)
+    assert orchestrator._run_of_card_rule([unknown], {**card, "fact_ids": ["other"]}) is unknown
+    assert orchestrator._run_of_card_rule([run], {"new_rule": rule}) is run
+
+
+async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):
+    async def _card(_message, _scope, **_kwargs):
+        return {**_CARD, "kind": "create", "new_rule": json.dumps(_PRIVATE), "fact_ids": ["saved"]}
+
+    monkeypatch.setattr(orchestrator, "build_confirmation", _card)
+    run = DryRun(status="failed", entity_ref="component:default/order-api",
+                 fact_values={"githubVisibility": "public"}, rule=json.dumps(_PRIVATE),
+                 fact_ids=["drawer-copy"])
+
+    events = [
+        json.loads(ev) async for ev in orchestrator._tested_reply(
+            run, _PRIVATE_DRAFT, [{"role": "user", "content": _PICKED}],
+            {"case_type": "check_authoring"}, user_sub="u", backstage_token="b",
+        )
+    ]
+
+    assert not [e for e in events if e["type"] == "confirmation_required"]
