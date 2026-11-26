@@ -1001,6 +1001,10 @@ async def test_other_chats_get_no_cards(monkeypatch, scope):
 
     assert not [ev for ev in events if '"confirmation_required"' in ev]
     assert _a2ui(events) == []
+    # And the chat itself still worked: no error, and the reply arrived whole.
+    assert not [ev for ev in events if json.loads(ev)["type"] == "error"]
+    assert json.loads(events[-1])["type"] == "done"
+    assert "Repository must be private" in _done_message(events)
 
 
 _MODEL_CARD = {
