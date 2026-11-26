@@ -202,6 +202,14 @@ _TEST_NOTE = (
     "drafted check or the edited rule), or else the current rule, and report the result in "
     "plain words. Don't change the rule and don't write it in a code block."
 )
+# A test request after an edited rule the user didn't approve: that rule isn't
+# the one to test (see _tests_saved_rule).
+_TEST_SAVED_NOTE = (
+    "[Automatic note — not written by the user] This message only asks for a test. Run "
+    "dry_run_check on that component with the check's current rule, the saved one, and "
+    "report the result in plain words. Ignore any rule in your earlier replies: the user "
+    "hasn't approved it. Don't change the rule and don't write it in a code block."
+)
 # Added to a later edit message that doesn't approve the last proposal.
 _NOT_APPROVED_NOTE = (
     "[Automatic note — not written by the user] This message doesn't confirm your last "
@@ -601,6 +609,25 @@ def _unsaved_rule_reply(
     return reply
 
 
+def _tests_saved_rule(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> bool:
+    """Whether this test request in an edit chat runs the saved rule although
+    the chat has an edited rule: the user didn't approve that one, so it isn't
+    tested (see _unsaved_rule_reply). The result says which rule ran."""
+    if not (scope or {}).get("check_id"):
+        return False
+    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    if not _TEST_REQUEST_RE.fullmatch((latest.get("content") or "").strip()):
+        return False
+    if _unsaved_rule_reply(messages, scope) is not None:
+        return False
+    return any(
+        m.get("role") == "assistant"
+        and RULE_FENCE_RE.search(m.get("content") or "")
+        and not is_saved_rule(m.get("content") or "", scope)
+        for m in messages
+    )
+
+
 def _approved_edit(
     messages: list[dict[str, str]],
     index: int,
@@ -891,6 +918,8 @@ async def stream_chat(
     user's behalf for this request (see ``_build_agent``).
     """
     request_id_context.set(f"msg_{uuid.uuid4().hex[:12]}")
+    if _tests_saved_rule(messages, scope):
+        scope = {**(scope or {}), "tests_saved_rule": True}
 
     # "save this" right after a drafted check or edited rule: the confirm
     # card again, built by code from that reply — no model call needed. Not
@@ -997,7 +1026,8 @@ async def stream_chat(
     if edit_phase == "propose" and any(m.get("role") == "assistant" for m in messages):
         stamped_messages = _add_note(stamped_messages, _NOT_APPROVED_NOTE)
     elif edit_phase == "test":
-        stamped_messages = _add_note(stamped_messages, _TEST_NOTE)
+        saved = (scope or {}).get("tests_saved_rule")
+        stamped_messages = _add_note(stamped_messages, _TEST_SAVED_NOTE if saved else _TEST_NOTE)
     elif edit_phase == "discuss":
         latest_text = (messages[-1].get("content") or "") if messages else ""
         explains = _EXPLAIN_RE.search(latest_text) and not _IDEAS_RE.search(latest_text)

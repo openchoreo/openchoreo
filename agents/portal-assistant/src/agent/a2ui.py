@@ -604,6 +604,10 @@ def _test_words(
     summary = _TEST_SUMMARY[run.status].format(name=name)
     if run.status == "not-applicable" and run.reasons:
         summary = f"{summary} {_words(' '.join(reason_words(run, scope)), 400)}"
+    if scope.get("tests_saved_rule"):
+        # The edit in the chat isn't approved, so the saved rule ran: say so,
+        # or the result reads as the edit's.
+        summary = f"{summary} This ran the saved rule, as the change isn't approved yet."
     sections = [
         ("What the rule needs", needed_lines(run, scope)[:_MAX_LINES]),
         (f"What {name} has", actual_lines(run, scope)[:_MAX_LINES]),

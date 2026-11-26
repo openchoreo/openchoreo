@@ -943,3 +943,80 @@ def test_the_check_to_test_is_the_unsaved_rule_or_else_the_saved_one():
     assert check_to_test(None, _NEW_SCOPE) is None
     no_retriever = {k: v for k, v in _EDIT_TEST_SCOPE.items() if k != "selected_fact_ids"}
     assert check_to_test(edited, no_retriever) is None
+
+
+# ── a test request after an edit the user didn't approve ───────────────
+
+
+def test_a_test_after_an_unapproved_edit_runs_the_saved_rule_and_says_so():
+    # CodeRabbit on 803 and the test card: the model was told to test "the
+    # last rule", the unapproved one, and the card didn't say which ran.
+    ask = {"role": "user", "content": "test it on order-api"}
+
+    assert orchestrator._tests_saved_rule(_history("test it on order-api"), _SCOPE) is True
+    # An approved edit is tested as it is: nothing to say.
+    assert orchestrator._tests_saved_rule(_approved_history(ask), _SCOPE) is False
+    # Nothing but the saved rule in the chat, or a new check, or another message.
+    assert orchestrator._tests_saved_rule([ask], _SCOPE) is False
+    assert orchestrator._tests_saved_rule(_history("test it on order-api"), {}) is False
+    assert orchestrator._tests_saved_rule(_history("save it"), _SCOPE) is False
+
+
+async def _note_the_model_got(monkeypatch, messages):
+    """The last message the model is sent for ``messages`` (the user's, with the note)."""
+    seen = {}
+
+    async def _agent(_token, _scope, **_kwargs):
+        return object(), [], {}
+
+    async def _chunks(_agent, sent, parser, **_kwargs):
+        seen["last"] = sent[-1]["content"]
+        parser.set_message("Tested.")
+        return
+        yield  # makes this an async generator
+
+    monkeypatch.setattr(orchestrator, "_build_agent", _agent)
+    monkeypatch.setattr(orchestrator, "_yield_chunks", _chunks)
+    _ = [
+        ev
+        async for ev in orchestrator.stream_chat(
+            messages=messages,
+            token="t",
+            user_sub="user-a",
+            scope=_SCOPE,
+            backstage_token="issued-for-user",
+        )
+    ]
+    return seen["last"]
+
+
+async def test_the_model_is_told_to_test_the_saved_rule_after_an_unapproved_edit(monkeypatch):
+    # Code can't pick the component (no retrievers in the scope), so the model
+    # runs the test: it must not be sent to "the rule from your last reply".
+    last = await _note_the_model_got(monkeypatch, _history("test it on order-api"))
+
+    assert last.endswith(orchestrator._TEST_SAVED_NOTE)
+    assert orchestrator._TEST_NOTE not in last
+
+
+async def test_the_model_tests_the_last_rule_after_an_approved_edit(monkeypatch):
+    messages = _approved_history({"role": "user", "content": "test it on order-api"})
+
+    last = await _note_the_model_got(monkeypatch, messages)
+
+    assert last.endswith(orchestrator._TEST_NOTE)
+
+
+def test_the_test_card_says_the_saved_rule_ran():
+    from src.agent.a2ui import dry_run_card_surface
+    from src.agent.dry_run_view import DryRun
+
+    run = DryRun(status="failed", entity_ref="component:default/order-api")
+
+    def summary(scope):
+        card = dry_run_card_surface(run, scope)["createSurface"]["components"][0]
+        return card["summary"]
+
+    said = "This ran the saved rule, as the change isn't approved yet."
+    assert said in summary({**_SCOPE, "tests_saved_rule": True})
+    assert said not in summary(_SCOPE)
