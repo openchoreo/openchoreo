@@ -232,7 +232,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
 	// Stale resources are deleted, except the ones that are or were claimed, which are given
 	// back. The claims' own reads find those of a kind that isn't listed.
-	plan := planCleanup(release, renderedSetOf(desiredResources), slices.Concat(liveResources, observed.live))
+	rendered := renderedSetOf(desiredResources)
+	plan := planCleanup(release, rendered, slices.Concat(liveResources, observed.live))
 	if err := r.cleanUp(ctx, planeClient, plan); err != nil {
 		logger.Error(err, "Failed to clean up stale resources")
 		return ctrl.Result{}, err
@@ -261,11 +262,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
 	// Observed resources count too; transitioningRequeuePriority weighs them. So does
 	// a failed read, whose entry may still show its last health. One that does not exist
-	// counts only in Observe mode: in Manage mode it may never, such as the old name of an
-	// object the release renders under a new one.
+	// counts only in Observe mode, or when the release renders it: otherwise it may never
+	// exist, such as the old name of an object the release renders under a new one.
 	awaited := observed
 	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
-		awaited = observed.withoutMissing()
+		awaited = observed.withoutMissing(rendered)
 	}
 	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(awaited.statuses) ||
 		len(awaited.failures) > 0 {

@@ -128,10 +128,13 @@ type observedReadResult struct {
 	live []*unstructured.Unstructured
 }
 
-// withoutMissing returns the result without the resources that do not exist.
-func (r observedReadResult) withoutMissing() observedReadResult {
+// withoutMissing returns the result without the resources that do not exist, except the
+// rendered ones: those were read before the apply, which may have created them.
+func (r observedReadResult) withoutMissing(rendered renderedSet) observedReadResult {
 	missing := sets.New[string]()
-	isMissing := func(failure observedReadFailure) bool { return failure.reason == ReasonObservedResourceNotFound }
+	isMissing := func(failure observedReadFailure) bool {
+		return failure.reason == ReasonObservedResourceNotFound && !rendered.objects.Has(failure.entry.identity())
+	}
 	for _, failure := range r.failures {
 		if isMissing(failure) {
 			missing.Insert(failure.entry.id)

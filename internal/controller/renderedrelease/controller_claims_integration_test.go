@@ -396,6 +396,16 @@ var _ = Describe("RenderedRelease that renders what it claims", func() {
 			Expect(read.Reason).To(Equal(string(ReasonObservedResourceNotFound)))
 		})
 
+		// The claims are read before the apply, so one the pass creates is reported missing
+		// until the next check, which labels it too.
+		It("comes soon after it creates an object it claims", func() {
+			start("interval-created", false)
+			f.change(rendering(configMap("release")), claiming(configMap("")))
+			result := f.mustPass()
+			Expect(f.live(configMap(""))).NotTo(BeNil())
+			Expect(result.RequeueAfter).To(BeNumerically("<", 12*time.Second))
+		})
+
 		It("comes soon with a claim that is missing in Observe mode", func() {
 			start("interval-observe", false)
 			f.change(inMode(openchoreov1alpha1.RenderedReleaseModeObserve), claiming(missing()))
