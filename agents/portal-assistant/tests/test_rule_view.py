@@ -313,3 +313,37 @@ def test_a_condition_in_one_pair_of_backticks_is_read_too():
     assert change_view(bare, scope).changes == change_view(three, scope).changes
     # Words in backticks that aren't a condition are not read as one.
     assert change_view("**Proposed rule:** `make it stricter`", scope) is None
+
+
+_VISIBILITY = {
+    **_SCOPE,
+    "current_rule": json.dumps(
+        {"all": [{"fact": "githubVisibility", "operator": "equal", "value": "private"}]},
+    ),
+}
+
+
+def test_choices_with_list_values_become_option_tiles():
+    reply = """Please confirm:
+1. **Proposed rule:** `githubVisibility` `in` `["private","internal"]` — private or internal
+2. **Proposed rule:** `githubVisibility` `in` `["private"]` — private only
+
+Reply with 1 or 2."""
+
+    view = change_view(reply, _VISIBILITY)
+
+    assert [row.state for row in view.rows] == ["pick"]
+    assert [option.number for option in view.options] == [1, 2]
+
+
+def test_a_list_value_both_choices_keep_beside_one_they_differ_in():
+    reply = f"""Please confirm:
+1. **Proposed rule:** `githubVisibility` `in` `["private","internal"]` AND {_REVIEWS} `greaterThanInclusive` `2` — 2 or more
+2. **Proposed rule:** `githubVisibility` `in` `["private","internal"]` AND {_REVIEWS} `greaterThanInclusive` `3` — 3 or more
+
+Reply with 1 or 2."""  # noqa: E501
+
+    view = change_view(reply, _VISIBILITY)
+
+    assert [row.state for row in view.rows] == ["changed", "pick"]
+    assert view.options == [Option(1, "2 or more"), Option(2, "3 or more")]

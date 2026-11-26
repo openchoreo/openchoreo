@@ -288,7 +288,8 @@ def _view(
         label = labels.get(fact) or humanize_fact(fact)
         before = value_words(*now[fact]) if fact in now else None
         afters = [rule.get(fact) for rule in options]
-        if len(options) > 1 and len(set(afters)) > 1:
+        # Compared, not hashed: an `in` value is a list.
+        if len(options) > 1 and any(after != afters[0] for after in afters):
             picked.append(fact)
             rows.append(ChangeRow(label, "pick", before))
             continue
