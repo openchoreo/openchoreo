@@ -42,6 +42,8 @@ COMPARISONS = {
 }
 
 _OPTION_RE = re.compile(r"^[ \t]*([1-9])[.)][ \t]+(.+)$", re.MULTILINE)
+# An indented line under an option: more of it, or a sub-point ("   - …").
+_CONTINUATION_RE = re.compile(r"^[ \t]+([-*•][ \t]+)?(\S.*)$")
 # A numbered list is a question only when the reply asks the user to pick.
 _PICK_RE = re.compile(r"\b(?:reply with|do you mean|which|choose|pick)\b", re.IGNORECASE)
 # "(tell me the exact number)": the option needs a number from the user.
@@ -155,8 +157,35 @@ def _open_question(message: str, scope: dict[str, Any]) -> AskView | None:
     return edit_view(scope, said)
 
 
+def _numbered_items(message: str) -> list[tuple[str, str]] | None:
+    """Each numbered option with the indented lines under it (a wrapped line,
+    or a sub-point), as (number, text). None when an unindented line sits
+    between two options: which option it belongs to can't be told, and a
+    button without it would send half the answer."""
+    items: list[tuple[str, str]] = []
+    in_item = between = False
+    for line in message.splitlines():
+        option = _OPTION_RE.match(line)
+        if option:
+            if between:
+                return None
+            items.append((option[1], option[2]))
+            in_item = True
+        elif not line.strip():
+            continue
+        elif in_item and (more := _CONTINUATION_RE.match(line)):
+            number, text = items[-1]
+            joiner = "; " if more[1] else " "
+            items[-1] = (number, f"{text.rstrip()}{joiner}{more[2]}")
+        elif items:
+            in_item, between = False, True
+    return items
+
+
 def _options(message: str, scope: dict[str, Any]) -> AskView | None:
-    found = _OPTION_RE.findall(message)
+    found = _numbered_items(message)
+    if found is None:
+        return None
     numbers = [int(n) for n, _ in found]
     if len(found) < 2 or numbers != list(range(1, len(found) + 1)) or not _PICK_RE.search(message):
         return None

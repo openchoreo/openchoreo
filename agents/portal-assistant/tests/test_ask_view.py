@@ -189,3 +189,33 @@ def test_an_open_question_that_lists_ideas_keeps_its_own_card():
     )
 
     assert ask_view(ideas, _SCOPE) is None
+
+
+def test_an_option_keeps_the_indented_lines_under_it():
+    # A button without its second line would send half the answer.
+    reply = (
+        "Which do you mean?\n\n"
+        "1. Require two approving reviews\n"
+        "   - Keep the administrator bypass enabled\n"
+        "2. Require one approving review,\n"
+        "   counted only from code owners\n\n"
+        "Reply with 1 or 2."
+    )
+
+    view = ask_view(reply, _SCOPE)
+
+    assert [option.message for option in view.options] == [
+        "Require two approving reviews; Keep the administrator bypass enabled",
+        "Require one approving review, counted only from code owners",
+    ]
+
+
+def test_an_unindented_line_between_options_gets_no_card():
+    reply = (
+        "Which do you mean?\n"
+        "1. Require two approving reviews\n"
+        "Keep the administrator bypass enabled\n"
+        "2. Require one approving review"
+    )
+
+    assert ask_view(reply, _SCOPE) is None
