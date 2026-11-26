@@ -305,7 +305,10 @@ async def card_for_save_request(
         user_sub=user_sub,
         backstage_token=backstage_token,
     )
-    return {**card, "test_skipped": True} if card else None
+    if not card:
+        return None
+    # The example's card says it is the example, skipped test or not.
+    return {**card, "test_skipped": True, **({"example": True} if practice else {})}
 
 
 async def _new_check_card(

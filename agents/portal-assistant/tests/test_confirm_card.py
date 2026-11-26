@@ -772,8 +772,11 @@ async def test_save_it_after_the_example_keeps_its_fixed_description(_backstage)
     assert practice["description"] == "Fails if the default branch is not protected"
     assert consume(practice["token"], "user-a")["check"]["description"] == practice["description"]
     assert practice["test_skipped"] is True
-    # Not the example: the reply's own words stay.
+    assert practice["example"] is True
+    # Not the example: the reply's own words stay, and it isn't marked one.
     assert "evaluated branch" in other["description"]
+    assert other["test_skipped"] is True
+    assert "example" not in other
 
 
 _BRANCH_SCOPE = {
