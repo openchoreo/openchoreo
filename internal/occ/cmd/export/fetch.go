@@ -580,7 +580,7 @@ func namespacedFetchers(c *gen.ClientWithResponses) []resourceFetcher {
 			},
 			func(item gen.ReleaseBinding) string { return item.Metadata.Name },
 		),
-		newFetcher(endpointKind,
+		newFetcher("Endpoint",
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.Endpoint], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
 				return decodePage[gen.Endpoint](c.ListEndpoints(ctx, namespace, &gen.ListEndpointsParams{Limit: pageLimit, Cursor: pageCursor}))
