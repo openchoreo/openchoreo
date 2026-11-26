@@ -108,14 +108,44 @@ var _ = Describe("RenderedRelease cleanup", func() {
 			It("deletes an object that changes between the list and the delete", func() {
 				start("busy")
 				leave(p, f)
-				f.proxy.hook(planeHook{match: withMethod(http.MethodDelete), before: func() {
+				changed := f.proxy.hook(planeHook{match: withMethod(http.MethodDelete), before: func() {
 					busy := f.live(f.object("a"))
 					busy.SetAnnotations(map[string]string{"example.com/refreshed": "now"})
 					Expect(k8sClient.Update(ctx, busy, client.FieldOwner("operator"))).To(Succeed())
 				}})
 
 				f.mustPass()
+				Expect(changed.used).To(BeTrue(), "it changed")
 				Expect(f.live(f.object("a"))).To(BeNil())
+				expectDone(p, f)
+			})
+
+			It("asks once to delete an object a finalizer holds", func() {
+				start("held")
+				hold := func(finalizers ...string) {
+					GinkgoHelper()
+					held := f.live(f.object("a"))
+					held.SetFinalizers(finalizers)
+					Expect(k8sClient.Update(ctx, held, client.FieldOwner("operator"))).To(Succeed())
+				}
+				hold("example.com/hold")
+				DeferCleanup(func() {
+					if held := f.live(f.object("a")); held != nil {
+						held.SetFinalizers(nil)
+						_ = k8sClient.Update(ctx, held)
+					}
+				})
+				leave(p, f)
+
+				f.mustPass()
+				Expect(f.deletes()).To(HaveLen(3))
+				Expect(f.live(f.object("a")).GetDeletionTimestamp()).NotTo(BeNil())
+
+				f.mustPass()
+				Expect(f.deletes()).To(BeEmpty(), "it is being deleted already")
+				Expect(f.live(f.object("a"))).NotTo(BeNil())
+
+				hold()
 				expectDone(p, f)
 			})
 

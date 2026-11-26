@@ -148,10 +148,13 @@ var _ = Describe("plane proxy", func() {
 	})
 
 	It("runs a hook after the write landed, before the answer is sent", func() {
+		ran := false
 		proxy.hook(planeHook{match: withMethod(http.MethodPatch), after: func() {
 			Expect(liveValue()).To(Equal("release"))
+			ran = true
 		}})
 		Expect(apply("release")).To(Succeed())
+		Expect(ran).To(BeTrue())
 	})
 
 	It("answers instead of forwarding, on every match when asked to", func() {

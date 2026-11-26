@@ -330,8 +330,9 @@ var _ = Describe("RenderedRelease guard", func() {
 		It("counts as missing when it is a 404, whoever answers it", func() {
 			start("read-404-text")
 			f.render(configMap("a", "1"))
-			f.proxy.hook(planeHook{match: isRead, answer: &planeAnswer{status: http.StatusNotFound, contentType: "text/plain", body: "404 page not found"}})
+			notFound := f.proxy.hook(planeHook{match: isRead, answer: &planeAnswer{status: http.StatusNotFound, contentType: "text/plain", body: "404 page not found"}})
 			expectApplied(f.pass())
+			Expect(notFound.used).To(BeTrue(), "the read was answered so")
 			Expect(f.live(configMap("a", ""))).NotTo(BeNil())
 		})
 
@@ -443,6 +444,7 @@ var _ = Describe("RenderedRelease guard", func() {
 				Expect(k8sClient.Update(ctx, busy, client.FieldOwner("operator"))).To(Succeed())
 			})
 			expectApplied(f.pass())
+			Expect(f.live(configMap("a", "")).GetAnnotations()).To(HaveKeyWithValue("example.com/refreshed", "now"), "it changed")
 		})
 
 		withSpec := func(apiVersion, kind, spec string) func() *unstructured.Unstructured {

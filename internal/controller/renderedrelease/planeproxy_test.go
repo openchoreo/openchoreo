@@ -93,11 +93,13 @@ func (p *planeProxy) client() client.Client {
 	return c
 }
 
-// hook adds a hook. A request uses the first one that matches.
-func (p *planeProxy) hook(h planeHook) {
+// hook adds a hook, and returns it so a spec can check that it was used. A request uses the
+// first one that matches.
+func (p *planeProxy) hook(h planeHook) *planeHook {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.hooks = append(p.hooks, &h)
+	return &h
 }
 
 // requests returns what was recorded since the last reset, in order.

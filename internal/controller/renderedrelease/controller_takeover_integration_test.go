@@ -233,6 +233,7 @@ var _ = Describe("RenderedRelease takeover", func() {
 			})
 			f.mustPass()
 			expectTakenOver(theirs)
+			Expect(f.live(theirs).GetAnnotations()).To(HaveKeyWithValue("example.com/refreshed", "now"), "it changed")
 		})
 
 		It("leaves a label that does nothing when the claim goes before the apply", func() {
