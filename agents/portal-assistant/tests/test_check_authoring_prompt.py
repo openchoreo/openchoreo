@@ -533,3 +533,37 @@ def test_a_rule_has_only_the_conditions_the_user_asked_for():
         assert "### Only what the user asked for" in prompt
         assert "Don't add a condition of your own, even a valid or sensible one" in prompt
         assert "no guard (such as checking that the repository could be read first)" in prompt
+
+
+@pytest.mark.parametrize(
+    ("scope", "line"),
+    [
+        ({}, "Suggested Fact Retriever: <the `id` of the `list_fact_schemas` schema"),
+        (
+            {"selected_fact_ids": ["r"]},
+            "Fact Retriever: <the selected retriever id, verbatim> — or, if a different "
+            "retriever from `list_fact_schemas`",
+        ),
+        (
+            {"available_fact_retrievers": _RETRIEVERS},
+            "Suggested Fact Retriever: <retriever id from the table above>",
+        ),
+    ],
+)
+def test_a_draft_always_names_its_retriever(scope, line):
+    # Without the retriever line a drafted check gets no save card.
+    prompt = _render(**scope)
+    head = prompt[prompt.index("Description: <one-sentence description>") :]
+    head = head[: head.index("Rule (json-rules-engine conditions)")]
+    assert line in head
+    assert "Suggested Category:" in head
+    assert head.endswith("Suggested Maturity Tier: <one of Bronze, Silver, Gold>\n\n")
+
+
+def test_the_check_tools_retry_limits_replace_the_core_budget():
+    prompt = _render(available_fact_retrievers=_RETRIEVERS)
+    assert "Never the same tool 3× per turn" in prompt
+    assert (
+        "For `validate_check` and `dry_run_check`, these limits (3 attempts each) replace the "
+        '"never the same tool 3× per turn" budget above'
+    ) in prompt
