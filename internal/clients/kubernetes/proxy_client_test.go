@@ -15,6 +15,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -730,6 +731,13 @@ func TestBuildSubResourcePatchQueryParams(t *testing.T) {
 		assert.Contains(t, got, "fieldManager=test-mgr")
 		assert.Contains(t, got, "force=true")
 	})
+
+	t.Run("field manager is escaped", func(t *testing.T) {
+		opts := &client.SubResourcePatchOptions{}
+		opts.FieldManager = "controller#blue"
+		opts.Force = boolPtr(true)
+		assert.Equal(t, "fieldManager=controller%23blue&force=true", pc.buildSubResourcePatchQueryParams(opts))
+	})
 }
 
 func TestHandleErrorResponse(t *testing.T) {
@@ -1064,6 +1072,25 @@ func TestProxyClientPatch(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "fieldManager=test-ctrl&force=true&dryRun=All", capturedQuery)
 	})
+
+	t.Run("a field manager with a # keeps the dry run", func(t *testing.T) {
+		var capturedQuery url.Values
+		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+			capturedQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(testPodJSON))
+		})
+
+		pod := &corev1.Pod{}
+		pod.Name = testPodName
+		pod.Namespace = testPodNamespace
+		err := pc.Patch(context.Background(), pod, client.Apply, client.FieldOwner("controller#blue"), client.DryRunAll)
+
+		require.NoError(t, err)
+		assert.Equal(t, "controller#blue", capturedQuery.Get("fieldManager"))
+		assert.Equal(t, []string{"All"}, capturedQuery["dryRun"])
+	})
 }
 
 func TestProxyClientDelete(t *testing.T) {
@@ -1081,6 +1108,17 @@ func TestProxyClientDelete(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, http.MethodDelete, capturedMethod)
+	})
+
+	t.Run("202 Accepted is success", func(t *testing.T) {
+		pc := newTestProxyClient(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusAccepted)
+		})
+
+		pod := &corev1.Pod{}
+		pod.Name = testPodName
+		pod.Namespace = testPodNamespace
+		assert.NoError(t, pc.Delete(context.Background(), pod))
 	})
 
 	t.Run("404 is not an error for delete", func(t *testing.T) {

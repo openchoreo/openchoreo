@@ -383,7 +383,9 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+	// Any 2xx is a success, as with the controller-runtime client: the API server answers
+	// 202 when the object is not deleted at once.
+	if (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices) && resp.StatusCode != http.StatusNotFound {
 		return pc.handleErrorResponse(resp, gvk, obj.GetName())
 	}
 
@@ -715,7 +717,7 @@ func (pc *ProxyClient) buildPatchQueryParams(opts *client.PatchOptions) string {
 
 	// fieldManager is required for Server-Side Apply
 	if opts.FieldManager != "" {
-		params = append(params, "fieldManager="+opts.FieldManager)
+		params = append(params, "fieldManager="+url.QueryEscape(opts.FieldManager))
 	}
 
 	// force is used to force ownership transfer for Server-Side Apply
@@ -725,7 +727,7 @@ func (pc *ProxyClient) buildPatchQueryParams(opts *client.PatchOptions) string {
 
 	// dryRun makes the server run the whole request without storing the result
 	for _, dryRun := range opts.DryRun {
-		params = append(params, "dryRun="+dryRun)
+		params = append(params, "dryRun="+url.QueryEscape(dryRun))
 	}
 
 	return strings.Join(params, "&")
@@ -737,7 +739,7 @@ func (pc *ProxyClient) buildSubResourcePatchQueryParams(opts *client.SubResource
 
 	// fieldManager is required for Server-Side Apply
 	if opts.FieldManager != "" {
-		params = append(params, "fieldManager="+opts.FieldManager)
+		params = append(params, "fieldManager="+url.QueryEscape(opts.FieldManager))
 	}
 
 	// force is used to force ownership transfer for Server-Side Apply
