@@ -27,7 +27,8 @@ import (
 
 // Each story is told once without trouble. Then it is told again with the controller stopped
 // after every single write of its pass, with the answer to every single write lost, and with
-// the status not written. It always has to end the same, after the passes that follow.
+// the first write to the release failing. It always has to end the same, after the passes
+// that follow.
 var _ = Describe("RenderedRelease after a crash", func() {
 	// run is one telling of a story. The release renders into a namespace that existed
 	// before, so the guard is on.
@@ -213,11 +214,13 @@ var _ = Describe("RenderedRelease after a crash", func() {
 				story.tell(r)
 				passCtx := trouble(r)
 				_, _ = r.passIn(passCtx)
+				for _, h := range r.proxy.hooks {
+					Expect(h.used).To(BeTrue(), "the trouble came")
+				}
 				writes := len(r.sentThat(isStored))
 
 				// What follows is undisturbed. The first pass after it may still see the trouble,
 				// such as an answer that was lost, and the last one must not.
-				r.r.Client = k8sClient
 				if story.then != nil {
 					story.then(r)
 				}
@@ -260,20 +263,33 @@ var _ = Describe("RenderedRelease after a crash", func() {
 				Expect(got).To(Equal(want), "the answer to write %d of %d was lost", k, writes)
 			}
 
+			// The first write to the release from the pass on fails, in whichever pass it
+			// comes: its status, or the removal of its finalizer. A pass that leaves cleanup
+			// pending writes neither, and the next one removes the finalizer.
+			failed := false
 			got, _ := tell(func(r run) context.Context {
 				base, err := client.NewWithWatch(cfg, client.Options{Scheme: k8sClient.Scheme()})
 				Expect(err).NotTo(HaveOccurred())
 				r.r.Client = interceptor.NewClient(base, interceptor.Funcs{
-					SubResourceUpdate: func(context.Context, client.Client, string, client.Object, ...client.SubResourceUpdateOption) error {
-						return errors.New("the status can't be written")
+					SubResourceUpdate: func(ctx context.Context, c client.Client, sub string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+						if !failed {
+							failed = true
+							return errors.New("the status can't be written")
+						}
+						return c.SubResource(sub).Update(ctx, obj, opts...)
 					},
-					Update: func(context.Context, client.WithWatch, client.Object, ...client.UpdateOption) error {
-						return errors.New("the finalizer can't be removed")
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						if !failed {
+							failed = true
+							return errors.New("the finalizer can't be removed")
+						}
+						return c.Update(ctx, obj, opts...)
 					},
 				})
 				return ctx
 			})
-			Expect(got).To(Equal(want), "the status was not written")
+			Expect(failed).To(BeTrue(), "the trouble came")
+			Expect(got).To(Equal(want), "a write to the release failed")
 		})
 	}
 })
