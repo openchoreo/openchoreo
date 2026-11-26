@@ -52,7 +52,8 @@ def _payload(result: ToolMessage | Command) -> dict | None:
 def _dry_run_status(result: ToolMessage | Command) -> str | None:
     """The `status` of a successful dry_run_check result, if any."""
     status = (_payload(result) or {}).get("status")
-    return status if status in _RESULT_STATUSES else None
+    # A list or object can't be looked up in the set: not a result either.
+    return status if isinstance(status, str) and status in _RESULT_STATUSES else None
 
 
 def _tool_name(tool: object) -> str:

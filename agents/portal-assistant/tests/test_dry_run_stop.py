@@ -71,6 +71,15 @@ async def test_tools_are_removed_after_a_failed_dry_run():
     assert await _tools_seen_by_model(mw) == []
 
 
+async def test_a_malformed_status_is_not_a_result():
+    for status in (["failed"], {"value": "failed"}, None):
+        mw = DryRunStopMiddleware()
+        result = _tool_message({"status": status})
+
+        assert await _call_tool(mw, "dry_run_check", result) is result
+        assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+
+
 async def test_passed_and_not_applicable_also_end_the_loop():
     for status in ("passed", "not-applicable"):
         mw = DryRunStopMiddleware()
