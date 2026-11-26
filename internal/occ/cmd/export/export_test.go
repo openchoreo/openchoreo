@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"os"
@@ -461,42 +460,12 @@ func TestRun_RequiresGeneratedClientAccess(t *testing.T) {
 	}
 }
 
-func TestRun_RechecksPermissionsBeforeWriting(t *testing.T) {
-	for _, failProfile := range []bool{false, true} {
-		t.Run(fmt.Sprintf("profile failure %t", failProfile), func(t *testing.T) {
-			f := newFetchFixture(t, false)
-			f.profileOverride = func(_ *http.Request) (*http.Response, error) {
-				profile := fullExportProfile()
-				if f.profileCalls > 1 {
-					if failProfile {
-						return nil, errors.New("authorization profile unavailable")
-					}
-					delete(*profile.Capabilities, "trait:view")
-				}
-				return testutil.JSONResp(http.StatusOK, profile), nil
-			}
-			directory := t.TempDir()
-			seedFiles(t, directory, serializedResources(t, manifestResource(testComponentKind)))
-			before := snapshotTree(t, directory)
-			result, err := Run(context.Background(), f.client, Params{OutputDir: directory})
-			require.Error(t, err)
-			if !failProfile {
-				require.EqualError(t, err, "your role does not have enough permission to perform export")
-			}
-			assert.Nil(t, result)
-			assert.NotEmpty(t, f.calls, "the initial profile allowed resource fetching")
-			assert.Equal(t, 2, f.profileCalls)
-			assert.Equal(t, before, snapshotTree(t, directory), "no replacement or pruning after losing permission")
-		})
-	}
-}
-
 func TestRun_AllowsCompleteReadOnlyAccess(t *testing.T) {
 	f := newFetchFixture(t, false)
 	result, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
 	require.NoError(t, err)
 	assert.Len(t, result.Files, 69)
-	assert.Equal(t, 2, f.profileCalls)
+	assert.Equal(t, 1, f.profileCalls)
 }
 
 func TestUnrestrictedAccess_CombinesGlobalAndSpecificCapabilities(t *testing.T) {

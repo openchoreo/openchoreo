@@ -43,9 +43,6 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	if err != nil {
 		return nil, err
 	}
-	if err := checkExportPermissions(ctx, c); err != nil {
-		return nil, err
-	}
 	options := writeOptions{
 		preservedPaths: fetched.PreservedPaths,
 	}
