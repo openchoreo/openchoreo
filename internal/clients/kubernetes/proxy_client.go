@@ -358,9 +358,22 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 
 	proxyURL := pc.buildProxyURL(apiPath)
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, nil)
+	// The API server reads the options from the body. Without options there is none.
+	var body io.Reader
+	if len(opts) > 0 {
+		data, err := json.Marshal((&client.DeleteOptions{}).ApplyOptions(opts).AsDeleteOptions())
+		if err != nil {
+			return fmt.Errorf("failed to marshal delete options: %w", err)
+		}
+		body = bytes.NewReader(data)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", proxyURL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
 
@@ -370,7 +383,9 @@ func (pc *ProxyClient) Delete(ctx context.Context, obj client.Object, opts ...cl
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+	// Any 2xx is a success, as with the controller-runtime client: the API server answers
+	// 202 when the object is not deleted at once.
+	if (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices) && resp.StatusCode != http.StatusNotFound {
 		return pc.handleErrorResponse(resp, gvk, obj.GetName())
 	}
 
@@ -702,12 +717,17 @@ func (pc *ProxyClient) buildPatchQueryParams(opts *client.PatchOptions) string {
 
 	// fieldManager is required for Server-Side Apply
 	if opts.FieldManager != "" {
-		params = append(params, "fieldManager="+opts.FieldManager)
+		params = append(params, "fieldManager="+url.QueryEscape(opts.FieldManager))
 	}
 
 	// force is used to force ownership transfer for Server-Side Apply
 	if opts.Force != nil && *opts.Force {
 		params = append(params, "force=true")
+	}
+
+	// dryRun makes the server run the whole request without storing the result
+	for _, dryRun := range opts.DryRun {
+		params = append(params, "dryRun="+url.QueryEscape(dryRun))
 	}
 
 	return strings.Join(params, "&")
@@ -719,12 +739,17 @@ func (pc *ProxyClient) buildSubResourcePatchQueryParams(opts *client.SubResource
 
 	// fieldManager is required for Server-Side Apply
 	if opts.FieldManager != "" {
-		params = append(params, "fieldManager="+opts.FieldManager)
+		params = append(params, "fieldManager="+url.QueryEscape(opts.FieldManager))
 	}
 
 	// force is used to force ownership transfer for Server-Side Apply
 	if opts.Force != nil && *opts.Force {
 		params = append(params, "force=true")
+	}
+
+	// dryRun makes the server run the whole request without storing the result
+	for _, dryRun := range opts.DryRun {
+		params = append(params, "dryRun="+url.QueryEscape(dryRun))
 	}
 
 	return strings.Join(params, "&")
