@@ -1443,6 +1443,19 @@ gateway:
     # @schema
     certificateRefs: []
 
+    # @schema
+    # type: object
+    # description: |
+    #   TLS options for the HTTPS listener, rendered into its Gateway API tls.options. When gatewayClassName is kgateway,
+    #   the chart adds kgateway.dev/ecdh-curves: "X25519MLKEM768,X25519,P-256" unless it is set here, which enables
+    #   hybrid post-quantum key exchange and falls back to X25519 for clients that don't offer it.
+    #   Set a key to an empty string to remove it. kgateway.dev/min-tls-version: "1.3" is an opt-in that rejects TLS 1.2 clients.
+    # additionalProperties:
+    #   type: string
+    # default: {}
+    # @schema
+    options: {}
+
   # @schema
   # type: object
   # description: TLS passthrough configuration for OpenSearch direct access
