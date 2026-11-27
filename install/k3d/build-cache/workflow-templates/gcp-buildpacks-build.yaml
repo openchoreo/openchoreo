@@ -54,6 +54,14 @@ spec:
               exit 1
             fi
 
+            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+              "$(readlink -f -- "$WORKDIR")"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<STEOF
             [storage]

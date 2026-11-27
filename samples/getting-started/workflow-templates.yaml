@@ -65,6 +65,14 @@ spec:
               exit 1
             fi
 
+            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+              "$(readlink -f -- "$WORKDIR")"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -190,6 +198,14 @@ spec:
               ls -la "$WORKDIR/"
               exit 1
             fi
+
+            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+              "$(readlink -f -- "$WORKDIR")"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
 
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
@@ -320,6 +336,14 @@ spec:
               ls -la "$WORKDIR/"
               exit 1
             fi
+
+            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+              "$(readlink -f -- "$WORKDIR")"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
 
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
@@ -465,6 +489,22 @@ spec:
               ls -la "$WORKDIR/"
               exit 1
             fi
+
+            SOURCE_ROOT=$(readlink -f -- "$WORKDIR")
+            case "$(readlink -f -- "$WORKDIR/$DOCKERFILE_PATH")" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Dockerfile path '$DOCKERFILE_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+            case "$(readlink -f -- "$WORKDIR/$DOCKER_CONTEXT")/" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Docker build context '$DOCKER_CONTEXT' resolves outside the repository"
+                exit 1
+                ;;
+            esac
 
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF

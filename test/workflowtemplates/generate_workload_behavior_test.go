@@ -20,6 +20,7 @@ if [ "$1" = "version" ]; then
   echo "occ-test"
   exit 0
 fi
+echo "occ-cwd $(pwd -P)" >> "$CALLS"
 out=""
 while [ "$#" -gt 0 ]; do
   if [ "$1" = "-o" ]; then
@@ -314,4 +315,104 @@ recorded calls:
 		formatScriptOutput(res),
 		formatCalls(res, res.calls),
 	)
+}
+
+func TestGenerateWorkload_AppPathOutsideRepositoryFailsBeforeCreate(t *testing.T) {
+	for _, file := range []string{"generate-workload.yaml", "generate-workload-k3d.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			script := scriptForTemplate(t, file, "generate-workload-cr")
+			env := envForTemplate(t, file, "generate-workload-cr")
+			res := runScriptWithEnv(t, script, env, map[string]string{
+				"occ":  occStub,
+				"yq":   workloadYQStub,
+				"jq":   workloadJQStub,
+				"curl": workloadCurlStub(201, false),
+			}, func(root string) {
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "mnt-vol", "source"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "outside"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "tools", "bin"), 0o755))
+			}, func(root string) []string {
+				return workloadReplacements(root, "../../outside", "scope-a")
+			})
+
+			requireScriptExitCode(t, res, 1, "an app path that resolves outside the repository must fail before workload generation")
+			requireOutputContains(t, res, "resolves outside the repository",
+				"the failure must explain that the application path resolves outside the repository")
+			requireNoCall(t, res, "occ workload create",
+				"occ must not run when the application path resolves outside the repository")
+			requireNoCall(t, res, "curl",
+				"the workload API must not be called when the application path resolves outside the repository")
+		})
+	}
+}
+
+func TestGenerateWorkload_DescriptorSymlinkOutsideRepositoryFailsBeforeCreate(t *testing.T) {
+	for _, file := range []string{"generate-workload.yaml", "generate-workload-k3d.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			script := scriptForTemplate(t, file, "generate-workload-cr")
+			env := envForTemplate(t, file, "generate-workload-cr")
+			res := runScriptWithEnv(t, script, env, map[string]string{
+				"occ":  occStub,
+				"yq":   workloadYQStub,
+				"jq":   workloadJQStub,
+				"curl": workloadCurlStub(201, false),
+			}, func(root string) {
+				source := filepath.Join(root, "mnt-vol", "source")
+				require.NoError(t, os.MkdirAll(source, 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "outside"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "tools", "bin"), 0o755))
+				// A workload.yaml that is a symlink to a descriptor outside the checkout.
+				require.NoError(t, os.WriteFile(filepath.Join(root, "outside", "workload.yaml"), []byte("kind: Workload\n"), 0o644))
+				require.NoError(t, os.Symlink(filepath.Join(root, "outside", "workload.yaml"), filepath.Join(source, "workload.yaml")))
+			}, func(root string) []string {
+				return workloadReplacements(root, ".", "scope-a")
+			})
+
+			requireScriptExitCode(t, res, 1, "a workload.yaml symlink resolving outside the repository must fail before workload generation")
+			requireOutputContains(t, res, "resolves outside the repository",
+				"the failure must explain that the workload descriptor resolves outside the repository")
+			requireNoCall(t, res, "occ workload create",
+				"occ must not run when the workload descriptor resolves outside the repository")
+		})
+	}
+}
+
+func TestGenerateWorkload_SymlinkDotDotDoesNotEscapeViaCd(t *testing.T) {
+	// APP_PATH="jump/../.." with jump a symlink: readlink -f resolves to the
+	// repo root (the guard accepts), but a raw `cd` on the un-canonicalized path
+	// lands in /mnt/vol, one level above the checkout. Canonicalizing
+	// DESCRIPTOR_PATH first keeps cd inside the repo. The in-checkout descriptor
+	// read by both the guarded and vulnerable code is at source/workload.yaml;
+	// the only observable difference is the directory occ runs from, so the test
+	// asserts occ's physical working directory is the repository source.
+	for _, file := range []string{"generate-workload.yaml", "generate-workload-k3d.yaml"} {
+		t.Run(file, func(t *testing.T) {
+			script := scriptForTemplate(t, file, "generate-workload-cr")
+			env := envForTemplate(t, file, "generate-workload-cr")
+			res := runScriptWithEnv(t, script, env, map[string]string{
+				"occ":  occStub,
+				"yq":   workloadYQStub,
+				"jq":   workloadJQStub,
+				"curl": workloadCurlStub(201, false),
+			}, func(root string) {
+				source := filepath.Join(root, "mnt-vol", "source")
+				require.NoError(t, os.MkdirAll(filepath.Join(source, "deep", "a"), 0o755))
+				require.NoError(t, os.Symlink("deep/a", filepath.Join(source, "jump")))
+				// in-checkout descriptor: the guarded path must read this one
+				require.NoError(t, os.WriteFile(filepath.Join(source, "workload.yaml"), []byte("kind: Workload\n"), 0o644))
+				// an out-of-checkout descriptor the escaping `cd` would expose
+				require.NoError(t, os.WriteFile(filepath.Join(root, "mnt-vol", "workload.yaml"), []byte("kind: Workload\n"), 0o644))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "tools", "bin"), 0o755))
+			}, func(root string) []string {
+				return workloadReplacements(root, "jump/../..", "scope-a")
+			})
+
+			sourceDir, err := filepath.EvalSymlinks(filepath.Join(res.root, "mnt-vol", "source"))
+			require.NoError(t, err)
+			requireScriptSuccess(t, res,
+				"a symlinked app path with .. that canonicalizes inside the repository must still produce a workload")
+			requireCallContains(t, res, "occ-cwd", sourceDir,
+				"occ must run from the repository source directory, not an escaped directory reached by a raw cd")
+		})
+	}
 }

@@ -74,6 +74,22 @@ spec:
               exit 1
             fi
 
+            SOURCE_ROOT=$(readlink -f -- "$WORKDIR")
+            case "$(readlink -f -- "$WORKDIR/$DOCKERFILE_PATH")" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Dockerfile path '$DOCKERFILE_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+            case "$(readlink -f -- "$WORKDIR/$DOCKER_CONTEXT")/" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Docker build context '$DOCKER_CONTEXT' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             case "$CACHE_LAYERS_MODE" in
               disabled|reuse|rebuild) ;;
               *)

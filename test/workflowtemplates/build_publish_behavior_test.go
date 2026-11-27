@@ -684,3 +684,104 @@ func normalizeTestPath(res scriptRunResult, s string) string {
 	}
 	return strings.ReplaceAll(s, res.root, "$TEST_ROOT")
 }
+
+func withReplacements(base func(root string) []string, overrides ...string) func(root string) []string {
+	return func(root string) []string {
+		replacements := base(root)
+		for i := 0; i+1 < len(overrides); i += 2 {
+			for j := 0; j+1 < len(replacements); j += 2 {
+				if replacements[j] == overrides[i] {
+					replacements[j+1] = overrides[i+1]
+				}
+			}
+		}
+		return replacements
+	}
+}
+
+func TestBuildTemplates_PathOutsideRepositoryFailsBeforeBuild(t *testing.T) {
+	type testCase struct {
+		name        string
+		dir         string
+		file        string
+		buildpack   bool
+		placeholder string
+		value       string
+		symlink     bool
+	}
+	var cases []testCase
+	for _, dir := range []struct {
+		name string
+		path string
+	}{{"sample", templatesDir}, {"build-cache", buildCacheTemplatesDir}} {
+		cases = append(cases,
+			testCase{dir.name + "/containerfile/context", dir.path, "containerfile-build.yaml", false, "{{workflow.parameters.docker-context}}", "../../outside", false},
+			testCase{dir.name + "/containerfile/dockerfile", dir.path, "containerfile-build.yaml", false, "{{workflow.parameters.dockerfile-path}}", "../../outside/Dockerfile", false},
+			testCase{dir.name + "/containerfile/symlink-context", dir.path, "containerfile-build.yaml", false, "{{workflow.parameters.docker-context}}", "link", true},
+		)
+		for _, file := range []string{"ballerina-buildpack-build.yaml", "gcp-buildpacks-build.yaml", "paketo-buildpacks-build.yaml"} {
+			cases = append(cases,
+				testCase{dir.name + "/" + file, dir.path, file, true, "{{workflow.parameters.app-path}}", "../../outside", false},
+				testCase{dir.name + "/" + file + "/symlink", dir.path, file, true, "{{workflow.parameters.app-path}}", "link", true},
+			)
+		}
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			script := scriptForTemplateFromDir(t, tc.dir, tc.file, "build-image")
+			env := envForTemplateFromDir(t, tc.dir, tc.file, "build-image")
+			stubs := map[string]string{
+				"podman": buildPodmanStub,
+				"jq":     buildJQStub,
+			}
+			buildCall := "podman build"
+			if tc.buildpack {
+				stubs["pack"] = packStub
+				buildCall = "pack build"
+			}
+
+			res := runScriptWithEnv(t, script, env, stubs, func(root string) {
+				source := filepath.Join(root, "mnt-vol", "source")
+				outside := filepath.Join(root, "outside")
+				require.NoError(t, os.MkdirAll(source, 0o755))
+				require.NoError(t, os.MkdirAll(outside, 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(source, "Dockerfile"), []byte("FROM scratch\n"), 0o644))
+				require.NoError(t, os.WriteFile(filepath.Join(outside, "Dockerfile"), []byte("FROM scratch\n"), 0o644))
+				if tc.symlink {
+					require.NoError(t, os.Symlink(outside, filepath.Join(source, "link")))
+				}
+			}, withReplacements(buildReplacements, tc.placeholder, tc.value))
+
+			requireScriptExitCode(t, res, 1, "a path that resolves outside the repository must fail the build step")
+			requireOutputContains(t, res, "resolves outside the repository",
+				"the failure must explain that the path resolves outside the repository")
+			requireNoCall(t, res, buildCall,
+				"the build tool must not run when a path resolves outside the repository")
+		})
+	}
+}
+
+func TestContainerfileBuild_SubdirectoryContextBuilds(t *testing.T) {
+	script := scriptForTemplate(t, "containerfile-build.yaml", "build-image")
+	env := envForTemplate(t, "containerfile-build.yaml", "build-image")
+	res := runScriptWithEnv(t, script, env, map[string]string{
+		"podman": buildPodmanStub,
+		"jq":     buildJQStub,
+	}, func(root string) {
+		app := filepath.Join(root, "mnt-vol", "source", "app")
+		require.NoError(t, os.MkdirAll(app, 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(app, "Dockerfile"), []byte("FROM scratch\n"), 0o644))
+	}, withReplacements(buildReplacements,
+		"{{workflow.parameters.docker-context}}", "app",
+		"{{workflow.parameters.dockerfile-path}}", "app/Dockerfile",
+	))
+
+	requireScriptSuccess(t, res, "a sub-directory context and Dockerfile inside the repository must build")
+	requireCallContains(t, res, "podman build", filepath.Join(res.root, "mnt-vol", "source", "app"),
+		"containerfile build must pass the sub-directory context to podman build")
+}

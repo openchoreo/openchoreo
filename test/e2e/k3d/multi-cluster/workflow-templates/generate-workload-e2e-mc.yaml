@@ -94,6 +94,15 @@ spec:
               exit 1
             fi
 
+            DESCRIPTOR_PATH="$(readlink -f -- "$DESCRIPTOR_PATH")"
+            case "${DESCRIPTOR_PATH}/" in
+              "$(readlink -f -- /mnt/vol/source)"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             mkdir -p /etc/containers
             cat <<EOF > /etc/containers/storage.conf
             [storage]
@@ -106,6 +115,13 @@ spec:
 
             WORKLOAD_FROM_SOURCE="false"
             if [ -f "${DESCRIPTOR_PATH}/workload.yaml" ]; then
+              case "$(readlink -f -- "${DESCRIPTOR_PATH}/workload.yaml")" in
+                "$(readlink -f -- /mnt/vol/source)"/*) ;;
+                *)
+                  echo ">> Error: The workload descriptor resolves outside the repository"
+                  exit 1
+                  ;;
+              esac
               WORKLOAD_FROM_SOURCE="true"
               echo ">> Generating workload CR from workload descriptor"
               podman run --rm --network=none \
