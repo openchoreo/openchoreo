@@ -5,8 +5,10 @@ package renderedrelease
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -38,6 +41,8 @@ const (
 	appsAPIGroup    = "apps"
 	deploymentKind  = "Deployment"
 	statefulSetKind = "StatefulSet"
+
+	namespaceKind = "Namespace"
 
 	batchAPIGroup = "batch"
 	cronJobKind   = "CronJob"
@@ -141,15 +146,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	// Observed resources are read in both modes and never written. They are read
-	// before the apply so that a failed apply still publishes them.
+	// Observed resources are read in both modes. They are read before the apply so that
+	// a failed apply still publishes them.
 	observedEntries := resolveObservedResources(release.Spec.ObservedResources)
 	observed := r.readObservedResources(ctx, planeClient, old, observedEntries)
 	setObservedConditions(release, observedEntries, observed.failures)
 
 	// The mode only decides what happens to spec.resources. In Observe mode nothing
 	// is desired, so the cleanup below removes whatever this release applied
-	// earlier: that is the rollback when a binding moves back to observing.
+	// earlier, and gives back what is or was claimed: that is the rollback when a
+	// binding moves back to observing.
 	var desiredResources []*unstructured.Unstructured
 	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
 		desiredResources, err = r.makeDesiredResources(release)
@@ -158,9 +164,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			return ctrl.Result{}, err
 		}
 
-		// An object that is both rendered and observed would be written by the apply.
-		if err := checkObservedOverlap(desiredResources, observedEntries); err != nil {
-			logger.Error(err, "Rendered resources overlap observed resources")
+		// Nothing is written, not even a namespace, unless everything may be.
+		resources, err := checkOwnership(ctx, planeClient, release, desiredResources)
+		if err != nil {
+			var refused *refusedError
+			if errors.As(err, &refused) {
+				return r.markApplyRefused(ctx, old, release, observed.statuses, refused)
+			}
+			logger.Error(err, "Failed to check who owns the resources to apply")
 			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
 
@@ -170,15 +181,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// nothing else creates the target namespace, so we create it here.
 		if targetPlane == targetPlaneObservabilityPlane {
 			desiredNamespaces := r.makeDesiredNamespaces(release, desiredResources)
-			if err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces); err != nil {
+			created, err := r.ensureNamespaces(ctx, planeClient, desiredNamespaces)
+			if err != nil {
 				logger.Error(err, "Failed to ensure namespaces on observability plane")
 				return ctrl.Result{}, err
 			}
+			markCreatedNamespaces(resources, created)
 		}
 
 		// PHASE 1: Apply desired resources to the target plane
 		// This ensures all resources in the spec are created/updated with proper tracking labels
-		if err := r.applyResources(ctx, planeClient, desiredResources); err != nil {
+		if err := r.applyResources(ctx, planeClient, resources); err != nil {
 			logger.Error(err, "Failed to apply resources to target plane", "targetPlane", targetPlane)
 			return r.markApplyFailed(ctx, old, release, observed.statuses, err)
 		}
@@ -205,7 +218,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		// once like an apply failure.
 		controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
 			controller.ConditionReason(ReasonObserveMode),
-			"Observe mode: spec.resources are not applied, and anything applied earlier is removed")
+			"Observe mode: spec.resources are not applied, and anything applied earlier is removed, "+
+				"except objects protected by observedResources, which are given back")
 	}
 
 	// PHASE 2: Discover live resources that we manage in the target plane
@@ -218,14 +232,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	// PHASE 3: Find and delete stale resources (cleanup orphaned resources)
+	// PHASE 3: Clean up what is no longer rendered
 	// Stale = live resources that are no longer in the desired spec (e.g., user removed a ConfigMap)
 	// This implements Flux-style inventory cleanup to prevent resource accumulation over time
-	// An observed object is never deleted, even one this release applied before it
-	// was listed as observed.
-	staleResources := excludeObserved(r.findStaleResources(liveResources, desiredResources), observedEntries)
-	if err := r.deleteResources(ctx, planeClient, staleResources); err != nil {
-		logger.Error(err, "Failed to delete stale resources")
+	// Stale resources are deleted, except the ones that are or were claimed, which are given
+	// back. The claims' own reads find those of a kind that isn't listed.
+	rendered := renderedSetOf(desiredResources)
+	plan := planCleanup(release, rendered, slices.Concat(liveResources, observed.live))
+	if err := r.cleanUp(ctx, planeClient, plan); err != nil {
+		logger.Error(err, "Failed to clean up stale resources")
 		return ctrl.Result{}, err
 	}
 
@@ -251,9 +266,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	// Polls run at low priority so that real changes (spec, restart annotation,
 	// deletion), which arrive through the watch at priority 0, never wait behind them.
 	// Observed resources count too; transitioningRequeuePriority weighs them. So does
-	// a failed read, whose entry may still show its last health.
-	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(release.Status.ObservedResources) ||
-		len(observed.failures) > 0 {
+	// a failed read, whose entry may still show its last health. One that does not exist
+	// counts only in Observe mode, or when the release renders it: otherwise it may never
+	// exist, such as the old name of an object the release renders under a new one.
+	awaited := observed
+	if effectiveMode(release) == openchoreov1alpha1.RenderedReleaseModeManage {
+		awaited = observed.withoutMissing(rendered)
+	}
+	if r.hasTransitioningResources(release.Status.Resources) || r.hasTransitioningResources(awaited.statuses) ||
+		len(awaited.failures) > 0 {
 		requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
 		priority := transitioningRequeuePriority(release.Status.Resources, release.Status.ObservedResources)
 		logger.Info("Resources are transitioning, requeuing with configured interval",
@@ -292,6 +313,23 @@ func (r *Reconciler) markApplyFailed(ctx context.Context, old, release *openchor
 		log.FromContext(ctx).Error(statusErr, "Failed to update Release status with apply error")
 	}
 	return ctrl.Result{}, err
+}
+
+// markApplyRefused persists ResourcesApplied=False with what was refused, the way
+// markApplyFailed does. A refusal is not an error: it lasts until someone changes the
+// objects or the release, so the release is checked again at the progressing interval
+// instead of backing off, and at low priority.
+func (r *Reconciler) markApplyRefused(ctx context.Context, old, release *openchoreov1alpha1.RenderedRelease,
+	observedStatuses []openchoreov1alpha1.RenderedManifestStatus, refused *refusedError) (ctrl.Result, error) {
+	log.FromContext(ctx).Info("Refused to apply resources", "refused", refused.Error())
+	controller.MarkFalseCondition(release, controller.ConditionType(ConditionResourcesApplied),
+		controller.ConditionReason(ReasonApplyRefused),
+		fmt.Sprintf("Refused to apply, and nothing was changed: %v", refused))
+	if _, err := r.updateStatus(ctx, old, release, release.Status.Resources, observedStatuses); err != nil {
+		return ctrl.Result{}, err
+	}
+	requeueAfter := getProgressingRequeueInterval(release, r.ProgressingInterval)
+	return ctrl.Result{RequeueAfter: requeueAfter, Priority: ptr.To(requeuePriorityPoll)}, nil
 }
 
 // getDPClient gets the dataplane client for the specified environment
@@ -340,18 +378,86 @@ func (r *Reconciler) getOPClient(ctx context.Context, namespaceName string, envi
 	return opClient, nil
 }
 
-// applyResources applies the given resources to the target plane
-func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []*unstructured.Unstructured) error {
-	for _, obj := range resources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-
-		// Apply the resource using server-side apply
-		if err := planeClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(ControllerName)); err != nil {
-			return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
+// applyResources applies the given resources to the target plane. Takeovers come last, so
+// that a new object that is rejected leaves the existing ones alone.
+func (r *Reconciler) applyResources(ctx context.Context, planeClient client.Client, resources []checkedResource) error {
+	for _, takeOver := range []bool{false, true} {
+		for _, resource := range resources {
+			if resource.takeOver != takeOver {
+				continue
+			}
+			resourceID := resource.desired.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
+			if err := applyResource(ctx, planeClient, resource); err != nil {
+				return fmt.Errorf("failed to apply resource %s: %w", resourceID, err)
+			}
+			if takeOver {
+				log.FromContext(ctx).Info("Took over an existing object", "object", describeObject(resource.live))
+			}
 		}
 	}
 
 	return nil
+}
+
+// applyResource applies a resource using server-side apply. The plane may have changed since
+// the check.
+//
+// An object the check found is named by its UID, so the apply is rejected when it has been
+// recreated or deleted, instead of writing over the new one or creating it again.
+//
+// Where the check found none, one may have appeared. So the object is created without force:
+// a value of the one that appeared that differs from the manifest fails the apply, and nothing
+// is written. When none differs, the apply merges into it and succeeds, but then its answer
+// shows another field manager, while a new object has only ours. Such an object is given back,
+// and the apply fails.
+func applyResource(ctx context.Context, planeClient client.Client, resource checkedResource) error {
+	obj := resource.desired
+	if resource.live != nil {
+		// The label comes first, so a claimed object is protected before the release owns it,
+		// and a crash in between leaves an object that nobody took over. One that is created now
+		// is labeled right after it.
+		if resource.claimed && !hasClaimedLabel(resource.live) {
+			if _, err := addClaimedLabel(ctx, planeClient, resource.live); err != nil {
+				return err
+			}
+		}
+		obj.SetUID(resource.live.GetUID())
+	}
+	opts := []client.PatchOption{client.FieldOwner(ControllerName)}
+	if !resource.missing {
+		opts = append(opts, client.ForceOwnership)
+	}
+	if err := planeClient.Patch(ctx, obj, client.Apply, opts...); err != nil {
+		if resource.missing && apierrors.IsConflict(err) {
+			return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+		}
+		return err
+	}
+	if resource.missing && hasOtherManager(obj) {
+		if err := giveBack(ctx, planeClient, obj); err != nil {
+			return fmt.Errorf("%s appeared while it was being created: %w", describeObject(obj), err)
+		}
+		return fmt.Errorf("%s appeared while it was being created, and was given back", describeObject(obj))
+	}
+	// A claimed object this pass created is protected from the start. If the label fails,
+	// the next pass adds it before it applies the object again.
+	if resource.missing && resource.claimed {
+		if _, err := addClaimedLabel(ctx, planeClient, obj); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hasOtherManager reports whether anything but an apply of this controller has an entry in an
+// object's managedFields.
+func hasOtherManager(obj *unstructured.Unstructured) bool {
+	for _, entry := range obj.GetManagedFields() {
+		if entry.Manager != ControllerName || entry.Operation != metav1.ManagedFieldsOperationApply {
+			return true
+		}
+	}
+	return false
 }
 
 // makeDesiredResources creates the desired resources from the Release spec
@@ -454,8 +560,21 @@ func (r *Reconciler) makeDesiredNamespaces(release *openchoreov1alpha1.RenderedR
 	return namespaces
 }
 
-// ensureNamespaces ensures all required namespaces exist in the target plane
-func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) error {
+// markCreatedNamespaces marks the rendered Namespaces that this pass has just created as no
+// longer missing: they did not appear from elsewhere.
+func markCreatedNamespaces(resources []checkedResource, created sets.Set[string]) {
+	for i := range resources {
+		gvk := resources[i].desired.GroupVersionKind()
+		if resources[i].missing && gvk.Group == "" && gvk.Kind == namespaceKind && created.Has(resources[i].desired.GetName()) {
+			resources[i].missing = false
+		}
+	}
+}
+
+// ensureNamespaces ensures all required namespaces exist in the target plane, and returns the
+// names of the ones it created.
+func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Client, namespaces []*corev1.Namespace) (sets.Set[string], error) {
+	created := sets.New[string]()
 	for _, namespace := range namespaces {
 		existingNs := &corev1.Namespace{}
 		err := planeClient.Get(ctx, client.ObjectKey{Name: namespace.Name}, existingNs)
@@ -467,7 +586,7 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 
 		// Error other than NotFound
 		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to check namespace %s: %w", namespace.Name, err)
+			return nil, fmt.Errorf("failed to check namespace %s: %w", namespace.Name, err)
 		}
 
 		// Namespace doesn't exist, create it
@@ -476,82 +595,12 @@ func (r *Reconciler) ensureNamespaces(ctx context.Context, planeClient client.Cl
 				// Another controller/release created it concurrently - that's fine
 				continue
 			}
-			return fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
+			return nil, fmt.Errorf("failed to create namespace %s: %w", namespace.Name, err)
 		}
+		created.Insert(namespace.Name)
 	}
 
-	return nil
-}
-
-// findStaleResources finds resources that this controller applied but are no longer in the
-// desired spec. Live objects it did not apply are never stale, whatever labels they carry
-// (see appliedByController).
-func (r *Reconciler) findStaleResources(liveResources, desiredResources []*unstructured.Unstructured) []*unstructured.Unstructured {
-	// Build a set of desired resource IDs for fast lookup
-	desiredResourceIDs := make(map[string]bool)
-	for _, obj := range desiredResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if resourceID != "" {
-			desiredResourceIDs[resourceID] = true
-		}
-	}
-
-	// Find live resources that are not in the desired set
-	var staleResources []*unstructured.Unstructured
-	for _, liveObj := range appliedByController(liveResources) {
-		liveResourceID := liveObj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-		if liveResourceID != "" {
-			// If this live resource ID is not in the desired set, it's stale
-			if !desiredResourceIDs[liveResourceID] {
-				staleResources = append(staleResources, liveObj)
-			}
-		}
-	}
-
-	return staleResources
-}
-
-// appliedByController returns the live resources this controller applied: those whose
-// managedFields hold a server-side apply entry from its field manager.
-//
-// The tracking labels alone do not say that. Operators copy labels onto the objects they
-// create (ESO copies an ExternalSecret's labels onto its Secret when the ExternalSecret has
-// no target template), and such an object is listed as if it were ours. managedFields are
-// not copied, and applyResources records an Apply entry under ControllerName on everything
-// it writes. Deleting only what carries that entry leaves those objects to their owner: the
-// Secret of an ExternalSecret with creationPolicy Orphan outlives it, and one with Merge
-// existed before it.
-func appliedByController(liveResources []*unstructured.Unstructured) []*unstructured.Unstructured {
-	applied := make([]*unstructured.Unstructured, 0, len(liveResources))
-	for _, obj := range liveResources {
-		for _, entry := range obj.GetManagedFields() {
-			if entry.Manager == ControllerName && entry.Operation == metav1.ManagedFieldsOperationApply {
-				applied = append(applied, obj)
-				break
-			}
-		}
-	}
-	return applied
-}
-
-// deleteResources deletes the given stale resources from the target plane
-func (r *Reconciler) deleteResources(ctx context.Context, planeClient client.Client, staleResources []*unstructured.Unstructured) error {
-	for _, obj := range staleResources {
-		resourceID := obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID]
-
-		// Skip resources already terminating on the target plane (re-deleting over
-		// the gateway tunnel is a wasted round-trip on the most expensive I/O path).
-		if obj.GetDeletionTimestamp() != nil {
-			continue
-		}
-
-		// Delete the resource from the target plane
-		if err := planeClient.Delete(ctx, obj); err != nil {
-			return fmt.Errorf("failed to delete stale resource %s: %w", resourceID, err)
-		}
-	}
-
-	return nil
+	return created, nil
 }
 
 // wellKnownDataPlaneGVKs is the safety-net list for data-plane rendered releases.
@@ -563,7 +612,7 @@ var wellKnownDataPlaneGVKs = []schema.GroupVersionKind{
 	{Group: "", Version: "v1", Kind: "ConfigMap"},
 	{Group: "", Version: "v1", Kind: "Secret"},
 	{Group: "", Version: "v1", Kind: "ServiceAccount"},
-	{Group: "", Version: "v1", Kind: "Namespace"},
+	{Group: "", Version: "v1", Kind: namespaceKind},
 	{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"},
 
 	// Apps

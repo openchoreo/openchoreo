@@ -74,6 +74,11 @@ const (
 	// LabelKeyRenderedReleaseNamespace tracks the namespace of the rendered release that manages a resource.
 	LabelKeyRenderedReleaseNamespace = "openchoreo.dev/rendered-release-namespace"
 
+	// LabelKeyClaimed marks an object that a RenderedRelease applied while it was claimed, meaning
+	// listed in its spec.observedResources. The controller never deletes an object with this label,
+	// whatever its value, and removes it when it gives the object back.
+	LabelKeyClaimed = "openchoreo.dev/claimed"
+
 	// LabelKeyComponentReleaseName records the ComponentRelease a RenderedRelease was
 	// rendered from. The renderedrelease controller uses it to resolve release-scoped
 	// context (delivery events, commit provenance).

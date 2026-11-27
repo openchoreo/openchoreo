@@ -50,16 +50,34 @@ type RenderedReleaseSpec struct {
 	TargetPlane string `json:"targetPlane,omitempty"`
 
 	// Mode decides whether the manifests in spec.resources are applied. Manage
-	// applies them. Observe does not, and removes whatever this release applied
-	// earlier. Observed resources are read in both modes. Defaults to Manage.
+	// applies them. Observe does not, and deletes what this release applied earlier,
+	// except objects protected by observedResources. Observed resources are read in
+	// both modes. Defaults to Manage.
 	// +kubebuilder:validation:Enum=Manage;Observe
 	// +kubebuilder:default=Manage
 	// +optional
 	Mode RenderedReleaseMode `json:"mode,omitempty"`
 
-	// ObservedResources lists existing objects on the target plane that this
-	// release reads and reports in status.observedResources. They are never
-	// created, updated, labeled or deleted, in either mode.
+	// ObservedResources lists objects on the target plane that the release reads and
+	// reports in status.observedResources, in both modes. Listing an object does not
+	// create, change or delete it.
+	//
+	// An object can be listed here and also be in spec.resources. In Manage mode the
+	// release then applies it:
+	//   - If it does not exist, it is created.
+	//   - If it exists and no release manages it, the release takes it over. It sets
+	//     the fields in its manifest and leaves the others as they are. The takeover is
+	//     dry-run first, and if the API server rejects it, for example because it
+	//     changes an immutable field, the release applies nothing.
+	//   - If another release manages it, the release applies nothing.
+	//
+	// Listing an object also protects it. An object that the release applies while it
+	// is listed gets the label openchoreo.dev/claimed, before the apply if it exists, or
+	// right after it if the release creates it. From then on the release never deletes
+	// it, even when it is no longer listed. When the release stops applying it (it is
+	// dropped from spec.resources, the release moves to Observe mode, or the release is
+	// deleted), the release removes its labels and its managedFields entry, and leaves
+	// everything else as it is.
 	// +listType=map
 	// +listMapKey=id
 	// +optional
@@ -73,7 +91,7 @@ const (
 	// RenderedReleaseModeManage applies spec.resources to the target plane.
 	RenderedReleaseModeManage RenderedReleaseMode = "Manage"
 	// RenderedReleaseModeObserve does not apply spec.resources. Anything the release
-	// applied earlier is removed.
+	// applied earlier is deleted, except objects protected by spec.observedResources.
 	RenderedReleaseModeObserve RenderedReleaseMode = "Observe"
 )
 

@@ -17,13 +17,16 @@ import (
 // string.
 const (
 	// ConditionResourcesApplied indicates whether resources were successfully applied to the target plane.
-	// When False, it contains the error message from the failed apply operation.
+	// When False, it contains the error message from the failed apply operation, or what was refused.
 	ConditionResourcesApplied = "ResourcesApplied"
 
 	// ReasonApplySucceeded indicates all resources were applied successfully
 	ReasonApplySucceeded = "ApplySucceeded"
 	// ReasonApplyFailed indicates one or more resources failed to apply
 	ReasonApplyFailed = "ApplyFailed"
+	// ReasonApplyRefused indicates nothing was applied, because the release would have
+	// written an object it must not touch
+	ReasonApplyRefused = "ApplyRefused"
 	// ReasonObserveMode indicates the release is in Observe mode, so spec.resources
 	// are not applied. ResourcesApplied is False with this reason.
 	ReasonObserveMode = "ObserveMode"
@@ -39,7 +42,7 @@ func ObservedResourcesCurrent(release *openchoreov1alpha1.RenderedRelease) bool 
 }
 
 // ApplyFailedCondition returns the release's ResourcesApplied condition when
-// it reports a failed apply of the current generation, and nil otherwise. A
+// it reports a failed or refused apply of the current generation, and nil otherwise. A
 // condition from an earlier generation describes a spec that has since been
 // replaced, and False with ReasonObserveMode is not a failure.
 func ApplyFailedCondition(release *openchoreov1alpha1.RenderedRelease) *metav1.Condition {

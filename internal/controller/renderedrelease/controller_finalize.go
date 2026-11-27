@@ -132,14 +132,15 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to list live resources for cleanup: %w", err)
 	}
-	// Only what this controller applied is deleted, and only that is waited for below:
-	// an object that merely carries our labels (e.g. the Secret ESO creates for an
-	// ExternalSecret) belongs to its creator and may legitimately outlive the release.
-	// Observed objects are never deleted, even one this release applied earlier.
-	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
+	// Only what this release applied is cleaned up, and only what it deletes is waited for
+	// below: an object that merely carries our labels (e.g. the Secret ESO creates for an
+	// ExternalSecret) belongs to its creator and may legitimately outlive the release, and
+	// so does one that is given back. The claims are not read, so a read that fails can't
+	// block the finalizer.
+	plan := planCleanup(release, renderedSet{}, liveResources)
 
-	// STEP 4: Delete all live resources (since we want to delete everything, all live resources are "stale")
-	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
+	// STEP 4: Give back and delete
+	if err := r.cleanUp(ctx, planeClient, plan); err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
@@ -148,8 +149,8 @@ func (r *Reconciler) finalizeDataPlane(ctx context.Context, old, release *opench
 	}
 
 	// STEP 5: Check if any resources still exist - if so, requeue for retry
-	if len(liveResources) > 0 {
-		return r.cleanupPending(ctx, old, release, len(liveResources))
+	if len(plan.remove) > 0 {
+		return r.cleanupPending(ctx, old, release, len(plan.remove))
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer
@@ -203,12 +204,11 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 		}
 		return ctrl.Result{}, fmt.Errorf("failed to list live resources for cleanup: %w", err)
 	}
-	// As on the data plane: delete, and wait for, only what this controller applied,
-	// and never an observed object.
-	liveResources = excludeObserved(appliedByController(liveResources), resolveObservedResources(release.Spec.ObservedResources))
+	// As on the data plane: only what this release applied, and wait only for the deletes.
+	plan := planCleanup(release, renderedSet{}, liveResources)
 
-	// STEP 4: Delete all live resources
-	if err := r.deleteResources(ctx, planeClient, liveResources); err != nil {
+	// STEP 4: Give back and delete
+	if err := r.cleanUp(ctx, planeClient, plan); err != nil {
 		meta.SetStatusCondition(&release.Status.Conditions, NewRenderedReleaseCleanupFailedCondition(release.Generation, err))
 		if updateErr := controller.UpdateStatusConditions(ctx, r.Client, old, release); updateErr != nil {
 			return ctrl.Result{}, updateErr
@@ -217,8 +217,8 @@ func (r *Reconciler) finalizeObsPlane(ctx context.Context, old, release *opencho
 	}
 
 	// STEP 5: Check if any resources still exist - if so, requeue for retry
-	if len(liveResources) > 0 {
-		return r.cleanupPending(ctx, old, release, len(liveResources))
+	if len(plan.remove) > 0 {
+		return r.cleanupPending(ctx, old, release, len(plan.remove))
 	}
 
 	// STEP 6: All resources cleaned up - remove the finalizer

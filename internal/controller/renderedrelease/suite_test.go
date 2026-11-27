@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,7 +48,10 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("testdata", "crds"),
+		},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -72,6 +78,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	// The API server answers the first list of a custom resource with 429 while it starts
+	// the resource's storage. client-go retries that and ProxyClient does not, so the kinds
+	// every pass lists, and the specs' own, are listed here once.
+	for _, gvk := range slices.Concat(wellKnownDataPlaneGVKs, wellKnownObservabilityPlaneGVKs,
+		[]schema.GroupVersionKind{
+			{Group: "test.openchoreo.dev", Version: "v1", Kind: "ClusterWidget"},
+			{Group: "test.openchoreo.dev", Version: "v1", Kind: "Widget"},
+		}) {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(gvk)
+		Expect(k8sClient.List(ctx, list)).To(Succeed())
+	}
 })
 
 var _ = AfterSuite(func() {

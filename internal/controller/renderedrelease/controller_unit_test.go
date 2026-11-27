@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -195,17 +196,23 @@ func TestGetProgressingRequeueInterval(t *testing.T) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// findStaleResources
+// planCleanup
 // ─────────────────────────────────────────────────────────────
 
-func TestFindStaleResources(t *testing.T) {
-	r := &Reconciler{}
-
+func TestPlanCleanup(t *testing.T) {
+	release := &openchoreov1alpha1.RenderedRelease{ObjectMeta: metav1.ObjectMeta{Name: "api-prod", Namespace: "acme"}}
 	makeObj := func(resourceID string) *unstructured.Unstructured {
-		obj := &unstructured.Unstructured{}
-		obj.SetLabels(map[string]string{labels.LabelKeyRenderedReleaseResourceID: resourceID})
+		obj := unstructuredObj("v1", "ConfigMap", "prod", "cm-"+resourceID)
+		obj.SetLabels(map[string]string{
+			labels.LabelKeyRenderedReleaseResourceID: resourceID,
+			labels.LabelKeyRenderedReleaseName:       release.Name,
+			labels.LabelKeyRenderedReleaseNamespace:  release.Namespace,
+		})
 		markAppliedByController(obj)
 		return obj
+	}
+	find := func(live, desired []*unstructured.Unstructured) []*unstructured.Unstructured {
+		return planCleanup(release, renderedSetOf(desired), live).remove
 	}
 
 	// ESO copies an ExternalSecret's labels onto the Secret it creates when the
@@ -216,7 +223,7 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("live resource another manager wrote is not stale", func(t *testing.T) {
 		copied := makeObj("res-1")
 		setManagedBy(copied, esoFieldManager, metav1.ManagedFieldsOperationApply)
-		stale := r.findStaleResources([]*unstructured.Unstructured{copied}, []*unstructured.Unstructured{makeObj("res-2")})
+		stale := find([]*unstructured.Unstructured{copied}, []*unstructured.Unstructured{makeObj("res-2")})
 		if len(stale) != 0 {
 			t.Errorf("expected 0 stale (not applied by %s), got %d", ControllerName, len(stale))
 		}
@@ -225,7 +232,7 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("live resource with no managedFields is not stale", func(t *testing.T) {
 		bare := makeObj("res-1")
 		bare.SetManagedFields(nil)
-		stale := r.findStaleResources([]*unstructured.Unstructured{bare}, []*unstructured.Unstructured{makeObj("res-2")})
+		stale := find([]*unstructured.Unstructured{bare}, []*unstructured.Unstructured{makeObj("res-2")})
 		if len(stale) != 0 {
 			t.Errorf("expected 0 stale (no managedFields), got %d", len(stale))
 		}
@@ -234,7 +241,7 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("an Update entry from our manager is not an apply", func(t *testing.T) {
 		updated := makeObj("res-1")
 		setManagedBy(updated, ControllerName, metav1.ManagedFieldsOperationUpdate)
-		stale := r.findStaleResources([]*unstructured.Unstructured{updated}, []*unstructured.Unstructured{makeObj("res-2")})
+		stale := find([]*unstructured.Unstructured{updated}, []*unstructured.Unstructured{makeObj("res-2")})
 		if len(stale) != 0 {
 			t.Errorf("expected 0 stale (only an Update entry), got %d", len(stale))
 		}
@@ -246,14 +253,14 @@ func TestFindStaleResources(t *testing.T) {
 			Manager:   esoFieldManager,
 			Operation: metav1.ManagedFieldsOperationUpdate,
 		}}, applied.GetManagedFields()...))
-		stale := r.findStaleResources([]*unstructured.Unstructured{applied}, []*unstructured.Unstructured{makeObj("res-2")})
+		stale := find([]*unstructured.Unstructured{applied}, []*unstructured.Unstructured{makeObj("res-2")})
 		if len(stale) != 1 {
 			t.Errorf("expected 1 stale (applied by %s, listed after another manager), got %d", ControllerName, len(stale))
 		}
 	})
 
 	t.Run("empty live resources returns empty", func(t *testing.T) {
-		result := r.findStaleResources(nil, nil)
+		result := find(nil, nil)
 		if len(result) != 0 {
 			t.Errorf("expected 0, got %d", len(result))
 		}
@@ -262,7 +269,7 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("live resource not in desired is stale", func(t *testing.T) {
 		live := []*unstructured.Unstructured{makeObj("res-1")}
 		desired := []*unstructured.Unstructured{makeObj("res-2")}
-		stale := r.findStaleResources(live, desired)
+		stale := find(live, desired)
 		if len(stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(stale))
 		}
@@ -274,27 +281,29 @@ func TestFindStaleResources(t *testing.T) {
 	t.Run("live resource in desired is not stale", func(t *testing.T) {
 		live := []*unstructured.Unstructured{makeObj("res-1")}
 		desired := []*unstructured.Unstructured{makeObj("res-1")}
-		stale := r.findStaleResources(live, desired)
+		stale := find(live, desired)
 		if len(stale) != 0 {
 			t.Errorf("expected 0 stale, got %d", len(stale))
 		}
 	})
 
 	t.Run("live resource with no ID label is not stale", func(t *testing.T) {
-		noIDObj := &unstructured.Unstructured{}
-		noIDObj.SetLabels(map[string]string{"other": "label"})
-		// Applied by us, so it is the missing ID that keeps it from being stale.
-		markAppliedByController(noIDObj)
-		stale := r.findStaleResources([]*unstructured.Unstructured{noIDObj}, nil)
+		// Applied by this release, so it is the missing ID that keeps it from being stale.
+		noIDObj := makeObj("res-1")
+		noIDObj.SetLabels(withoutLabel(noIDObj.GetLabels(), labels.LabelKeyRenderedReleaseResourceID))
+		stale := find([]*unstructured.Unstructured{noIDObj}, nil)
 		if len(stale) != 0 {
 			t.Errorf("expected 0 (no ID label skipped), got %d", len(stale))
+		}
+		if stale = planCleanup(release, renderedSet{}, []*unstructured.Unstructured{noIDObj}).remove; len(stale) != 1 {
+			t.Errorf("expected 1 once nothing is rendered, got %d", len(stale))
 		}
 	})
 
 	t.Run("mixed: some stale, some current", func(t *testing.T) {
 		live := []*unstructured.Unstructured{makeObj("keep"), makeObj("remove")}
 		desired := []*unstructured.Unstructured{makeObj("keep")}
-		stale := r.findStaleResources(live, desired)
+		stale := find(live, desired)
 		if len(stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(stale))
 		}
@@ -302,6 +311,92 @@ func TestFindStaleResources(t *testing.T) {
 			t.Error("wrong stale resource")
 		}
 	})
+
+	t.Run("live resource whose labels do not name this release is not stale", func(t *testing.T) {
+		for _, key := range []string{labels.LabelKeyRenderedReleaseName, labels.LabelKeyRenderedReleaseNamespace} {
+			removed, changed := makeObj("res-1"), makeObj("res-2")
+			removed.SetLabels(withoutLabel(removed.GetLabels(), key))
+			changed.SetLabels(withLabel(changed.GetLabels(), key, "another"))
+			plan := planCleanup(release, renderedSet{}, []*unstructured.Unstructured{removed, changed})
+			if len(plan.remove)+len(plan.giveBack) != 0 {
+				t.Errorf("%s: expected nothing to do, got %v", key, plan)
+			}
+		}
+	})
+
+	t.Run("an object listed under two API versions is stale once", func(t *testing.T) {
+		v1, v2 := makeObj("res-1"), makeObj("res-1")
+		v1.SetAPIVersion("autoscaling/v1")
+		v2.SetAPIVersion("autoscaling/v2")
+		stale := find([]*unstructured.Unstructured{v1, v2}, nil)
+		if len(stale) != 1 || stale[0] != v1 {
+			t.Errorf("expected the first copy only, got %d", len(stale))
+		}
+	})
+
+	t.Run("claimed objects are given back", func(t *testing.T) {
+		object := func(apiVersion, kind, namespace string) *unstructured.Unstructured {
+			obj := makeObj("res-1")
+			obj.SetAPIVersion(apiVersion)
+			obj.SetKind(kind)
+			obj.SetNamespace(namespace)
+			obj.SetName("api")
+			return obj
+		}
+		claimedDeploy := object("apps/v1", "Deployment", "prod")
+		// The same object listed under another version is the same claimed one.
+		claimedOtherVersion := object("apps/v1beta2", "Deployment", "prod")
+		otherNamespace := object("apps/v1", "Deployment", "staging")
+		otherKind := object("v1", "Service", "prod")
+		live := []*unstructured.Unstructured{claimedDeploy, claimedOtherVersion, otherNamespace, otherKind}
+
+		// The kind is compared case-insensitively, as ProxyClient builds the request path
+		// from it: an entry spelled DEPLOYMENT reads, and protects, the Deployment.
+		for _, kind := range []string{"Deployment", "DEPLOYMENT"} {
+			claiming := release.DeepCopy()
+			claiming.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{observedRes("api", "apps/v1", kind, "prod", "api")}
+			plan := planCleanup(claiming, renderedSet{}, live)
+			if len(plan.giveBack) != 1 || plan.giveBack[0] != claimedDeploy {
+				t.Errorf("%s: %d objects are given back, want the claimed one, once", kind, len(plan.giveBack))
+			}
+			if len(plan.remove) != 2 || plan.remove[0] != otherNamespace || plan.remove[1] != otherKind {
+				t.Errorf("%s: %d objects are stale, want only the two that are not claimed", kind, len(plan.remove))
+			}
+		}
+	})
+
+	t.Run("labeled objects are given back, whatever the label's value", func(t *testing.T) {
+		for _, value := range []string{"true", "false", ""} {
+			labeled := makeObj("res-1")
+			labeled.SetLabels(withLabel(labeled.GetLabels(), labels.LabelKeyClaimed, value))
+			plan := planCleanup(release, renderedSet{}, []*unstructured.Unstructured{labeled})
+			if len(plan.giveBack) != 1 || len(plan.remove) != 0 {
+				t.Errorf("%q: got %v", value, plan)
+			}
+		}
+	})
+
+	t.Run("a rendered object is neither given back nor stale, though claimed, labeled, or listed under an old ID", func(t *testing.T) {
+		claiming := release.DeepCopy()
+		claiming.Spec.ObservedResources = []openchoreov1alpha1.ObservedResource{observedRes("cm", "v1", "ConfigMap", "prod", "cm-res-1")}
+		live := makeObj("res-1")
+		live.SetLabels(withLabel(live.GetLabels(), labels.LabelKeyClaimed, "true"))
+		live.SetLabels(withLabel(live.GetLabels(), labels.LabelKeyRenderedReleaseResourceID, "old"))
+		plan := planCleanup(claiming, renderedSetOf([]*unstructured.Unstructured{makeObj("res-1")}), []*unstructured.Unstructured{live})
+		if len(plan.giveBack)+len(plan.remove) != 0 {
+			t.Errorf("expected nothing to do, got %v", plan)
+		}
+	})
+}
+
+func withLabel(all map[string]string, key, value string) map[string]string {
+	all[key] = value
+	return all
+}
+
+func withoutLabel(all map[string]string, key string) map[string]string {
+	delete(all, key)
+	return all
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1438,8 +1533,12 @@ func TestEnsureNamespaces(t *testing.T) {
 
 	t.Run("creates namespace that does not exist", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("new-ns")}); err != nil {
+		created, err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("new-ns")})
+		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
+		}
+		if !created.Has("new-ns") || created.Len() != 1 {
+			t.Errorf("expected new-ns to be reported as created, got %v", sets.List(created))
 		}
 		got := &corev1.Namespace{}
 		if err := cl.Get(ctx, client.ObjectKey{Name: "new-ns"}, got); err != nil {
@@ -1449,14 +1548,18 @@ func TestEnsureNamespaces(t *testing.T) {
 
 	t.Run("is idempotent when namespace already exists", func(t *testing.T) {
 		cl := fake.NewClientBuilder().WithObjects(makeNamespace("existing-ns")).Build()
-		if err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("existing-ns")}); err != nil {
+		created, err := r.ensureNamespaces(ctx, cl, []*corev1.Namespace{makeNamespace("existing-ns")})
+		if err != nil {
 			t.Fatalf("unexpected error for existing namespace: %v", err)
+		}
+		if created.Len() != 0 {
+			t.Errorf("expected nothing to be reported as created, got %v", sets.List(created))
 		}
 	})
 
 	t.Run("empty list is a no-op", func(t *testing.T) {
 		cl := fake.NewClientBuilder().Build()
-		if err := r.ensureNamespaces(ctx, cl, nil); err != nil {
+		if _, err := r.ensureNamespaces(ctx, cl, nil); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

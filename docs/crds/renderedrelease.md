@@ -202,6 +202,33 @@ The RenderedRelease controller implements a reconciliation process:
   - `openchoreo.dev/rendered-release-namespace`: Namespace of the RenderedRelease that manages the resource
 - Applies resources to data plane using server-side apply
 
+### Existing Objects
+An object belongs to a RenderedRelease when its `managedFields` have an apply entry of
+`renderedrelease-controller` and its labels name that RenderedRelease.
+
+- A release that renders into its project's own `dp-*` namespace, or that Namespace itself, applies its
+  resources over whatever exists, except the ones it lists in `spec.observedResources`, which it reads first
+  as described below
+- Any other release reads its objects before it writes anything. If one exists that does not belong to it
+  and is not listed in `spec.observedResources`, nothing is applied, and `ResourcesApplied` is False with the
+  reason `ApplyRefused` and a message that names the objects. The release is checked again at its progressing
+  interval, or at its next change when that interval is 0
+- An existing object that is also listed in `spec.observedResources` is taken over in Manage mode. Fields the
+  manifest sets are changed, and the others are left as they are. Takeovers are dry-run before anything is
+  written, and come after all other resources are applied
+- A listed object that belongs to another release is never taken over. It is refused, in any namespace
+
+### Protected Objects
+- An object that is applied while it is listed in `spec.observedResources` gets the label
+  `openchoreo.dev/claimed`, before the apply if it exists, or right after it if the release creates it. From
+  then on the controller never deletes it
+- When the release stops rendering such an object, moves to Observe mode or is deleted, the object is given
+  back: the tracking labels, the claimed label and the controller's `managedFields` entry are removed, and
+  nothing else changes
+- To let the controller delete it again, remove it from `spec.observedResources` and remove the label while the
+  release still applies it. An object that was given back no longer belongs to the release, so delete it by hand
+  if it should go
+
 ### Live Resource Discovery
 - Queries data plane for all resources managed by this RenderedRelease
 - Uses GVK (GroupVersionKind) discovery combining:
@@ -213,7 +240,10 @@ The RenderedRelease controller implements a reconciliation process:
 ### Stale Resource Cleanup
 - Identifies resources that exist in data plane but not in current spec
 - Implements Flux-style inventory cleanup to prevent resource accumulation
-- Deletes orphaned resources (e.g., ConfigMaps removed from spec)
+- Deletes orphaned resources (e.g., ConfigMaps removed from spec) that belong to the release, except protected
+  objects, which are given back
+- Deletes by UID, so an object that was recreated since it was found is kept
+- Tries all of it when one delete fails
 
 ### Namespace Pre-creation
 - Identifies all namespaces referenced by resources before deployment
@@ -279,7 +309,7 @@ The RenderedRelease controller implements cleanup through finalizers:
 **Finalization Process**:
 1. **Status Update**: Sets "Finalizing" condition
 2. **Resource Discovery**: Finds all managed resources in data plane
-3. **Cleanup**: Deletes all managed resources
+3. **Cleanup**: Gives protected objects back and deletes all other managed resources
 4. **Verification**: Retries if resources still exist (5-second intervals)
 5. **Finalizer Removal**: Removes finalizer once cleanup is complete
 

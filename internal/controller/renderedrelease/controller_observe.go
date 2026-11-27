@@ -7,18 +7,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	"github.com/openchoreo/openchoreo/internal/controller"
-	"github.com/openchoreo/openchoreo/internal/labels"
 )
 
 // maxReportedReadFailures caps how many unreadable observed resources the
@@ -125,6 +126,27 @@ type observedReadResult struct {
 	failures []observedReadFailure
 	// live holds the objects that were read.
 	live []*unstructured.Unstructured
+}
+
+// withoutMissing returns the result without the resources that do not exist, except the
+// rendered ones: those were read before the apply, which may have created them.
+func (r observedReadResult) withoutMissing(rendered renderedSet) observedReadResult {
+	missing := sets.New[string]()
+	isMissing := func(failure observedReadFailure) bool {
+		return failure.reason == ReasonObservedResourceNotFound && !rendered.objects.Has(failure.entry.identity())
+	}
+	for _, failure := range r.failures {
+		if isMissing(failure) {
+			missing.Insert(failure.entry.id)
+		}
+	}
+	return observedReadResult{
+		statuses: slices.DeleteFunc(slices.Clone(r.statuses), func(status openchoreov1alpha1.RenderedManifestStatus) bool {
+			return missing.Has(status.ID)
+		}),
+		failures: slices.DeleteFunc(slices.Clone(r.failures), isMissing),
+		live:     r.live,
+	}
 }
 
 // readObservedResources reads every observed resource from the plane and reports
@@ -312,46 +334,6 @@ func readFailureMessage(total int, failures []observedReadFailure) string {
 		msg += fmt.Sprintf("; and %d more", extra)
 	}
 	return msg
-}
-
-// excludeObserved drops the objects that are listed as observed resources.
-// Observed objects are never deleted, even one this release applied earlier and
-// that still carries its labels.
-func excludeObserved(objs []*unstructured.Unstructured, entries []observedEntry) []*unstructured.Unstructured {
-	if len(entries) == 0 || len(objs) == 0 {
-		return objs
-	}
-	observed := make(map[objectIdentity]bool, len(entries))
-	for _, entry := range entries {
-		observed[entry.identity()] = true
-	}
-	kept := make([]*unstructured.Unstructured, 0, len(objs))
-	for _, obj := range objs {
-		if !observed[identityOf(obj)] {
-			kept = append(kept, obj)
-		}
-	}
-	return kept
-}
-
-// checkObservedOverlap returns an error naming the first desired resource that is
-// also listed as an observed resource. Applying it would write to an object the
-// release only observes.
-func checkObservedOverlap(desired []*unstructured.Unstructured, entries []observedEntry) error {
-	if len(entries) == 0 {
-		return nil
-	}
-	observed := make(map[objectIdentity]string, len(entries))
-	for _, entry := range entries {
-		observed[entry.identity()] = entry.id
-	}
-	for _, obj := range desired {
-		if id, found := observed[identityOf(obj)]; found {
-			return fmt.Errorf("resource %s (%s) is also observed resource %s, and observed resources are never written",
-				obj.GetLabels()[labels.LabelKeyRenderedReleaseResourceID], describeObject(obj), id)
-		}
-	}
-	return nil
 }
 
 // hasResurrectableLiveWorkload reports whether any of the given live objects is a

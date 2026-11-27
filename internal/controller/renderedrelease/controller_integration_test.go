@@ -155,7 +155,17 @@ func makeEnvironment(name, cdpName string) *openchoreov1alpha1.Environment {
 
 // testReconcilerWithDPClient creates a Reconciler with a mock PlaneClientProvider
 // that returns dpClient for any data plane. This allows testing without a real data-plane cluster.
+// With envtest's client it returns a ProxyClient in front of envtest instead, the client
+// production uses, since the two differ in what they send and in the errors they return.
 func testReconcilerWithDPClient(dpClient client.Client, _, _ string) *Reconciler {
+	if dpClient == k8sClient {
+		proxy := newPlaneProxy()
+		DeferCleanup(func() {
+			Expect(deleteViolations(proxy.requests())).To(BeEmpty())
+			Expect(giveBackViolations(proxy.requests())).To(BeEmpty())
+		})
+		dpClient = proxy.client()
+	}
 	mockProvider := &k8sMocks.MockPlaneClientProvider{}
 	mockProvider.EXPECT().DataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
 	mockProvider.EXPECT().ClusterDataPlaneClient(mock.Anything).Return(dpClient, nil).Maybe()
@@ -1874,6 +1884,9 @@ var _ = Describe("applyResources and deleteResources", func() {
 	const testNS = "default"
 	configMapGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 
+	unchecked := func(obj *unstructured.Unstructured) []checkedResource {
+		return []checkedResource{{desired: obj}}
+	}
 	makeTrackedCM := func(name, resourceID, releaseUID string) *unstructured.Unstructured {
 		obj := &unstructured.Unstructured{}
 		obj.SetGroupVersionKind(configMapGVK)
@@ -1919,7 +1932,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should apply the resource with tracking labels", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 
 			existing := &unstructured.Unstructured{}
 			existing.SetGroupVersionKind(configMapGVK)
@@ -1930,9 +1943,9 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should be idempotent when applied twice", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 			obj2 := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj2})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj2))).To(Succeed())
 		})
 	})
 
@@ -1944,7 +1957,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		BeforeEach(func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
-			Expect(r.applyResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
+			Expect(r.applyResources(ctx, k8sClient, unchecked(obj))).To(Succeed())
 		})
 
 		AfterEach(func() { deleteCM(cmName) })
@@ -1952,6 +1965,7 @@ var _ = Describe("applyResources and deleteResources", func() {
 		It("should delete the resource", func() {
 			r := &Reconciler{Client: k8sClient, Scheme: k8sClient.Scheme()}
 			obj := makeTrackedCM(cmName, resourceID, releaseUID)
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
 			Expect(r.deleteResources(ctx, k8sClient, []*unstructured.Unstructured{obj})).To(Succeed())
 
 			existing := &unstructured.Unstructured{}
