@@ -286,7 +286,23 @@ def _current_rule_summary(scope: dict[str, Any]) -> str | None:
         return None
     if isinstance(rule, dict) and set(rule) == {"conditions"}:
         rule = rule["conditions"]
+    if not _plain_leaves(rule):
+        # A path or params changes what a condition compares (`$.length` of
+        # a list), which this line can't show: no "exact" summary, and the
+        # prompt's full rule stands.
+        return None
     return _describe_conditions(rule)
+
+
+def _plain_leaves(node: Any) -> bool:
+    """Whether every condition in ``node`` is only a fact, operator and value."""
+    if isinstance(node, list):
+        return all(_plain_leaves(n) for n in node)
+    if not isinstance(node, dict):
+        return True
+    if "fact" in node:
+        return set(node) <= {"fact", "operator", "value"}
+    return all(_plain_leaves(v) for k, v in node.items() if k in ("all", "any", "not"))
 
 
 def _get_or_render_prompt(

@@ -317,9 +317,15 @@ async def _yield_chunks(
                 if getattr(chunk, "name", None) in _RULE_TOOLS:
                     checked_rule = True
                 if dry_runs is not None and getattr(chunk, "name", None) == DRY_RUN_CHECK:
+                    # The tool's structured output first, as call_backstage_tool
+                    # reads it; its text only when there is none.
+                    artifact = getattr(chunk, "artifact", None)
+                    structured = (
+                        artifact.get("structured_content") if isinstance(artifact, dict) else None
+                    )
                     run = read_dry_run(
                         call_args.get(getattr(chunk, "tool_call_id", None) or ""),
-                        getattr(chunk, "content", None),
+                        structured if structured is not None else getattr(chunk, "content", None),
                     )
                     if run:
                         dry_runs.append(run)

@@ -366,6 +366,11 @@ class ChatRequest(BaseModel):
     @model_validator(mode="after")
     def _validate_total_content(self) -> "ChatRequest":
         total = sum(len(m.content) for m in self.messages)
+        # A button's action context counts too (a change card's button
+        # carries its rule).
+        total += sum(
+            _sum_string_lengths(m.action.model_dump()) for m in self.messages if m.action
+        )
         if self.scope is not None:
             total += _sum_string_lengths(self.scope.model_dump(exclude_none=True))
         if total > _TOTAL_CONTENT_LIMIT:
@@ -408,7 +413,9 @@ class ConfirmRequest(BaseModel):
 
     model_config = {"populate_by_name": True, "extra": "forbid"}
 
-    token: str = Field(max_length=16_000)
+    # Room for the card's check and baseline, each with the description, in
+    # any language (see test_a_long_non_english_card_round_trips).
+    token: str = Field(max_length=64_000)
     # The status the check ends in; the card offers only these two.
     status: Literal["draft", "published"]
     # Whether the card's suggested Name / Description are saved.

@@ -365,8 +365,19 @@ def _unlabeled(line: str) -> list[Leaf] | None:
     for leaf_re in (_LEAF_RE, _ONE_SPAN_LEAF_RE, _BARE_VALUE_LEAF_RE):
         matches = list(leaf_re.finditer(text))
         if matches:
-            return _leaves(text[matches[0].start() : matches[-1].end()])
+            start, end = matches[0].start(), matches[-1].end()
+            # Logic around the conditions ("NOT (…)", "… OR …") changes what
+            # they mean: read only plain prose around them.
+            if _AROUND_LOGIC_BEFORE_RE.search(text[:start]) or _AROUND_LOGIC_AFTER_RE.match(
+                text[end:]
+            ):
+                return None
+            return _leaves(text[start:end])
     return None
+
+
+_AROUND_LOGIC_BEFORE_RE = re.compile(r"(?:\b(?:not|or|unless)\b|!|\()[\s*]*$", re.IGNORECASE)
+_AROUND_LOGIC_AFTER_RE = re.compile(r"[\s*]*(?:\)|\bor\b)", re.IGNORECASE)
 
 
 def proposed_conditions(message: str) -> dict[int, list[Leaf]] | None:

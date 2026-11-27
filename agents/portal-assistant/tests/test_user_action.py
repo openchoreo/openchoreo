@@ -132,6 +132,11 @@ def test_a_typed_number_is_the_cards_own_choice(typed, option):
     assert _typed(typed, _TWO)["action"] == _sent(_card_events(_TWO)[option])
 
 
+def test_a_typed_one_to_a_single_proposal_is_its_yes():
+    # Its card has Yes and No, not numbered choices.
+    assert _typed("1", _CARD_ONE)["action"] == _sent(_card_events(_CARD_ONE)["yes"])
+
+
 @pytest.mark.parametrize("typed", ["no", "keep it", "Keep the current rule"])
 def test_turning_it_down_is_no(typed):
     assert _typed(typed, _ONE)["action"] == {"name": "reject_edit"}
@@ -276,6 +281,17 @@ def test_a_message_takes_a_buttons_action():
     }
     # A typed message carries none.
     assert "action" not in ChatMessage(role="user", content="hi").model_dump(exclude_none=True)
+
+
+def test_button_actions_count_toward_the_request_limit():
+    # 50 messages, each with 8 context values of the longest allowed size.
+    big = {f"k{i}": "x" * CONTEXT_VALUE_MAX for i in range(8)}
+    message = {"role": "user", "content": "x", "action": {"name": "pick_proposal", "context": big}}
+
+    with pytest.raises(ValidationError, match="exceeds limit"):
+        ChatRequest(messages=[message] * 50)
+    # A real button's action is still well within it.
+    ChatRequest(messages=[{**message, "action": {"name": "test", "context": {"entityRef": "x"}}}])
 
 
 @pytest.mark.parametrize(

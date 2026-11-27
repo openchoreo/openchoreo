@@ -81,7 +81,10 @@ def sign(action: dict[str, Any], user_sub: str, ttl_s: int = DEFAULT_TTL_S) -> s
         "exp": time.time() + ttl_s,
         "action": action,
     }
-    body = _b64(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+    # UTF-8, not \u escapes: a non-English description stays about half the size.
+    body = _b64(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(),
+    )
     return f"{body}.{_signature(body)}"
 
 

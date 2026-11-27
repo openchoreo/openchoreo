@@ -19,10 +19,11 @@ logger = logging.getLogger(__name__)
 # tool raises an error for it so the model can fix the rule and retry.
 _RESULT_STATUSES = frozenset({"passed", "failed", "not-applicable"})
 
-# Matches the prompt's "at most 3 dry-run-check calls"; 6 tool calls is
-# more than a successful check_authoring turn needs.
+# Matches the prompt's "at most 3 dry-run-check calls". The tool budget
+# keeps the third dry run reachable after the most a turn needs before it:
+# a fact-schema lookup, an entity-facts lookup and 3 validations.
 _MAX_DRY_RUNS = 3
-_MAX_TOOL_CALLS = 6
+_MAX_TOOL_CALLS = 8
 # Matches the prompt's "after 3 attempts" for validate-check.
 _MAX_VALIDATIONS = 3
 

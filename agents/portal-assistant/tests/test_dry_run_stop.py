@@ -103,15 +103,28 @@ async def test_three_failed_dry_run_attempts_end_the_loop():
     assert await _tools_seen_by_model(mw) == []
 
 
-async def test_six_tool_calls_end_the_loop():
+async def test_eight_tool_calls_end_the_loop():
     mw = DryRunStopMiddleware()
 
-    for _ in range(5):
+    for _ in range(7):
         await _call_tool(mw, "tech-insights__list-checks", _tool_message({"checks": []}))
     assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
     await _call_tool(mw, "tech-insights__list-checks", _tool_message({"checks": []}))
     assert await _tools_seen_by_model(mw) == []
+
+
+async def test_the_third_dry_run_stays_reachable_after_the_lookups_and_validations():
+    # The prompt allows 3 dry runs; the tool budget mustn't take the third.
+    mw = DryRunStopMiddleware()
+    await _call_tool(mw, "tech-insights__list-fact-schemas", _tool_message({"schemas": []}))
+    await _call_tool(mw, "tech-insights__get-entity-facts", _tool_message({"facts": {}}))
+    for _ in range(3):
+        await _call_tool(mw, "tech-insights__validate-check", _validation(False, ["x"]))
+    for _ in range(2):
+        await _call_tool(mw, "tech-insights__dry-run-check", _error())
+
+    assert "tech-insights__dry-run-check" in await _tools_seen_by_model(mw)
 
 
 async def test_an_errored_dry_run_keeps_tools_so_the_model_can_fix_it():
@@ -223,10 +236,16 @@ async def test_fixing_the_rule_after_problems_ends_the_loop():
 
 async def test_a_fixable_input_error_counts_as_an_attempt():
     mw = DryRunStopMiddleware()
+    both = ["tech-insights__validate-check", "tech-insights__dry-run-check"]
 
     await _call_tool(mw, "tech-insights__validate-check", _error("InputError: rule.conditions is not valid JSON"))
+    assert await _tools_now(mw, "allow internal repos too") == both
+    await _call_tool(mw, "tech-insights__validate-check", _validation(False, ["Fact x isn't selected"]))
+    assert await _tools_now(mw, "allow internal repos too") == both
 
-    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__validate-check", "tech-insights__dry-run-check"]
+    # The error was the first of 3 attempts: the third ends validation.
+    await _call_tool(mw, "tech-insights__validate-check", _validation(False, ["Fact x isn't selected"]))
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__dry-run-check"]
 
 
 async def test_no_retries_when_validation_is_not_allowed():

@@ -81,6 +81,27 @@ async def _refuse_if_changed(tools: Any, action: dict[str, Any], token: str) -> 
         )
 
 
+async def _status_after_unclear_change(
+    tools: Any, check_id: str, current: str, saved_as: str, doing: str,
+) -> dict[str, Any]:
+    """The result of a save whose publish or unpublish gave no clear answer:
+    the check's status as Backstage reads it now, or, when that read fails
+    too, the save and that its final status isn't known."""
+    logger.warning("Confirm: %s check %s gave no clear answer; reading it back", doing, check_id)
+    try:
+        now = (await call_backstage_tool(tools, GET_CHECK, {"id": check_id}))["check"]["status"]
+    except Exception:  # noqa: BLE001 — say what is known
+        logger.warning("Confirm: reading check %s back failed", check_id, exc_info=True)
+        return {
+            "check_id": check_id,
+            "status": current,
+            "message": f"{saved_as}, but Backstage didn't say whether {doing} worked. "
+            "Look at the check's status in the checks list.",
+        }
+    state = "published" if now == "published" else "a draft"
+    return {"check_id": check_id, "status": now, "message": f"{saved_as} as {state}."}
+
+
 async def confirm_check_change(
     token: str,
     *,
@@ -149,10 +170,12 @@ async def confirm_check_change(
     try:
         await call_backstage_tool(tools, change, {"id": check_id})
     except Exception as exc:  # noqa: BLE001 — the save stands; report the rest
-        reason = (
-            str(exc) if isinstance(exc, BackstageToolError) else "Backstage couldn't be reached."
-        )
         doing = "publishing" if status == "published" else "unpublishing"
+        if not isinstance(exc, BackstageToolError):
+            # No clear answer: the change may have gone through. Read the
+            # check's status as the user instead of guessing it.
+            return await _status_after_unclear_change(tools, check_id, current, saved_as, doing)
+        reason = str(exc)
         state = "published" if current == "published" else "a draft"
         logger.warning("Confirm: %s check %s failed: %s", doing, check_id, reason)
         return {

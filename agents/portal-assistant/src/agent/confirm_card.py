@@ -475,6 +475,24 @@ async def _new_check_card(
     }
 
 
+# The problem an edit card shows when the saved check changed since the chat
+# opened: no rule rewrite fixes it (see check_authoring.stream_turn).
+CHECK_CHANGED_PROBLEM = (
+    "This check changed since you opened it, so this edit could undo that change. "
+    "Reopen the check and ask again."
+)
+
+
+def _changed_since_opened(saved: dict[str, Any], scope: dict[str, Any]) -> bool:
+    """Whether the saved rule differs from the one the chat opened with (the
+    rule the edit was made against)."""
+    try:
+        opened = unwrap(json.loads(scope.get("current_rule") or ""))
+    except TypeError, ValueError:
+        return False
+    return not same_rules(unwrap(saved.get("rule")), opened)
+
+
 async def _edit_card(
     message: str,
     scope: dict[str, Any],
@@ -499,6 +517,11 @@ async def _edit_card(
         logger.warning("No confirm card for check %s: %s", check_id, exc)
         return None
 
+    if _changed_since_opened(saved, scope):
+        # The edit was made against the rule the chat opened with: saving it
+        # would drop what changed since. No signed card; reopen the check.
+        logger.info("No signed card for check %s: it changed since the chat opened", check_id)
+        validation = {"valid": False, "problems": [CHECK_CHANGED_PROBLEM]}
     text_changes = _text_changes(message, saved)
     action = {
         "kind": "update",

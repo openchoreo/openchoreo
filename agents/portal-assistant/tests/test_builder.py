@@ -200,6 +200,14 @@ def test_summary_handles_not_and_a_conditions_wrapper():
     assert _current_rule_summary(_edit_scope(rule)) == "NOT (`githubVisibility` `equal` `public`)"
 
 
+@pytest.mark.parametrize("extra", [{"path": "$.length"}, {"params": {"x": 1}}])
+def test_no_exact_summary_for_a_condition_it_cant_show(extra):
+    # `githubTopics` with path `$.length` compares the count, not the list.
+    rule = {"all": [{"fact": "githubTopics", "operator": "greaterThan", "value": 0, **extra}]}
+
+    assert _current_rule_summary(_edit_scope(rule)) is None
+
+
 def test_summary_is_none_without_a_parseable_rule():
     assert _current_rule_summary({"check_id": "abc"}) is None
 

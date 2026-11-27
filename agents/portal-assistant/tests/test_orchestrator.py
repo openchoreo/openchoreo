@@ -424,8 +424,26 @@ def test_save_it_reaches_back_only_over_test_results():
     assert check_authoring._reply_to_save(unapproved, _EDIT_SCOPE) is None
 
 
-async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch):
+@pytest.mark.parametrize(
+    ("shortcut", "latest"),
+    [
+        ("card_for_save_request", {"role": "user", "content": "save it"}),
+        (
+            "card_for_separate_check",
+            {
+                "role": "user",
+                "content": "Create a separate check",
+                "action": {"name": "create_separate", "context": {"check": "Recent push"}},
+            },
+        ),
+    ],
+)
+async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch, shortcut, latest):
+    # In a check authoring chat, where the shortcuts run.
+    tried = []
+
     async def _broken(*_args, **_kwargs):
+        tried.append(shortcut)
         raise KeyError("valid")
 
     built = []
@@ -439,20 +457,25 @@ async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch):
         return
         yield  # makes this an async generator
 
-    monkeypatch.setattr(check_authoring, "card_for_save_request", _broken)
-    monkeypatch.setattr(check_authoring, "card_for_separate_check", _broken)
+    monkeypatch.setattr(check_authoring, shortcut, _broken)
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _reply)
     events = [
         json.loads(ev)
         async for ev in orchestrator.stream_chat(
-            messages=[{"role": "user", "content": "save it"}],
-            token="t", user_sub="u", scope=None, backstage_token="b",
+            messages=[
+                {"role": "user", "content": "Repositories must be private"},
+                {"role": "assistant", "content": _STEP2},
+                latest,
+            ],
+            token="t", user_sub="u", scope={"case_type": "check_authoring"},
+            backstage_token="b",
         )
     ]
 
+    assert tried == [shortcut]
     assert len(built) == 1
-    assert events[-1] == {"type": "done", "message": "Here is the check again."}
+    assert events[-1]["type"] == "done"
 
 
 _TWO_CHOICES = (
@@ -1045,6 +1068,70 @@ async def test_an_unlabeled_proposal_is_compared_too(monkeypatch):
 )
 def test_a_yes_approves_an_unlabeled_proposal_only_when_it_can_be_read(step1, phase):
     assert _phase(step1, "yes") == phase
+
+
+# Approved: 60 days or less AND not archived. Step 2 writes it as an OR,
+# which code can't compare with the approval.
+_AND_STEP1 = (
+    "**Proposed rule:** `githubDaysSinceLastPush` `lessThanInclusive` `60` AND "
+    "`githubIsArchived` `equal` `false`\n\nShall I change it to that?"
+)
+_AND_RULE = {"all": [
+    {"fact": "githubDaysSinceLastPush", "operator": "lessThanInclusive", "value": 60},
+    {"fact": "githubIsArchived", "operator": "equal", "value": False},
+]}
+_OR_RULE = {"any": _AND_RULE["all"]}
+
+
+async def _and_approved_or_written(monkeypatch, rewrite):
+    agent = _RewriteAgent(reply=rewrite)
+    events, built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": _AND_STEP1}, {"role": "user", "content": "yes"}],
+        _edited(_OR_RULE),
+        agent=agent,
+        confirmation=_card_of_reply,
+    )
+    return events, built, agent
+
+
+async def test_a_step2_rule_code_cant_compare_is_written_again_as_the_approved_one(monkeypatch):
+    events, built, agent = await _and_approved_or_written(monkeypatch, _edited(_AND_RULE))
+
+    assert len(agent.calls) == 1
+    note = agent.calls[0][-1]["content"]
+    assert note.startswith("[Automatic check") and "githubIsArchived" in note
+    assert [json.loads(b.split("```json\n", 1)[1].split("\n```", 1)[0]) for b in built] == [
+        _OR_RULE, _AND_RULE,
+    ]
+    assert json.loads(_confirmation(events)["new_rule"]) == _AND_RULE
+    assert any('"match_rule"' in ev for ev in events)
+
+
+async def test_no_save_card_when_step2_still_cant_be_shown_to_be_the_approved_rule(monkeypatch):
+    events, _built, agent = await _and_approved_or_written(monkeypatch, _edited(_OR_RULE))
+
+    assert len(agent.calls) == 1  # one round only
+    assert not _has_card(events)
+    assert _done_message(events) == check_authoring._UNMATCHED_REPLY
+
+
+async def test_a_check_that_changed_since_the_chat_opened_gets_no_rule_fix(monkeypatch):
+    # No rewrite of the rule can fix it: the card just says so.
+    async def _changed(message, scope, **kwargs):
+        built = await _card_of_reply(message, scope, **kwargs)
+        return {**built, "valid": False, "problems": [confirm_card.CHECK_CHANGED_PROBLEM]}
+
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": _TWO_CHOICES}, {"role": "user", "content": "1"}],
+        _edited(_AT_MOST_60),
+        agent=_RewriteAgent(reply=_edited(_UNDER_60)),
+        confirmation=_changed,
+    )
+
+    assert not any('"fix_rule"' in ev for ev in events)
+    assert _confirmation(events)["problems"] == [confirm_card.CHECK_CHANGED_PROBLEM]
 
 
 async def test_a_rewrite_after_validation_is_compared_too(monkeypatch):
@@ -1643,9 +1730,11 @@ class _DryRunAgent:
     """Calls dry-run-check — its arguments streamed in two pieces, as the
     model sends them — gets ``result``, then answers ``message``."""
 
-    def __init__(self, message, result):
+    def __init__(self, message, result, *, structured_only=False):
         self._message = message
         self._result = result
+        # The result only in the tool's structured output, with no text.
+        self._structured_only = structured_only
         self.inputs = []
 
     async def astream(self, agent_input, **_kwargs):
@@ -1662,11 +1751,35 @@ class _DryRunAgent:
             ]), {}
         yield SimpleNamespace(
             type="tool", name="tech-insights__dry-run-check", tool_call_id="call_1",
-            content=[{"type": "text", "text": json.dumps(self._result)}],
+            content=[] if self._structured_only else [
+                {"type": "text", "text": json.dumps(self._result)},
+            ],
+            artifact={"structured_content": self._result} if self._structured_only else None,
         ), {}
         yield SimpleNamespace(type="AIMessageChunk", content_blocks=[
             {"type": "text", "text": json.dumps({"message": self._message})},
         ]), {}
+
+
+async def test_a_result_only_in_the_tools_structured_output_still_streams(monkeypatch):
+    agent = _DryRunAgent("order-api meets the rule.", {
+        "status": "passed", "passed": True, "summary": "…", "reasons": [],
+        "conditions": _evaluated({"githubBranchProtected": True}),
+    }, structured_only=True)
+
+    async def _fake_build_agent(_token, _scope, **_kwargs):
+        return agent, [], {}
+
+    monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
+    events = [
+        json.loads(ev) async for ev in orchestrator.stream_chat(
+            messages=[{"role": "user", "content": "test it on order-api"}],
+            token="t", user_sub="u", scope=_BRANCH_SCOPE, backstage_token="b",
+        )
+    ]
+
+    (result,) = [e for e in events if e["type"] == "dry_run_result"]
+    assert result["status"] == "passed"
 
 
 async def _tested_turn(
@@ -1706,12 +1819,22 @@ def _confirmation(events):
     return event
 
 
+# Step 2 of choice 1 of _MAKE_IT_2: the rule the user picked.
+_MADE_IT_2 = _edited({
+    "all": [
+        {"fact": "githubBranchProtected", "operator": "equal", "value": True},
+        {"fact": "githubRequiredApprovingReviewCount", "operator": "greaterThanInclusive",
+         "value": 2},
+    ]
+})
+
+
 async def test_a_test_of_an_unsaved_edit_ends_in_its_save_card(monkeypatch):
     chat = [
         {"role": "user", "content": "make it 2"},
         {"role": "assistant", "content": _MAKE_IT_2},
         {"role": "user", "content": "1"},
-        {"role": "assistant", "content": _STEP2},
+        {"role": "assistant", "content": _MADE_IT_2},
         {"role": "user", "content": "test it on order-api"},
     ]
 
@@ -1720,12 +1843,28 @@ async def test_a_test_of_an_unsaved_edit_ends_in_its_save_card(monkeypatch):
     assert seen["edit_phase"] == "test"
     assert seen["note"].endswith(check_authoring._TEST_NOTE)
     # The change's card again — what's left is to save it — and no test card.
-    assert built == [_STEP2]
+    assert built == [_MADE_IT_2]
     assert _confirmation(events)["tested"] is True
     (card,) = _save_cards(events)
     assert _components(card)[0]["resultTitle"] == "Tested on order-api"
     assert _questions(events) == []
     assert "tested" not in _CARD  # the card it was built from is unchanged
+
+
+def test_a_rule_in_the_history_other_than_the_picked_one_isnt_approved():
+    # The user picked branch protection with 2 approvals; the reply checks the
+    # last push. A later test or "save it" must not build its card.
+    chat = [
+        {"role": "user", "content": "make it 2"},
+        {"role": "assistant", "content": _MAKE_IT_2},
+        {"role": "user", "content": "1"},
+        {"role": "assistant", "content": _STEP2},
+    ]
+
+    assert check_authoring._approved_edit(chat, 3, _EDIT_SCOPE) is False
+    assert check_authoring._approved_edit(
+        [*chat[:3], {"role": "assistant", "content": _MADE_IT_2}], 3, _EDIT_SCOPE,
+    ) is True
 
 
 async def test_a_test_of_an_unsaved_draft_ends_in_its_save_card(monkeypatch):
@@ -1898,6 +2037,27 @@ def test_only_the_examples_own_words_are_drafted_by_code():
     assert check_authoring._example_draft(tested, _EXAMPLE_SCOPE) is None
     assert check_authoring._example_draft(asked, {**_EXAMPLE_SCOPE, "experience": "experienced"}) is None
     assert check_authoring._example_draft(asked, {**_EXAMPLE_SCOPE, "check_id": "c1"}) is None
+
+
+async def test_a_test_result_is_still_shown_when_its_save_card_fails(monkeypatch):
+    async def _broken(*_args, **_kwargs):
+        raise KeyError("valid")  # e.g. a validation reply without "valid"
+
+    monkeypatch.setattr(check_authoring, "build_confirmation", _broken)
+    run = DryRun(status="failed", entity_ref="component:default/order-api", rule="{}")
+
+    events = [
+        json.loads(ev)
+        async for ev in check_authoring._tested_reply(
+            run, _STEP2, [{"role": "user", "content": "test it on order-api"}], _EDIT_SCOPE,
+            user_sub="u", backstage_token="b",
+        )
+    ]
+
+    (card,) = [e for e in events if e["type"] == "a2ui"]
+    assert card["messages"][0]["createSurface"]["components"][0]["component"] == "TestCard"
+    assert events[-1]["type"] == "done"
+    assert events[-1]["message"].startswith("Tested on component:default/order-api")
 
 
 # ── The test picker's test, run by code ──────────────────────────────

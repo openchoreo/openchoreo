@@ -114,6 +114,26 @@ async def _card(message=_STEP2, scope=_SCOPE, token="issued-for-user", user_sub=
     return await build_confirmation(message, scope, user_sub=user_sub, backstage_token=token)
 
 
+async def test_no_signed_card_when_the_rule_changed_since_the_chat_opened(_backstage):
+    # The chat opened with one rule; someone saved another since. The edit
+    # was made against the first, so saving it would drop their change.
+    opened = {"all": [{"fact": "githubBranchProtected", "operator": "equal", "value": False}]}
+
+    card = await _card(scope={**_SCOPE, "current_rule": json.dumps(opened)})
+
+    assert card["valid"] is False and card["token"] == ""
+    assert card["problems"] == [confirm_card.CHECK_CHANGED_PROBLEM]
+
+
+async def test_the_same_rule_in_another_layout_hasnt_changed(_backstage):
+    # Key order and the {"conditions": ...} wrapper don't make it a change.
+    same = {"conditions": json.loads(json.dumps(_SAVED_RULE))}
+
+    card = await _card(scope={**_SCOPE, "current_rule": json.dumps(same, sort_keys=True)})
+
+    assert card["valid"] is True and card["token"]
+
+
 async def test_text_changes_compare_with_the_check_as_saved_now(_backstage):
     # Someone renamed the check after the drawer opened: the card shows what
     # the save changes, from the check get-check returned.
@@ -784,6 +804,12 @@ async def _chat_with_cards(monkeypatch, agent, first_reply, cards):
     return events, built
 
 
+# The rule the chat in _chat_with_cards approved; a card for it matches.
+_APPROVED = json.dumps(
+    {"all": [{"fact": "githubVisibility", "operator": "in", "value": ["private", "internal"]}]},
+)
+
+
 def _card_event(valid, problems=()):
     return {
         "type": "confirmation_required",
@@ -793,7 +819,7 @@ def _card_event(valid, problems=()):
         "check_name": "n",
         "status": "draft",
         "current_rule": "{}",
-        "new_rule": "{}",
+        "new_rule": _APPROVED,
         "valid": valid,
         "problems": list(problems),
     }

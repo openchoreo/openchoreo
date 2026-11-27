@@ -10,6 +10,7 @@ import pytest
 
 from src.agent import pending_actions
 from src.agent.pending_actions import InvalidAction, consume, sign
+from src.api.agent_routes import ConfirmRequest
 
 _ACTION = {"kind": "update", "check_id": "c1", "rule": '{"all":[]}'}
 
@@ -22,6 +23,24 @@ def _fixed_secret(monkeypatch):
 
 def test_the_signed_action_comes_back_unchanged():
     assert consume(sign(_ACTION, "user-a"), "user-a") == _ACTION
+
+
+def test_a_long_non_english_card_round_trips():
+    # An edit signs the description twice: in the check and its baseline.
+    description = "検査の説明" * 400  # 2,000 characters
+    check = {"name": "n", "description": description, "factIds": ["r"], "rule": {"all": []}}
+    action = {
+        "kind": "update",
+        "check_id": "c1",
+        "check": check,
+        "baseline": {**check, "rule": {"all": []}},
+    }
+
+    token = sign(action, "user-a")
+
+    # The confirm route takes it, and it comes back unchanged.
+    ConfirmRequest(token=token, status="draft")
+    assert consume(token, "user-a") == action
 
 
 def test_a_token_works_only_once():

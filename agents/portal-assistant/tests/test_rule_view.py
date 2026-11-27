@@ -424,7 +424,8 @@ Reply with 1 or 2."""
 )
 def test_a_proposal_without_its_label_is_read(message, proposals):
     # CodeRabbit: approved like a labeled one, so it must be compared like one.
-    assert proposed_conditions(message) == proposals
+    # As JSON: == holds for True and 1, but the rules engine tells them apart.
+    assert json.dumps(proposed_conditions(message)) == json.dumps(proposals)
 
 
 @pytest.mark.parametrize(
@@ -442,3 +443,25 @@ def test_a_proposal_without_its_label_is_read(message, proposals):
 )
 def test_a_proposal_that_cant_be_told_is_not_read(message):
     assert proposed_conditions(message) is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        pytest.param("Shall I use NOT (`a` `equal` `true`)?", id="not around one"),
+        pytest.param("Shall I use not `a` `equal` `true`?", id="lowercase not"),
+        pytest.param("Shall I make it `a` `equal` `true` OR `b` `equal` `1`?", id="or between"),
+        pytest.param(
+            "1. NOT (`a` `equal` `true`)\n2. `a` `equal` `false`", id="numbered with not",
+        ),
+    ],
+)
+def test_an_unlabeled_proposal_with_logic_around_it_isnt_read(message):
+    # Read without its NOT, it would be the opposite condition.
+    assert proposed_conditions(message) is None
+
+
+def test_prose_around_an_unlabeled_proposal_still_reads():
+    assert proposed_conditions(
+        "Shall I make it `a` `lessThan` `60` and leave the rest as it is?",
+    ) == {1: [("a", "lessThan", 60)]}

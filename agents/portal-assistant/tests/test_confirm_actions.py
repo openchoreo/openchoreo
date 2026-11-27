@@ -217,6 +217,46 @@ async def test_a_failed_publish_keeps_the_save_and_says_so(backstage):
     )
 
 
+def _publish_times_out(monkeypatch, read_back):
+    """A publish whose reply never comes; ``read_back`` answers get-check."""
+    calls = []
+
+    async def fake_call(_tools, name, args):
+        calls.append(name)
+        if name == "tech-insights__publish-check":
+            raise TimeoutError("read timed out")
+        if name == "tech-insights__get-check":
+            return read_back()
+        return {"id": args["id"]} if name == "tech-insights__create-check" else {}
+
+    monkeypatch.setattr(confirm_actions, "call_backstage_tool", fake_call)
+    return calls
+
+
+async def test_a_publish_with_no_clear_answer_reports_the_status_read_back(monkeypatch):
+    # It went through, but the reply timed out: the check is published.
+    calls = _publish_times_out(monkeypatch, lambda: {"check": {"status": "published"}})
+
+    result = await _confirm(_NEW, "published")
+
+    assert result == {"check_id": "new-id", "status": "published", "message": "Created as published."}
+    assert calls[-1] == "tech-insights__get-check"
+
+
+async def test_a_publish_with_no_clear_answer_and_no_read_says_so(monkeypatch):
+    def _unreachable():
+        raise TimeoutError("read timed out")
+
+    _publish_times_out(monkeypatch, _unreachable)
+
+    result = await _confirm(_NEW, "published")
+
+    assert result["message"] == (
+        "Created, but Backstage didn't say whether publishing worked. "
+        "Look at the check's status in the checks list."
+    )
+
+
 async def test_a_refused_save_saves_nothing(backstage):
     backstage["fail"] = "tech-insights__update-check"
 

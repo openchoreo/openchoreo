@@ -54,6 +54,7 @@ from src.agent.check_reply import (
     without_unrequested_guard,
 )
 from src.agent.confirm_card import (
+    CHECK_CHANGED_PROBLEM,
     SAVE_REQUEST_REPLY,
     asks_to_save,
     build_confirmation,
@@ -648,6 +649,10 @@ def _typed_action(
     picked = _picked_choice({**message, "action": action}, step1)
     if picked is None:
         return None
+    if not _CHOICE_LINE_RE.search(step1):
+        # One proposal, no numbers: its card has Yes, not a numbered choice,
+        # so "1" to it is that Yes.
+        action = {"name": CONFIRM_EDIT, "context": {}}
     # The rule the question's button carries: the same reading of the reply
     # the card was built from (see stream_turn).
     leaves = (proposed_conditions(step1) or {}).get(picked)
@@ -721,6 +726,23 @@ def _same_conditions(first: list[Leaf], second: list[Leaf]) -> bool:
 _REPROPOSED = (
     "The rule I wrote isn't the one you picked, so please check it before I make the save card."
 )
+
+
+# When Step 2 can't be shown to write the approved rule (see stream_turn).
+_UNMATCHED_REPLY = (
+    "I couldn't write the rule exactly as you picked it, so there's no save card yet. "
+    "Pick the change again, or describe it once more."
+)
+
+
+def _picked_rule_note(conditions: list[Leaf]) -> str:
+    """The correction for a Step 2 rule that code can't compare with the
+    approved one: write exactly ``conditions``."""
+    return (
+        "[Automatic check — not written by the user] The user approved exactly this rule: "
+        f"{rule_json(conditions)}. Write the edited rule again as exactly these conditions "
+        "under one `all`, in the same reply format. Change nothing else."
+    )
 
 
 def _reproposal(conditions: list[Leaf], scope: dict[str, Any] | None) -> str:
@@ -844,11 +866,25 @@ def _approved_edit(
             return False
         asked = messages[:i]
         if _not_approved_reason(asked, scope) is None:
-            return True
+            # As Step 2 checks it (see stream_turn): the rule written must be
+            # the one approved, when code can read both.
+            picked = _picked_proposal(asked, scope)
+            written = _written_conditions(content)
+            return not (picked and written and not _same_conditions(picked, written))
         said = asked[-1] if asked and asked[-1].get("role") == "user" else {}
         if _test_entity(said) is None and not asks_to_save(said):
             return False
     return False
+
+
+def _written_conditions(reply: str) -> list[Leaf] | None:
+    """The flat conditions of the rule block in ``reply``, or None."""
+    fence = RULE_FENCE_RE.search(reply)
+    try:
+        rule = unwrap(json.loads(fence.group(1))) if fence else None
+    except ValueError:
+        return None
+    return flat_conditions(json.dumps(rule)) if isinstance(rule, dict) else None
 
 
 def _edit_phase(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> str | None:
@@ -1006,10 +1042,14 @@ async def _tested_reply(
     example = _is_example(messages, scope)
     if reply is not None:
         yield _emit_event(_PREPARING_STEP)
-    confirmation = None if reply is None else await build_confirmation(
-        with_example_description(reply) if example else reply,
-        scope, user_sub=user_sub, backstage_token=backstage_token,
-    )
+    try:
+        confirmation = None if reply is None else await build_confirmation(
+            with_example_description(reply) if example else reply,
+            scope, user_sub=user_sub, backstage_token=backstage_token,
+        )
+    except Exception:  # noqa: BLE001 — the test ran: show its result instead
+        logger.warning("Building the tested save card failed; the test card instead", exc_info=True)
+        confirmation = None
     if confirmation and not _run_of_card_rule([run], confirmation):
         logger.info("The test ran another rule than the card's; the test card instead")
         confirmation = None
@@ -1635,7 +1675,12 @@ async def stream_turn(
             # The card's own validation found problems (e.g. the model
             # skipped validate-check): one round for the model to fix them.
             # Not after a test: the card is an earlier reply's, not this one's.
-            if confirmation and not confirmation["valid"] and edit_phase != "test":
+            if (
+                confirmation
+                and not confirmation["valid"]
+                and edit_phase != "test"
+                and confirmation.get("problems") != [CHECK_CHANGED_PROBLEM]
+            ):
                 yield _emit_event({
                     "type": "tool_call",
                     "tool": "fix_rule",
@@ -1660,6 +1705,29 @@ async def stream_turn(
             if confirmation and edit_phase == "apply":
                 picked = _picked_proposal(messages, scope)
                 written = flat_conditions(confirmation["new_rule"])
+                if picked and written is None:
+                    # Code can't compare it with the approved rule (e.g. an
+                    # OR for a picked AND): one round to write exactly that
+                    # rule, else no save card.
+                    yield _emit_event({
+                        "type": "tool_call",
+                        "tool": "match_rule",
+                        "activeForm": chat._WRITING_LABELS["apply"],
+                    })
+                    rewritten = await _rewrite_reply(
+                        agent, stamped_messages, message, _picked_rule_note(picked),
+                        must_contain="```",
+                    )
+                    fixed = await build_confirmation(
+                        rewritten, scope, user_sub=user_sub, backstage_token=backstage_token,
+                    ) if rewritten else None
+                    again = flat_conditions(fixed["new_rule"]) if fixed else None
+                    if fixed and again and _same_conditions(picked, again):
+                        logger.info("Step 2 rewritten as the approved rule")
+                        message, confirmation, card, written = rewritten, fixed, None, again
+                    else:
+                        logger.info("Step 2's rule can't be shown to be the approved one: no card")
+                        message, confirmation, card = _UNMATCHED_REPLY, None, None
                 if picked and written and not _same_conditions(picked, written):
                     logger.info("Step 2 wrote another rule than the approved one: asking again")
                     message, confirmation, card = _reproposal(written, scope), None, None

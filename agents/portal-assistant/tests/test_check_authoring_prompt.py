@@ -570,3 +570,22 @@ def test_the_check_tools_retry_limits_replace_the_core_budget():
         "For `tech-insights__validate-check` and `tech-insights__dry-run-check`, these limits (3 attempts each) replace the "
         '"never the same tool 3× per turn" budget above'
     ) in prompt
+
+
+def test_fact_values_are_read_before_the_rule_is_validated():
+    # After a valid rule, only the dry-run tool is left, so a lookup the rule
+    # needs comes first.
+    prompt = _render(available_fact_retrievers=_RETRIEVERS)
+    step = prompt[prompt.index("1. Only if you cannot choose the fact or value"):]
+    step = step[: step.index("\n")]
+    assert step.index("tech-insights__get-entity-facts") < step.index("validate it")
+    assert "validating the rule before the dry run" in prompt
+
+
+def test_without_forwarded_retrievers_the_kind_is_checked_from_the_schemas():
+    prompt = _render()
+    assert "No fact retrievers were forwarded with this request" in prompt
+    assert (
+        "When no fact retrievers were forwarded (see \"Available facts\" below), call "
+        "`tech-insights__list-fact-schemas` first and decide from the kinds it returns."
+    ) in prompt
