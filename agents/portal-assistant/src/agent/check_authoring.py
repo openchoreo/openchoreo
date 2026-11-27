@@ -82,6 +82,7 @@ from src.agent.rule_view import (
     numbered_choices,
     proposal_view,
     proposed_conditions,
+    rule_json,
     same_rules,
     understood,
 )
@@ -92,6 +93,7 @@ from src.agent.user_action import (
     CONFIRM_EDIT,
     EXPLAIN_RULE,
     PICK_PROPOSAL,
+    REJECT_EDIT,
     TEST,
     TRY_EXAMPLE,
     context_of,
@@ -131,6 +133,13 @@ _CHOICE_RE = re.compile(
     re.IGNORECASE,
 )
 _ORDINALS = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3}
+# A typed reply that only turns the proposal down, like the card's No or
+# "Keep the current rule". "no, make it 90" is a new request instead.
+_REJECT_RE = re.compile(
+    r"(?:no|nope|nah|cancel|don'?t(?: change it)?|keep it|leave it"
+    r"|keep (?:the )?(?:current|existing) rule)" + rf"{_SEP}",
+    re.IGNORECASE,
+)
 # A numbered choice line in a Step 1 reply: "1. **Proposed rule:** …", also
 # written "1.**Proposed rule:** …" (the proposal parser reads both).
 _CHOICE_LINE_RE = re.compile(r"^[ \t]*([1-9])[.)](?=[ \t*])", re.MULTILINE)
@@ -587,70 +596,96 @@ def _without_test_request(answer: str) -> str:
     return answer
 
 
-def _picked_choice(answer: dict[str, Any] | str, step1: str) -> int | None:
-    """The number of the ``step1`` proposal that the message ``answer``
-    approves (1 for a single one), or None when it approves none: by its
-    button (Yes, or a numbered proposal), or else by its typed words, when
-    they say nothing else. A typed test request after the approval is
-    allowed: the test is part of Step 2."""
-    message = {"role": "user", "content": answer} if isinstance(answer, str) else answer
+def _picked_choice(answer: dict[str, Any], step1: str) -> int | None:
+    """The number of the ``step1`` proposal the message ``answer`` approves
+    (1 for a single one), or None when it approves none: by its action, a
+    button's or the one a typed reply stands for (see _answer), never by its
+    words."""
     choices = {int(n) for n in _CHOICE_LINE_RE.findall(step1)}
-    decision = decision_of(message)
+    decision = decision_of(answer)
     if decision == CONFIRM_EDIT:
         # One proposal's Yes; "yes" to two choices doesn't say which one.
         return min(choices, default=1) if len(choices) <= 1 else None
     if decision == PICK_PROPOSAL:
-        choice = context_of(message).get("choice")
+        choice = context_of(answer).get("choice")
         picked = int(choice) if str(choice).isdigit() else None
         if picked is None:
             return None
         return (picked if picked in choices else None) if len(choices) > 1 else (
             picked if picked == 1 else None
         )
-    if decision is not None:
-        return None  # another button: No, Keep the rule, a test, …
-    answer = _without_test_request((message.get("content") or "").strip()).strip()
-    if _APPROVAL_ONLY_RE.fullmatch(answer):
-        # "yes" to two choices doesn't say which one.
-        return min(choices, default=1) if len(choices) <= 1 else None
-    match = _CHOICE_RE.fullmatch(answer)
-    if not match:
-        return None
-    picked = int(match.group(1)) if match.group(1) else _ORDINALS[match.group(2).lower()]
-    # "1" to a single proposal means yes; otherwise it must be a listed choice.
-    if len(choices) > 1:
-        return picked if picked in choices else None
-    return picked if picked == 1 else None
+    return None  # another button, or no action: No, Keep the rule, a test, …
 
 
-def _approves(answer: dict[str, Any] | str, step1: str) -> bool:
+def _approves(answer: dict[str, Any], step1: str) -> bool:
     """Whether the message ``answer`` approves the ``step1`` reply."""
     return _picked_choice(answer, step1) is not None
 
 
+def _typed_action(
+    message: dict[str, Any], step1: str, scope: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """The action a typed reply to the Step 1 question ``step1`` stands for,
+    as the question's own button sends it, rule and all: Yes for approval
+    words alone, a numbered proposal for its number, No for turning it down.
+    None for anything else ("yes but make it 70", "maybe", "yes" to two
+    choices): the model reads it. Nothing is approved without a button the
+    question really had, so not for a reply that proposed no rule, or whose
+    choices were shown as the input card. A test request after the approval
+    ("yes, test it on order-api") is allowed: the test is part of Step 2."""
+    if not _proposes_rule(step1) or _shown_as_input_card(step1, scope):
+        return None
+    text = _without_test_request((message.get("content") or "").strip()).strip()
+    if _REJECT_RE.fullmatch(text):
+        return {"name": REJECT_EDIT}
+    if _APPROVAL_ONLY_RE.fullmatch(text):
+        action: dict[str, Any] = {"name": CONFIRM_EDIT, "context": {}}
+    elif match := _CHOICE_RE.fullmatch(text):
+        picked = int(match.group(1)) if match.group(1) else _ORDINALS[match.group(2).lower()]
+        action = {"name": PICK_PROPOSAL, "context": {"choice": picked}}
+    else:
+        return None
+    picked = _picked_choice({**message, "action": action}, step1)
+    if picked is None:
+        return None
+    # The rule the question's button carries: the same reading of the reply
+    # the card was built from (see stream_turn).
+    leaves = (proposed_conditions(step1) or {}).get(picked)
+    if leaves:
+        action["context"]["rule"] = rule_json(leaves)
+    return action
+
+
+def _answer(messages: list[dict[str, Any]], scope: dict[str, Any] | None) -> dict[str, Any]:
+    """The latest message, with the action it answers the last reply with: a
+    button's own, or the one a typed reply stands for (see _typed_action),
+    so the approval check reads actions only."""
+    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    if not latest or decision_of(latest) is not None:
+        return latest
+    step1 = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
+    action = _typed_action(latest, step1.get("content") or "", scope) if step1 else None
+    return {**latest, "action": action} if action else latest
+
+
 def _clicked_proposal(message: dict[str, Any] | None) -> list[Leaf] | None:
-    """The conditions a change card's Yes or numbered choice carries (see
-    a2ui._rule_context), or None for any other message."""
+    """The conditions an approving action carries: a Step 1 card's Yes or
+    numbered choice (see a2ui._rule_context), or the typed reply that stands
+    for one; None for any other message."""
     if decision_of(message) not in (CONFIRM_EDIT, PICK_PROPOSAL):
         return None
     rule = context_of(message).get("rule")
     return flat_conditions(rule) if isinstance(rule, str) else None
 
 
-def _picked_proposal(messages: list[dict[str, str]]) -> list[Leaf] | None:
-    """The conditions of the Step 1 proposal the latest message approves, or
-    None when code can't read them (an OR, nested groups, no "Proposed rule:"
-    line): the save card then shows the rule without this comparison. A
-    click on the change card carries them; only a typed answer is read
-    against the reply's words."""
-    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    clicked = _clicked_proposal(latest)
-    if clicked is not None:
-        return clicked
-    step1 = next((m for m in reversed(messages) if m.get("role") == "assistant"), {})
-    proposals = proposed_conditions(step1.get("content") or "")
-    picked = _picked_choice(latest, step1.get("content") or "")
-    return proposals.get(picked) if proposals and picked else None
+def _picked_proposal(
+    messages: list[dict[str, Any]], scope: dict[str, Any] | None,
+) -> list[Leaf] | None:
+    """The conditions of the Step 1 proposal the latest message approves, as
+    its action carries them, or None when code couldn't read them (an OR,
+    nested groups): the save card then shows the rule without this
+    comparison. Never read back from the question's words."""
+    return _clicked_proposal(_answer(messages, scope))
 
 
 def _same_value(first: Any, second: Any) -> bool:
@@ -867,7 +902,7 @@ def _not_approved_reason(
     """None when the latest message approves the Step 1 proposal before it
     (Step 2), else why it doesn't. Logs nothing, so _approved_edit can ask
     it about earlier turns."""
-    latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    latest = _answer(messages, scope)
     index = next(
         (i for i in reversed(range(len(messages))) if messages[i].get("role") == "assistant"),
         None,
@@ -878,7 +913,8 @@ def _not_approved_reason(
     if RULE_FENCE_RE.search(previous):
         return "the last reply wasn't a question"
     if _clicked_proposal(latest) is not None:
-        # Yes or a choice on the change card, with the rule it picks.
+        # Yes or a choice on the question's card, or typed for one, with the
+        # rule it picks.
         return None
     if not _proposes_rule(previous):
         return "the last reply proposed no rule"
@@ -1622,7 +1658,7 @@ async def stream_turn(
             reproposed = False
             reproposed_view = None
             if confirmation and edit_phase == "apply":
-                picked = _picked_proposal(messages)
+                picked = _picked_proposal(messages, scope)
                 written = flat_conditions(confirmation["new_rule"])
                 if picked and written and not _same_conditions(picked, written):
                     logger.info("Step 2 wrote another rule than the approved one: asking again")
@@ -1747,9 +1783,12 @@ async def stream_turn(
                     elif len(choices := numbered_choices(message)) > 1:
                         surface = choice_card_surface(
                             choices, understood(message), scope or {}, check_name,
+                            proposed_conditions(message),
                         )
                     else:
-                        surface = edit_question_surface()
+                        surface = edit_question_surface(
+                            (proposed_conditions(message) or {}).get(1),
+                        )
                 elif edit_phase and not _proposes_rule(message):
                     ask = ask_view(message, scope or {})
                     if ask:

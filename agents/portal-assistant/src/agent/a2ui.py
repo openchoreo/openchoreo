@@ -30,7 +30,7 @@ from src.agent.dry_run_view import (
 )
 from src.agent.existing_check import ExistingCheckView
 from src.agent.reply_view import NoticeView, Pick
-from src.agent.rule_view import ChangeView, rule_json, rule_lines, saved_change_view
+from src.agent.rule_view import ChangeView, Leaf, rule_json, rule_lines, saved_change_view
 from src.agent.user_action import CONTEXT_VALUE_MAX
 from src.agent.words import first_upper
 from src.models import ReplyCard
@@ -89,13 +89,17 @@ def _answer_field(placeholder: str) -> dict[str, Any]:
     }
 
 
-def edit_question_surface() -> dict[str, Any]:
+def edit_question_surface(rule: list[Leaf] | None = None) -> dict[str, Any]:
     """Yes / No for an edit's one proposal that the change card can't show.
+    Yes carries the proposal's ``rule`` when code could read it.
 
     No box to type in: the chat box is there for anything else. Numbered
     choices get choice_card_surface instead — "yes" alone doesn't say which.
     """
-    buttons = _button("yes", "Yes, change it", "confirm_edit", "yes", variant="primary")
+    buttons = _button(
+        "yes", "Yes, change it", "confirm_edit", "yes",
+        variant="primary", context=_rule_context(rule),
+    )
     buttons += _button("no", "No", "reject_edit", "no")
     button_ids = [c["id"] for c in buttons if c["component"] == "Button"]
     return _surface([{"id": "root", "component": "Row", "children": button_ids}, *buttons])
@@ -106,14 +110,15 @@ def choice_card_surface(
     summary: str | None,
     scope: dict[str, Any],
     check_name: str | None,
+    rules: dict[int, list[Leaf]] | None = None,
 ) -> dict[str, Any]:
     """Numbered choices the change card can't show exactly, as a card: the
     reply's question, the rule as it is now when it reads in plain words,
     one row per choice with the words naming it, a box to type your own
     answer and "Keep the current rule".
 
-    A row sends its number and Keep sends "no" — the same answers the
-    approval check reads when the user types them.
+    A row sends its number, with its proposal's ``rule`` when code could
+    read it, and Keep sends "no" — the same answers a typed reply stands for.
     """
     current = rule_lines(scope.get("current_rule") or "", scope) or []
     lines = [_rule_line(i, label, value) for i, (label, value) in enumerate(current)]
@@ -123,7 +128,9 @@ def choice_card_surface(
             "component": "AskOption",
             "badge": str(n),
             "label": _words(label, 120),
-            "action": _sends("pick_proposal", str(n), {"choice": n}),
+            "action": _sends(
+                "pick_proposal", str(n), {"choice": n, **_rule_context((rules or {}).get(n))},
+            ),
         }
         for n, label in choices
     ]
@@ -156,13 +163,12 @@ def _surface(components: list[dict[str, Any]], kind: str = "edit-question") -> d
     }
 
 
-def _rule_context(view: ChangeView, number: int) -> dict[str, str]:
-    """The ``rule`` a change card's button carries: the conditions of the
+def _rule_context(leaves: list[Leaf] | None) -> dict[str, str]:
+    """The ``rule`` a Step 1 card's button carries: the conditions of the
     proposal it picks, as data, so code never reads them back from words."""
-    leaves = view.proposals.get(number)
     rule = rule_json(leaves) if leaves else ""
-    # Longer than a request takes: left out, and the next turn reads the
-    # proposal from the reply's words instead.
+    # Longer than a request takes: left out, and the save card then shows the
+    # rule without comparing it with the proposal.
     return {"rule": rule} if rule and len(rule) <= CONTEXT_VALUE_MAX else {}
 
 
@@ -188,7 +194,7 @@ def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, A
             "action": _sends(
                 "pick_proposal",
                 str(option.number),
-                {"choice": option.number, **_rule_context(view, option.number)},
+                {"choice": option.number, **_rule_context(view.proposals.get(option.number))},
             ),
         }
         for option in view.options
@@ -206,7 +212,7 @@ def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, A
     else:
         buttons = _button(
             "yes", "Yes, change it", "confirm_edit", "yes",
-            variant="primary", context=_rule_context(view, 1),
+            variant="primary", context=_rule_context(view.proposals.get(1)),
         )
         buttons += _button("no", "No", "reject_edit", "no")
 

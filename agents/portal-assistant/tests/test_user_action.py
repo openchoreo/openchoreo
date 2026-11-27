@@ -3,11 +3,14 @@
 
 """Tests for branching on the drawer button a message came from."""
 
+import json
+
 import pytest
 from pydantic import ValidationError
 
 from src.agent import a2ui, check_authoring, orchestrator
 from src.agent.reply_view import Pick
+from src.agent.rule_view import change_view, flat_conditions
 from src.agent.user_action import CONTEXT_VALUE_MAX, for_model
 from src.api.agent_routes import ChatMessage, ChatRequest
 
@@ -79,26 +82,142 @@ def test_try_the_example_is_the_beginners_example():
     assert check_authoring._picks_example(_clicked("try_example", "Try an example"))
 
 
-# ── typed messages are read by their words, as before ────────────────
+# ── a typed reply stands for the question's own button ───────────────
+
+_SCOPE = {
+    "case_type": "check_authoring",
+    "check_id": "c1",
+    "current_rule": json.dumps(
+        {"all": [{"fact": "githubDaysSinceLastPush", "operator": "lessThanInclusive", "value": 30}]}
+    ),
+}
+
+
+# One proposal on its own line, as the prompt asks: shown as the change card.
+_CARD_ONE = (
+    "**Proposed rule:** `githubDaysSinceLastPush` `lessThanInclusive` `60`\n\n"
+    "Shall I change it to that?"
+)
+
+
+def _typed(content, step1, action=None):
+    message = {"role": "user", "content": content}
+    if action:
+        message["action"] = action
+    return check_authoring._answer(
+        [{"role": "user", "content": "Change it to 60"}, {"role": "assistant", "content": step1},
+         message],
+        _SCOPE,
+    )
+
+
+def _sent(event):
+    """What a button's click puts on the message: its name and context."""
+    return {k: v for k, v in event.items() if k != "userMessage"}
+
+
+def _card_events(step1):
+    return _events(a2ui.change_card_surface(change_view(step1, _SCOPE), None))
+
+
+@pytest.mark.parametrize("typed", ["yes", "ok, do it", "Yes please."])
+def test_typed_approval_is_the_cards_own_yes(typed):
+    assert _typed(typed, _CARD_ONE)["action"] == _sent(_card_events(_CARD_ONE)["yes"])
 
 
 @pytest.mark.parametrize(
-    ("typed", "picked"), [("yes", 1), ("ok, do it", 1), ("yes but make it 70", None)],
+    ("typed", "option"), [("2", "option_2"), ("the second one", "option_2"), ("option 1", "option_1")],
 )
-def test_typed_words_still_approve(typed, picked):
-    assert check_authoring._picked_choice({"role": "user", "content": typed}, _ONE) == picked
+def test_a_typed_number_is_the_cards_own_choice(typed, option):
+    assert _typed(typed, _TWO)["action"] == _sent(_card_events(_TWO)[option])
+
+
+@pytest.mark.parametrize("typed", ["no", "keep it", "Keep the current rule"])
+def test_turning_it_down_is_no(typed):
+    assert _typed(typed, _ONE)["action"] == {"name": "reject_edit"}
+
+
+@pytest.mark.parametrize(
+    ("typed", "step1"),
+    [
+        ("yes but make it 70", _ONE),
+        ("no, make it 90", _ONE),
+        ("maybe", _ONE),
+        ("hmm", _ONE),
+        ("yes?", _ONE),
+        ("3", _TWO),
+        # "yes" to two choices doesn't say which.
+        ("yes", _TWO),
+        # Nothing to say yes to.
+        ("yes", "What should change instead?"),
+    ],
+)
+def test_anything_else_is_left_for_the_model(typed, step1):
+    answer = _typed(typed, step1)
+
+    assert "action" not in answer
+    assert check_authoring._picked_choice(answer, step1) is None
+
+
+def test_choices_shown_as_the_input_card_cant_be_picked_by_typing():
+    # They differ in more than one condition: no buttons were shown for them.
+    step1 = (
+        "1. **Proposed rule:** `githubDaysSinceLastPush` `lessThan` `60` AND `a` `equal` `true`\n"
+        "2. **Proposed rule:** `githubDaysSinceLastPush` `lessThan` `90` AND `a` `equal` `false`"
+    )
+
+    assert "action" not in _typed("1", step1)
+
+
+def test_an_approval_with_a_test_keeps_the_words_for_the_model():
+    answer = _typed("1, then test it on order-api", _TWO)
+
+    assert answer["action"] == _sent(_card_events(_TWO)["option_1"])
+    assert answer["content"] == "1, then test it on order-api"
+
+
+def test_the_answer_box_is_read_as_typed():
+    boxed = _typed("yes", _ONE, {"name": "type_answer"})
+
+    assert boxed["action"] == _typed("yes", _ONE)["action"]
+
+
+def test_a_button_keeps_its_own_action():
+    assert _typed("yes", _ONE, {"name": "reject_edit"})["action"] == {"name": "reject_edit"}
+
+
+def test_typed_and_clicked_answers_decide_alike():
+    yes = _card_events(_CARD_ONE)["yes"]
+    clicked = _clicked(yes["name"], "yes", **yes["context"])
+    history = [
+        {"role": "user", "content": "Change it to 60"},
+        {"role": "assistant", "content": _CARD_ONE},
+    ]
+
+    for latest in (clicked, {"role": "user", "content": "yes"}):
+        messages = [*history, latest]
+        assert check_authoring._edit_phase(messages, _SCOPE) == "apply"
+        assert check_authoring._picked_proposal(messages, _SCOPE) == [
+            ("githubDaysSinceLastPush", "lessThanInclusive", 60),
+        ]
+
+
+def test_a_typed_yes_to_a_proposal_code_cant_read_approves_without_a_rule():
+    # Two unlabeled lines: which one is proposed can't be told, so there is
+    # no rule to carry, and the approval check asks once more (see the
+    # orchestrator's tests).
+    step1 = (
+        "I could make it `githubDaysSinceLastPush` `lessThanInclusive` `60`.\n"
+        "Or `githubDaysSinceLastPush` `lessThan` `60`. Shall I?"
+    )
+
+    assert _typed("yes", step1)["action"] == {"name": "confirm_edit", "context": {}}
 
 
 def test_a_typed_test_request_still_names_its_entity():
     typed = {"role": "user", "content": "test it on order-api"}
 
     assert check_authoring._test_entity(typed) == "order-api"
-
-
-def test_the_answer_box_is_typed_text():
-    typed = {"role": "user", "content": "yes", "action": {"name": "type_answer"}}
-
-    assert check_authoring._picked_choice(typed, _ONE) == 1
 
 
 def test_a_button_that_sends_a_request_in_words_is_read_by_them():
@@ -182,6 +301,19 @@ def _events(surface):
         for c in surface["createSurface"]["components"]
         if "action" in c
     }
+
+
+def test_every_step1_card_carries_its_rule():
+    rule = [("githubDaysSinceLastPush", "lessThan", 60)]
+
+    plain = _events(a2ui.edit_question_surface(rule))["yes"]
+    choices = _events(
+        a2ui.choice_card_surface([(1, "a"), (2, "b")], None, {}, None, {2: rule}),
+    )
+
+    assert flat_conditions(plain["context"]["rule"]) == rule
+    assert flat_conditions(choices["option_2"]["context"]["rule"]) == rule
+    assert "rule" not in choices["option_1"]["context"]
 
 
 def test_numbered_proposals_send_their_number_as_context():

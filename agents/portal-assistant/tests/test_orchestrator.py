@@ -3576,7 +3576,7 @@ def test_the_same_unreadable_proposal_is_asked_about_only_once():
         {"role": "user", "content": "yes"},
     ]
     assert check_authoring._edit_phase(again, _EDIT_SCOPE) == "apply"
-    assert check_authoring._picked_proposal(again) is None
+    assert check_authoring._picked_proposal(again, _EDIT_SCOPE) is None
 
 
 def test_a_no_to_an_unreadable_proposal_is_not_an_approval():
@@ -3599,7 +3599,12 @@ _TIGHT_CHOICES = (
 
 @pytest.mark.parametrize(("answer", "picked"), [("yes", None), ("1", 1), ("2", 2)])
 def test_choices_with_no_space_after_the_number_still_need_a_number(answer, picked):
-    assert check_authoring._picked_choice(answer, _TIGHT_CHOICES) == picked
+    typed = check_authoring._answer(
+        [{"role": "assistant", "content": _TIGHT_CHOICES}, {"role": "user", "content": answer}],
+        _EDIT_SCOPE,
+    )
+
+    assert check_authoring._picked_choice(typed, _TIGHT_CHOICES) == picked
 
 
 async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):
