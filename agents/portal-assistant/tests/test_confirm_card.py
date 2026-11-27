@@ -177,6 +177,8 @@ async def test_validates_the_new_rule_with_the_saved_retrievers(_backstage):
     name, args = next(c for c in _backstage["calls"] if c[0] == "tech-insights__validate-check")
     assert args["factIds"] == ["githubRepositoryFactRetriever"]
     assert args["rule"]["conditions"] == _NEW_RULE
+    # The check's id: validated with its entity filter, as the save will be.
+    assert args["id"] == "c1"
 
 
 async def test_a_rule_with_problems_is_marked_invalid(_backstage):
@@ -264,6 +266,8 @@ async def test_builds_a_signed_card_for_a_new_check(_backstage):
     assert json.loads(emit(card))["kind"] == "create"
     # Only validated: nothing to read for a check that doesn't exist yet.
     assert [name for name, _ in _backstage["calls"]] == ["tech-insights__list-fact-schemas", "tech-insights__validate-check"]
+    # No saved check yet, so no id and no saved entity filter.
+    assert "id" not in _backstage["calls"][-1][1]
 
 
 async def test_new_check_card_shows_the_kinds_validate_check_returns(monkeypatch):

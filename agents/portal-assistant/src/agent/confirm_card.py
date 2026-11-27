@@ -489,10 +489,11 @@ async def _edit_card(
         conditions = rule
         # The saved retrievers, and any the edited rule's new facts need.
         fact_ids = await fact_ids_for_rule(tools, rule, saved["factIds"])
+        # The check's id: validated with its entity filter, as the save will be.
         validation = await call_backstage_tool(
             tools,
             VALIDATE_CHECK,
-            {"factIds": fact_ids, "rule": {"conditions": conditions}},
+            {"id": check_id, "factIds": fact_ids, "rule": {"conditions": conditions}},
         )
     except Exception as exc:  # noqa: BLE001 — no card; the reply still arrives
         logger.warning("No confirm card for check %s: %s", check_id, exc)

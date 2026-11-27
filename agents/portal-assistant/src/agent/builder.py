@@ -207,8 +207,8 @@ def _filter_tools_for_case(tools: list[Any], case_type: str | None) -> list[Any]
          stays focused. No-op when ``case_type`` is missing or unknown.
     """
     tools = [t for t in tools if not is_mutating(t)]
-    # The Backstage check tools are for check authoring only. Other chats with
-    # no tool list of their own would otherwise get them, on the static token.
+    # The Backstage check tools are for check authoring only. Other chats get
+    # no Backstage token, so no Backstage tools; this keeps any out regardless.
     if case_type != "check_authoring":
         tools = [t for t in tools if t.name not in _TOOLS_FOR_CASE["check_authoring"]]
     if not case_type:
@@ -345,7 +345,7 @@ async def _build_agent(
 
     ``backstage_token`` binds the Backstage check tools to the signed-in
     user in check_authoring chats, the only case that uses them; other
-    chats keep the cached tools on the static read-only token.
+    chats get no Backstage tools.
 
     ``edit_phase`` is ``"propose"`` for an edit message the user hasn't
     approved: the model then gets no tools (see check_authoring._edit_phase).
