@@ -35,6 +35,11 @@ const (
 	// targets (namespace/project/resourceName/environment) for efficient reverse lookup
 	// when a provider ResourceReleaseBinding's outputs or Ready condition change.
 	resourceDependencyTargetsIndex = "status.resourceDependencyTargets"
+
+	// environmentIndex indexes ReleaseBindings by spec.environment so the Environment
+	// watch can find the bindings that target an Environment without listing every
+	// binding in the namespace.
+	environmentIndex = "spec.environment"
 )
 
 // makeConnectionTargetKey creates an index key for a connection target.
@@ -76,6 +81,50 @@ func (r *Reconciler) setupSecretReferencesIndex(ctx context.Context, mgr ctrl.Ma
 			releaseBinding := obj.(*openchoreov1alpha1.ReleaseBinding)
 			return releaseBinding.Status.SecretReferenceNames
 		})
+}
+
+// indexEnvironment is the field-indexer function for environmentIndex.
+func indexEnvironment(obj client.Object) []string {
+	rb := obj.(*openchoreov1alpha1.ReleaseBinding)
+	if rb.Spec.Environment == "" {
+		return nil
+	}
+	return []string{rb.Spec.Environment}
+}
+
+// setupEnvironmentIndex registers the field index used by the Environment watch.
+func (r *Reconciler) setupEnvironmentIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ReleaseBinding{},
+		environmentIndex, indexEnvironment)
+}
+
+// findReleaseBindingsForEnvironment enqueues the ReleaseBindings in the Environment's
+// namespace whose spec.environment names it. Create wakes bindings stuck on
+// EnvironmentNotFound. Spec updates re-render them too, since the Environment's
+// gateway settings feed the render context.
+func (r *Reconciler) findReleaseBindingsForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
+	env, ok := obj.(*openchoreov1alpha1.Environment)
+	if !ok {
+		return nil
+	}
+
+	var bindings openchoreov1alpha1.ReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(env.Namespace),
+		client.MatchingFields{environmentIndex: env.Name},
+	); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to list ReleaseBindings for Environment",
+			"environment", env.Name, "namespace", env.Namespace)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(bindings.Items))
+	for i := range bindings.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: bindings.Items[i].Name, Namespace: bindings.Items[i].Namespace},
+		}
+	}
+	return requests
 }
 
 // setupConnectionTargetsIndex registers a field index that extracts unique
@@ -466,9 +515,10 @@ func (r *Reconciler) findReleaseBindingsForClusterDataPlane(ctx context.Context,
 
 // releaseBindingsForDataPlaneRef returns reconcile requests for the ReleaseBindings whose target
 // Environment references the given data plane (kind+name). When namespace is empty the
-// Environment scan is cluster-wide (used for ClusterDataPlane). Environments that resolve to a
-// data plane only via the ClusterDataPlane "default" fallback are not matched here; the periodic
-// resync remains the backstop for that edge.
+// Environment scan is cluster-wide (used for ClusterDataPlane). Environments with no
+// dataPlaneRef resolve through the "default" DataPlane / ClusterDataPlane fallback, so they
+// match any data plane named "default". This can enqueue a binding whose Environment
+// actually resolves to the other kind; the extra reconcile is idempotent.
 func (r *Reconciler) releaseBindingsForDataPlaneRef(
 	ctx context.Context, namespace string, kind openchoreov1alpha1.DataPlaneRefKind, name string,
 ) []reconcile.Request {
@@ -489,7 +539,11 @@ func (r *Reconciler) releaseBindingsForDataPlaneRef(
 	for i := range envs.Items {
 		env := &envs.Items[i]
 		ref := env.Spec.DataPlaneRef
-		if ref == nil || ref.Kind != kind || ref.Name != name {
+		if ref == nil {
+			if name != controller.DefaultPlaneName {
+				continue
+			}
+		} else if ref.Kind != kind || ref.Name != name {
 			continue
 		}
 		if envsByNamespace[env.Namespace] == nil {

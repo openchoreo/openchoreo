@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
 	kubernetesClient "github.com/openchoreo/openchoreo/internal/clients/kubernetes"
@@ -1745,6 +1746,11 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup resource dependency targets index: %w", err)
 	}
 
+	// Setup field index for the target Environment (reads from spec.environment)
+	if err := r.setupEnvironmentIndex(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup environment index: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&openchoreov1alpha1.ReleaseBinding{}).
 		Owns(&openchoreov1alpha1.RenderedRelease{}).
@@ -1790,6 +1796,15 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&openchoreov1alpha1.ClusterDataPlane{},
 			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForClusterDataPlane),
 			builder.WithPredicates(dataPlaneRenderInputsChangedPredicate()),
+		).
+		// Wake bindings stuck on EnvironmentNotFound when their Environment appears, and
+		// re-render on spec changes (the gateway settings feed the render context). The
+		// Environment controller also writes status and a finalizer, which rendering
+		// never reads, so skip updates that leave the generation unchanged.
+		Watches(
+			&openchoreov1alpha1.Environment{},
+			handler.EnqueueRequestsFromMapFunc(r.findReleaseBindingsForEnvironment),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		// The environment's default notification channel feeds the render context
 		// (environment.defaultNotificationChannel), so re-render when it may have changed.

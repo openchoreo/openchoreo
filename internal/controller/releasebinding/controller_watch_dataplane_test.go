@@ -74,6 +74,12 @@ func envRef(ns, name string, kind openchoreov1alpha1.DataPlaneRefKind, dpName st
 	}
 }
 
+// envNoRef builds an Environment with no dataPlaneRef, which resolves through the
+// "default" DataPlane / ClusterDataPlane fallback.
+func envNoRef(ns, name string) *openchoreov1alpha1.Environment {
+	return &openchoreov1alpha1.Environment{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name}}
+}
+
 func bindingFor(ns, name, environment string) *openchoreov1alpha1.ReleaseBinding {
 	return &openchoreov1alpha1.ReleaseBinding{
 		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
@@ -147,4 +153,37 @@ func TestFindReleaseBindingsForClusterDataPlane(t *testing.T) {
 	reqs := r.findReleaseBindingsForClusterDataPlane(ctx,
 		&openchoreov1alpha1.ClusterDataPlane{ObjectMeta: metav1.ObjectMeta{Name: "cdp"}})
 	assert.ElementsMatch(t, []string{"rb-1", "rb-2"}, requestNames(reqs))
+}
+
+// TestFindReleaseBindingsForDataPlane_DefaultFallback: an Environment with no dataPlaneRef
+// resolves to the "default" DataPlane, then the "default" ClusterDataPlane, so its bindings
+// must be enqueued when a data plane named "default" of either kind changes, and only then.
+func TestFindReleaseBindingsForDataPlane_DefaultFallback(t *testing.T) {
+	ctx := context.Background()
+	r := newReconcilerWith(t,
+		envNoRef("org1", "env-fallback"),
+		envNoRef("org2", "env-fallback-2"),
+		envRef("org1", "env-explicit", openchoreov1alpha1.DataPlaneRefKindDataPlane, "dp-x"),
+		bindingFor("org1", "rb-fallback", "env-fallback"),
+		bindingFor("org2", "rb-fallback-2", "env-fallback-2"),
+		bindingFor("org1", "rb-explicit", "env-explicit"),
+	)
+
+	t.Run("namespaced_default_dataplane_matches_fallback_env_in_its_namespace", func(t *testing.T) {
+		reqs := r.findReleaseBindingsForDataPlane(ctx,
+			&openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Namespace: "org1", Name: "default"}})
+		assert.ElementsMatch(t, []string{"rb-fallback"}, requestNames(reqs))
+	})
+
+	t.Run("default_clusterdataplane_matches_fallback_envs_everywhere", func(t *testing.T) {
+		reqs := r.findReleaseBindingsForClusterDataPlane(ctx,
+			&openchoreov1alpha1.ClusterDataPlane{ObjectMeta: metav1.ObjectMeta{Name: "default"}})
+		assert.ElementsMatch(t, []string{"rb-fallback", "rb-fallback-2"}, requestNames(reqs))
+	})
+
+	t.Run("non_default_plane_does_not_match_fallback_env", func(t *testing.T) {
+		reqs := r.findReleaseBindingsForDataPlane(ctx,
+			&openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Namespace: "org1", Name: "dp-x"}})
+		assert.ElementsMatch(t, []string{"rb-explicit"}, requestNames(reqs))
+	})
 }
