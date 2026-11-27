@@ -89,6 +89,7 @@ type fetchFixture struct {
 	calls           map[string][]string
 	paginated       bool
 	empty           bool
+	securityEnabled bool
 	override        testutil.RoundTripFunc
 	profileOverride testutil.RoundTripFunc
 	profileCalls    int
@@ -97,11 +98,12 @@ type fetchFixture struct {
 func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 	t.Helper()
 	f := &fetchFixture{
-		t:           t,
-		host:        "api.example.test",
-		collections: make(map[string]collectionFixture),
-		calls:       make(map[string][]string),
-		paginated:   paginated,
+		t:               t,
+		host:            "api.example.test",
+		collections:     make(map[string]collectionFixture),
+		calls:           make(map[string][]string),
+		paginated:       paginated,
+		securityEnabled: true,
 	}
 	for _, collection := range requiredClusterCollections {
 		f.collections["/api/v1/"+collection.path] = collection
@@ -144,6 +146,19 @@ func newFetchFixture(t *testing.T, paginated bool) *fetchFixture {
 func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	f.t.Helper()
 	assert.Equal(f.t, http.MethodGet, req.Method)
+	switch req.URL.Host + req.URL.Path {
+	case f.host + "/.well-known/oauth-protected-resource":
+		return testutil.JSONResp(http.StatusOK, map[string]any{
+			"authorization_servers":       []string{"https://mock-issuer"},
+			"openchoreo_clients":           []any{map[string]any{"name": "cli", "client_id": "cli-id", "scopes": []string{"openid"}}},
+			"openchoreo_security_enabled": f.securityEnabled,
+		}), nil
+	case "mock-issuer/.well-known/openid-configuration":
+		return testutil.JSONResp(http.StatusOK, map[string]string{
+			"authorization_endpoint": "https://auth.example.test/authorize",
+			"token_endpoint":         "https://auth.example.test/token",
+		}), nil
+	}
 	assert.Equal(f.t, f.host, req.URL.Host)
 	assert.Equal(f.t, "Bearer "+testutil.NonExpiredJWT, req.Header.Get("Authorization"))
 	if req.URL.Path == "/api/v1/authz/profile" {

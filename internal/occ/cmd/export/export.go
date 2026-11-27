@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/openchoreo/openchoreo/internal/occ/auth"
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
 )
@@ -56,13 +58,28 @@ func Run(ctx context.Context, c client.Interface, params Params) (*ExportResult,
 	}, nil
 }
 
-// checkExportPermissions requires unrestricted access to every supported kind.
+// checkExportPermissions requires unrestricted access to every supported kind
+// when control plane security is enabled.
 func checkExportPermissions(ctx context.Context, c client.Interface) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if c == nil {
 		return fmt.Errorf("API client is required")
+	}
+	controlPlane, err := config.GetCurrentControlPlane()
+	if err != nil {
+		return fmt.Errorf("cannot determine control plane security setting: %w", err)
+	}
+	if controlPlane == nil {
+		return fmt.Errorf("cannot determine control plane security setting: control plane is not configured")
+	}
+	oidcConfig, err := auth.FetchOIDCConfig(controlPlane.URL)
+	if err != nil {
+		return fmt.Errorf("cannot determine control plane security setting: %w", err)
+	}
+	if !oidcConfig.SecurityEnabled {
+		return nil
 	}
 	profile, err := getExportProfile(ctx, c)
 	if err != nil {

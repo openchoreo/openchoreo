@@ -171,6 +171,18 @@ func TestRun_RequiresPermissionsForEndpointResourcesAndNotificationChannels(t *t
 	}
 }
 
+func TestRun_SkipsPermissionProfileWhenSecurityIsDisabled(t *testing.T) {
+	f := newFetchFixture(t, false)
+	f.securityEnabled = false
+
+	result, err := Run(context.Background(), f.client, Params{OutputDir: t.TempDir()})
+
+	require.NoError(t, err)
+	assert.NotEmpty(t, result.Files)
+	assert.Zero(t, f.profileCalls)
+	assert.NotEmpty(t, f.calls)
+}
+
 func TestRun_PreservesNumbersAcrossResourceTypesFromHTTP(t *testing.T) {
 	// Free-form fields include nested schema defaults.
 	fields := map[string][]string{
