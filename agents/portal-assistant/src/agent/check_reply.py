@@ -50,8 +50,8 @@ _STEP_LABEL_RE = re.compile(
     r"^[ \t]*(?:#+[ \t]*)?\**[ \t]*Step[ \t]*[12][ \t]*[—–:-][^\n]*?\**[ \t]*$\n?",
     re.IGNORECASE | re.MULTILINE,
 )
-# The "Tested on" summary the prompt has a reply start with after a
-# dry-run: its heading line and the bullets under it.
+# A "Tested on" summary the model writes anyway (the prompt doesn't ask for
+# one): its heading line and the bullets under it.
 _TEST_SUMMARY_RE = re.compile(
     r"^[ \t]*\**Tested on\**[^\n]*(?:\n[ \t]*[-*•][^\n]*)*\n?",
     re.IGNORECASE | re.MULTILINE,
@@ -78,10 +78,13 @@ def strip_step_labels(message: str) -> str:
 
 
 def reply_words(message: str) -> str | None:
-    """A drafted reply's own words — e.g. its "Tested on" summary — without
-    the rule block, the check's fields and the suggested changes, which the
-    save card shows. None when nothing else is left."""
+    """A drafted reply's own words, without the rule block, the check's
+    fields and the suggested changes, which the save card shows. Without any
+    test result in the model's words too ("Tested on …", "Dry-run error: …"):
+    only code reports a test, from the tool's own result. None when nothing
+    else is left."""
     text = _DRAFT_LINE_RE.sub("", _LEAD_IN_AND_RULE_RE.sub("", message))
+    text = _DRY_RUN_LINE_RE.sub("", _TEST_SUMMARY_RE.sub("", text))
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
     return text or None
 
@@ -126,20 +129,6 @@ def without_unrequested_guard(message: str, requests: list[str]) -> str:
     conditions = {**conditions, "all": kept}
     text = json.dumps({"conditions": conditions} if wrapped else conditions, indent=2)
     return message[: fence.start(1)] + text + "\n" + message[fence.end(1) :]
-
-
-def without_test_summary(text: str | None) -> str | None:
-    """``text`` without the model's "Tested on" summary, for a card that says
-    the result in the test card's words instead. None when nothing is left."""
-    return _TEST_SUMMARY_RE.sub("", text or "").strip() or None
-
-
-def without_failed_test_lines(text: str | None) -> str | None:
-    """``text`` without the model's "Tested on" summary and its "Dry-run error:"
-    / "Dry-run result:" lines, for a card that says the test failed in the
-    tool's own words. None when nothing is left."""
-    text = _DRY_RUN_LINE_RE.sub("", _TEST_SUMMARY_RE.sub("", text or ""))
-    return re.sub(r"\n{3,}", "\n\n", text).strip() or None
 
 
 def parse_suggestions(tail: str) -> dict[str, tuple[str | None, str]]:

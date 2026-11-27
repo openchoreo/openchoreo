@@ -390,6 +390,19 @@ def test_save_it_reaches_back_only_over_test_results():
         )
         == _STEP2
     )
+    # A test turn is the reply to a test request, whatever the reply says:
+    # the Test button's action, or a typed request.
+    clicked = {
+        "role": "user",
+        "content": "Test it",
+        "action": {"name": "test", "context": {"entityRef": "component:default/order-api"}},
+    }
+    assert reply(clicked, {"role": "assistant", "content": "Order-api fails this rule."}) == _STEP2
+    # Words that look like a result don't make one.
+    assert (
+        reply({"role": "user", "content": "hmm"}, {"role": "assistant", "content": _TESTED})
+        is None
+    )
     # The previous reply is the rule: card_for_save_request reads it itself.
     assert reply() is None
     # Anything else in between: "save it" isn't about that draft any more.
@@ -1349,7 +1362,8 @@ async def test_an_approved_edit_gets_the_card_and_no_buttons(monkeypatch):
     assert "note" not in root
 
 
-async def test_a_tested_edit_shows_the_test_summary_in_the_save_card(monkeypatch):
+async def test_a_test_the_model_only_wrote_about_is_not_on_the_card(monkeypatch):
+    # No dry-run ran: the model's "Tested on" text would show a test that never ran.
     tested = "**Tested on** `component:default/order-api`\n- Dry-run result: **Passed**"
 
     events, _built = await _turn(
@@ -1359,7 +1373,8 @@ async def test_a_tested_edit_shows_the_test_summary_in_the_save_card(monkeypatch
     )
 
     (save,) = _save_cards(events)
-    assert _components(save)[0]["note"] == tested
+    root = _components(save)[0]
+    assert "note" not in root and "resultTitle" not in root
 
 
 @pytest.mark.parametrize("scope", [

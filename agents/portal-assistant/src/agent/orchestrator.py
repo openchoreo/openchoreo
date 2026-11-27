@@ -56,8 +56,6 @@ from src.agent.check_reply import (
     reply_words,
     strip_step_labels,
     unwrap,
-    without_failed_test_lines,
-    without_test_summary,
     without_unrequested_guard,
 )
 from src.agent.confirm_card import (
@@ -242,16 +240,18 @@ def _test_entity(message: dict[str, Any] | None) -> str | None:
 _TEST_NOTE = (
     "[Automatic note — not written by the user] This message only asks for a test. Run "
     f"{DRY_RUN_CHECK} on that component with the rule from your last reply that has one (the "
-    "drafted check or the edited rule), or else the current rule, and report the result in "
-    "plain words. Don't change the rule and don't write it in a code block."
+    "drafted check or the edited rule), or else the current rule. Don't write the result: "
+    "the drawer shows it from the tool's own result. Don't change the rule and don't write "
+    "it in a code block."
 )
 # A test request after an edited rule the user didn't approve: that rule isn't
 # the one to test (see _tests_saved_rule).
 _TEST_SAVED_NOTE = (
     "[Automatic note — not written by the user] This message only asks for a test. Run "
-    f"{DRY_RUN_CHECK} on that component with the check's current rule, the saved one, and "
-    "report the result in plain words. Ignore any rule in your earlier replies: the user "
-    "hasn't approved it. Don't change the rule and don't write it in a code block."
+    f"{DRY_RUN_CHECK} on that component with the check's current rule, the saved one. "
+    "Don't write the result: the drawer shows it from the tool's own result. Ignore any "
+    "rule in your earlier replies: the user hasn't approved it. Don't change the rule and "
+    "don't write it in a code block."
 )
 # Added to a later edit message that doesn't approve the last proposal.
 _NOT_APPROVED_NOTE = (
@@ -784,17 +784,15 @@ def _unsaved_rule_reply(
     return reply
 
 
-def _is_test_result(reply: str) -> bool:
-    """Whether a reply is a test's result alone, as _tested_reply writes it."""
-    return reply.lstrip("*# ").startswith("Tested on ") and not RULE_FENCE_RE.search(reply)
-
-
 def _reply_to_save(messages: list[dict[str, str]], scope: dict[str, Any] | None) -> str | None:
     """The reply "save it" saves when it isn't the previous one: the unsaved
     draft or approved edit that test results followed. A test that ran
     another rule than the card's ends in its result alone (see _tested_reply),
     so the previous reply has no rule, but the user still wants to save the
-    rule they have. None when anything else came after it."""
+    rule they have. None when anything else came after it.
+
+    A reply is a test's result when it answers a test request (the Test
+    button's action, or a typed one), never by what the reply says."""
     earlier = messages[:-1]
     reply = _unsaved_rule_reply(earlier, scope)
     if reply is None:
@@ -804,8 +802,11 @@ def _reply_to_save(messages: list[dict[str, str]], scope: dict[str, Any] | None)
         for i, m in enumerate(earlier)
         if m.get("role") == "assistant" and m.get("content") == reply
     )
-    after = [m for m in earlier[index + 1 :] if m.get("role") == "assistant"]
-    if not after or not all(_is_test_result(m.get("content") or "") for m in after):
+    after = [i for i in range(index + 1, len(earlier)) if earlier[i].get("role") == "assistant"]
+    if not after or not all(
+        earlier[i - 1].get("role") == "user" and _test_entity(earlier[i - 1]) is not None
+        for i in after
+    ):
         return None
     return reply
 
@@ -1014,12 +1015,18 @@ async def _tested_reply(
         ))
     else:
         yield _emit_event({"type": "a2ui", "messages": [dry_run_card_surface(run, scope)]})
-    result = dry_run_result_event(run, scope)
-    yield _emit_event({"type": "done", "message": _card_text({
+    yield _emit_event({"type": "done", "message": _test_result_text(run, scope)})
+
+
+def _test_result_text(run: DryRun, scope: dict[str, Any] | None) -> str:
+    """A test's result as the reply's text, written by code from the tool's
+    own result: the model's words never report a test."""
+    result = dry_run_result_event(run, scope or {})
+    return _card_text({
         "title": f"Tested on {run.entity_ref or 'the component'}",
         "summary": result["summary"],
         "sections": result["sections"],
-    })})
+    })
 
 
 def _run_of_card_rule(dry_runs: list[DryRun], confirmation: dict[str, Any]) -> DryRun | None:
@@ -1611,23 +1618,23 @@ async def stream_chat(
                 if example:
                     confirmation = {**confirmation, "example": True}
                 run = _run_of_card_rule(dry_runs, confirmation)
+                # The model's words never report a test (see reply_words):
+                # only a dry-run this turn ran, in the tool's own result, does.
                 if run:
                     # Tested in this turn: the card says the result in the
                     # test card's words and offers only to save, not to test.
                     confirmation = {**confirmation, "tested": True}
                     note = "\n\n".join(filter(None, [
                         dry_run_note(run, scope or {}, example=example),
-                        None if edit_phase == "test" else without_test_summary(note),
+                        None if edit_phase == "test" else note,
                     ]))
                 elif dry_runs:
                     # The test ran another rule: its result isn't this rule's,
                     # so the card offers to test this one.
                     logger.info("The test ran another rule than the card's; card not marked tested")
-                    note = without_test_summary(note)
                 elif tool_errors and (failed_test := failed_test_note(tool_errors[-1])):
-                    # The test of this draft failed: say so from the tool's own
-                    # error, not the model's words, and not as "Tested on".
-                    note = "\n\n".join(filter(None, [failed_test, without_failed_test_lines(note)]))
+                    # The test of this draft failed: say so from the tool's own error.
+                    note = "\n\n".join(filter(None, [failed_test, note]))
                 yield _emit_event(confirmation)
                 yield _emit_event(_save_card_ui(confirmation, scope, note, run))
 
@@ -1668,6 +1675,7 @@ async def stream_chat(
                 notice = None if tested or failed else notice_view(message, scope or {})
                 if tested:
                     surface = dry_run_card_surface(tested, scope or {})
+                    message = _test_result_text(tested, scope)
                 elif failed:
                     surface = notice_card_surface(problem_view(failed))
                 elif notice:

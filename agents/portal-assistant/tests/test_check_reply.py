@@ -12,8 +12,6 @@ from src.agent.check_reply import (
     parse_suggestions,
     reply_words,
     strip_step_labels,
-    without_failed_test_lines,
-    without_test_summary,
     without_unrequested_guard,
 )
 
@@ -152,8 +150,9 @@ def test_a_drafted_reply_has_no_words_of_its_own(reply):
         ),
     ],
 )
-def test_the_test_summary_is_kept(reply):
-    assert reply_words(reply) == _TESTED
+def test_the_models_test_summary_is_dropped(reply):
+    # Only code reports a test, from the tool's own result.
+    assert reply_words(reply) is None
 
 
 def test_a_sentence_the_model_added_is_kept():
@@ -169,30 +168,27 @@ def test_the_line_leading_into_the_rule_goes_with_it(lead_in):
     assert reply_words(reply) == "Want me to test it on a component?"
 
 
-def test_without_test_summary_drops_the_tested_on_block():
-    text = (
-        "**Tested on** `component:default/order-api`\n"
-        "- Actual facts: `githubVisibility` = `public`\n"
-        "- Dry-run result: **Failed** — it is public\n\n"
-        "I used the visibility fact."
-    )
+@pytest.mark.parametrize(
+    "summary",
+    [
+        pytest.param(
+            "**Tested on** `component:default/order-api`\n"
+            "- Actual facts: `githubVisibility` = `public`\n"
+            "- Dry-run result: **Failed** — it is public",
+            id="tested on",
+        ),
+        pytest.param(
+            "Tested on `component:default/no-such-service`\n"
+            "Dry-run error: InputError: No entity component:default/no-such-service.\n"
+            "**Dry-run result:** Error — not found",
+            id="dry-run error",
+        ),
+    ],
+)
+def test_the_models_test_lines_go_and_its_own_words_stay(summary):
+    reply = f"{summary}\n\nI used the visibility fact.\n\nEdited rule:\n\n{_RULE}"
 
-    assert without_test_summary(text) == "I used the visibility fact."
-    assert without_test_summary(text.split("\n\n")[0]) is None
-    assert without_test_summary(None) is None
-
-
-def test_without_failed_test_lines_drops_the_models_error_lines():
-    text = (
-        "Tested on `component:default/no-such-service`\n"
-        "Dry-run error: InputError: No entity component:default/no-such-service in the catalog.\n"
-        "**Dry-run result:** Error — not found\n\n"
-        "I used the visibility fact."
-    )
-
-    assert without_failed_test_lines(text) == "I used the visibility fact."
-    assert without_failed_test_lines("Dry-run error: No entity x in the catalog.") is None
-    assert without_failed_test_lines(None) is None
+    assert reply_words(reply) == "I used the visibility fact."
 
 
 _GUARDED = (
