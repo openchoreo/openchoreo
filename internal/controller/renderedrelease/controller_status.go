@@ -391,20 +391,15 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 // unavailableWithinProgressDeadline reports whether the Deployment lost its
 // availability less than its progress deadline ago: its pods may just be starting.
 func unavailableWithinProgressDeadline(deployment *appsv1.Deployment, available *appsv1.DeploymentCondition) bool {
-	if available == nil || available.Status == corev1.ConditionTrue {
+	deadlineSeconds := deployment.Spec.ProgressDeadlineSeconds
+	if deadlineSeconds == nil || available == nil {
 		return false
 	}
-	if available.LastTransitionTime.IsZero() {
+	if available.Status == corev1.ConditionTrue || available.LastTransitionTime.IsZero() {
 		return false
 	}
-	return time.Since(available.LastTransitionTime.Time) < progressDeadline(deployment)
-}
-
-func progressDeadline(deployment *appsv1.Deployment) time.Duration {
-	if seconds := deployment.Spec.ProgressDeadlineSeconds; seconds != nil {
-		return time.Duration(*seconds) * time.Second
-	}
-	return defaultProgressDeadline
+	deadline := time.Duration(*deadlineSeconds) * time.Second
+	return time.Since(available.LastTransitionTime.Time) < deadline
 }
 
 func extractDeploymentConditions(conditions []appsv1.DeploymentCondition) (available, progressing, replicaFailure *appsv1.DeploymentCondition) {

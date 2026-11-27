@@ -944,7 +944,7 @@ func TestGetDeploymentHealth(t *testing.T) {
 			name: "scaled up from zero, first pod not ready yet, is Progressing",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
-				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1)},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1), ProgressDeadlineSeconds: int32Ptr(600)},
 				Status: appsv1.DeploymentStatus{
 					ObservedGeneration:  2,
 					UpdatedReplicas:     1,
@@ -961,10 +961,10 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusProgressing,
 		},
 		{
-			name: "unavailable past the default progress deadline is Degraded",
+			name: "unavailable past the progress deadline is Degraded",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
-				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1)},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1), ProgressDeadlineSeconds: int32Ptr(600)},
 				Status: appsv1.DeploymentStatus{
 					ObservedGeneration:  2,
 					UpdatedReplicas:     1,
@@ -981,7 +981,7 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusDegraded,
 		},
 		{
-			name: "unavailable past the Deployment's own progress deadline is Degraded",
+			name: "unavailable past a shorter progress deadline is Degraded",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1), ProgressDeadlineSeconds: int32Ptr(20)},
@@ -1001,10 +1001,30 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusDegraded,
 		},
 		{
-			name: "unavailable with no transition time is Degraded",
+			name: "unavailable with no progress deadline is Degraded",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration:  2,
+					UpdatedReplicas:     1,
+					UnavailableReplicas: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{
+							Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse,
+							LastTransitionTime: metav1.NewTime(time.Now().Add(-30 * time.Second)),
+						},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
+			name: "unavailable with no transition time is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1), ProgressDeadlineSeconds: int32Ptr(600)},
 				Status: appsv1.DeploymentStatus{
 					ObservedGeneration:  2,
 					UpdatedReplicas:     1,
