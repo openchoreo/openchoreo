@@ -247,6 +247,7 @@ func TestBuildTemplates_SharedContract(t *testing.T) {
 			requireContains(t, s, "/mnt/vol/app-image.tar")
 			// Path validation guard.
 			requireContains(t, s, "exit 1")
+			requireContains(t, s, "readlink -f", "resolves outside the repository")
 			// build-env JSON -> --env flags, with empty/[] skipped.
 			requireContains(t, s, "BUILD_ENV_JSON", `!= "[]"`, "--env")
 			requireEnvContains(t, env, "BUILD_ENV_JSON", "build-env",
@@ -277,6 +278,18 @@ func TestContainerfileBuild_Specifics(t *testing.T) {
 		"containerfile build must receive docker-context through container env")
 	requireEnvContains(t, env, "BUILD_ARGS_JSON", "build-args",
 		"containerfile build must receive build-args through container env")
+	// The guard resolves the path with readlink -f, but podman cleans its
+	// arguments lexically; the same canonical value must be validated and passed.
+	requireContains(t, s,
+		`DOCKERFILE_ABS=$(readlink -f`,
+		`CONTEXT_ABS=$(readlink -f`,
+		`podman build -t "$IMAGE" -f "$DOCKERFILE_ABS"`,
+		`-- "$CONTEXT_ABS"`,
+	)
+	requireNotContains(t, s, `-f "$WORKDIR/$DOCKERFILE_PATH" "$@"`,
+		"podman must not receive the unresolved dockerfile path it would clean lexically")
+	requireNotContains(t, s, `"$@" -- "$WORKDIR/$DOCKER_CONTEXT"`,
+		"podman must not receive the unresolved context it would clean lexically")
 }
 
 func TestBuildpackTemplates_Specifics(t *testing.T) {
@@ -305,6 +318,14 @@ func TestBuildpackTemplates_Specifics(t *testing.T) {
 				"RemoteSocket.Exists",
 				"podman image exists",
 			)
+			// The guard resolves the path with readlink -f, but pack cleans
+			// --path lexically; the same canonical value must be validated and passed.
+			requireContains(t, s,
+				`APP_PATH_ABS=$(readlink -f`,
+				`--path "$APP_PATH_ABS"`,
+			)
+			requireNotContains(t, s, `--path "$WORKDIR/$APP_PATH"`,
+				"pack must not receive the unresolved app path it would clean lexically")
 		})
 	}
 }
@@ -369,6 +390,9 @@ func TestGenerateWorkload_SharedContract(t *testing.T) {
 				".spec.container.image",   // image-only merge on auto-generated
 				"openchoreo.dev/workload", // WorkflowRun annotation
 				"workload-from-source",
+				"readlink -f",
+				"resolves outside the repository",
+				`DESCRIPTOR_PATH="$(readlink -f`,
 			)
 		})
 	}
@@ -475,6 +499,26 @@ func TestE2EGenerateWorkload_ForwardsReleaseLine(t *testing.T) {
 			if got := strings.Count(text, `${RELEASE_LINE:+--release-line "${RELEASE_LINE}"}`); got != 2 {
 				t.Errorf("%s: both occ workload create calls must pass --release-line, found %d", path, got)
 			}
+		})
+	}
+}
+
+// TestE2EGenerateWorkload_PathContainment guards the e2e generate-workload
+// copies: they carry metadata.name "generate-workload" (shadowing the shipped
+// template in e2e clusters) and bind-mount the descriptor directory read-write
+// into the occ container, so they must keep the same containment checks.
+func TestE2EGenerateWorkload_PathContainment(t *testing.T) {
+	for _, tc := range []struct{ dir, file string }{
+		{"../../test/e2e/k3d/workflow-templates", "generate-workload-e2e.yaml"},
+		{"../../test/e2e/k3d/multi-cluster/workflow-templates", "generate-workload-e2e-mc.yaml"},
+	} {
+		t.Run(tc.file, func(t *testing.T) {
+			s := scriptForTemplateFromDir(t, tc.dir, tc.file, "generate-workload-cr")
+			requireContains(t, s,
+				"readlink -f",
+				"resolves outside the repository",
+				`DESCRIPTOR_PATH="$(readlink -f`,
+			)
 		})
 	}
 }

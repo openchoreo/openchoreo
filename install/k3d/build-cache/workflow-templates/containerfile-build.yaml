@@ -74,6 +74,24 @@ spec:
               exit 1
             fi
 
+            SOURCE_ROOT=$(readlink -f -- "$WORKDIR")
+            DOCKERFILE_ABS=$(readlink -f -- "$WORKDIR/$DOCKERFILE_PATH")
+            case "$DOCKERFILE_ABS" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Dockerfile path '$DOCKERFILE_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+            CONTEXT_ABS=$(readlink -f -- "$WORKDIR/$DOCKER_CONTEXT")
+            case "${CONTEXT_ABS}/" in
+              "$SOURCE_ROOT"/*) ;;
+              *)
+                echo ">> Error: Docker build context '$DOCKER_CONTEXT' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             case "$CACHE_LAYERS_MODE" in
               disabled|reuse|rebuild) ;;
               *)
@@ -162,7 +180,7 @@ spec:
             fi
 
             echo ">> Building image"
-            podman build -t "$IMAGE" -f "$WORKDIR/$DOCKERFILE_PATH" "$@" -- "$WORKDIR/$DOCKER_CONTEXT"
+            podman build -t "$IMAGE" -f "$DOCKERFILE_ABS" "$@" -- "$CONTEXT_ABS"
             echo ">> Image built successfully"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:

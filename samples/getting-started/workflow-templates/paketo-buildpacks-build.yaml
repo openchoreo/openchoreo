@@ -48,6 +48,15 @@ spec:
               exit 1
             fi
 
+            APP_PATH_ABS=$(readlink -f -- "$WORKDIR/$APP_PATH")
+            case "${APP_PATH_ABS}/" in
+              "$(readlink -f -- "$WORKDIR")"/*) ;;
+              *)
+                echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
+                exit 1
+                ;;
+            esac
+
             mkdir -p /storage/run /storage/graph
             cat > /etc/containers/storage.conf <<EOF
             [storage]
@@ -108,7 +117,7 @@ spec:
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
-              --path "$WORKDIR/$APP_PATH" \
+              --path "$APP_PATH_ABS" \
               --pull-policy always \
               "$@"
 
