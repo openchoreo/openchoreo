@@ -128,9 +128,11 @@ func (s *k8sResourcesServiceWithAuthz) authorizeReleaseBinding(ctx context.Conte
 }
 
 // checkOwnerComponentAuthz checks an action on the component that owns the release binding.
-// Pod logs and events need logs:view and events:view on top of releasebinding:view, and these
-// are checked on the component, as the observer does for the logs and events it serves, so the
-// same role gives the same answer for both.
+// Pod logs and events need logs:view and events:view on top of releasebinding:view. These are
+// checked on the component, as the observer does for the logs and events it serves, so a role
+// gets the same answer from both. Only logs:view supports environment conditions today;
+// events:view is not in the condition registry, but the environment is still passed so the
+// audit record carries it.
 func (s *k8sResourcesServiceWithAuthz) checkOwnerComponentAuthz(ctx context.Context, namespaceName string, rb *openchoreov1alpha1.ReleaseBinding, action string) error {
 	return s.authz.Check(ctx, services.CheckRequest{
 		Action:       action,
