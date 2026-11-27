@@ -150,7 +150,7 @@ func (f *fetchFixture) roundTrip(req *http.Request) (*http.Response, error) {
 	case f.host + "/.well-known/oauth-protected-resource":
 		return testutil.JSONResp(http.StatusOK, map[string]any{
 			"authorization_servers":       []string{"https://mock-issuer"},
-			"openchoreo_clients":           []any{map[string]any{"name": "cli", "client_id": "cli-id", "scopes": []string{"openid"}}},
+			"openchoreo_clients":          []any{map[string]any{"name": "cli", "client_id": "cli-id", "scopes": []string{"openid"}}},
 			"openchoreo_security_enabled": f.securityEnabled,
 		}), nil
 	case "mock-issuer/.well-known/openid-configuration":
@@ -373,12 +373,61 @@ func TestFetch_EmptyPageWithNextCursor(t *testing.T) {
 	require.NoError(t, err)
 	var names []string
 	for _, resource := range resources {
-		if resource.Kind == componentReleaseKind && resource.Namespace == "acme" {
+		if resource.Kind == componentReleaseKind && resource.Namespace == testExportNamespace {
 			names = append(names, resource.Name)
 		}
 	}
 	assert.Equal(t, []string{"componentreleases-1"}, names)
 	assert.Equal(t, []string{"", "next " + path}, f.calls[path])
+}
+
+func TestFetch_SkipsReleaseLinesForTerminatingComponents(t *testing.T) {
+	f := newFetchFixture(t, false)
+	componentPath := "/api/v1/namespaces/acme/components"
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != componentPath {
+			return nil, nil
+		}
+		object := fixtureObject(collectionFixture{kind: componentKind, path: "components"}, req.URL.Path, 0)
+		object["metadata"].(map[string]any)["deletionTimestamp"] = fixtureCreationTimestamp
+		return testutil.JSONResp(http.StatusOK, map[string]any{
+			"items":      []any{object},
+			"pagination": map[string]any{},
+		}), nil
+	}
+
+	resources, err := fetchAllTestResources(context.Background(), f.client)
+
+	require.NoError(t, err)
+	assert.NotContains(t, f.calls, "/api/v1/namespaces/acme/components/components-0/releaselines")
+	assert.Contains(t, f.calls, "/api/v1/namespaces/payments/components/components-0/releaselines")
+	for _, resource := range resources {
+		if resource.Kind == releaseLineKind && resource.Namespace == testExportNamespace {
+			assert.Fail(t, "terminating component release lines should not be fetched")
+		}
+	}
+}
+
+func TestFetch_TreatsMissingComponentReleaseLinesAsEmpty(t *testing.T) {
+	f := newFetchFixture(t, false)
+	missingLinesPath := "/api/v1/namespaces/acme/components/components-0/releaselines"
+	f.override = func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path == missingLinesPath {
+			return testutil.JSONResp(http.StatusNotFound, map[string]string{"error": "component was deleted"}), nil
+		}
+		return nil, nil
+	}
+
+	resources, err := fetchAllTestResources(context.Background(), f.client)
+
+	require.NoError(t, err)
+	assert.Contains(t, f.calls, missingLinesPath)
+	assert.Contains(t, f.calls, "/api/v1/namespaces/payments/components/components-0/releaselines")
+	for _, resource := range resources {
+		if resource.Kind == releaseLineKind && resource.Namespace == testExportNamespace {
+			assert.Fail(t, "missing component release lines should be treated as empty")
+		}
+	}
 }
 
 func TestFetch_APIErrorsDiscardPartialResults(t *testing.T) {

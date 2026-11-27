@@ -25,6 +25,15 @@ type resourcePage[T any] struct {
 	Pagination gen.Pagination `json:"pagination"`
 }
 
+type apiResponseError struct {
+	statusCode int
+	message    string
+}
+
+func (e *apiResponseError) Error() string {
+	return e.message
+}
+
 type resourceFetcher func(context.Context, string) ([]Resource, error)
 
 // Fetch collects configuration and selected releases across the cluster.
@@ -102,6 +111,9 @@ func fetchReleaseLines(ctx context.Context, c *gen.ClientWithResponses, namespac
 		if component.Kind != componentKind {
 			continue
 		}
+		if object, ok := component.Object.(gen.Component); ok && object.Metadata.DeletionTimestamp != nil {
+			continue
+		}
 		fetch := newFetcher(releaseLineKind,
 			func(ctx context.Context, namespace string, limit int, cursor string) (*resourcePage[gen.ReleaseLine], error) {
 				pageLimit, pageCursor := pageParams(limit, cursor)
@@ -122,6 +134,10 @@ func fetchReleaseLines(ctx context.Context, c *gen.ClientWithResponses, namespac
 		)
 		items, err := fetch(ctx, namespace)
 		if err != nil {
+			var responseErr *apiResponseError
+			if errors.As(err, &responseErr) && responseErr.statusCode == http.StatusNotFound {
+				continue
+			}
 			return nil, fmt.Errorf("component %q: %w", component.Name, err)
 		}
 		lines = append(lines, items...)
@@ -281,9 +297,15 @@ func decodePage[T any](response *http.Response, requestErr error) (*resourcePage
 	if response.StatusCode != http.StatusOK {
 		var problem gen.ErrorResponse
 		if err := decoder.Decode(&problem); err == nil && problem.Error != "" {
-			return nil, fmt.Errorf("list request failed (HTTP %d): %s", response.StatusCode, problem.Error)
+			return nil, &apiResponseError{
+				statusCode: response.StatusCode,
+				message:    fmt.Sprintf("list request failed (HTTP %d): %s", response.StatusCode, problem.Error),
+			}
 		}
-		return nil, fmt.Errorf("list request failed (HTTP %d)", response.StatusCode)
+		return nil, &apiResponseError{
+			statusCode: response.StatusCode,
+			message:    fmt.Sprintf("list request failed (HTTP %d)", response.StatusCode),
+		}
 	}
 	var page resourcePage[T]
 	if err := decoder.Decode(&page); err != nil {
