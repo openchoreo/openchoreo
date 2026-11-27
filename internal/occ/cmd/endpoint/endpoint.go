@@ -159,13 +159,23 @@ func (r *Endpoint) findBindingForEnv(ctx context.Context, namespace, endpointNam
 		return nil, err
 	}
 
+	var matches []*gen.EndpointReleaseBinding
 	for i := range items {
-		b := items[i]
-		if b.Spec != nil && b.Spec.Environment == env {
-			return &b, nil
+		if items[i].Spec != nil && items[i].Spec.Environment == env {
+			matches = append(matches, &items[i])
 		}
 	}
-	return nil, fmt.Errorf("no EndpointReleaseBinding found for endpoint %q in environment %q", endpointName, env)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no EndpointReleaseBinding found for endpoint %q in environment %q", endpointName, env)
+	}
+	if len(matches) > 1 {
+		names := make([]string, len(matches))
+		for i, m := range matches {
+			names[i] = m.Metadata.Name
+		}
+		return nil, fmt.Errorf("multiple EndpointReleaseBindings found for endpoint %q in environment %q: %s", endpointName, env, strings.Join(names, ", "))
+	}
+	return matches[0], nil
 }
 
 func printList(items []gen.Endpoint, showProject bool) error {
