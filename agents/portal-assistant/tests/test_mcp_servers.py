@@ -55,3 +55,31 @@ def test_backstage_can_be_excluded_or_selected_alone(monkeypatch):
 
     assert "backstage" not in without._clients and "openchoreo" in without._clients
     assert list(only._clients) == ["backstage"]
+
+
+async def test_backstage_tools_are_renamed_and_made_strict_for_the_model():
+    from langchain_core.tools import StructuredTool
+
+    rule = {
+        "type": "object",
+        "properties": {"conditions": {"type": "object", "additionalProperties": {}}},
+        "required": ["conditions"],
+    }
+    tool = StructuredTool(
+        name="tech-insights.validate-check",
+        description="d",
+        args_schema={"type": "object", "properties": {"rule": rule}, "required": ["rule"]},
+        coroutine=lambda **_: None,
+    )
+
+    class _Client:
+        async def get_tools(self):
+            return [tool]
+
+    client = mcp_module.MCPClient(auth=BearerTokenAuth("user-token"))
+
+    _name, (loaded,) = await client._get_tools_for_server("backstage", _Client())
+
+    assert loaded.name == "tech-insights__validate-check"
+    conditions = loaded.args_schema["properties"]["rule"]["properties"]["conditions"]
+    assert conditions["type"] == "string"

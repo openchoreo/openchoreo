@@ -12,7 +12,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient, StreamableHttpConnection
 
-from src.clients.backstage_tools import agent_name
+from src.clients.backstage_tools import agent_name, strict_for_model
 from src.config import settings
 from src.logging_config import request_id_context
 
@@ -183,6 +183,7 @@ class MCPClient:
             # tool names can't hold a dot. Calls still use the MCP name.
             for tool in tools:
                 tool.name = agent_name(tool.name)
+                strict_for_model(tool)
         logger.debug(
             "MCP get_tools succeeded for server=%s in %.2fs (%d tools)",
             name, elapsed, len(tools),
