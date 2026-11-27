@@ -33,4 +33,4 @@ rules:
 # Allow reading Secrets for client CA certificates
 - apiGroups: [""]
   resources: ["secrets"]
-  verbs: ["get", "list"]
+  verbs: ["get"]
