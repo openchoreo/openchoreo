@@ -108,6 +108,12 @@ func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthzWithAction(ctx co
 			Project:   rb.Spec.Owner.ProjectName,
 			Component: rb.Spec.Owner.ComponentName,
 		},
-		Context: authz.Context{Resource: authz.ResourceAttribute{ReleaseLine: rb.Spec.Owner.ReleaseLine}},
+		Context: authz.Context{
+			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
+			Resource: authz.ResourceAttribute{
+				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+				ReleaseLine: rb.Spec.Owner.ReleaseLine,
+			},
+		},
 	})
 }
