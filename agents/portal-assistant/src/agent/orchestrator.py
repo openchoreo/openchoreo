@@ -62,12 +62,12 @@ from src.agent.check_reply import (
 )
 from src.agent.confirm_card import (
     SAVE_REQUEST_REPLY,
+    asks_to_save,
     build_confirmation,
     card_for_save_request,
     check_to_test,
     example_draft,
     fact_ids_for_rule,
-    is_save_request,
     is_saved_rule,
     rule_fix_note,
     same_rule,
@@ -95,6 +95,17 @@ from src.agent.rule_view import (
 from src.agent.stream_events import ConfirmationRequiredEvent
 from src.agent.stream_events import emit as _emit_event
 from src.agent.stream_parser import ChatResponseParser
+from src.agent.user_action import (
+    CONFIRM_EDIT,
+    EXPLAIN_RULE,
+    PICK_PROPOSAL,
+    TEST,
+    TRY_EXAMPLE,
+    context_of,
+    decision_of,
+    for_model,
+    is_read_as_text,
+)
 from src.clients.backstage_tools import (
     DRY_RUN_CHECK,
     GET_CHECK,
@@ -214,6 +225,20 @@ _ENTITY_RE = re.compile(
     r"(?:(?P<kind>[a-z]+):)?(?:(?P<ns>[\w.-]+)/)?(?P<name>[\w.-]*[a-z][\w.-]*)",
     re.IGNORECASE,
 )
+
+
+def _test_entity(message: dict[str, Any] | None) -> str | None:
+    """The entity a message that only asks for a test names: the Test
+    button's ref, or, typed, the name in "test it on order-api"; else None."""
+    if decision_of(message) == TEST:
+        entity_ref = context_of(message).get("entityRef")
+        return entity_ref.strip() or None if isinstance(entity_ref, str) else None
+    if not is_read_as_text(message):
+        return None
+    asked = _TEST_REQUEST_RE.fullmatch(((message or {}).get("content") or "").strip())
+    return asked["entity"] if asked else None
+
+
 _TEST_NOTE = (
     "[Automatic note — not written by the user] This message only asks for a test. Run "
     f"{DRY_RUN_CHECK} on that component with the rule from your last reply that has one (the "
@@ -276,6 +301,7 @@ _WELCOME_NOTE = (
 _EDIT_WELCOME_CHOICES = [
     "Explain this rule",
 ]
+_EXPLAIN_CHOICE = _EDIT_WELCOME_CHOICES[0]
 
 # The model's welcome for the experience the user picked (scope.experience).
 # A beginner's is fixed words, sent by code (_BEGINNER_WELCOME).
@@ -321,6 +347,18 @@ _AREA_NOTE = (
 _NEW_WELCOME_CHOICES = {
     "beginner": ["Try an example: the default branch must be protected"],
 }
+_EXAMPLE_CHOICE = _NEW_WELCOME_CHOICES["beginner"][0]
+# The fixed choices are decision buttons: the flow follows their action.
+_FIXED_CHOICE_ACTIONS = {_EXPLAIN_CHOICE: EXPLAIN_RULE, _EXAMPLE_CHOICE: TRY_EXAMPLE}
+
+
+def _picks_example(message: dict[str, Any] | None) -> bool:
+    """Whether the message is the welcome's example: its button, or its
+    words typed."""
+    if decision_of(message) == TRY_EXAMPLE:
+        return True
+    text = ((message or {}).get("content") or "").strip()
+    return is_read_as_text(message) and text == _EXAMPLE_CHOICE
 
 # A beginner's welcome in a new check chat: the same words every time, so
 # code sends it at once, with no model call. The question ends `summary`, so
@@ -374,9 +412,8 @@ def _is_example(
     for message in reversed(messages):
         if message.get("role") != "user":
             continue
-        text = (message.get("content") or "").strip()
-        if not _TEST_REQUEST_RE.fullmatch(text) and not (past_save and is_save_request(text)):
-            return text == _NEW_WELCOME_CHOICES["beginner"][0]
+        if _test_entity(message) is None and not (past_save and asks_to_save(message)):
+            return _picks_example(message)
     return False
 
 
@@ -386,7 +423,7 @@ def _example_draft(
     """The practice example drafted by code when the latest message is the
     example's own words in a beginner's new check chat, or None."""
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    if (latest.get("content") or "").strip() != _NEW_WELCOME_CHOICES["beginner"][0]:
+    if not _picks_example(latest):
         return None
     if not _is_example(messages, scope):
         return None
@@ -597,12 +634,29 @@ def _without_test_request(answer: str) -> str:
     return answer
 
 
-def _picked_choice(answer: str, step1: str) -> int | None:
-    """The number of the ``step1`` proposal that ``answer``, and nothing else
-    in it, approves (1 for a single one), or None when it approves none.
-    A test request after the approval is allowed: the test is part of Step 2."""
-    answer = _without_test_request(answer.strip()).strip()
+def _picked_choice(answer: dict[str, Any] | str, step1: str) -> int | None:
+    """The number of the ``step1`` proposal that the message ``answer``
+    approves (1 for a single one), or None when it approves none: by its
+    button (Yes, or a numbered proposal), or else by its typed words, when
+    they say nothing else. A typed test request after the approval is
+    allowed: the test is part of Step 2."""
+    message = {"role": "user", "content": answer} if isinstance(answer, str) else answer
     choices = {int(n) for n in _CHOICE_LINE_RE.findall(step1)}
+    decision = decision_of(message)
+    if decision == CONFIRM_EDIT:
+        # One proposal's Yes; "yes" to two choices doesn't say which one.
+        return min(choices, default=1) if len(choices) <= 1 else None
+    if decision == PICK_PROPOSAL:
+        choice = context_of(message).get("choice")
+        picked = int(choice) if str(choice).isdigit() else None
+        if picked is None:
+            return None
+        return (picked if picked in choices else None) if len(choices) > 1 else (
+            picked if picked == 1 else None
+        )
+    if decision is not None:
+        return None  # another button: No, Keep the rule, a test, …
+    answer = _without_test_request((message.get("content") or "").strip()).strip()
     if _APPROVAL_ONLY_RE.fullmatch(answer):
         # "yes" to two choices doesn't say which one.
         return min(choices, default=1) if len(choices) <= 1 else None
@@ -616,8 +670,8 @@ def _picked_choice(answer: str, step1: str) -> int | None:
     return picked if picked == 1 else None
 
 
-def _approves(answer: str, step1: str) -> bool:
-    """Whether ``answer``, and nothing else in it, approves the ``step1`` reply."""
+def _approves(answer: dict[str, Any] | str, step1: str) -> bool:
+    """Whether the message ``answer`` approves the ``step1`` reply."""
     return _picked_choice(answer, step1) is not None
 
 
@@ -628,7 +682,7 @@ def _picked_proposal(messages: list[dict[str, str]]) -> list[Leaf] | None:
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
     step1 = next((m for m in reversed(messages) if m.get("role") == "assistant"), {})
     proposals = proposed_conditions(step1.get("content") or "")
-    picked = _picked_choice(latest.get("content") or "", step1.get("content") or "")
+    picked = _picked_choice(latest, step1.get("content") or "")
     return proposals.get(picked) if proposals and picked else None
 
 
@@ -764,7 +818,7 @@ def _tests_saved_rule(messages: list[dict[str, str]], scope: dict[str, Any] | No
     if not (scope or {}).get("check_id"):
         return False
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    if not _TEST_REQUEST_RE.fullmatch((latest.get("content") or "").strip()):
+    if _test_entity(latest) is None:
         return False
     if _unsaved_rule_reply(messages, scope) is not None:
         return False
@@ -800,8 +854,7 @@ def _approved_edit(
         if _not_approved_reason(asked, scope) is None:
             return True
         said = asked[-1] if asked and asked[-1].get("role") == "user" else {}
-        text = (said.get("content") or "").strip()
-        if not (_TEST_REQUEST_RE.fullmatch(text) or is_save_request(text)):
+        if _test_entity(said) is None and not asks_to_save(said):
             return False
     return False
 
@@ -826,15 +879,19 @@ def _edit_phase(messages: list[dict[str, str]], scope: dict[str, Any] | None) ->
     other chat (a new check) is unchanged.
     """
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    if _TEST_REQUEST_RE.fullmatch((latest.get("content") or "").strip()) and (
+    if _test_entity(latest) is not None and (
         _edits_saved_rule(scope) or _unsaved_rule_reply(messages, scope)
     ):
         logger.info("Edit phase: test")
         return "test"
     if not _edits_saved_rule(scope):
         return None
-    if _asks_for_ideas(latest.get("content") or "") or _asks_open_change(
-        latest.get("content") or "",
+    if decision_of(latest) == EXPLAIN_RULE or (
+        is_read_as_text(latest)
+        and (
+            _asks_for_ideas(latest.get("content") or "")
+            or _asks_open_change(latest.get("content") or "")
+        )
     ):
         logger.info("Edit phase: discuss")
         return "discuss"
@@ -870,7 +927,7 @@ def _not_approved_reason(
     if _shown_as_input_card(previous.get("content") or "", scope):
         # Its choices weren't shown, so a number can't pick one.
         return "the last reply's choices were shown as the input card"
-    if _approves(latest.get("content") or "", previous.get("content") or ""):
+    if _approves(latest, previous.get("content") or ""):
         return None
     return "not an approval"
 
@@ -909,8 +966,8 @@ def _code_test(
     ``check``, and the drafted check or edit it tests when that isn't saved
     yet."""
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    asked = _TEST_REQUEST_RE.fullmatch((latest.get("content") or "").strip())
-    if not asked:
+    named = _test_entity(latest)
+    if named is None:
         return None
     reply = _unsaved_rule_reply(messages, scope)
     if reply is None and not _edits_saved_rule(scope):
@@ -918,7 +975,7 @@ def _code_test(
     check = check_to_test(reply, scope or {})
     if not check:
         return None
-    entity_ref = _entity_ref(asked["entity"], check, scope or {})
+    entity_ref = _entity_ref(named, check, scope or {})
     return (entity_ref, check, reply) if entity_ref else None
 
 
@@ -1092,17 +1149,17 @@ async def stream_chat(
     # "save this" right after a drafted check or edited rule: the confirm
     # card again, built by code from that reply — no model call needed. Not
     # for an edited rule the user didn't approve: the model asks first.
-    latest_text = (messages[-1].get("content") or "") if messages else ""
+    latest = messages[-1] if messages else {}
     unapproved_edit = (
         bool((scope or {}).get("check_id"))
-        and is_save_request(latest_text)
+        and asks_to_save(latest)
         and _unsaved_rule_reply(messages[:-1], scope) is None
     )
     save_card = None
     try:
         # A save request calls Backstage, so it takes a chat slot like a model
         # turn; any other message returns at once and takes none.
-        async with _slot_if(is_save_request(latest_text) and not unapproved_edit):
+        async with _slot_if(asks_to_save(latest) and not unapproved_edit):
             if not unapproved_edit:
                 save_card = await card_for_save_request(
                     messages,
@@ -1126,7 +1183,7 @@ async def stream_chat(
     # by code from that reply. The reply is the draft again, so later turns
     # read it as before.
     try:
-        async with _slot_if(is_separate_request(latest_text)):
+        async with _slot_if(is_separate_request(latest)):
             separate = await card_for_separate_check(
                 messages, scope, user_sub=user_sub, backstage_token=backstage_token,
             )
@@ -1144,7 +1201,7 @@ async def stream_chat(
     if _beginner_welcome(scope):
         logger.info("Beginner welcome sent by code (no model call)")
         yield _emit_event({"type": "a2ui", "messages": [reply_card_surface(
-            _BEGINNER_WELCOME, None, _NEW_WELCOME_CHOICES["beginner"],
+            _BEGINNER_WELCOME, None, _NEW_WELCOME_CHOICES["beginner"], _FIXED_CHOICE_ACTIONS,
         )]})
         yield _emit_event({"type": "done", "message": _card_text(_BEGINNER_WELCOME)})
         return
@@ -1191,7 +1248,8 @@ async def stream_chat(
     # Stamp the server clock onto the latest user turn ONCE and share it with
     # both the normal streaming path and the recovery fallback, so they anchor
     # on the same "now" (see _stamp_current_time).
-    stamped_messages = _stamp_current_time(messages)
+    # The model gets each message's words only, not the button it came from.
+    stamped_messages = _stamp_current_time(for_model(messages))
     edit_phase = _edit_phase(messages, scope)
     # A later edit message that doesn't approve the last proposal: tell the
     # model so, instead of leaving it to read the reply as a confirmation.
@@ -1202,7 +1260,9 @@ async def stream_chat(
         stamped_messages = _add_note(stamped_messages, _TEST_SAVED_NOTE if saved else _TEST_NOTE)
     elif edit_phase == "discuss":
         latest_text = (messages[-1].get("content") or "") if messages else ""
-        explains = _EXPLAIN_RE.search(latest_text) and not _IDEAS_RE.search(latest_text)
+        explains = decision_of(messages[-1] if messages else None) == EXPLAIN_RULE or (
+            _EXPLAIN_RE.search(latest_text) and not _IDEAS_RE.search(latest_text)
+        )
         stamped_messages = _add_note(
             stamped_messages, _EXPLAIN_NOTE if explains else _DISCUSS_NOTE,
         )
@@ -1653,6 +1713,7 @@ async def stream_chat(
                     surface = reply_card_surface(
                         card, check_name,
                         _welcome_choices(scope or {}) if edit_phase == "welcome" else None,
+                        _FIXED_CHOICE_ACTIONS,
                     )
                 if surface is None and message.strip():
                     surface = message_card_surface(message)

@@ -43,11 +43,30 @@ def _sub_fp(user_sub: str) -> str:
     return hashlib.sha256(user_sub.encode()).hexdigest()[:16]
 
 
+class ChatAction(BaseModel):
+    """The drawer button a user message came from: its A2UI event's
+    ``name`` and ``context`` (see src/agent/user_action.py)."""
+
+    model_config = {"extra": "forbid"}
+
+    name: str = Field(max_length=64, pattern=r"^[a-z_]+$")
+    context: dict[str, str | int] = Field(default_factory=dict, max_length=8)
+
+    @model_validator(mode="after")
+    def _small_context(self) -> ChatAction:
+        for key, value in self.context.items():
+            if len(key) > 64 or (isinstance(value, str) and len(value) > 512):
+                raise ValueError("action context values are too long")
+        return self
+
+
 class ChatMessage(BaseModel):
     model_config = {"extra": "forbid"}
 
     role: Literal["user", "assistant"]
     content: str = Field(max_length=10000)
+    # Set on a user message sent by a drawer button; None when typed.
+    action: ChatAction | None = None
 
 
 class PrefetchedLogEntry(BaseModel):
@@ -372,7 +391,7 @@ async def chat(
 
     return StreamingResponse(
         stream_chat(
-            messages=[m.model_dump() for m in request.messages],
+            messages=[m.model_dump(exclude_none=True) for m in request.messages],
             token=token,
             user_sub=user_sub,
             backstage_token=backstage_token,

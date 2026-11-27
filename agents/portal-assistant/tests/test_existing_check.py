@@ -160,7 +160,11 @@ async def test_a_check_the_user_chose_not_to_edit_is_left_out(backstage):
     chat = [
         {"role": "user", "content": "Protected branch with 2 reviews"},
         {"role": "assistant", "content": "Name: …"},
-        {"role": "user", "content": "Create a separate check instead of editing Branch protection"},
+        {
+        "role": "user",
+        "content": "Create a separate check instead of editing Branch protection",
+        "action": {"name": "create_separate", "context": {"check": "Branch protection"}},
+    },
     ]
 
     found = await _find(messages=chat)
@@ -295,7 +299,11 @@ _DRAFT_REPLY = (
 _SEPARATE_CHAT = [
     {"role": "user", "content": "Protected branch with 2 reviews"},
     {"role": "assistant", "content": _DRAFT_REPLY},
-    {"role": "user", "content": "Create a separate check instead of editing Branch protection"},
+    {
+        "role": "user",
+        "content": "Create a separate check instead of editing Branch protection",
+        "action": {"name": "create_separate", "context": {"check": "Branch protection"}},
+    },
 ]
 
 

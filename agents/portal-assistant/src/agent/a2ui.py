@@ -56,13 +56,15 @@ def _button(
     user_message: str,
     *,
     variant: str | None = None,
+    context: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """A Button and its Text label, as two components."""
+    """A Button and its Text label, as two components. The drawer sends the
+    event's ``name`` and ``context`` with the message (see user_action)."""
     button: dict[str, Any] = {
         "id": button_id,
         "component": "Button",
         "child": f"{button_id}_label",
-        "action": {"event": {"name": action, "userMessage": user_message}},
+        "action": _sends(action, user_message, context),
     }
     if variant:
         button["variant"] = variant
@@ -120,7 +122,7 @@ def choice_card_surface(
             "component": "AskOption",
             "badge": str(n),
             "label": _words(label, 120),
-            "action": _sends("pick_choice", str(n)),
+            "action": _sends("pick_proposal", str(n), {"choice": n}),
         }
         for n, label in choices
     ]
@@ -172,9 +174,9 @@ def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, A
             "component": "OptionTile",
             "badge": str(option.number),
             "value": first_upper(option.value),
-            "action": {
-                "event": {"name": "pick_choice", "userMessage": str(option.number)},
-            },
+            "action": _sends(
+                "pick_proposal", str(option.number), {"choice": option.number},
+            ),
         }
         for option in view.options
     ]
@@ -293,7 +295,9 @@ def save_card_surface(
     return _surface([root, *rows, *results], kind="save-card")
 
 
-def _pick(component: str, i: int, pick: Pick, kind: str) -> dict[str, Any]:
+def _pick(
+    component: str, i: int, pick: Pick, kind: str, action: str | None = None,
+) -> dict[str, Any]:
     return {
         "id": f"{kind}_{i}",
         "component": component,
@@ -301,7 +305,7 @@ def _pick(component: str, i: int, pick: Pick, kind: str) -> dict[str, Any]:
         # What a click sends, also for the portal to put in the message box
         # for the user to change before sending.
         "text": pick.message,
-        "action": {"event": {"name": f"pick_{kind}", "userMessage": pick.message}},
+        "action": _sends(action or f"pick_{kind}", pick.message),
     }
 
 
@@ -349,8 +353,15 @@ def notice_card_surface(view: NoticeView) -> dict[str, Any]:
     return _surface([card, *picks, *chips, *answer, *buttons], kind="notice")
 
 
-def _sends(name: str, user_message: str | dict[str, str]) -> dict[str, Any]:
-    return {"event": {"name": name, "userMessage": user_message}}
+def _sends(
+    name: str,
+    user_message: str | dict[str, str],
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    event: dict[str, Any] = {"name": name, "userMessage": user_message}
+    if context:
+        event["context"] = context
+    return {"event": event}
 
 
 def _editor(i: int, editor: Editor) -> dict[str, Any]:
@@ -456,6 +467,7 @@ def existing_check_surface(view: ExistingCheckView) -> dict[str, Any]:
         "create_separate",
         view.separate_message,
         variant="borderless",
+        context={"check": view.separate_check},
     )
     root: dict[str, Any] = {
         "id": "root",
@@ -492,6 +504,7 @@ def reply_card_surface(
     raw: dict[str, Any] | None,
     check_name: str | None,
     fixed_choices: list[str] | None = None,
+    fixed_actions: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """The card the model filled for a check authoring reply, or None when
     it has no title or summary (the reply then gets the message card).
@@ -499,7 +512,8 @@ def reply_card_surface(
     The model never writes A2UI: it fills ``ReplyCard`` and code builds the
     components, in plain text and within limits. A choice or a typed answer
     is only sent as the next message, so _edit_phase still decides what it
-    does.
+    does. A fixed choice in ``fixed_actions`` is a decision button: its
+    event is that action (see user_action).
     """
     try:
         card = ReplyCard.model_validate(raw or {})
@@ -544,7 +558,10 @@ def reply_card_surface(
         if fixed_choices is not None
         else [_words(c.message, 160) for c in card.choices if c.message.strip()][:_MAX_CHOICES]
     )
-    choices = [_pick("PickRow", i, Pick(text, text), "choice") for i, text in enumerate(texts)]
+    choices = [
+        _pick("PickRow", i, Pick(text, text), "choice", (fixed_actions or {}).get(text))
+        for i, text in enumerate(texts)
+    ]
     # Suggestions come with "Tell me something else", which points to the box.
     answer = [_answer_field(OWN_ANSWER)] if choices else []
 

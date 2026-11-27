@@ -19,7 +19,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +26,7 @@ from common.auth.bearer import BearerTokenAuth
 from src.agent.check_reply import unwrap
 from src.agent.confirm_card import build_confirmation
 from src.agent.rule_view import rule_lines
+from src.agent.user_action import CREATE_SEPARATE, context_of, decision_of
 from src.clients.backstage_tools import GET_CHECK, LIST_CHECKS
 from src.clients.mcp import backstage_tools_as_user, call_backstage_tool
 
@@ -39,7 +39,6 @@ _MAX_READS = 20
 # "Create a separate check" on the card: what it sends, naming the check the
 # user chose not to edit, so a later draft in the chat doesn't offer it again.
 _SEPARATE = "Create a separate check instead of editing {name}"
-_SEPARATE_RE = re.compile(r"Create a separate check instead of editing (.+?)[.!]*", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -75,6 +74,8 @@ class ExistingCheckView:
     # drawer shows its "Edit this check" intro.
     edit_message: str | None
     separate_message: str
+    # The check "Create a separate check" declines, for its action's context.
+    separate_check: str
     next_step: str
     rule_label: str
     rule: list[tuple[str, str]]
@@ -106,15 +107,13 @@ def _name(text: str | None) -> str:
 
 
 def _declined(messages: list[dict[str, str]]) -> set[str]:
-    """The checks the user chose not to edit in this chat, by name."""
-    names = set()
-    for message in messages:
-        if message.get("role") != "user":
-            continue
-        match = _SEPARATE_RE.fullmatch((message.get("content") or "").strip())
-        if match:
-            names.add(_name(match.group(1)))
-    return names
+    """The checks the user chose not to edit in this chat, by name: their
+    "Create a separate check" clicks."""
+    return {
+        _name(str(context_of(message).get("check") or ""))
+        for message in messages
+        if message.get("role") == "user" and decision_of(message) == CREATE_SEPARATE
+    }
 
 
 def _compare(draft: Any, draft_name: str, check: dict[str, Any]) -> ExistingCheck | None:
@@ -284,6 +283,7 @@ def existing_check_view(
         edit_label=edit_label,
         edit_message=edit_message,
         separate_message=_SEPARATE.format(name=name),
+        separate_check=name,
         next_step=next_step,
         rule_label=rule_label,
         rule=rule_lines(found.rule, scope) or [],
@@ -304,9 +304,9 @@ def existing_check_view(
     )
 
 
-def is_separate_request(text: str) -> bool:
-    """Whether ``text`` is the "Create a separate check" button's message."""
-    return bool(_SEPARATE_RE.fullmatch(text.strip()))
+def is_separate_request(message: dict[str, Any] | None) -> bool:
+    """Whether the message is a "Create a separate check" click."""
+    return decision_of(message) == CREATE_SEPARATE
 
 
 async def card_for_separate_check(
@@ -324,7 +324,7 @@ async def card_for_separate_check(
     """
     if not messages or messages[-1].get("role") != "user" or (scope or {}).get("check_id"):
         return None
-    if not is_separate_request(messages[-1].get("content") or ""):
+    if not is_separate_request(messages[-1]):
         return None
     draft = next(
         (m.get("content") or "" for m in reversed(messages[:-1]) if m.get("role") == "assistant"),

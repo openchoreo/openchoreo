@@ -28,6 +28,7 @@ from common.auth.bearer import BearerTokenAuth
 from src.agent.check_reply import RULE_FENCE_RE, clean, parse_suggestions, unwrap
 from src.agent.pending_actions import sign
 from src.agent.rule_view import same_rules
+from src.agent.user_action import SKIP_TEST, decision_of, is_read_as_text
 from src.clients.backstage_tools import GET_CHECK, LIST_FACT_SCHEMAS, VALIDATE_CHECK
 from src.clients.mcp import backstage_tools_as_user, call_backstage_tool
 
@@ -67,9 +68,17 @@ SAVE_REQUEST_REPLY = "Here's the change, ready to save — pick an option on the
 
 
 def is_save_request(text: str) -> bool:
-    """Whether ``text`` only asks to save, or to skip the test."""
+    """Whether typed ``text`` only asks to save, or to skip the test."""
     text = text.strip()
     return bool(_SAVE_REQUEST_RE.fullmatch(text) or _SKIP_TEST_RE.fullmatch(text))
+
+
+def asks_to_save(message: dict[str, Any] | None) -> bool:
+    """Whether the message only asks to save or to skip the test: a save
+    card's Skip the test, or those words typed."""
+    if decision_of(message) == SKIP_TEST:
+        return True
+    return is_read_as_text(message) and is_save_request((message or {}).get("content") or "")
 
 
 def rule_fix_note(problems: list[str]) -> str:
@@ -383,7 +392,7 @@ async def card_for_save_request(
     """
     if not messages or messages[-1].get("role") != "user":
         return None
-    if not is_save_request(messages[-1].get("content") or ""):
+    if not asks_to_save(messages[-1]):
         return None
     if reply is None:
         previous = next(

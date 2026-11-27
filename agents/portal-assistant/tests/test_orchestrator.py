@@ -3099,7 +3099,11 @@ async def test_create_a_separate_check_gets_the_save_card_without_the_model(monk
     chat = [
         *_DRAFT_CHAT,
         {"role": "assistant", "content": _DRAFTED},
-        {"role": "user", "content": "Create a separate check instead of editing Recent push"},
+        {
+            "role": "user",
+            "content": "Create a separate check instead of editing Recent push",
+            "action": {"name": "create_separate", "context": {"check": "Recent push"}},
+        },
     ]
 
     events, lookups, ran = await _new_check_turn(monkeypatch, chat, _FOUND)
@@ -3333,7 +3337,7 @@ async def _slot_seen_by(monkeypatch, name, latest):
     chat = [
         {"role": "user", "content": "Repos must be private"},
         {"role": "assistant", "content": _PRIVATE_DRAFT},
-        {"role": "user", "content": latest},
+        latest if isinstance(latest, dict) else {"role": "user", "content": latest},
     ]
     _ = [
         ev async for ev in orchestrator.stream_chat(
@@ -3346,7 +3350,11 @@ async def _slot_seen_by(monkeypatch, name, latest):
 
 @pytest.mark.parametrize(("name", "latest"), [
     ("card_for_save_request", "save it"),
-    ("card_for_separate_check", "Create a separate check instead of editing Repo is private"),
+    ("card_for_separate_check", {
+        "role": "user",
+        "content": "Create a separate check instead of editing Repo is private",
+        "action": {"name": "create_separate", "context": {"check": "Repo is private"}},
+    }),
 ])
 async def test_a_shortcut_that_calls_backstage_takes_a_chat_slot(monkeypatch, name, latest):
     # Like a model turn, so max_concurrent_chats holds for it.
