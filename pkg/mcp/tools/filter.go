@@ -337,6 +337,14 @@ func callToolScopeArg(req mcp.Request) string {
 // It looks for the conventional namespace_name, project_name, component_name and
 // resource_name fields used by MCP tools in this package. Missing fields remain
 // empty, which the PDP interprets as a broader scope.
+//
+// component_name and resource_name are only used together with project_name. The
+// PDP matches scopes by path prefix, so a component or resource path without the
+// project segment (ns/<ns>/component/<c>) matches no project- or component-scoped
+// policy (ns/<ns>/project/<p>[/component/<c>]) and would wrongly deny users bound
+// at project scope. Without project_name the scope falls back to the namespace,
+// whose profile also covers the narrower policies; the service layer then checks
+// the exact hierarchy of the resource it loads.
 func callToolScope(req mcp.Request) authzcore.ResourceHierarchy {
 	if req == nil {
 		return authzcore.ResourceHierarchy{}
@@ -358,10 +366,15 @@ func callToolScope(req mcp.Request) authzcore.ResourceHierarchy {
 	if err := json.Unmarshal(p.Arguments, &args); err != nil {
 		return authzcore.ResourceHierarchy{}
 	}
-	return authzcore.ResourceHierarchy{
+	scope := authzcore.ResourceHierarchy{
 		Namespace: args.NamespaceName,
 		Project:   args.ProjectName,
 		Component: args.ComponentName,
 		Resource:  args.ResourceName,
 	}
+	if scope.Project == "" {
+		scope.Component = ""
+		scope.Resource = ""
+	}
+	return scope
 }

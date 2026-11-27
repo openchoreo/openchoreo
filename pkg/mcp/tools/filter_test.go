@@ -6,13 +6,16 @@ package tools
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	authzcasbin "github.com/openchoreo/openchoreo/internal/authz/casbin"
 	authzcore "github.com/openchoreo/openchoreo/internal/authz/core"
 	"github.com/openchoreo/openchoreo/internal/server/middleware/auth"
 )
@@ -870,4 +873,187 @@ func TestFilterCallTool_SentinelClassification(t *testing.T) {
 			t.Errorf("err = %v, want it to wrap ErrForbidden", err)
 		}
 	})
+}
+
+// callToolRequest builds a tools/call request for a tool with raw JSON arguments.
+func callToolRequest(name, argsJSON string) *mcp.ServerRequest[*mcp.CallToolParamsRaw] {
+	return &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+		Params: &mcp.CallToolParamsRaw{Name: name, Arguments: json.RawMessage(argsJSON)},
+	}
+}
+
+// TestCallToolScope verifies how the PDP scope is derived from tool-call
+// arguments. A component or resource path without its project segment cannot
+// match any project- or component-scoped policy, so it is left out and the
+// scope falls back to the namespace.
+func TestCallToolScope(t *testing.T) {
+	tests := []struct {
+		name string
+		args string
+		want authzcore.ResourceHierarchy
+	}{
+		{
+			name: "no arguments",
+			args: ``,
+			want: authzcore.ResourceHierarchy{},
+		},
+		{
+			name: "namespace only",
+			args: `{"namespace_name":"ns1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1"},
+		},
+		{
+			name: "namespace and project",
+			args: `{"namespace_name":"ns1","project_name":"p1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1", Project: "p1"},
+		},
+		{
+			name: "full component hierarchy is kept",
+			args: `{"namespace_name":"ns1","project_name":"p1","component_name":"c1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1", Project: "p1", Component: "c1"},
+		},
+		{
+			name: "full resource hierarchy is kept",
+			args: `{"namespace_name":"ns1","project_name":"p1","resource_name":"r1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1", Project: "p1", Resource: "r1"},
+		},
+		{
+			name: "component without project falls back to the namespace",
+			args: `{"namespace_name":"ns1","component_name":"c1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1"},
+		},
+		{
+			name: "resource without project falls back to the namespace",
+			args: `{"namespace_name":"ns1","resource_name":"r1"}`,
+			want: authzcore.ResourceHierarchy{Namespace: "ns1"},
+		},
+		{
+			name: "invalid JSON yields the empty scope",
+			args: `{`,
+			want: authzcore.ResourceHierarchy{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var raw json.RawMessage
+			if tt.args != "" {
+				raw = json.RawMessage(tt.args)
+			}
+			req := &mcp.ServerRequest[*mcp.CallToolParamsRaw]{
+				Params: &mcp.CallToolParamsRaw{Name: "any_tool", Arguments: raw},
+			}
+			if got := callToolScope(req); got != tt.want {
+				t.Errorf("callToolScope() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFilterCallTool_ProjectScopedBinding runs filterCallTool against the real
+// Casbin PDP with a group that holds releasebinding:view and resourcerelease:view
+// only on project p1 of namespace ns1 (an AuthzRoleBinding with scope.project=p1).
+// The service layer checks the full hierarchy, so the MCP gate must not refuse a
+// call just because the tool has no project_name argument.
+func TestFilterCallTool_ProjectScopedBinding(t *testing.T) {
+	pdp, err := authzcasbin.NewEnforcer(context.Background(), authzcasbin.CasbinConfig{
+		K8sClient: fake.NewClientBuilder().Build(),
+	}, slog.Default())
+	if err != nil {
+		t.Fatalf("NewEnforcer: %v", err)
+	}
+	enforcer := pdp.GetEnforcer()
+	if _, err := enforcer.AddGroupingPolicies([][]string{
+		{"viewer", authzcore.ActionViewReleaseBinding, "ns1"},
+		{"viewer", authzcore.ActionViewResourceRelease, "ns1"},
+	}); err != nil {
+		t.Fatalf("add role: %v", err)
+	}
+	if _, err := enforcer.AddPolicies([][]string{
+		// Policy path of an AuthzRoleBinding with scope: {project: p1} in ns1.
+		{"groups:devs", "ns/ns1/project/p1", "viewer", "ns1", "allow", "{}", "p1-viewers"},
+	}); err != nil {
+		t.Fatalf("add binding: %v", err)
+	}
+
+	perms := map[string]ToolPermission{
+		"list_release_bindings":  {ToolName: "list_release_bindings", Action: authzcore.ActionViewReleaseBinding},
+		"list_resource_releases": {ToolName: "list_resource_releases", Action: authzcore.ActionViewResourceRelease},
+		"delete_component":       {ToolName: "delete_component", Action: authzcore.ActionDeleteComponent},
+	}
+
+	tests := []struct {
+		name      string
+		tool      string
+		args      string
+		wantAllow bool
+	}{
+		{
+			name:      "component tool without project_name is allowed",
+			tool:      "list_release_bindings",
+			args:      `{"namespace_name":"ns1","component_name":"c1"}`,
+			wantAllow: true,
+		},
+		{
+			name:      "resource tool without project_name is allowed",
+			tool:      "list_resource_releases",
+			args:      `{"namespace_name":"ns1","resource_name":"r1"}`,
+			wantAllow: true,
+		},
+		{
+			name:      "component tool with the bound project keeps the full scope and is allowed",
+			tool:      "list_release_bindings",
+			args:      `{"namespace_name":"ns1","project_name":"p1","component_name":"c1"}`,
+			wantAllow: true,
+		},
+		{
+			name:      "component tool with another project keeps the full scope and is denied",
+			tool:      "list_release_bindings",
+			args:      `{"namespace_name":"ns1","project_name":"p2","component_name":"c1"}`,
+			wantAllow: false,
+		},
+		{
+			name:      "component tool in another namespace is denied",
+			tool:      "list_release_bindings",
+			args:      `{"namespace_name":"ns2","component_name":"c1"}`,
+			wantAllow: false,
+		},
+		{
+			name:      "resource tool in another namespace is denied",
+			tool:      "list_resource_releases",
+			args:      `{"namespace_name":"ns2","resource_name":"r1"}`,
+			wantAllow: false,
+		},
+		{
+			name:      "action the role does not grant is denied",
+			tool:      "delete_component",
+			args:      `{"namespace_name":"ns1","component_name":"c1"}`,
+			wantAllow: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nextCalled := false
+			next := func(_ context.Context, _ string, _ mcp.Request) (mcp.Result, error) {
+				nextCalled = true
+				return &mcp.CallToolResult{}, nil
+			}
+			_, err := filterCallTool(ctxWithSubject(context.Background()), next, methodCallTool,
+				callToolRequest(tt.tool, tt.args), pdp, perms, slog.Default())
+			if tt.wantAllow {
+				if err != nil {
+					t.Fatalf("filterCallTool() error = %v, want the call to be allowed", err)
+				}
+				if !nextCalled {
+					t.Error("next handler was not called for an allowed call")
+				}
+				return
+			}
+			if !errors.Is(err, ErrForbidden) {
+				t.Fatalf("filterCallTool() error = %v, want it to wrap ErrForbidden", err)
+			}
+			if nextCalled {
+				t.Error("next handler must not be called for a denied call")
+			}
+		})
+	}
 }
