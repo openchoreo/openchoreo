@@ -913,8 +913,8 @@ func TestMesh_BuildTLSConfigsRequiresMutualVerification(t *testing.T) {
 	if serverTLS.ClientCAs == nil {
 		t.Fatal("server side must verify peers against the mesh CA")
 	}
-	if serverTLS.MinVersion != tls.VersionTLS12 {
-		t.Fatalf("MinVersion = %x, want TLS 1.2", serverTLS.MinVersion)
+	if serverTLS.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("MinVersion = %x, want TLS 1.3", serverTLS.MinVersion)
 	}
 	if len(serverTLS.Certificates) != 1 {
 		t.Fatal("server side must present the mesh certificate")
@@ -929,8 +929,113 @@ func TestMesh_BuildTLSConfigsRequiresMutualVerification(t *testing.T) {
 	if m.clientTLS.InsecureSkipVerify {
 		t.Fatal("client side must not skip verification")
 	}
+	if m.clientTLS.MinVersion != tls.VersionTLS13 {
+		t.Fatalf("client MinVersion = %x, want TLS 1.3", m.clientTLS.MinVersion)
+	}
 	if m.clientTLS.ServerName != "cluster-gateway-mesh.openchoreo-control-plane.svc" {
 		t.Fatalf("ServerName = %q, want the mesh Service name", m.clientTLS.ServerName)
+	}
+}
+
+// meshTLSHandshake runs a TLS handshake over loopback TCP and returns the
+// client's connection state with the errors from both sides. Loopback rather
+// than net.Pipe because a TLS 1.3 server that requires client certificates
+// writes session tickets after the client's handshake has already returned.
+func meshTLSHandshake(t *testing.T, serverCfg, clientCfg *tls.Config) (tls.ConnectionState, error) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to listen: %v", err)
+	}
+	defer ln.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer conn.Close()
+		serverErr <- tls.Server(conn, serverCfg).HandshakeContext(ctx)
+	}()
+
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatalf("failed to dial: %v", err)
+	}
+	defer conn.Close()
+
+	client := tls.Client(conn, clientCfg)
+	clientErr := client.HandshakeContext(ctx)
+	if clientErr != nil {
+		_ = conn.Close()
+	}
+	return client.ConnectionState(), errors.Join(clientErr, <-serverErr)
+}
+
+// Mesh links only connect gateway replicas, so both ends require TLS 1.3 and
+// with it the hybrid post-quantum key exchange. A peer capped at TLS 1.2 on
+// either side must fail the handshake rather than fall back to classical ECDHE.
+func TestMesh_TLSConfigsRequireTLS13(t *testing.T) {
+	certPath, keyPath, caPath := writeMeshCertFiles(t)
+
+	m := NewMesh(MeshConfig{
+		Self:       Peer{ID: "gw-self"},
+		CertFile:   certPath,
+		KeyFile:    keyPath,
+		CAFile:     caPath,
+		ServerName: "cluster-gateway-mesh.openchoreo-control-plane.svc",
+	}, NewRegistry(testLogger()), newStaticDiscovery(), nil, testLogger())
+
+	serverTLS, err := m.buildTLSConfigs()
+	if err != nil {
+		t.Fatalf("buildTLSConfigs failed: %v", err)
+	}
+	tls12Only := func(cfg *tls.Config) *tls.Config {
+		capped := cfg.Clone()
+		capped.MinVersion = tls.VersionTLS12
+		capped.MaxVersion = tls.VersionTLS12
+		return capped
+	}
+
+	tests := []struct {
+		name      string
+		serverCfg *tls.Config
+		clientCfg *tls.Config
+		wantErr   bool
+	}{
+		{name: "both peers use the mesh configs", serverCfg: serverTLS, clientCfg: m.clientTLS},
+		{name: "dialing peer capped at TLS 1.2", serverCfg: serverTLS, clientCfg: tls12Only(m.clientTLS), wantErr: true},
+		{name: "accepting peer capped at TLS 1.2", serverCfg: tls12Only(serverTLS), clientCfg: m.clientTLS, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state, err := meshTLSHandshake(t, tt.serverCfg, tt.clientCfg)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected the handshake to fail, it succeeded")
+				}
+				if !strings.Contains(err.Error(), "protocol version") {
+					t.Fatalf("error = %v, want a protocol version failure", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("handshake failed: %v", err)
+			}
+			if state.Version != tls.VersionTLS13 {
+				t.Fatalf("Version = %x, want TLS 1.3", state.Version)
+			}
+			if state.CurveID != tls.X25519MLKEM768 {
+				t.Fatalf("CurveID = %v, want X25519MLKEM768", state.CurveID)
+			}
+		})
 	}
 }
 

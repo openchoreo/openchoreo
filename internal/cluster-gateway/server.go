@@ -561,7 +561,7 @@ func (s *Server) Start() error {
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.RequestClientCert, // Request cert but don't verify at TLS level
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 	}
 
 	s.logger.Info("TLS configured",
@@ -589,60 +589,8 @@ func (s *Server) Start() error {
 		)
 	}
 
-	internalTLSConfig, err := buildInternalTLSConfig(tlsConfig, s.config)
-	if err != nil {
-		return fmt.Errorf("failed to configure internal listener TLS: %w", err)
-	}
-	if s.config.InternalMTLSEnabled {
-		s.logger.Info("internal API mTLS enabled",
-			"clientAuth", "RequireAndVerifyClientCert",
-			"clientCA", s.config.InternalClientCAPath,
-		)
-	} else {
-		s.logger.Warn("internal API mTLS disabled",
-			"note", "internal /api/* endpoints accept unauthenticated callers; enable with --internal-mtls",
-		)
-	}
-
-	// Public listener: agent WebSocket only (reached by remote data planes).
-	publicMux := http.NewServeMux()
-	publicMux.HandleFunc("/ws", s.handleWebSocket)
-
-	// Internal listener: caller-facing /api/* for in-cluster components only.
-	internalMux := http.NewServeMux()
-	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)                    // HTTP proxy to data plane services
-	internalMux.HandleFunc("/api/exec/", s.handleExec)                          // WebSocket exec proxy to data plane pods
-	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs)                  // WebSocket wirelogs (Cilium Hubble flow) stream
-	internalMux.HandleFunc(resourceTreePathPrefix, s.handleResourceTreeMatches) // Resource tree child match queries
-
-	// Register plane lifecycle API (for controller notifications and status queries)
-	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
-	planeAPI.RegisterRoutes(internalMux)
-	s.logger.Info("plane API registered",
-		"endpoints", []string{
-			"/api/v1/planes/notify",
-			"/api/v1/planes/{type}/{id}/reconnect",
-			"/api/v1/planes/{type}/{id}/status",
-			"/api/v1/planes/status",
-		},
-	)
-
-	s.httpServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.config.Port),
-		Handler:      publicMux,
-		TLSConfig:    tlsConfig,
-		ReadTimeout:  s.config.ReadTimeout,
-		WriteTimeout: s.config.WriteTimeout,
-		IdleTimeout:  s.config.IdleTimeout,
-	}
-
-	s.internalServer = &http.Server{
-		Addr:         fmt.Sprintf(":%d", s.config.InternalPort),
-		Handler:      internalMux,
-		TLSConfig:    internalTLSConfig,
-		ReadTimeout:  s.config.ReadTimeout,
-		WriteTimeout: s.config.WriteTimeout,
-		IdleTimeout:  s.config.IdleTimeout,
+	if err := s.buildListeners(tlsConfig); err != nil {
+		return err
 	}
 
 	// Setup health server (separate, no TLS, no client cert verification)
@@ -780,6 +728,78 @@ func (s *Server) Start() error {
 	}
 }
 
+// buildListeners creates the public agent listener and the internal API
+// listener from the shared base TLS config, without binding their ports.
+func (s *Server) buildListeners(tlsConfig *tls.Config) error {
+	internalTLSConfig, err := buildInternalTLSConfig(tlsConfig, s.config)
+	if err != nil {
+		return fmt.Errorf("failed to configure internal listener TLS: %w", err)
+	}
+	if s.config.InternalMTLSEnabled {
+		s.logger.Info("internal API mTLS enabled",
+			"clientAuth", "RequireAndVerifyClientCert",
+			"clientCA", s.config.InternalClientCAPath,
+		)
+	} else {
+		s.logger.Warn("internal API mTLS disabled",
+			"note", "internal /api/* endpoints accept unauthenticated callers; enable with --internal-mtls",
+		)
+	}
+
+	// Public listener: agent WebSocket only (reached by remote data planes).
+	publicMux := http.NewServeMux()
+	publicMux.HandleFunc("/ws", s.handleWebSocket)
+
+	// Internal listener: caller-facing /api/* for in-cluster components only.
+	internalMux := http.NewServeMux()
+	internalMux.HandleFunc("/api/proxy/", s.handleHTTPProxy)                    // HTTP proxy to data plane services
+	internalMux.HandleFunc("/api/exec/", s.handleExec)                          // WebSocket exec proxy to data plane pods
+	internalMux.HandleFunc("/api/wirelogs/", s.handleWirelogs)                  // WebSocket wirelogs (Cilium Hubble flow) stream
+	internalMux.HandleFunc(resourceTreePathPrefix, s.handleResourceTreeMatches) // Resource tree child match queries
+
+	// Register plane lifecycle API (for controller notifications and status queries)
+	planeAPI := NewPlaneAPI(s.connMgr, s, s.logger)
+	planeAPI.RegisterRoutes(internalMux)
+	s.logger.Info("plane API registered",
+		"endpoints", []string{
+			"/api/v1/planes/notify",
+			"/api/v1/planes/{type}/{id}/reconnect",
+			"/api/v1/planes/{type}/{id}/status",
+			"/api/v1/planes/status",
+		},
+	)
+
+	s.httpServer = &http.Server{
+		Addr:         fmt.Sprintf(":%d", s.config.Port),
+		Handler:      publicMux,
+		TLSConfig:    buildPublicTLSConfig(tlsConfig, s.config.AgentAuthMode),
+		ReadTimeout:  s.config.ReadTimeout,
+		WriteTimeout: s.config.WriteTimeout,
+		IdleTimeout:  s.config.IdleTimeout,
+	}
+
+	s.internalServer = &http.Server{
+		Addr:         fmt.Sprintf(":%d", s.config.InternalPort),
+		Handler:      internalMux,
+		TLSConfig:    internalTLSConfig,
+		ReadTimeout:  s.config.ReadTimeout,
+		WriteTimeout: s.config.WriteTimeout,
+		IdleTimeout:  s.config.IdleTimeout,
+	}
+	return nil
+}
+
+func buildPublicTLSConfig(base *tls.Config, mode AgentAuthMode) *tls.Config {
+	tlsConfig := base.Clone()
+	tlsConfig.MinVersion = tls.VersionTLS13
+	if mode == AgentAuthModeForwardedHeader {
+		// The peer is the operator's TLS-terminating proxy, and we do not control
+		// which TLS versions it uses toward its targets.
+		tlsConfig.MinVersion = tls.VersionTLS12
+	}
+	return tlsConfig
+}
+
 // buildInternalTLSConfig derives the TLS configuration for the internal API
 // listener from the shared base config. When internal mTLS is enabled, callers
 // must present a certificate signed by the internal client CA
@@ -788,6 +808,7 @@ func (s *Server) Start() error {
 // authenticate to the internal API.
 func buildInternalTLSConfig(base *tls.Config, cfg *Config) (*tls.Config, error) {
 	tlsConfig := base.Clone()
+	tlsConfig.MinVersion = tls.VersionTLS13
 	if !cfg.InternalMTLSEnabled {
 		return tlsConfig, nil
 	}

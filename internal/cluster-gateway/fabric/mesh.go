@@ -345,11 +345,11 @@ func (m *Mesh) buildTLSConfigs() (*tls.Config, error) {
 
 	serverTLS := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 	}
 	m.clientTLS = &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
+		MinVersion:   tls.VersionTLS13,
 		ServerName:   m.cfg.ServerName,
 	}
 
