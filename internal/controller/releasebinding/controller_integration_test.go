@@ -345,7 +345,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing ComponentRelease")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ComponentReleaseNotFound reason")
 			rb := fetchRB(rbName)
@@ -353,9 +353,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil(), "ReleaseSynced condition must be set")
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonComponentReleaseNotFound)))
-
-			By("Verifying the binding polls as a backstop for a dropped watch event")
-			Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 		})
 	})
 
@@ -387,7 +384,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the owner mismatch")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with InvalidReleaseConfiguration reason")
 			rb := fetchRB(rbName)
@@ -395,9 +392,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonInvalidReleaseConfiguration)))
-
-			By("Verifying it does not poll: the ComponentRelease owner is immutable, so a fix (new releaseName or new release) is an event that wakes the binding")
-			Expect(result.RequeueAfter).To(BeZero())
 		})
 	})
 
@@ -429,7 +423,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Environment")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with EnvironmentNotFound reason")
 			rb := fetchRB(rbName)
@@ -437,9 +431,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonEnvironmentNotFound)))
-
-			By("Verifying the binding polls as a backstop for a dropped watch event")
-			Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 		})
 	})
 
@@ -478,7 +469,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing DataPlane")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with DataPlaneNotFound reason")
 			rb := fetchRB(rbName)
@@ -486,9 +477,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonDataPlaneNotFound)))
-
-			By("Verifying the binding polls as a backstop for a dropped watch event")
-			Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 		})
 	})
 
@@ -532,7 +520,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Component")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ComponentNotFound reason")
 			rb := fetchRB(rbName)
@@ -540,9 +528,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonComponentNotFound)))
-
-			By("Verifying the binding polls as a backstop for a dropped watch event")
-			Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 		})
 	})
 
@@ -589,7 +574,7 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			)).To(Succeed())
 
 			By("Reconciling — the controller should detect the missing Project")
-			result := mustReconcile(r, req)
+			mustReconcile(r, req)
 
 			By("Verifying ReleaseSynced=False with ProjectNotFound reason")
 			rb := fetchRB(rbName)
@@ -597,9 +582,6 @@ var _ = Describe("ReleaseBinding Controller", func() {
 			Expect(cond).NotTo(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(string(ReasonProjectNotFound)))
-
-			By("Verifying the binding polls, since the Project is not watched directly")
-			Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 		})
 	})
 

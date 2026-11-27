@@ -401,8 +401,9 @@ func (r *Reconciler) findReleaseBindingsForComponent(ctx context.Context, obj cl
 //
 // A binding can be reconciled before the informer cache has observed a ComponentRelease
 // created moments earlier (the Component controller creates both in the same reconcile).
-// That reconcile records ComponentReleaseNotFound and requeues after
-// dependencyNotFoundRequeue; this watch wakes the binding sooner, as soon as the release appears.
+// That reconcile records ComponentReleaseNotFound and returns without requeueing, so
+// without this watch the binding stays stuck until an unrelated event or the periodic
+// resync fires.
 func (r *Reconciler) findReleaseBindingsForComponentRelease(ctx context.Context, obj client.Object) []ctrl.Request {
 	componentRelease := obj.(*openchoreov1alpha1.ComponentRelease)
 	if componentRelease.Spec.Owner.ComponentName == "" {

@@ -100,7 +100,7 @@ var _ = Describe("ReleaseBinding controller watches", func() {
 		By("Creating the Environment; the watch must wake the binding without a manual reconcile")
 		// The data plane is deliberately missing, so the next gate is DataPlaneNotFound.
 		// Moving there shows the binding was reconciled again after the Environment appeared.
-		// timeout is well under dependencyNotFoundRequeue, so the backstop poll cannot pass this.
+		// NotFound exits schedule no requeue, so only the watch can move the binding on.
 		Expect(k8sClient.Create(ctx, envFixture(envName, dpName))).To(Succeed())
 		Eventually(syncedReason(rbName), timeout, interval).Should(Equal(string(ReasonDataPlaneNotFound)))
 	})
