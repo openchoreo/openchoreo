@@ -51,6 +51,10 @@ const (
 	// Kubernetes sets when a rollout exceeds progressDeadlineSeconds.
 	reasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
 
+	// defaultProgressDeadline is the progressDeadlineSeconds Kubernetes applies
+	// to a Deployment that does not set one.
+	defaultProgressDeadline = 10 * time.Minute
+
 	// DefaultStableInterval is the stable requeue interval when neither the release nor
 	// the controller sets one. Every stable release costs one reconcile per interval, so
 	// with many releases on a remote plane it can need more workers than the controller

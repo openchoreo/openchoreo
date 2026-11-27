@@ -1001,6 +1001,23 @@ func TestGetDeploymentHealth(t *testing.T) {
 			want: openchoreov1alpha1.HealthStatusDegraded,
 		},
 		{
+			name: "unavailable with no transition time is Degraded",
+			deployment: appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
+				Spec:       appsv1.DeploymentSpec{Replicas: int32Ptr(1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration:  2,
+					UpdatedReplicas:     1,
+					UnavailableReplicas: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse},
+					},
+				},
+			},
+			want: openchoreov1alpha1.HealthStatusDegraded,
+		},
+		{
 			name: "replica set still updating (ReplicaSetUpdated) with no pods available is Progressing",
 			deployment: appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{Generation: 1},

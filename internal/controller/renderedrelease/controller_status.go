@@ -388,9 +388,6 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	return openchoreov1alpha1.HealthStatusProgressing, nil
 }
 
-// defaultProgressDeadline is the Deployment API's default for spec.progressDeadlineSeconds.
-const defaultProgressDeadline = 10 * time.Minute
-
 // unavailableWithinProgressDeadline reports whether the Deployment lost its
 // availability less than its progress deadline ago: its pods may just be starting.
 func unavailableWithinProgressDeadline(deployment *appsv1.Deployment, available *appsv1.DeploymentCondition) bool {
