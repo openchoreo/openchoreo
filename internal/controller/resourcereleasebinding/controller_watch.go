@@ -19,6 +19,11 @@ const (
 	// spec.resourceRelease so the ResourceRelease watch mapper can answer
 	// "which bindings pin this release?" with a single namespaced lookup.
 	resourceReleaseRefIndex = "spec.resourceRelease"
+
+	// ownerProjectNameIndex indexes ResourceReleaseBinding by
+	// spec.owner.projectName so the Project watch mapper can find the
+	// bindings of a project with a single namespaced lookup.
+	ownerProjectNameIndex = "spec.owner.projectName"
 )
 
 // indexResourceReleaseRef extracts the spec.resourceRelease key from a
@@ -34,6 +39,19 @@ func indexResourceReleaseRef(obj client.Object) []string {
 func (r *Reconciler) setupResourceReleaseRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceReleaseBinding{},
 		resourceReleaseRefIndex, indexResourceReleaseRef)
+}
+
+// indexOwnerProjectName extracts the spec.owner.projectName key from a binding.
+func indexOwnerProjectName(obj client.Object) []string {
+	binding := obj.(*openchoreov1alpha1.ResourceReleaseBinding)
+	return []string{binding.Spec.Owner.ProjectName}
+}
+
+// setupOwnerProjectNameIndex registers the field index used by the Project
+// watch mapper.
+func (r *Reconciler) setupOwnerProjectNameIndex(ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ResourceReleaseBinding{},
+		ownerProjectNameIndex, indexOwnerProjectName)
 }
 
 // listResourceReleaseBindingsForResourceRelease returns reconcile requests
@@ -57,6 +75,42 @@ func (r *Reconciler) listResourceReleaseBindingsForResourceRelease(ctx context.C
 	); err != nil {
 		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings by resourceRelease ref",
 			"resourceRelease", release.Name, "namespace", release.Namespace)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, len(bindings.Items))
+	for i := range bindings.Items {
+		requests[i] = reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      bindings.Items[i].Name,
+				Namespace: bindings.Items[i].Namespace,
+			},
+		}
+	}
+	return requests
+}
+
+// listResourceReleaseBindingsForProject returns reconcile requests for
+// ResourceReleaseBindings in the same namespace whose spec.owner.projectName
+// matches the supplied Project. A binding that hit ProjectNotFound returns
+// without a requeue, so this watch is what wakes it when the Project is
+// created later (GitOps applies the Project and the binding from different
+// sources, in any order). The ResourceRelease watch does not cover this: the
+// Resource controller cuts the release without checking that the Project
+// exists.
+func (r *Reconciler) listResourceReleaseBindingsForProject(ctx context.Context, obj client.Object) []reconcile.Request {
+	project := obj.(*openchoreov1alpha1.Project)
+	if project.Name == "" {
+		return nil
+	}
+
+	var bindings openchoreov1alpha1.ResourceReleaseBindingList
+	if err := r.List(ctx, &bindings,
+		client.InNamespace(project.Namespace),
+		client.MatchingFields{ownerProjectNameIndex: project.Name},
+	); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings by owner project",
+			"project", project.Name, "namespace", project.Namespace)
 		return nil
 	}
 
