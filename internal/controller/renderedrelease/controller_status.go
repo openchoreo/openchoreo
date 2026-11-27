@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
@@ -351,6 +352,10 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 			// and scaled up). If pods are still not available after rollout completion, it
 			// indicates a runtime failure (e.g., CrashLoopBackOff, failing readiness probes).
 			if progressingCond.Reason == "NewReplicaSetAvailable" {
+				// A scale-up from zero looks the same until its first pod is ready.
+				if unavailableWithinProgressDeadline(&deployment, availableCond) {
+					return openchoreov1alpha1.HealthStatusProgressing, nil
+				}
 				return openchoreov1alpha1.HealthStatusDegraded, nil
 			}
 			// Other reasons (e.g., "ReplicaSetUpdated") mean pods are still being created
@@ -381,6 +386,28 @@ func getDeploymentHealth(obj *unstructured.Unstructured) (openchoreov1alpha1.Hea
 	// - Not all replicas are available
 	// - Some replicas are unavailable
 	return openchoreov1alpha1.HealthStatusProgressing, nil
+}
+
+// defaultProgressDeadline is the Deployment API's default for spec.progressDeadlineSeconds.
+const defaultProgressDeadline = 10 * time.Minute
+
+// unavailableWithinProgressDeadline reports whether the Deployment lost its
+// availability less than its progress deadline ago: its pods may just be starting.
+func unavailableWithinProgressDeadline(deployment *appsv1.Deployment, available *appsv1.DeploymentCondition) bool {
+	if available == nil || available.Status == corev1.ConditionTrue {
+		return false
+	}
+	if available.LastTransitionTime.IsZero() {
+		return false
+	}
+	return time.Since(available.LastTransitionTime.Time) < progressDeadline(deployment)
+}
+
+func progressDeadline(deployment *appsv1.Deployment) time.Duration {
+	if seconds := deployment.Spec.ProgressDeadlineSeconds; seconds != nil {
+		return time.Duration(*seconds) * time.Second
+	}
+	return defaultProgressDeadline
 }
 
 func extractDeploymentConditions(conditions []appsv1.DeploymentCondition) (available, progressing, replicaFailure *appsv1.DeploymentCondition) {
