@@ -348,6 +348,23 @@ type ReleaseBindingStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// CurrentRevision is the object name of the binding's active revision: the
+	// one recording its current spec, which it is rolling out or running. It is
+	// set when the spec is recorded, before the rollout, so it does not confirm
+	// that a deploy or rollback succeeded; the revision's health reports that.
+	// Read it from here rather than building it: it is usually {binding}-r{N},
+	// but a name that would exceed the 253-character limit is shortened and
+	// given a hash. The controller updates it whenever the active revision
+	// changes, including when a rollback makes an earlier revision active again.
+	// +optional
+	CurrentRevision string `json:"currentRevision,omitempty"`
+
+	// HighestRevision is the highest revision number this binding has ever
+	// recorded. New revisions are numbered above it, so the number of a deleted
+	// revision is never given to another one.
+	// +optional
+	HighestRevision int64 `json:"highestRevision,omitempty"`
+
 	// Endpoints contains the resolved invoke URLs for each named workload endpoint,
 	// keyed by endpoint name. Populated once the component is deployed and the
 	// corresponding HTTPRoutes are available.
