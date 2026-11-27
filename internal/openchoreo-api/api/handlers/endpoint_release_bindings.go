@@ -153,6 +153,9 @@ func (h *Handler) UpdateEndpointReleaseBinding(
 		if errors.Is(err, endpointreleasebindingsvc.ErrEndpointReleaseBindingNotFound) {
 			return gen.UpdateEndpointReleaseBinding404JSONResponse{NotFoundJSONResponse: notFound("EndpointReleaseBinding")}, nil
 		}
+		if errors.Is(err, services.ErrConflict) {
+			return gen.UpdateEndpointReleaseBinding409JSONResponse{ConflictJSONResponse: conflict(staleUpdateMessage("EndpointReleaseBinding"))}, nil
+		}
 		var validationErr *services.ValidationError
 		if errors.As(err, &validationErr) {
 			return gen.UpdateEndpointReleaseBinding400JSONResponse{BadRequestJSONResponse: badRequest(validationErr.Msg)}, nil

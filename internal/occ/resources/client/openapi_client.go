@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -36,6 +37,43 @@ func apiError(statusCode int, body []byte) error {
 		return fmt.Errorf("unexpected response (HTTP %d): %s", statusCode, string(body))
 	}
 	return fmt.Errorf("unexpected response status: %d", statusCode)
+}
+
+// ErrConflict matches (errors.Is) the error of an update the API rejected with
+// 409 because the resource changed since the metadata.resourceVersion sent with
+// it was read.
+var ErrConflict = errors.New("resource was modified since it was read")
+
+// conflictError keeps the API's own message while matching ErrConflict.
+type conflictError struct{ error }
+
+func (conflictError) Is(target error) bool { return target == ErrConflict }
+
+// updateError is apiError for an update response: a 409 also matches ErrConflict,
+// so callers can read the resource again and retry with RetryOnConflict.
+func updateError(statusCode int, body []byte) error {
+	err := apiError(statusCode, body)
+	if statusCode == http.StatusConflict {
+		return conflictError{err}
+	}
+	return err
+}
+
+// conflictRetries is how many times RetryOnConflict runs a step in total.
+const conflictRetries = 5
+
+// RetryOnConflict runs a read-modify-write step, running it again from the read
+// while its write fails with ErrConflict, up to conflictRetries times. The step
+// must read the resource itself, so each attempt applies its change on top of
+// the newest version instead of overwriting another writer's change.
+func RetryOnConflict(step func() error) error {
+	var err error
+	for range conflictRetries {
+		if err = step(); !errors.Is(err, ErrConflict) {
+			return err
+		}
+	}
+	return err
 }
 
 // Client wraps the generated OpenAPI client with token refresh functionality
@@ -556,7 +594,7 @@ func (c *Client) UpdateReleaseBinding(ctx context.Context, namespaceName, bindin
 		return nil, fmt.Errorf("failed to update release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, apiError(resp.StatusCode(), resp.Body)
+		return nil, updateError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -2098,7 +2136,7 @@ func (c *Client) UpdateResourceReleaseBinding(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to update resource release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, apiError(resp.StatusCode(), resp.Body)
+		return nil, updateError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }
@@ -2419,7 +2457,7 @@ func (c *Client) UpdateEndpointReleaseBinding(ctx context.Context, namespaceName
 		return nil, fmt.Errorf("failed to update endpoint release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
-		return nil, apiError(resp.StatusCode(), resp.Body)
+		return nil, updateError(resp.StatusCode(), resp.Body)
 	}
 	return resp.JSON200, nil
 }

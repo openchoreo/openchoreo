@@ -361,18 +361,7 @@ func (cp *Component) deployComponent(ctx context.Context, c client.Interface, pa
 
 	if existing != nil {
 		// Update existing binding with the new release
-		existing.Spec.ReleaseName = rb.Spec.ReleaseName
-
-		// Apply overrides if provided
-		if len(params.Set) > 0 {
-			merged, err := mergeOverridesWithBinding(existing, params.Set)
-			if err != nil {
-				return nil, fmt.Errorf("failed to merge overrides: %w", err)
-			}
-			existing = merged
-		}
-
-		return c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *existing)
+		return updateReleaseBinding(ctx, c, params.Namespace, bindingName, existing, rb.Spec.ReleaseName, params.Set)
 	}
 
 	// Apply overrides if provided
@@ -436,18 +425,7 @@ func (cp *Component) promoteComponent(ctx context.Context, c client.Interface, p
 
 	if existing != nil {
 		// Update existing binding with the new release
-		existing.Spec.ReleaseName = &releaseName
-
-		// Apply overrides if provided
-		if len(params.Set) > 0 {
-			merged, err := mergeOverridesWithBinding(existing, params.Set)
-			if err != nil {
-				return nil, fmt.Errorf("failed to merge overrides: %w", err)
-			}
-			existing = merged
-		}
-
-		return c.UpdateReleaseBinding(ctx, params.Namespace, bindingName, *existing)
+		return updateReleaseBinding(ctx, c, params.Namespace, bindingName, existing, &releaseName, params.Set)
 	}
 
 	// Create new binding
@@ -720,6 +698,49 @@ func unmarshalSchema(raw *json.RawMessage) (*extv1.JSONSchemaProps, error) {
 		return nil, fmt.Errorf("failed to unmarshal schema: %w", err)
 	}
 	return &schema, nil
+}
+
+// updateReleaseBinding points an existing binding at releaseName, applies any
+// --set overrides and writes it back with the resourceVersion it was read at.
+// If the binding changed in between (409), it is read again and the change is
+// reapplied on the newer version, so edits made meanwhile are kept.
+func updateReleaseBinding(ctx context.Context, c client.Interface, namespace, bindingName string,
+	existing *gen.ReleaseBinding, releaseName *string, setValues []string,
+) (*gen.ReleaseBinding, error) {
+	var updated *gen.ReleaseBinding
+	err := client.RetryOnConflict(func() error {
+		if existing == nil {
+			fresh, err := c.GetReleaseBinding(ctx, namespace, bindingName)
+			if err != nil {
+				return err
+			}
+			if fresh == nil {
+				return fmt.Errorf("release binding %q was deleted while it was being updated", bindingName)
+			}
+			existing = fresh
+		}
+		binding := existing
+		existing = nil // a retry reads the binding again
+
+		binding.Spec.ReleaseName = releaseName
+
+		// Apply overrides if provided
+		if len(setValues) > 0 {
+			merged, err := mergeOverridesWithBinding(binding, setValues)
+			if err != nil {
+				return fmt.Errorf("failed to merge overrides: %w", err)
+			}
+			binding = merged
+		}
+
+		var err error
+		updated, err = c.UpdateReleaseBinding(ctx, namespace, bindingName, *binding)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 // mergeOverridesWithBinding merges --set override values with existing ReleaseBinding.
