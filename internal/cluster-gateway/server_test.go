@@ -195,12 +195,40 @@ func TestHandleHTTPProxy_BlockedPath(t *testing.T) {
 
 	s := New(&Config{}, fakeClient, testLogger())
 
-	// Access kube-system secrets - should be blocked
-	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets", nil)
-	w := httptest.NewRecorder()
-	s.handleHTTPProxy(w, req)
+	for _, p := range []string{
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/secrets?labelSelector=app%3Dx",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/watch/secrets",
+	} {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, p, nil)
+			w := httptest.NewRecorder()
+			s.handleHTTPProxy(w, req)
 
-	assert.Equal(t, http.StatusForbidden, w.Code)
+			assert.Equal(t, http.StatusForbidden, w.Code)
+		})
+	}
+}
+
+func TestHandleHTTPProxy_DoubleEncodedPath(t *testing.T) {
+	scheme := testScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	s := New(&Config{}, fakeClient, testLogger())
+
+	for _, p := range []string{
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/%2573ecrets",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/secrets%3F",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets%23",
+	} {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, p, nil)
+			w := httptest.NewRecorder()
+			s.handleHTTPProxy(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+		})
+	}
 }
 
 func TestHandleHTTPTunnelResponse(t *testing.T) {
