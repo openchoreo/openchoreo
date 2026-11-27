@@ -824,6 +824,10 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup traits reference index: %w", err)
 	}
 
+	if err := r.setupEmbeddedTraitsIndexes(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to setup embedded traits indexes: %w", err)
+	}
+
 	if err := r.setupWorkflowRefIndex(ctx, mgr); err != nil {
 		return fmt.Errorf("failed to setup workflow reference index: %w", err)
 	}

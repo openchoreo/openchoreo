@@ -31,28 +31,66 @@ const (
 // Index key format: "{kind}:{name}" (e.g., "ComponentType:deployment/web-app")
 func (r *Reconciler) setupComponentTypeRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
-		componentTypeIndex, func(obj client.Object) []string {
-			comp := obj.(*openchoreov1alpha1.Component)
-			return []string{string(comp.Spec.ComponentType.Kind) + ":" + comp.Spec.ComponentType.Name}
-		})
+		componentTypeIndex, indexComponentTypeRef)
 }
 
 // setupTraitsRefIndex sets up the field index for trait references.
 // Index key format: "{kind}:{name}" (e.g., "Trait:autoscaler", "ClusterTrait:rate-limiter")
 func (r *Reconciler) setupTraitsRefIndex(ctx context.Context, mgr ctrl.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.Component{},
-		traitsIndex, func(obj client.Object) []string {
-			comp := obj.(*openchoreov1alpha1.Component)
-			keys := make([]string, 0, len(comp.Spec.Traits))
-			for _, trait := range comp.Spec.Traits {
-				kind := trait.Kind
-				if kind == "" {
-					kind = openchoreov1alpha1.TraitRefKindTrait
-				}
-				keys = append(keys, string(kind)+":"+trait.Name)
-			}
-			return keys
-		})
+		traitsIndex, indexComponentTraits)
+}
+
+// setupEmbeddedTraitsIndexes sets up the field indexes for traits embedded in ComponentTypes and
+// ClusterComponentTypes, so a Trait or ClusterTrait change can reach Components that use it only
+// through their type. Index key format: "{kind}:{name}", as for setupTraitsRefIndex.
+func (r *Reconciler) setupEmbeddedTraitsIndexes(ctx context.Context, mgr ctrl.Manager) error {
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ComponentType{},
+		traitsIndex, indexComponentTypeTraits); err != nil {
+		return err
+	}
+	return mgr.GetFieldIndexer().IndexField(ctx, &openchoreov1alpha1.ClusterComponentType{},
+		traitsIndex, indexClusterComponentTypeTraits)
+}
+
+func indexComponentTypeRef(obj client.Object) []string {
+	comp := obj.(*openchoreov1alpha1.Component)
+	return []string{string(comp.Spec.ComponentType.Kind) + ":" + comp.Spec.ComponentType.Name}
+}
+
+func traitKey(kind openchoreov1alpha1.TraitRefKind, name string) string {
+	if kind == "" {
+		kind = openchoreov1alpha1.TraitRefKindTrait
+	}
+	return string(kind) + ":" + name
+}
+
+func indexComponentTraits(obj client.Object) []string {
+	comp := obj.(*openchoreov1alpha1.Component)
+	keys := make([]string, 0, len(comp.Spec.Traits))
+	for _, trait := range comp.Spec.Traits {
+		keys = append(keys, traitKey(trait.Kind, trait.Name))
+	}
+	return keys
+}
+
+func indexComponentTypeTraits(obj client.Object) []string {
+	ct := obj.(*openchoreov1alpha1.ComponentType)
+	keys := make([]string, 0, len(ct.Spec.Traits))
+	for _, trait := range ct.Spec.Traits {
+		keys = append(keys, traitKey(trait.Kind, trait.Name))
+	}
+	return keys
+}
+
+func indexClusterComponentTypeTraits(obj client.Object) []string {
+	cct := obj.(*openchoreov1alpha1.ClusterComponentType)
+	keys := make([]string, 0, len(cct.Spec.Traits))
+	for _, trait := range cct.Spec.Traits {
+		// ClusterComponentTypes can embed only ClusterTraits.
+		keys = append(keys, traitKey(openchoreov1alpha1.TraitRefKindClusterTrait, trait.Name))
+	}
+	return keys
 }
 
 // setupWorkflowRefIndex sets up the field index for workflow references.
@@ -152,21 +190,77 @@ func (r *Reconciler) listComponentsForClusterComponentType(ctx context.Context, 
 	return requests
 }
 
-// listComponentsUsingTrait returns reconcile requests for all Components using this Trait
+// listComponentsUsingTrait returns reconcile requests for all Components using this Trait, either
+// directly or as a trait embedded in their ComponentType. A Trait resolves only within its own
+// namespace, so only Components and ComponentTypes in that namespace are considered.
 func (r *Reconciler) listComponentsUsingTrait(ctx context.Context, obj client.Object) []reconcile.Request {
 	trait := obj.(*openchoreov1alpha1.Trait)
+	logger := ctrl.LoggerFrom(ctx)
+	indexKey := traitKey(openchoreov1alpha1.TraitRefKindTrait, trait.Name)
 
-	indexKey := string(openchoreov1alpha1.TraitRefKindTrait) + ":" + trait.Name
 	var components openchoreov1alpha1.ComponentList
 	if err := r.List(ctx, &components,
+		client.InNamespace(trait.Namespace),
 		client.MatchingFields{traitsIndex: indexKey}); err != nil {
-		logger := ctrl.LoggerFrom(ctx)
 		logger.Error(err, "Failed to list components for Trait", "trait", trait.Name)
 		return nil
 	}
+	requests := componentRequests(components.Items)
 
-	requests := make([]reconcile.Request, len(components.Items))
-	for i, comp := range components.Items {
+	var componentTypes openchoreov1alpha1.ComponentTypeList
+	if err := r.List(ctx, &componentTypes,
+		client.InNamespace(trait.Namespace),
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
+		logger.Error(err, "Failed to list component types embedding Trait", "trait", trait.Name)
+		return dedupeRequests(requests)
+	}
+	for i := range componentTypes.Items {
+		requests = append(requests, r.listComponentsForComponentType(ctx, &componentTypes.Items[i])...)
+	}
+	return dedupeRequests(requests)
+}
+
+// listComponentsUsingClusterTrait returns reconcile requests for all Components using this
+// ClusterTrait, either directly or as a trait embedded in their ComponentType or ClusterComponentType.
+// ClusterTraits are cluster-scoped, so users in every namespace are considered.
+func (r *Reconciler) listComponentsUsingClusterTrait(ctx context.Context, obj client.Object) []reconcile.Request {
+	clusterTrait := obj.(*openchoreov1alpha1.ClusterTrait)
+	logger := ctrl.LoggerFrom(ctx)
+	indexKey := traitKey(openchoreov1alpha1.TraitRefKindClusterTrait, clusterTrait.Name)
+
+	var components openchoreov1alpha1.ComponentList
+	if err := r.List(ctx, &components,
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
+		logger.Error(err, "Failed to list components for ClusterTrait", "clusterTrait", clusterTrait.Name)
+		return nil
+	}
+	requests := componentRequests(components.Items)
+
+	var componentTypes openchoreov1alpha1.ComponentTypeList
+	if err := r.List(ctx, &componentTypes,
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
+		logger.Error(err, "Failed to list component types embedding ClusterTrait", "clusterTrait", clusterTrait.Name)
+	} else {
+		for i := range componentTypes.Items {
+			requests = append(requests, r.listComponentsForComponentType(ctx, &componentTypes.Items[i])...)
+		}
+	}
+
+	var clusterComponentTypes openchoreov1alpha1.ClusterComponentTypeList
+	if err := r.List(ctx, &clusterComponentTypes,
+		client.MatchingFields{traitsIndex: indexKey}); err != nil {
+		logger.Error(err, "Failed to list cluster component types embedding ClusterTrait", "clusterTrait", clusterTrait.Name)
+	} else {
+		for i := range clusterComponentTypes.Items {
+			requests = append(requests, r.listComponentsForClusterComponentType(ctx, &clusterComponentTypes.Items[i])...)
+		}
+	}
+	return dedupeRequests(requests)
+}
+
+func componentRequests(components []openchoreov1alpha1.Component) []reconcile.Request {
+	requests := make([]reconcile.Request, len(components))
+	for i, comp := range components {
 		requests[i] = reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      comp.Name,
@@ -177,29 +271,18 @@ func (r *Reconciler) listComponentsUsingTrait(ctx context.Context, obj client.Ob
 	return requests
 }
 
-// listComponentsUsingClusterTrait returns reconcile requests for all Components using this ClusterTrait
-func (r *Reconciler) listComponentsUsingClusterTrait(ctx context.Context, obj client.Object) []reconcile.Request {
-	clusterTrait := obj.(*openchoreov1alpha1.ClusterTrait)
-
-	indexKey := string(openchoreov1alpha1.TraitRefKindClusterTrait) + ":" + clusterTrait.Name
-	var components openchoreov1alpha1.ComponentList
-	if err := r.List(ctx, &components,
-		client.MatchingFields{traitsIndex: indexKey}); err != nil {
-		logger := ctrl.LoggerFrom(ctx)
-		logger.Error(err, "Failed to list components for ClusterTrait", "clusterTrait", clusterTrait.Name)
-		return nil
-	}
-
-	requests := make([]reconcile.Request, len(components.Items))
-	for i, comp := range components.Items {
-		requests[i] = reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      comp.Name,
-				Namespace: comp.Namespace,
-			},
+// dedupeRequests drops repeated requests, keeping the first occurrence of each.
+func dedupeRequests(requests []reconcile.Request) []reconcile.Request {
+	seen := make(map[types.NamespacedName]struct{}, len(requests))
+	out := requests[:0]
+	for _, req := range requests {
+		if _, ok := seen[req.NamespacedName]; ok {
+			continue
 		}
+		seen[req.NamespacedName] = struct{}{}
+		out = append(out, req)
 	}
-	return requests
+	return out
 }
 
 // listComponentsForWorkflow returns reconcile requests for all Components using this Workflow.
