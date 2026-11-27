@@ -583,22 +583,6 @@ func (r *Reconciler) findReleaseBindingsForProjectReleaseBinding(ctx context.Con
 	return requests
 }
 
-// projectReleaseBindingObserveChangedPredicate passes creates, deletes, and
-// updates that change what an observed ReleaseBinding reads from its
-// ProjectReleaseBinding: the mode and the namespace in status.
-func projectReleaseBindingObserveChangedPredicate() predicate.Predicate {
-	return predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			oldPRB, okOld := e.ObjectOld.(*openchoreov1alpha1.ProjectReleaseBinding)
-			newPRB, okNew := e.ObjectNew.(*openchoreov1alpha1.ProjectReleaseBinding)
-			if !okOld || !okNew {
-				return false
-			}
-			return oldPRB.Spec.Mode != newPRB.Spec.Mode || oldPRB.Status.Namespace != newPRB.Status.Namespace
-		},
-	}
-}
-
 // notificationChannelDefaultChangedPredicate passes the channel events that can change an
 // environment's default notification channel, which is part of the render input: a marked
 // channel appearing or going away, or a channel's mark changing.

@@ -31,6 +31,8 @@ const (
 	testComponentName = "my-component"
 	testNamespace     = "my-ns"
 	testEnvStaging    = "staging"
+	// testDataPlaneNamespace is the namespace the tests' ProjectReleaseBinding reports.
+	testDataPlaneNamespace = "dp-my-ns-my-project-staging"
 )
 
 // Unit tests for pure helper functions that don't require k8s environment
@@ -501,7 +503,7 @@ func TestBuildMetadataContext_FieldsPopulated(t *testing.T) {
 	}
 	environmentName := testEnvStaging
 
-	ctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName, "")
+	ctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName, "", testDataPlaneNamespace)
 
 	if ctx.ComponentName != testComponentName {
 		t.Errorf("ComponentName = %q, want %q", ctx.ComponentName, testComponentName)
@@ -1741,7 +1743,7 @@ func TestBuildMetadataContext_LabelContent(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{UID: "env-uid-ccc"},
 	}
 
-	mctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName, "")
+	mctx := r.buildMetadataContext(componentRelease, component, project, dataPlane, environment, environmentName, "", testDataPlaneNamespace)
 
 	// Verify Labels contain specific key-value pairs
 	expectedLabels := map[string]string{

@@ -9,7 +9,8 @@ import (
 )
 
 // ResourceReleaseBindingSpec defines the desired state of ResourceReleaseBinding.
-// Pins a ResourceRelease to an Environment and carries per-env overrides.
+// Pins a ResourceRelease to an Environment and carries per-env overrides, or,
+// in Observe mode, lists the objects the resource already runs as.
 // The Resource controller never creates or modifies ResourceReleaseBindings;
 // they are authored externally (kubectl, GitOps, API server).
 // The resourceRelease pin is advanced manually via `occ resource promote` or
@@ -47,6 +48,38 @@ type ResourceReleaseBindingSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	ResourceTypeEnvironmentConfigs *runtime.RawExtension `json:"resourceTypeEnvironmentConfigs,omitempty"`
+
+	// Mode decides whether this binding deploys the resource's release
+	// (Manage) or reads objects the resource already runs as (Observe).
+	// Observe needs a ProjectReleaseBinding in Observe mode for the same
+	// project and environment. In Observe mode, resourceRelease and
+	// resourceTypeEnvironmentConfigs are kept but have no effect, and
+	// retainPolicy applies only to what Manage mode applied before.
+	// +kubebuilder:default=Manage
+	// +optional
+	Mode BindingMode `json:"mode,omitempty"`
+
+	// Observe configures Observe mode. It is ignored in Manage mode.
+	// +optional
+	Observe *ResourceReleaseBindingObserve `json:"observe,omitempty"`
+}
+
+// ResourceReleaseBindingObserve lists the objects an observed resource runs as.
+type ResourceReleaseBindingObserve struct {
+	// Resources lists objects in the namespace of the project's
+	// ProjectReleaseBinding that make up this resource, such as a database's
+	// StatefulSet and Service.
+	// +listType=map
+	// +listMapKey=apiVersion
+	// +listMapKey=kind
+	// +listMapKey=name
+	// +optional
+	Resources []ObservedResourceClaim `json:"resources,omitempty"`
+}
+
+// IsObserve reports whether the binding is in Observe mode.
+func (s *ResourceReleaseBindingSpec) IsObserve() bool {
+	return s.Mode == BindingModeObserve
 }
 
 // ResourceReleaseBindingOwner identifies the resource this ResourceReleaseBinding belongs to.
@@ -67,9 +100,9 @@ type ResourceReleaseBindingOwner struct {
 // ResourceReleaseBindingStatus defines the observed state of ResourceReleaseBinding.
 type ResourceReleaseBindingStatus struct {
 	// Conditions represent the latest available observations of the binding's state.
-	// Includes Synced, ResourcesReady, OutputsResolved, Ready (aggregate), and
-	// Finalizing during deletion. observedGeneration is set per-condition (project
-	// convention).
+	// Includes Synced, ResourcesReady, OutputsResolved (Manage mode only), Ready
+	// (aggregate), and Finalizing during deletion. observedGeneration is set
+	// per-condition (project convention).
 	// +optional
 	// +listType=map
 	// +listMapKey=type
@@ -79,7 +112,7 @@ type ResourceReleaseBindingStatus struct {
 	// from the underlying RenderedRelease.status by the binding controller. Each
 	// entry corresponds to a declared ResourceType output. Secret/ConfigMap values
 	// stay on the data plane; only the {name, key} reference transits to the
-	// control plane.
+	// control plane. Empty in Observe mode, which resolves no outputs.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
@@ -123,6 +156,7 @@ type ResolvedResourceOutput struct {
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.spec.resourceRelease`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.mode`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ResourceReleaseBinding is the Schema for the resourcereleasebindings API.

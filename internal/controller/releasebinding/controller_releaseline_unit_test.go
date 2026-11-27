@@ -34,7 +34,7 @@ func buildMetadataContextForLine(line string) pipelinecontext.MetadataContext {
 		&openchoreov1alpha1.Project{ObjectMeta: metav1.ObjectMeta{UID: "proj-uid"}},
 		&openchoreov1alpha1.DataPlane{ObjectMeta: metav1.ObjectMeta{Name: "dp", UID: "dp-uid"}},
 		&openchoreov1alpha1.Environment{ObjectMeta: metav1.ObjectMeta{UID: "env-uid"}},
-		testEnvStaging, lineUID(line))
+		testEnvStaging, lineUID(line), testDataPlaneNamespace)
 }
 
 // lineUID is the UID the tests give the ReleaseLine named line; empty without a line.
