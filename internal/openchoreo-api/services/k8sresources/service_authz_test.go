@@ -4,7 +4,9 @@
 package k8sresources_test
 
 import (
+	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -18,13 +20,24 @@ import (
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/services/testutil"
 )
 
-func newAuthzSvcWithRB(t *testing.T, pdp *testutil.CapturingPDP) (*mocks.MockService, k8sresources.Service) {
+func newAuthzSvcWithRB(t *testing.T, pdp authzcore.PDP) (*mocks.MockService, k8sresources.Service) {
 	t.Helper()
 	rb := testutil.NewReleaseBinding("ns-1", "proj-1", "comp-1", "dev", "rb-1")
 	fakeClient := testutil.NewFakeClient(rb)
 	mockSvc := mocks.NewMockService(t)
 	svc := k8sresources.NewTestServiceWithAuthz(mockSvc, fakeClient, pdp, testutil.TestLogger())
 	return mockSvc, svc
+}
+
+// actionPDP records every request like CapturingPDP, but allows only the listed actions.
+type actionPDP struct {
+	testutil.CapturingPDP
+	allowed []string
+}
+
+func (p *actionPDP) Evaluate(_ context.Context, req *authzcore.EvaluateRequest) (*authzcore.Decision, error) {
+	p.Captured = append(p.Captured, req)
+	return &authzcore.Decision{Decision: slices.Contains(p.allowed, req.Action), Context: &authzcore.DecisionContext{}}, nil
 }
 
 // --- GetResourceTree ---
@@ -87,11 +100,15 @@ func TestGetResourceEvents_AuthzCheck(t *testing.T) {
 		result, err := svc.GetResourceEvents(testutil.AuthzContext(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
-		require.Len(t, pdp.Captured, 1)
+		require.Len(t, pdp.Captured, 2)
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:view", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
 		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
+		testutil.RequireEvalRequest(t, pdp.Captured[1],
+			"events:view", "component", "comp-1",
+			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[1].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -100,6 +117,26 @@ func TestGetResourceEvents_AuthzCheck(t *testing.T) {
 
 		_, err := svc.GetResourceEvents(testutil.AuthzContext(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	// releasebinding:view alone used to be enough to read events.
+	t.Run("denied without events:view", func(t *testing.T) {
+		pdp := &actionPDP{allowed: []string{"releasebinding:view"}}
+		_, svc := newAuthzSvcWithRB(t, pdp)
+
+		_, err := svc.GetResourceEvents(testutil.AuthzContext(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
+		require.ErrorIs(t, err, services.ErrForbidden)
+		require.Len(t, pdp.Captured, 2)
+		require.Equal(t, "events:view", pdp.Captured[1].Action)
+	})
+
+	t.Run("denied without releasebinding:view", func(t *testing.T) {
+		pdp := &actionPDP{allowed: []string{"events:view"}}
+		_, svc := newAuthzSvcWithRB(t, pdp)
+
+		_, err := svc.GetResourceEvents(testutil.AuthzContext(), "ns-1", "rb-1", "apps", "v1", "Deployment", "web")
+		require.ErrorIs(t, err, services.ErrForbidden)
+		require.Len(t, pdp.Captured, 1, "events:view is not checked once the binding is denied")
 	})
 
 	t.Run("release binding not found skips authz", func(t *testing.T) {
@@ -125,11 +162,15 @@ func TestGetResourceLogs_AuthzCheck(t *testing.T) {
 		result, err := svc.GetResourceLogs(testutil.AuthzContext(), "ns-1", "rb-1", "pod-1", "", nil)
 		require.NoError(t, err)
 		require.Equal(t, expected, result)
-		require.Len(t, pdp.Captured, 1)
+		require.Len(t, pdp.Captured, 2)
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:view", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
 		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
+		testutil.RequireEvalRequest(t, pdp.Captured[1],
+			"logs:view", "component", "comp-1",
+			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[1].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -138,6 +179,26 @@ func TestGetResourceLogs_AuthzCheck(t *testing.T) {
 
 		_, err := svc.GetResourceLogs(testutil.AuthzContext(), "ns-1", "rb-1", "pod-1", "", nil)
 		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	// releasebinding:view alone used to be enough to read pod logs.
+	t.Run("denied without logs:view", func(t *testing.T) {
+		pdp := &actionPDP{allowed: []string{"releasebinding:view"}}
+		_, svc := newAuthzSvcWithRB(t, pdp)
+
+		_, err := svc.GetResourceLogs(testutil.AuthzContext(), "ns-1", "rb-1", "pod-1", "", nil)
+		require.ErrorIs(t, err, services.ErrForbidden)
+		require.Len(t, pdp.Captured, 2)
+		require.Equal(t, "logs:view", pdp.Captured[1].Action)
+	})
+
+	t.Run("denied without releasebinding:view", func(t *testing.T) {
+		pdp := &actionPDP{allowed: []string{"logs:view"}}
+		_, svc := newAuthzSvcWithRB(t, pdp)
+
+		_, err := svc.GetResourceLogs(testutil.AuthzContext(), "ns-1", "rb-1", "pod-1", "", nil)
+		require.ErrorIs(t, err, services.ErrForbidden)
+		require.Len(t, pdp.Captured, 1, "logs:view is not checked once the binding is denied")
 	})
 
 	t.Run("release binding not found skips authz", func(t *testing.T) {

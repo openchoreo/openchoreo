@@ -21,6 +21,7 @@ import (
 
 const (
 	resourceTypeReleaseBinding = "releasebinding"
+	resourceTypeComponent      = "component"
 )
 
 // k8sResourcesServiceWithAuthz wraps a Service and adds authorization checks.
@@ -49,7 +50,11 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceTree(ctx context.Context, name
 }
 
 func (s *k8sResourcesServiceWithAuthz) GetResourceEvents(ctx context.Context, namespaceName, releaseBindingName, group, version, kind, name string) (*models.ResourceEventsResponse, error) {
-	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
+	rb, err := s.authorizeReleaseBinding(ctx, namespaceName, releaseBindingName, authz.ActionViewReleaseBinding)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkOwnerComponentAuthz(ctx, namespaceName, rb, authz.ActionViewEvents); err != nil {
 		return nil, err
 	}
 	return s.internal.GetResourceEvents(ctx, namespaceName, releaseBindingName, group, version, kind, name)
@@ -65,7 +70,11 @@ func (s *k8sResourcesServiceWithAuthz) GetResourceLogs(ctx context.Context, name
 	}
 	audit.SetRequest(ctx, params)
 
-	if err := s.checkReleaseBindingAuthz(ctx, namespaceName, releaseBindingName); err != nil {
+	rb, err := s.authorizeReleaseBinding(ctx, namespaceName, releaseBindingName, authz.ActionViewReleaseBinding)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.checkOwnerComponentAuthz(ctx, namespaceName, rb, authz.ActionViewLogs); err != nil {
 		return nil, err
 	}
 	resp, err := s.internal.GetResourceLogs(ctx, namespaceName, releaseBindingName, podName, container, sinceSeconds)
@@ -91,29 +100,65 @@ func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthz(ctx context.Cont
 
 // checkReleaseBindingAuthzWithAction fetches the release binding and checks the given action.
 func (s *k8sResourcesServiceWithAuthz) checkReleaseBindingAuthzWithAction(ctx context.Context, namespaceName, releaseBindingName, action string) error {
-	var rb openchoreov1alpha1.ReleaseBinding
-	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: releaseBindingName}, &rb); err != nil {
+	_, err := s.authorizeReleaseBinding(ctx, namespaceName, releaseBindingName, action)
+	return err
+}
+
+// authorizeReleaseBinding fetches the release binding, checks the given action on it, and
+// returns it so that a caller can make further checks without fetching it again.
+func (s *k8sResourcesServiceWithAuthz) authorizeReleaseBinding(ctx context.Context, namespaceName, releaseBindingName, action string) (*openchoreov1alpha1.ReleaseBinding, error) {
+	rb := &openchoreov1alpha1.ReleaseBinding{}
+	if err := s.k8sClient.Get(ctx, client.ObjectKey{Namespace: namespaceName, Name: releaseBindingName}, rb); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			return ErrReleaseBindingNotFound
+			return nil, ErrReleaseBindingNotFound
 		}
-		return fmt.Errorf("failed to get release binding: %w", err)
+		return nil, fmt.Errorf("failed to get release binding: %w", err)
 	}
 
-	return s.authz.Check(ctx, services.CheckRequest{
+	if err := s.authz.Check(ctx, services.CheckRequest{
 		Action:       action,
 		ResourceType: resourceTypeReleaseBinding,
 		ResourceID:   releaseBindingName,
-		Hierarchy: authz.ResourceHierarchy{
-			Namespace: namespaceName,
-			Project:   rb.Spec.Owner.ProjectName,
-			Component: rb.Spec.Owner.ComponentName,
-		},
-		Context: authz.Context{
-			// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
-			Resource: authz.ResourceAttribute{
-				Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
-				ReleaseLine: rb.Spec.Owner.ReleaseLine,
-			},
-		},
+		Hierarchy:    releaseBindingHierarchy(namespaceName, rb),
+		Context:      releaseBindingAuthzContext(namespaceName, rb),
+	}); err != nil {
+		return nil, err
+	}
+	return rb, nil
+}
+
+// checkOwnerComponentAuthz checks an action on the component that owns the release binding.
+// Pod logs and events need logs:view and events:view on top of releasebinding:view. These are
+// checked on the component, as the observer does for the logs and events it serves, so a role
+// gets the same answer from both. Only logs:view supports environment conditions today;
+// events:view is not in the condition registry, but the environment is still passed so the
+// audit record carries it.
+func (s *k8sResourcesServiceWithAuthz) checkOwnerComponentAuthz(ctx context.Context, namespaceName string, rb *openchoreov1alpha1.ReleaseBinding, action string) error {
+	return s.authz.Check(ctx, services.CheckRequest{
+		Action:       action,
+		ResourceType: resourceTypeComponent,
+		ResourceID:   rb.Spec.Owner.ComponentName,
+		Hierarchy:    releaseBindingHierarchy(namespaceName, rb),
+		Context:      releaseBindingAuthzContext(namespaceName, rb),
 	})
+}
+
+// releaseBindingHierarchy is the ownership hierarchy of a release binding.
+func releaseBindingHierarchy(namespaceName string, rb *openchoreov1alpha1.ReleaseBinding) authz.ResourceHierarchy {
+	return authz.ResourceHierarchy{
+		Namespace: namespaceName,
+		Project:   rb.Spec.Owner.ProjectName,
+		Component: rb.Spec.Owner.ComponentName,
+	}
+}
+
+// releaseBindingAuthzContext carries the ABAC attributes of a release binding.
+func releaseBindingAuthzContext(namespaceName string, rb *openchoreov1alpha1.ReleaseBinding) authz.Context {
+	return authz.Context{
+		// TODO: pass kind discriminator once ReleaseBindingSpec.Environment gains a kind field
+		Resource: authz.ResourceAttribute{
+			Environment: services.FormatDualScopedResourceName(namespaceName, rb.Spec.Environment, false),
+			ReleaseLine: rb.Spec.Owner.ReleaseLine,
+		},
+	}
 }

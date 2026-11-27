@@ -443,7 +443,7 @@ func (t *Toolsets) RegisterGetResourceTree(s *mcp.Server, perms map[string]ToolP
 
 func (t *Toolsets) RegisterGetResourceEvents(s *mcp.Server, perms map[string]ToolPermission) {
 	const name = "get_resource_events"
-	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewReleaseBinding}
+	perms[name] = ToolPermission{ToolName: name, Action: authzcore.ActionViewEvents}
 	mcp.AddTool(s, &mcp.Tool{
 		Name: name,
 		Description: "Get Kubernetes events for a specific rendered resource in a deployment. " +
