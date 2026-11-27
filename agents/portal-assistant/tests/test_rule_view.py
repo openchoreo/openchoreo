@@ -258,6 +258,19 @@ def test_rule_lines_of_a_new_check():
         pytest.param(
             {"all": [{"not": {"fact": "a", "operator": "equal", "value": 1}}]}, id="nested"
         ),
+        pytest.param(
+            {
+                "all": [
+                    {
+                        "fact": "githubTopics",
+                        "path": "$.length",
+                        "operator": "greaterThan",
+                        "value": 0,
+                    }
+                ]
+            },
+            id="a value read through a path",
+        ),
     ],
 )
 def test_rules_that_dont_read_as_all_of_these_have_no_plain_words(rule):

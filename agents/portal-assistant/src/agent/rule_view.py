@@ -141,8 +141,10 @@ def _proposals(message: str) -> dict[int, list[Leaf]] | None:
     return found or None
 
 
-def _flat(rule_json: str | None) -> list[Leaf] | None:
-    """A rule's conditions when it is one flat "all" group (or a single "any")."""
+def flat_conditions(rule_json: str | None) -> list[Leaf] | None:
+    """A rule's conditions when it is one flat "all" group (or a single "any")
+    of plain fact / operator / value conditions; None for any other rule
+    (nested groups, NOT, or a path or params, which a row can't show)."""
     try:
         rule = unwrap(json.loads(rule_json or ""))
     except TypeError, ValueError:
@@ -154,14 +156,20 @@ def _flat(rule_json: str | None) -> list[Leaf] | None:
         return None
     if joiner == "any" and len(group) > 1:
         return None  # rows read as "all of these"
-    if not all(isinstance(c, dict) and {"fact", "operator"} <= set(c) for c in group):
+    if not all(isinstance(c, dict) and set(c) == {"fact", "operator", "value"} for c in group):
         return None
-    return [(c["fact"], c["operator"], c.get("value")) for c in group]
+    return [(c["fact"], c["operator"], c["value"]) for c in group]
+
+
+def same_rules(first: Any, second: Any) -> bool:
+    """Whether two rules are the same, as JSON: True == 1 in Python, but not
+    to the rules engine."""
+    return json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
 
 
 def current_conditions(scope: dict[str, Any]) -> list[Leaf] | None:
     """The saved rule's conditions, or None when they aren't a flat AND / OR."""
-    return _flat(scope.get("current_rule"))
+    return flat_conditions(scope.get("current_rule"))
 
 
 def _fmt(value: Any) -> str:
@@ -253,7 +261,7 @@ def saved_change_view(
     scope: dict[str, Any],
 ) -> ChangeView | None:
     """The change a confirm card saves, read from its signed rules."""
-    current, new = _flat(current_rule), _flat(new_rule)
+    current, new = flat_conditions(current_rule), flat_conditions(new_rule)
     if current is None or new is None:
         return None
     return _view(current, {1: new}, scope, None)
@@ -261,7 +269,7 @@ def saved_change_view(
 
 def rule_lines(rule: str, scope: dict[str, Any]) -> list[tuple[str, str]] | None:
     """A new check's rule as (label, value in words), or None if it can't be shown exactly."""
-    leaves = _flat(rule)
+    leaves = flat_conditions(rule)
     if leaves is None or len({fact for fact, _, _ in leaves}) != len(leaves):
         return None
     labels = fact_labels(scope)

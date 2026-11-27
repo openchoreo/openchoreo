@@ -65,7 +65,7 @@ async def test_no_user_token_keeps_the_read_only_backstage_token(monkeypatch):
     assert await _backstage_auth_for(monkeypatch, "check_authoring", None) is None
 
 
-_CHECK_WRITE_TOOLS = ("create_check", "update_check", "publish_check", "unpublish_check")
+_CHECK_WRITE_TOOLS = ("tech-insights__create-check", "tech-insights__update-check", "tech-insights__publish-check", "tech-insights__unpublish-check")
 
 
 @pytest.mark.parametrize(
@@ -83,22 +83,22 @@ def test_check_writes_never_reach_the_model(scope):
     """Saving is the user's click on the confirm card, run by code. The model
     gets no write tool in check authoring, whoever the tools are bound to:
     the filters below don't look at the token at all. It does get
-    validate_check, which saves nothing, to check every rule it drafts."""
+    validate-check, which saves nothing, to check every rule it drafts."""
     tools = [
         _FakeTool(name=n)
         for n in (
             *_CHECK_WRITE_TOOLS,
-            "validate_check",
-            "dry_run_check",
-            "get_check",
-            "list_checks",
+            "tech-insights__validate-check",
+            "tech-insights__dry-run-check",
+            "tech-insights__get-check",
+            "tech-insights__list-checks",
         )
     ]
 
     kept = {t.name for t in _filter_tools_for_case(tools, scope["case_type"])}
 
     assert not kept & set(_CHECK_WRITE_TOOLS)
-    assert "validate_check" in kept
+    assert "tech-insights__validate-check" in kept
 
 
 def test_check_authoring_keeps_only_backstage_read_tools():
@@ -106,13 +106,13 @@ def test_check_authoring_keeps_only_backstage_read_tools():
         _FakeTool(name=n)
         for n in (
             # Backstage check tools.
-            "list_checks",
-            "get_check",
-            "list_fact_schemas",
-            "get_entity_facts",
-            "dry_run_check",
-            "validate_check",
-            "create_check",
+            "tech-insights__list-checks",
+            "tech-insights__get-check",
+            "tech-insights__list-fact-schemas",
+            "tech-insights__get-entity-facts",
+            "tech-insights__dry-run-check",
+            "tech-insights__validate-check",
+            "tech-insights__create-check",
             # OpenChoreo / observability tools the case doesn't need.
             "list_components",
             "query_component_logs",
@@ -123,12 +123,12 @@ def test_check_authoring_keeps_only_backstage_read_tools():
     filtered = _filter_tools_for_case(tools, "check_authoring")
 
     assert _names(filtered) == [
-        "dry_run_check",
-        "get_check",
-        "get_entity_facts",
-        "list_checks",
-        "list_fact_schemas",
-        "validate_check",
+        "tech-insights__dry-run-check",
+        "tech-insights__get-check",
+        "tech-insights__get-entity-facts",
+        "tech-insights__list-checks",
+        "tech-insights__list-fact-schemas",
+        "tech-insights__validate-check",
     ]
 
 
@@ -137,12 +137,12 @@ def test_other_chats_get_no_backstage_check_tools(case_type):
     tools = [
         _FakeTool(name=n)
         for n in (
-            "list_checks",
-            "get_check",
-            "list_fact_schemas",
-            "get_entity_facts",
-            "dry_run_check",
-            "validate_check",
+            "tech-insights__list-checks",
+            "tech-insights__get-check",
+            "tech-insights__list-fact-schemas",
+            "tech-insights__get-entity-facts",
+            "tech-insights__dry-run-check",
+            "tech-insights__validate-check",
             "list_components",
             "query_component_logs",
         )
@@ -154,7 +154,7 @@ def test_other_chats_get_no_backstage_check_tools(case_type):
 
 
 def test_check_authoring_drops_create_check_as_a_write():
-    filtered = _filter_tools_for_case([_FakeTool(name="create_check")], "check_authoring")
+    filtered = _filter_tools_for_case([_FakeTool(name="tech-insights__create-check")], "check_authoring")
 
     assert filtered == []
 

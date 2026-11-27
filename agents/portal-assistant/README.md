@@ -35,14 +35,9 @@ Check authoring chats use the check tools that Backstage's `mcp-actions` backend
 (see `docs/scoring-compliance/check-authoring-mcp.md` in openchoreo/backstage-plugins).
 
 - `BACKSTAGE_MCP_URL` — e.g. `http://backstage:7007/api/mcp-actions/v1/check-authoring`. Empty turns check authoring's tools off.
-- `PORTAL_ASSISTANT_ACTION_SECRET` — signs confirm cards. Set the same value on every replica;
-  when empty, each process uses its own random secret, so a card only works on the replica that made it.
-  A card can be confirmed once, but the record of used cards is kept in each process: with several
-  replicas sharing the secret, the same card could be confirmed once per replica within its 5 minutes.
-  For an edit that saves the same change again; for a new check it could create a second copy. The chart
-  runs one replica by default; with more, route a user's requests to one replica (sticky sessions).
-- `BACKSTAGE_MCP_TOKEN` — optional static token from Backstage's `backend.auth.externalAccess`, used
-  only when a chat has no token issued for the signed-in user. Backstage treats it as a service, which
-  may read every check and entity's facts, so leave it unset unless you need that fallback.
+- `PORTAL_ASSISTANT_ACTION_SECRET` — signs confirm cards; at least 32 bytes. Set the same value on every
+  replica; when empty, each process uses its own random secret, so a card only works on the replica that made it.
+  A card confirmed again, after a restart or on another replica, saves nothing twice: a new check is
+  saved under the card's id, so a repeat is refused, and an edit is refused once the check changed.
 
-With the Helm chart, set them through `portalAssistant.extraEnvs`, using a `secretKeyRef` for the two secrets.
+With the Helm chart, set them through `portalAssistant.extraEnvs`, using a `secretKeyRef` for the secret.

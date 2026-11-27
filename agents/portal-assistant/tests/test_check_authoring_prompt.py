@@ -26,7 +26,7 @@ def _render(**scope):
     return render(
         "prompts/perch_prompt.j2",
         {
-            "read_tools": ["dry_run_check", "get_check"],
+            "read_tools": ["tech-insights__dry-run-check", "tech-insights__get-check"],
             "rca_tools_available": False,
             "scope": {"case_type": "check_authoring", **scope},
         },
@@ -136,10 +136,10 @@ def test_new_check_has_no_confirmation_step():
 
 def test_editing_shows_the_saved_rule_and_never_loads_it():
     # An edit always carries its saved rule (ChatScope rejects one without):
-    # the model never loads it with get_check.
+    # the model never loads it with tech-insights__get-check.
     prompt = _render(check_id="abc-123", check_name="Repo must be public", current_rule=_RULE)
     assert f"- Current rule (its `conditions` object): `{_RULE}`" in prompt
-    assert "call `get_check` once with id `abc-123`" not in prompt
+    assert "call `tech-insights__get-check` once with id `abc-123`" not in prompt
 
 
 def test_editing_step1_options_are_real_alternatives():
@@ -287,11 +287,11 @@ def test_new_checks_are_validated_before_they_are_shown():
     )
 
     assert "### Validate every rule" in prompt
-    assert "call `validate_check` with `factIds`" in prompt
+    assert "call `tech-insights__validate-check` with `factIds`" in prompt
     assert "`githubRepositoryFactRetriever` unless you chose another one" in prompt
     assert "After 3 attempts" in prompt
     assert "validate it (see above), and reply" in prompt
-    assert "Did `validate_check` return `valid: true` for the rule in the reply" in prompt
+    assert "Did `tech-insights__validate-check` return `valid: true` for the rule in the reply" in prompt
 
 
 def test_edits_validate_the_edited_rule_but_not_the_step1_question():
@@ -305,7 +305,7 @@ def test_edits_validate_the_edited_rule_but_not_the_step1_question():
     assert "### Validate every rule" in prompt
     assert "validate the edited rule first" in prompt
     assert "Don't validate the Step 1 confirmation question" in prompt
-    assert "Did `validate_check` return `valid: true` for the rule I show" in prompt
+    assert "Did `tech-insights__validate-check` return `valid: true` for the rule I show" in prompt
 
 
 # ── P1: what validation and code now cover is not repeated in the prompt ─
@@ -315,7 +315,7 @@ def test_no_common_mistakes_list_and_a_short_grammar():
     prompt = _render(available_fact_retrievers=_RETRIEVERS)
 
     assert "### Common mistakes to avoid" not in prompt
-    assert "`validate_check` reports any shape, operator or fact problem with its path" in prompt
+    assert "`tech-insights__validate-check` reports any shape, operator or fact problem with its path" in prompt
     # The one rule the validator can't catch stays.
     assert "never `notEqual` leaves stacked under `all`" in prompt
 
@@ -541,11 +541,11 @@ def test_a_rule_has_only_the_conditions_the_user_asked_for():
 @pytest.mark.parametrize(
     ("scope", "line"),
     [
-        ({}, "Suggested Fact Retriever: <the `id` of the `list_fact_schemas` schema"),
+        ({}, "Suggested Fact Retriever: <the `id` of the `tech-insights__list-fact-schemas` schema"),
         (
             {"selected_fact_ids": ["r"]},
             "Fact Retriever: <the selected retriever id, verbatim> — or, if a different "
-            "retriever from `list_fact_schemas`",
+            "retriever from `tech-insights__list-fact-schemas`",
         ),
         (
             {"available_fact_retrievers": _RETRIEVERS},
@@ -567,6 +567,6 @@ def test_the_check_tools_retry_limits_replace_the_core_budget():
     prompt = _render(available_fact_retrievers=_RETRIEVERS)
     assert "Never the same tool 3× per turn" in prompt
     assert (
-        "For `validate_check` and `dry_run_check`, these limits (3 attempts each) replace the "
+        "For `tech-insights__validate-check` and `tech-insights__dry-run-check`, these limits (3 attempts each) replace the "
         '"never the same tool 3× per turn" budget above'
     ) in prompt

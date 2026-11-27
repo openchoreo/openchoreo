@@ -4,6 +4,7 @@
 """Tests for the confirm card built after an edit's Step 2."""
 
 import json
+import uuid
 
 import pytest
 from langchain_core.messages import ToolMessage
@@ -20,6 +21,11 @@ from src.agent.pending_actions import consume
 from src.agent.stream_events import emit
 from src.clients import mcp as mcp_module
 from src.clients.mcp import BackstageToolError, call_backstage_tool
+
+
+def _evaluated(values):
+    """A dry-run's conditions as Backstage returns them: each fact's value as factResult."""
+    return {"all": [{"fact": fact, "factResult": value} for fact, value in values.items()]}
 
 _SAVED_RULE = {
     "all": [
@@ -49,7 +55,7 @@ _STEP2 = (
 )
 
 
-# What list_fact_schemas returns: each retriever's id and its facts.
+# What list-fact-schemas returns: each retriever's id and its facts.
 _SCHEMAS = [
     {
         "id": "githubRepositoryFactRetriever",
@@ -76,7 +82,7 @@ def _backstage(monkeypatch):
 
     async def fake_tools(auth):
         state["auth"] = auth
-        return {"get_check": object(), "validate_check": object()}
+        return {"tech-insights__get-check": object(), "tech-insights__validate-check": object()}
 
     async def fake_call(_tools, name, args):
         state["calls"].append((name, args))
@@ -84,7 +90,7 @@ def _backstage(monkeypatch):
             raise BackstageToolError(
                 "You don't have the tech-insights.dynamic-check.manage permission."
             )
-        if name == "get_check":
+        if name == "tech-insights__get-check":
             return {
                 "check": {
                     "id": "c1",
@@ -95,7 +101,7 @@ def _backstage(monkeypatch):
                     "rule": {"conditions": _SAVED_RULE},
                 }
             }
-        if name == "list_fact_schemas":
+        if name == "tech-insights__list-fact-schemas":
             return {"schemas": _SCHEMAS}
         return {"valid": not state["problems"], "problems": state["problems"]}
 
@@ -110,7 +116,7 @@ async def _card(message=_STEP2, scope=_SCOPE, token="issued-for-user", user_sub=
 
 async def test_text_changes_compare_with_the_check_as_saved_now(_backstage):
     # Someone renamed the check after the drawer opened: the card shows what
-    # the save changes, from the check get_check returned.
+    # the save changes, from the check get-check returned.
     scope = {**_SCOPE, "check_name": "The name when the drawer opened"}
 
     card = await _card(scope=scope)
@@ -152,7 +158,7 @@ async def test_the_token_carries_exactly_the_change_on_the_card():
             "name": _SCOPE["check_name"],
             "description": _SCOPE["check_description"],
             "factIds": ["githubRepositoryFactRetriever"],
-            "rule": {"conditions": json.dumps(_NEW_RULE, separators=(",", ":"))},
+            "rule": {"conditions": _NEW_RULE},
         },
         "texts": {"name": "Default branch protection with 2 approvals"},
         # The check as the card saw it, for the save to compare.
@@ -168,9 +174,9 @@ async def test_the_token_carries_exactly_the_change_on_the_card():
 async def test_validates_the_new_rule_with_the_saved_retrievers(_backstage):
     await _card()
 
-    name, args = next(c for c in _backstage["calls"] if c[0] == "validate_check")
+    name, args = next(c for c in _backstage["calls"] if c[0] == "tech-insights__validate-check")
     assert args["factIds"] == ["githubRepositoryFactRetriever"]
-    assert json.loads(args["rule"]["conditions"]) == _NEW_RULE
+    assert args["rule"]["conditions"] == _NEW_RULE
 
 
 async def test_a_rule_with_problems_is_marked_invalid(_backstage):
@@ -219,7 +225,7 @@ async def test_no_card(_backstage, message, scope, token, user_sub):
     assert _backstage["calls"] == []
 
 
-@pytest.mark.parametrize("failing", ["get_check", "validate_check"])
+@pytest.mark.parametrize("failing", ["tech-insights__get-check", "tech-insights__validate-check"])
 async def test_no_card_when_backstage_refuses(_backstage, failing):
     _backstage["fail"] = failing
 
@@ -257,7 +263,7 @@ async def test_builds_a_signed_card_for_a_new_check(_backstage):
     assert "check_id" not in card and "status" not in card
     assert json.loads(emit(card))["kind"] == "create"
     # Only validated: nothing to read for a check that doesn't exist yet.
-    assert [name for name, _ in _backstage["calls"]] == ["list_fact_schemas", "validate_check"]
+    assert [name for name, _ in _backstage["calls"]] == ["tech-insights__list-fact-schemas", "tech-insights__validate-check"]
 
 
 async def test_new_check_card_shows_the_kinds_validate_check_returns(monkeypatch):
@@ -275,13 +281,16 @@ async def test_new_check_card_shows_the_kinds_validate_check_returns(monkeypatch
 async def test_the_new_check_token_carries_the_check_and_its_metadata():
     card = await _card(_NEW_REPLY, _NEW_SCOPE)
 
-    assert consume(card["token"], "user-a") == {
+    action = consume(card["token"], "user-a")
+    # A new id per card: confirming the card again can't save a second check.
+    assert uuid.UUID(action.pop("check_id"))
+    assert action == {
         "kind": "create",
         "check": {
             "name": "Repo not archived",
             "description": "Fails if the component's GitHub repository has been archived",
             "factIds": ["githubRepositoryFactRetriever"],
-            "rule": {"conditions": json.dumps(_ARCHIVED, separators=(",", ":"))},
+            "rule": {"conditions": _ARCHIVED},
         },
         "metadata": {"category": "Reliability", "rank": 1},
     }
@@ -336,7 +345,7 @@ async def test_no_new_check_card_without_a_retriever(_backstage):
 
 async def test_no_new_check_card_for_a_rule_that_tests_no_fact(_backstage):
     """Asked for the full list of facts, the model wrote a check named "All
-    available facts" with an empty rule; validate_check passed it, so the
+    available facts" with an empty rule; validate-check passed it, so the
     card offered to save it."""
     reply = _NEW_REPLY.replace(
         json.dumps({"conditions": _ARCHIVED}, indent=2),
@@ -363,7 +372,7 @@ async def test_a_not_rule_still_gets_a_card(_backstage):
 
 
 async def test_no_new_check_card_when_validation_is_refused(_backstage):
-    _backstage["fail"] = "validate_check"
+    _backstage["fail"] = "tech-insights__validate-check"
 
     assert await _card(_NEW_REPLY, _NEW_SCOPE) is None
 
@@ -390,7 +399,7 @@ async def test_call_returns_the_structured_output():
         )
     )
 
-    output = await call_backstage_tool({"validate_check": tool}, "validate_check", {"a": 1})
+    output = await call_backstage_tool({"tech-insights__validate-check": tool}, "tech-insights__validate-check", {"a": 1})
 
     assert output == {"valid": True, "problems": []}
     assert tool.called_with["args"] == {"a": 1}
@@ -399,7 +408,7 @@ async def test_call_returns_the_structured_output():
 async def test_call_falls_back_to_the_text_output():
     tool = _Tool(ToolMessage(content='{"check": {"id": "c1"}}', tool_call_id="x"))
 
-    assert await call_backstage_tool({"get_check": tool}, "get_check", {}) == {
+    assert await call_backstage_tool({"tech-insights__get-check": tool}, "tech-insights__get-check", {}) == {
         "check": {"id": "c1"}
     }
 
@@ -407,19 +416,19 @@ async def test_call_falls_back_to_the_text_output():
 async def test_call_raises_backstages_message_on_an_error():
     tool = _Tool(
         ToolMessage(
-            content=[{"type": "text", "text": 'No check with id "nope"; use list_checks.'}],
+            content=[{"type": "text", "text": 'No check with id "nope"; use list-checks.'}],
             tool_call_id="x",
             status="error",
         )
     )
 
-    with pytest.raises(BackstageToolError, match="use list_checks"):
-        await call_backstage_tool({"get_check": tool}, "get_check", {"id": "nope"})
+    with pytest.raises(BackstageToolError, match="use list-checks"):
+        await call_backstage_tool({"tech-insights__get-check": tool}, "tech-insights__get-check", {"id": "nope"})
 
 
 async def test_call_raises_when_the_tool_is_missing():
     with pytest.raises(BackstageToolError, match="isn't available"):
-        await call_backstage_tool({}, "validate_check", {})
+        await call_backstage_tool({}, "tech-insights__validate-check", {})
 
 
 async def test_backstage_tools_are_listed_with_the_users_token(monkeypatch):
@@ -430,14 +439,14 @@ async def test_backstage_tools_are_listed_with_the_users_token(monkeypatch):
             seen.update(auth=auth, backstage_auth=backstage_auth, backstage=backstage)
 
         async def get_tools(self):
-            return [type("T", (), {"name": "get_check"})()]
+            return [type("T", (), {"name": "tech-insights__get-check"})()]
 
     monkeypatch.setattr(mcp_module, "MCPClient", _FakeClient)
     auth = object()
 
     tools = await mcp_module.backstage_tools_as_user(auth)
 
-    assert list(tools) == ["get_check"]
+    assert list(tools) == ["tech-insights__get-check"]
     assert seen == {"auth": auth, "backstage_auth": auth, "backstage": "only"}
 
 
@@ -540,9 +549,9 @@ async def test_a_plain_save_request_gets_the_card_from_the_previous_reply(_backs
     assert card["kind"] == "update"
     assert json.loads(card["new_rule"]) == _NEW_RULE
     assert [name for name, _ in _backstage["calls"]] == [
-        "get_check",
-        "list_fact_schemas",
-        "validate_check",
+        "tech-insights__get-check",
+        "tech-insights__list-fact-schemas",
+        "tech-insights__validate-check",
     ]
     # Asked to save: the card offers the save buttons, not the test first.
     assert card["test_skipped"] is True
@@ -961,11 +970,11 @@ def test_the_check_to_test_is_the_unsaved_rule_or_else_the_saved_one():
         "name": "Repo not archived",
         "description": "Fails if the repo is archived",
         "factIds": ["githubRepositoryFactRetriever"],
-        "rule": {"conditions": json.dumps(_ARCHIVED, separators=(",", ":"))},
+        "rule": {"conditions": _ARCHIVED},
     }
     # An edit that isn't saved yet: the saved check with the edited rule.
     assert check_to_test(edited, _EDIT_TEST_SCOPE)["rule"] == {
-        "conditions": json.dumps(private, separators=(",", ":")),
+        "conditions": private,
     }
     # A new check's draft: its own fields.
     drafted = check_to_test(_NEW_REPLY, _NEW_SCOPE)
@@ -1108,7 +1117,7 @@ async def test_an_edit_that_needs_another_retriever_gets_it(_backstage):
 
     card = await _card(_edit_reply(rule))
 
-    validate = next(args for name, args in _backstage["calls"] if name == "validate_check")
+    validate = next(args for name, args in _backstage["calls"] if name == "tech-insights__validate-check")
     assert validate["factIds"] == _BOTH
     assert card["fact_ids"] == _BOTH
     assert consume(card["token"], "user-a")["check"]["factIds"] == _BOTH
@@ -1142,9 +1151,9 @@ async def test_a_new_check_gets_every_retriever_its_rule_needs(_backstage):
 
 
 async def test_without_the_fact_list_the_card_keeps_the_saved_retrievers(_backstage):
-    # list_fact_schemas failing must not lose the card: Backstage's validator
+    # list-fact-schemas failing must not lose the card: Backstage's validator
     # still says what's missing, as before.
-    _backstage["fail"] = "list_fact_schemas"
+    _backstage["fail"] = "tech-insights__list-fact-schemas"
     rule = {"all": [*_SAVED_RULE["all"], _CODE_SCANNING]}
 
     card = await _card(_edit_reply(rule))
@@ -1170,7 +1179,7 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
 
     async def _dry_run(_tools, name, args):
         sent[name] = args
-        return {"status": "passed", "factValues": {}}
+        return {"status": "passed", "conditions": _evaluated({})}
 
     async def _no_card(*_args, **_kwargs):
         return None
@@ -1183,7 +1192,7 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
         "name": "n",
         "description": "",
         "factIds": ["githubRepositoryFactRetriever"],
-        "rule": {"conditions": json.dumps(rule)},
+        "rule": {"conditions": rule},
     }
 
     _ = [
@@ -1199,7 +1208,7 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
         )
     ]
 
-    assert sent["dry_run_check"]["check"]["factIds"] == _BOTH
+    assert sent["tech-insights__dry-run-check"]["check"]["factIds"] == _BOTH
 
 
 async def test_an_edit_card_signs_the_saved_rule_it_was_built_from(_backstage):

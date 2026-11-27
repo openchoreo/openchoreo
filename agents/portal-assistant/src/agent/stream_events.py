@@ -164,7 +164,7 @@ class DryRunSection(_StreamEventBase):
 
 
 class DryRunResultEvent(_StreamEventBase):
-    """A dry_run_check result, sent as soon as it comes back so the drawer
+    """A dry-run-check result, sent as soon as it comes back so the drawer
     can show it while the reply is still being written. The words are the
     ones its test card shows at the end (``src/agent/a2ui.py``): ``title``
     is the component, ``subtitle`` its kind, and ``sections`` what the rule

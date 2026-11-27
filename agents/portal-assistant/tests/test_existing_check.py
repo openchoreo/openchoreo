@@ -65,7 +65,7 @@ def backstage(monkeypatch):
     state = {"checks": [], "calls": [], "fail": None}
 
     async def fake_tools(_auth):
-        return {"list_checks": object(), "get_check": object()}
+        return {"tech-insights__list-checks": object(), "tech-insights__get-check": object()}
 
     async def fake_call(_tools, name, args):
         state["calls"].append((name, args))
@@ -73,7 +73,7 @@ def backstage(monkeypatch):
             raise BackstageToolError(
                 "You don't have the tech-insights.dynamic-check.read permission."
             )
-        if name == "list_checks":
+        if name == "tech-insights__list-checks":
             return {
                 "checks": [{k: v for k, v in c.items() if k != "rule"} for c in state["checks"]]
             }
@@ -149,7 +149,7 @@ async def test_checks_on_other_facts_or_retrievers_are_not_matches(backstage):
 
     assert await _find() is None
     # A check on another retriever, with another name, isn't even read.
-    assert ("get_check", {"id": "other-retriever"}) not in backstage["calls"]
+    assert ("tech-insights__get-check", {"id": "other-retriever"}) not in backstage["calls"]
 
 
 async def test_a_check_the_user_chose_not_to_edit_is_left_out(backstage):
@@ -169,7 +169,7 @@ async def test_a_check_the_user_chose_not_to_edit_is_left_out(backstage):
 
 
 async def test_no_lookup_when_backstage_refuses(backstage):
-    backstage["fail"] = "list_checks"
+    backstage["fail"] = "tech-insights__list-checks"
 
     assert await _find() is None
 
@@ -181,10 +181,10 @@ async def test_a_check_that_cant_be_read_is_skipped(backstage, monkeypatch):
     ]
 
     async def fake_call(_tools, name, args):
-        if name == "list_checks":
+        if name == "tech-insights__list-checks":
             return {"checks": backstage["checks"]}
         if args["id"] == "gone":
-            raise BackstageToolError('No check with id "gone"; use list_checks.')
+            raise BackstageToolError('No check with id "gone"; use list-checks.')
         return {"check": backstage["checks"][1]}
 
     monkeypatch.setattr(existing_check, "call_backstage_tool", fake_call)

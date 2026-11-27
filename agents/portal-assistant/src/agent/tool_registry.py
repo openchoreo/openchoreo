@@ -5,6 +5,8 @@ import logging
 
 from langchain_core.tools import BaseTool
 
+from src.clients import backstage_tools
+
 logger = logging.getLogger(__name__)
 
 # Verbs at the start of a tool name that strongly signal a mutating operation.
@@ -36,14 +38,17 @@ READ_OVERRIDES: frozenset[str] = frozenset(
     {
         "get_component_type_creation_schema",
         "get_trait_creation_schema",
-        # Backstage check-authoring tool: runs an unsaved check against one
-        # entity and saves nothing (it is evaluated in memory).
-        "dry_run_check",
-        # Backstage check-authoring tool: reports what stops a rule from
-        # being evaluated (the dynamic-checks validator); saves nothing.
-        "validate_check",
+        # Backstage's check-authoring tools that only read, by their exact
+        # namespaced names: dry-run and validate evaluate an unsaved rule in
+        # memory and save nothing.
+        *backstage_tools.READ_TOOLS,
     }
 )
+
+# Tools that write whatever their name or description says: Backstage's
+# check-authoring saves (create, update, publish, unpublish), by their exact
+# namespaced names. Only the confirm endpoint runs them, as the user.
+WRITE_OVERRIDES: frozenset[str] = backstage_tools.WRITE_TOOLS
 
 # Description-keyword fallback for tools whose names don't match the prefix
 # patterns. Verbs are normalised to their third-person forms because tool
@@ -68,7 +73,7 @@ def is_mutating(tool: BaseTool) -> bool:
     servers — including third-party MCPs we adopt later that won't carry an
     OpenChoreo-specific server-side flag. The decision is:
 
-      1. Explicit READ_OVERRIDES win (returns False).
+      1. Explicit WRITE_OVERRIDES, then READ_OVERRIDES, win.
       2. Name prefix or substring matches a write verb → True.
       3. Name prefix matches a read verb → False. **This runs before the
          description-keyword fallback** because a description like
@@ -88,6 +93,9 @@ def is_mutating(tool: BaseTool) -> bool:
     yet support dry-run, in which case it returns the typed error rather than
     silently executing.
     """
+    if tool.name in WRITE_OVERRIDES:
+        return True
+
     if tool.name in READ_OVERRIDES:
         return False
 

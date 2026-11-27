@@ -696,7 +696,7 @@ def dry_run_note(run: DryRun, scope: dict[str, Any], *, example: bool = False) -
 
 
 def dry_run_card_surface(run: DryRun, scope: dict[str, Any]) -> dict[str, Any]:
-    """A dry-run's result as a card, built from dry_run_check's own call and
+    """A dry-run's result as a card, built from dry-run-check's own call and
     result: the component, passed / failed / doesn't apply, what the rule
     needs and what the component has, in plain words."""
     name, kind, summary, parts = _test_words(run, scope)

@@ -38,7 +38,7 @@ from src.agent.middleware import (
     WriteGuardMiddleware,
 )
 from src.agent.tool_registry import is_mutating
-from src.clients import get_model, get_tools_for_user
+from src.clients import backstage_tools, get_model, get_tools_for_user
 from src.config import settings
 from src.models import ChatResponse, CheckAuthoringResponse
 from src.templates import render
@@ -181,18 +181,11 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "get_resource_logs",
     },
     # check_authoring uses only the read-only check tools served by
-    # Backstage's mcp-actions backend (the "backstage" MCP server); no
-    # OpenChoreo tool is needed. The write tools (create / update / publish
-    # / unpublish_check) are dropped by the read-only layer of
-    # _filter_tools_for_case regardless of this list.
-    "check_authoring": {
-        "list_checks",
-        "get_check",
-        "list_fact_schemas",
-        "get_entity_facts",
-        "dry_run_check",
-        "validate_check",
-    },
+    # Backstage's mcp-actions backend (the "backstage" MCP server), by their
+    # exact namespaced names; no OpenChoreo tool is needed. The write tools
+    # (create / update / publish / unpublish-check) are dropped by the
+    # read-only layer of _filter_tools_for_case regardless of this list.
+    "check_authoring": set(backstage_tools.READ_TOOLS),
 }
 
 
@@ -267,7 +260,8 @@ def _describe_conditions(node: Any) -> str:
             if isinstance(node.get("value"), str):
                 value = node["value"]
             return f"`{node['fact']}` `{node.get('operator', '?')}` `{value}`"
-        for key, joiner in (("all", " AND "), ("any", " OR ")):
+        # "any" first: with both at the root, the engine reads only "any".
+        for key, joiner in (("any", " OR "), ("all", " AND ")):
             if isinstance(node.get(key), list):
                 parts = [_describe_conditions(c) for c in node[key]]
                 parts = [f"({p})" if (" AND " in p or " OR " in p) else p for p in parts]
@@ -366,9 +360,10 @@ async def _build_agent(
         user_sub, BearerTokenAuth(token), backstage_auth,
     )
     if case_type == "check_authoring" and scope.get("check_id"):
-        # Shows which check an edit chat targets and the rule it received,
-        # so a wrong "Current rule" can be traced to the input or the model.
-        logger.info(
+        # Which check an edit chat targets; the rule it received only at
+        # debug, so a wrong "Current rule" can still be traced.
+        logger.info("Editing check %s", scope.get("check_id"))
+        logger.debug(
             "Editing check %s; current_rule=%r",
             scope.get("check_id"),
             (scope.get("current_rule") or "<missing>")[:300],
@@ -405,12 +400,12 @@ async def _build_agent(
         ToolErrorHandlerMiddleware(),
     ]
     if case_type == "check_authoring":
-        # Outermost, so it sees dry_run_check's real result rather than a
+        # Outermost, so it sees dry-run-check's real result rather than a
         # LoopGuard short-circuit. Once a dry-run has answered, it takes the
         # tools away so the model must reply instead of looping. On an edit
         # message the user hasn't approved it gives no tools at all, so the
         # reply is the Step 1 confirmation (and none for one that asks for
-        # ideas); on one that only asks for a test, only dry_run_check.
+        # ideas); on one that only asks for a test, only dry-run-check.
         middleware.insert(0, DryRunStopMiddleware(
             tools_allowed=edit_phase not in ("propose", "discuss", "welcome"),
             dry_run_only=edit_phase == "test",
@@ -458,7 +453,14 @@ async def _build_agent(
     # A breached limit raises GraphRecursionError, which the outer error
     # handler in ``stream_chat`` translates into a recovery_with_fallback
     # reply (tool-less model call returning a generic answer).
-    if settings.portal_assistant_recursion_limit > 0:
+    if case_type == "check_authoring":
+        # Its tool loop needs more steps than the chart's global limit (15),
+        # which is sized for the other cases: never less than its own.
+        recursion_limit = max(
+            settings.portal_assistant_recursion_limit,
+            _RECURSION_LIMIT_FOR_CASE["check_authoring"],
+        )
+    elif settings.portal_assistant_recursion_limit > 0:
         recursion_limit = settings.portal_assistant_recursion_limit
     else:
         recursion_limit = _RECURSION_LIMIT_FOR_CASE.get(

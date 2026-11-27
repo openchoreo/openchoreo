@@ -80,19 +80,19 @@ def test_creation_schema_override_is_read():
 
 
 def test_backstage_check_tools_classification():
-    # dry_run_check has no read prefix, so without its READ_OVERRIDES
+    # dry-run-check has no read prefix, so without its READ_OVERRIDES
     # entry it would default to mutating and be dropped from the catalog.
-    # validate_check likewise only reports problems and saves nothing.
-    for name in ("list_checks", "get_check", "list_fact_schemas",
-                 "get_entity_facts", "dry_run_check", "validate_check"):
+    # validate-check likewise only reports problems and saves nothing.
+    for name in ("tech-insights__list-checks", "tech-insights__get-check", "tech-insights__list-fact-schemas",
+                 "tech-insights__get-entity-facts", "tech-insights__dry-run-check", "tech-insights__validate-check"):
         assert not is_mutating(_FakeTool(name=name)), name
-    assert is_mutating(_FakeTool(name="create_check"))
-    assert is_mutating(_FakeTool(name="update_check"))
+    assert is_mutating(_FakeTool(name="tech-insights__create-check"))
+    assert is_mutating(_FakeTool(name="tech-insights__update-check"))
     assert is_mutating(_FakeTool(name="delete_check"))
     # Saved only by the confirm endpoint after the user's click, never by
     # the model: they must stay classified as writes.
-    assert is_mutating(_FakeTool(name="publish_check"))
-    assert is_mutating(_FakeTool(name="unpublish_check"))
+    assert is_mutating(_FakeTool(name="tech-insights__publish-check"))
+    assert is_mutating(_FakeTool(name="tech-insights__unpublish-check"))
 
 
 def test_unknown_name_with_write_keyword_in_description():

@@ -21,11 +21,14 @@ import contextlib
 import json
 import logging
 import re
+import uuid
 from typing import Any
 
 from common.auth.bearer import BearerTokenAuth
 from src.agent.check_reply import RULE_FENCE_RE, clean, parse_suggestions, unwrap
 from src.agent.pending_actions import sign
+from src.agent.rule_view import same_rules
+from src.clients.backstage_tools import GET_CHECK, LIST_FACT_SCHEMAS, VALIDATE_CHECK
 from src.clients.mcp import backstage_tools_as_user, call_backstage_tool
 
 logger = logging.getLogger(__name__)
@@ -73,7 +76,7 @@ def rule_fix_note(problems: list[str]) -> str:
     """Asks the model to fix the problems the validator found in its rule."""
     return "\n".join(
         [
-            "[Automatic check — not written by the user] validate_check found problems in the "
+            f"[Automatic check — not written by the user] {VALIDATE_CHECK} found problems in the "
             "rule you wrote:",
             *(f"- {problem}" for problem in problems),
             "Fix exactly those conditions — keep the rule's meaning — and write your reply "
@@ -91,7 +94,8 @@ def _edited_rule(message: str) -> Any | None:
         rule = unwrap(json.loads(fence.group(1)))
     except ValueError:
         return None
-    if not isinstance(rule, dict) or not {"all", "any", "not"} & set(rule):
+    # Exactly one root: with both "all" and "any" the engine reads only "any".
+    if not isinstance(rule, dict) or len(rule) != 1 or next(iter(rule)) not in ("all", "any", "not"):
         return None
     return rule
 
@@ -102,20 +106,22 @@ def is_saved_rule(message: str, scope: dict[str, Any] | None) -> bool:
     if not saved:
         return False
     try:
-        return _edited_rule(message) == unwrap(json.loads(saved))
+        saved_rule = unwrap(json.loads(saved))
     except ValueError:
         return False
+    rule = _edited_rule(message)
+    return rule is not None and same_rules(rule, saved_rule)
 
 
 def same_rule(first: str, second: str) -> bool:
     """Whether two replies show the same rule (both have one)."""
     rule = _edited_rule(first)
-    return rule is not None and rule == _edited_rule(second)
+    return rule is not None and same_rules(rule, _edited_rule(second))
 
 
 def check_baseline(check: dict[str, Any]) -> dict[str, Any]:
     """A saved check's rule, retrievers, name and description, as an edit
-    card signs them: update_check sends all four, so the save compares them
+    card signs them: update-check sends all four, so the save compares them
     with the check then and never replaces a change someone made after the
     card (see confirm_actions)."""
     conditions = unwrap(check.get("rule"))
@@ -132,11 +138,10 @@ def check_baseline(check: dict[str, Any]) -> dict[str, Any]:
 
 def same_baseline(now: dict[str, Any], signed: dict[str, Any]) -> bool:
     """Whether the check ``now`` is still the one the card signed, whatever
-    the retrievers' order. A card signed before the texts were in its
-    baseline compares the rule and retrievers only."""
+    the retrievers' order."""
     same_retrievers = sorted(now["factIds"]) == sorted(signed["factIds"])
-    same_texts = all(now[key] == signed[key] for key in ("name", "description") if key in signed)
-    return now["rule"] == signed["rule"] and same_retrievers and same_texts
+    same_texts = all(now[key] == signed[key] for key in ("name", "description"))
+    return same_rules(now["rule"], signed["rule"]) and same_retrievers and same_texts
 
 
 def _has_condition(rule: Any) -> bool:
@@ -165,7 +170,7 @@ def _rule_facts(rule: Any) -> list[str]:
     return list(dict.fromkeys(facts))
 
 
-# Keys of a list_fact_schemas schema that aren't facts.
+# Keys of a list-fact-schemas schema that aren't facts.
 _SCHEMA_KEYS = {"id", "version", "entityFilter"}
 
 
@@ -179,7 +184,7 @@ async def fact_ids_for_rule(tools: Any, rule: Any, fact_ids: list[str]) -> list[
     if not facts:
         return list(fact_ids)
     try:
-        output = await call_backstage_tool(tools, "list_fact_schemas", {"ids": []})
+        output = await call_backstage_tool(tools, LIST_FACT_SCHEMAS, {"ids": []})
     except Exception as exc:  # noqa: BLE001 — the validator says what's missing
         logger.warning("Fact schemas unavailable; keeping retrievers %s: %s", fact_ids, exc)
         return list(fact_ids)
@@ -201,7 +206,7 @@ async def fact_ids_for_rule(tools: Any, rule: Any, fact_ids: list[str]) -> list[
 def _text_changes(message: str, check: dict[str, Any]) -> list[dict[str, Any]]:
     """The suggested text changes after the rule, with the saved text as old.
 
-    ``check`` is the check as get_check returned it, not the drawer's copy:
+    ``check`` is the check as get-check returned it, not the drawer's copy:
     the card must show what the save changes, also when someone else
     renamed the check since the drawer opened."""
     fence = RULE_FENCE_RE.search(message)
@@ -250,7 +255,7 @@ def with_example_description(message: str) -> str:
 
 
 def check_to_test(reply: str | None, scope: dict[str, Any]) -> dict[str, Any] | None:
-    """dry_run_check's ``check`` for a test: the rule in ``reply`` (a drafted
+    """dry-run-check's ``check`` for a test: the rule in ``reply`` (a drafted
     check or an edited rule that isn't saved yet), or else (``reply`` None)
     the saved check in the scope. None when it can't be read, e.g. a draft
     without a retriever."""
@@ -277,7 +282,7 @@ def check_to_test(reply: str | None, scope: dict[str, Any]) -> dict[str, Any] | 
         "name": fields["name"],
         "description": fields["description"],
         "factIds": fields["fact_ids"],
-        "rule": {"conditions": json.dumps(rule, separators=(",", ":"))},
+        "rule": {"conditions": rule},
     }
 
 
@@ -411,13 +416,13 @@ async def _new_check_card(
     if fields is None:
         logger.info("No confirm card for the new check: no name or fact retriever in the reply")
         return None
-    conditions = json.dumps(rule, separators=(",", ":"))
+    conditions = rule
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
         fact_ids = await fact_ids_for_rule(tools, rule, fields["fact_ids"])
         validation = await call_backstage_tool(
             tools,
-            "validate_check",
+            VALIDATE_CHECK,
             {"factIds": fact_ids, "rule": {"conditions": conditions}},
         )
     except Exception as exc:  # noqa: BLE001 — no card; the reply still arrives
@@ -431,7 +436,10 @@ async def _new_check_card(
         metadata["rank"] = _TIER_RANK[fields["tier"].lower()]
     action = {
         "kind": "create",
-        # create_check's input; category and tier go to the check's metadata.
+        # The new check's id: a card confirmed again, after a restart or on
+        # another replica, is refused instead of saving a second check.
+        "check_id": str(uuid.uuid4()),
+        # create-check's input; category and tier go to the check's metadata.
         "check": {
             "name": fields["name"],
             "description": fields["description"],
@@ -443,7 +451,8 @@ async def _new_check_card(
     logger.info("Confirm card for a new check: valid=%s", validation["valid"])
     return {
         "type": "confirmation_required",
-        "token": sign(action, user_sub),
+        # Only a valid rule can be saved, so only its card is signed.
+        "token": sign(action, user_sub) if validation["valid"] else "",
         "kind": "create",
         "check_name": fields["name"],
         "description": fields["description"],
@@ -467,13 +476,13 @@ async def _edit_card(
     check_id = scope["check_id"]
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
-        saved = (await call_backstage_tool(tools, "get_check", {"id": check_id}))["check"]
-        conditions = json.dumps(rule, separators=(",", ":"))
+        saved = (await call_backstage_tool(tools, GET_CHECK, {"id": check_id}))["check"]
+        conditions = rule
         # The saved retrievers, and any the edited rule's new facts need.
         fact_ids = await fact_ids_for_rule(tools, rule, saved["factIds"])
         validation = await call_backstage_tool(
             tools,
-            "validate_check",
+            VALIDATE_CHECK,
             {"factIds": fact_ids, "rule": {"conditions": conditions}},
         )
     except Exception as exc:  # noqa: BLE001 — no card; the reply still arrives
@@ -485,7 +494,7 @@ async def _edit_card(
         "kind": "update",
         "check_id": check_id,
         "status": saved["status"],
-        # update_check's input as saved, with the rule changed (and the
+        # update-check's input as saved, with the rule changed (and the
         # retrievers its facts need); the user chooses on the card whether
         # the texts below are applied.
         "check": {
@@ -506,7 +515,8 @@ async def _edit_card(
     )
     return {
         "type": "confirmation_required",
-        "token": sign(action, user_sub),
+        # Only a valid rule can be saved, so only its card is signed.
+        "token": sign(action, user_sub) if validation["valid"] else "",
         "kind": "update",
         "check_id": check_id,
         "check_name": saved["name"],

@@ -12,7 +12,7 @@ import httpx
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient, StreamableHttpConnection
 
-from common.auth.bearer import BearerTokenAuth
+from src.clients.backstage_tools import agent_name
 from src.config import settings
 from src.logging_config import request_id_context
 
@@ -147,16 +147,9 @@ class MCPClient:
         # configured. Exposes the check-authoring tools used by the
         # check_authoring case. Backstage doesn't accept OpenChoreo tokens,
         # so it gets ``backstage_auth`` — a token Backstage issued on the
-        # signed-in user's behalf — or else the static BACKSTAGE_MCP_TOKEN,
-        # with which the check tools are read-only.
-        if backstage_auth is None and settings.backstage_mcp_token.strip():
-            backstage_auth = BearerTokenAuth(settings.backstage_mcp_token)
-        if settings.backstage_mcp_url and backstage_auth is None:
-            logger.warning(
-                "BACKSTAGE_MCP_URL is set but BACKSTAGE_MCP_TOKEN is empty — "
-                "skipping the backstage MCP server"
-            )
-        elif settings.backstage_mcp_url:
+        # signed-in user's behalf. Without one there are no Backstage tools:
+        # every call runs as the user.
+        if settings.backstage_mcp_url and backstage_auth is not None:
             servers["backstage"] = {
                 "transport": "streamable_http",
                 "url": settings.backstage_mcp_url,
@@ -185,6 +178,11 @@ class MCPClient:
             )
             return name, e
         elapsed = time.monotonic() - started
+        if name == "backstage":
+            # tech-insights.list-checks → tech-insights__list-checks: model
+            # tool names can't hold a dot. Calls still use the MCP name.
+            for tool in tools:
+                tool.name = agent_name(tool.name)
         logger.debug(
             "MCP get_tools succeeded for server=%s in %.2fs (%d tools)",
             name, elapsed, len(tools),
@@ -273,12 +271,10 @@ async def get_tools_for_user(
     ``backstage_auth`` is a token Backstage issued on the user's behalf for
     this one request. Tools bound to it can't be reused on a later turn, so
     the Backstage tools are fetched fresh with it while the other servers'
-    tools still come from the cache. If that fetch fails, the turn has no
-    Backstage tools: the static BACKSTAGE_MCP_TOKEN would read as a service,
-    with access the user's own token may not have, and it calls the same
-    server, so it can't help when Backstage is down. If the other servers
-    fail, the Backstage tools are still returned; only when both fail does
-    this raise, as when every server fails.
+    tools still come from the cache. Without it, or if that fetch fails, the
+    turn has no Backstage tools. If the other servers fail, the Backstage
+    tools are still returned; only when both fail does this raise, as when
+    every server fails.
     """
     if backstage_auth is None or not settings.backstage_mcp_url:
         return await _get_cached_tools(user_sub, auth, backstage="include")

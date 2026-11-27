@@ -3,8 +3,10 @@
 
 """A dry-run's result, read for the A2UI test card.
 
-Read from dry_run_check's own call and result — the component, the rule it
-ran and the fact values it compared — never from the model's words.
+Read from dry-run-check's own call and result — the component, the rule it
+ran and the fact values it compared — never from the model's words. The
+result is the REST dry-run's: the conditions come back with each fact's
+value as ``factResult``.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from typing import Any
 from src.agent.rule_view import fact_labels, humanize_fact, rule_lines
 from src.agent.words import lower_first
 
-# The statuses that are an answer; "invalid" comes back as a tool error.
+# The statuses that are an answer; "invalid" is a rule to fix, not a result.
 _RESULTS = ("passed", "failed", "not-applicable")
 _VALUE_MAX = 120
 # "… but didn't report githubA, githubB." in a missing-fact-values reason.
@@ -51,8 +53,23 @@ def _json(raw: Any) -> Any:
         return None
 
 
+def _fact_values(node: Any, out: dict[str, Any] | None = None) -> dict[str, Any]:
+    """``fact -> factResult`` from a dry-run's evaluated conditions."""
+    out = {} if out is None else out
+    if isinstance(node, list):
+        for child in node:
+            _fact_values(child, out)
+    elif isinstance(node, dict):
+        if isinstance(node.get("fact"), str) and "factResult" in node:
+            out[node["fact"]] = node["factResult"]
+        for key in ("all", "any", "not"):
+            if key in node:
+                _fact_values(node[key], out)
+    return out
+
+
 def read_dry_run(args: Any, content: Any) -> DryRun | None:
-    """A dry_run_check call's result, or None when it gave none (an error)."""
+    """A dry-run-check call's result, or None when it gave none (an error)."""
     payload = _json(content)
     if not isinstance(payload, dict) or payload.get("status") not in _RESULTS:
         return None
@@ -62,18 +79,17 @@ def read_dry_run(args: Any, content: Any) -> DryRun | None:
     rule = (
         (check.get("rule") or {}).get("conditions") if isinstance(check.get("rule"), dict) else None
     )
-    values = payload.get("factValues")
     fact_ids = check.get("factIds")
     return DryRun(
         status=payload["status"],
         entity_ref=call.get("entityRef") if isinstance(call.get("entityRef"), str) else None,
-        fact_values=values if isinstance(values, dict) else {},
+        fact_values=_fact_values(payload.get("conditions")),
         reasons=[
             (str(r.get("code") or ""), r["message"])
             for r in payload.get("reasons") or []
             if isinstance(r, dict) and isinstance(r.get("message"), str) and r["message"]
         ],
-        rule=rule if isinstance(rule, str) else None,
+        rule=json.dumps(rule) if isinstance(rule, dict) else rule if isinstance(rule, str) else None,
         fact_ids=fact_ids
         if isinstance(fact_ids, list) and all(isinstance(i, str) for i in fact_ids)
         else None,

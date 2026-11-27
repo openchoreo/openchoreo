@@ -4,8 +4,8 @@
 """A saved check like the new one a chat just drafted.
 
 Before a drafted new check gets its save card, code looks for a saved check
-with the same rule, or a similar one, as the signed-in user: ``list_checks``,
-then ``get_check`` for the checks that use the same retriever or have the
+with the same rule, or a similar one, as the signed-in user: ``list-checks``,
+then ``get-check`` for the checks that use the same retriever or have the
 same name. Read tools only. When one is found, the reply's card recommends
 editing that check instead and says why, and still offers to create a
 separate check: the user decides. Choosing that gets the draft's save card,
@@ -27,11 +27,12 @@ from common.auth.bearer import BearerTokenAuth
 from src.agent.check_reply import unwrap
 from src.agent.confirm_card import build_confirmation
 from src.agent.rule_view import rule_lines
+from src.clients.backstage_tools import GET_CHECK, LIST_CHECKS
 from src.clients.mcp import backstage_tools_as_user, call_backstage_tool
 
 logger = logging.getLogger(__name__)
 
-# Saved checks read with get_check per lookup, at most: same name first,
+# Saved checks read with get-check per lookup, at most: same name first,
 # then published ones.
 _MAX_READS = 20
 
@@ -168,7 +169,7 @@ async def find_existing_check(
     declined = _declined(messages)
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
-        listed = (await call_backstage_tool(tools, "list_checks", {}))["checks"]
+        listed = (await call_backstage_tool(tools, LIST_CHECKS, {}))["checks"]
         likely = [
             c
             for c in listed
@@ -182,7 +183,7 @@ async def find_existing_check(
             logger.info("Existing checks: reading %d of %d likely ones", _MAX_READS, len(likely))
         read = await asyncio.gather(
             *(
-                call_backstage_tool(tools, "get_check", {"id": c["id"]})
+                call_backstage_tool(tools, GET_CHECK, {"id": c["id"]})
                 for c in likely[:_MAX_READS]
             ),
             return_exceptions=True,

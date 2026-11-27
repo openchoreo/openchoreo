@@ -19,6 +19,11 @@ from src.agent.dry_run_view import (
     reason_words,
 )
 
+
+def _evaluated(values):
+    """A dry-run's conditions as Backstage returns them: each fact's value as factResult."""
+    return {"all": [{"fact": fact, "factResult": value} for fact, value in values.items()]}
+
 _RULE = json.dumps(
     {
         "all": [
@@ -41,7 +46,7 @@ _RESULT = {
     "status": "failed",
     "passed": False,
     "summary": "The check was evaluated successfully: …",
-    "factValues": {"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1},
+    "conditions": _evaluated({"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1}),
     "reasons": [],
 }
 _SCOPE = {

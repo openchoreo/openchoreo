@@ -17,17 +17,25 @@ from dataclasses import dataclass
 from src.agent.dry_run_view import entity_name
 from src.agent.middleware.tool_error_handler import _scrub
 from src.agent.reply_view import NoticeView
+from src.clients.backstage_tools import (
+    DRY_RUN_CHECK,
+    GET_CHECK,
+    GET_ENTITY_FACTS,
+    LIST_CHECKS,
+    LIST_FACT_SCHEMAS,
+    VALIDATE_CHECK,
+)
 
 _TEXT_MAX = 300
 
 # What the user was waiting for, by tool.
 _TITLES = {
-    "dry_run_check": "Couldn't test the check",
-    "validate_check": "Couldn't check the rule",
-    "get_check": "Couldn't load the check",
-    "list_checks": "Couldn't list the checks",
-    "get_entity_facts": "Couldn't read the component's facts",
-    "list_fact_schemas": "Couldn't list the facts",
+    DRY_RUN_CHECK: "Couldn't test the check",
+    VALIDATE_CHECK: "Couldn't check the rule",
+    GET_CHECK: "Couldn't load the check",
+    LIST_CHECKS: "Couldn't list the checks",
+    GET_ENTITY_FACTS: "Couldn't read the component's facts",
+    LIST_FACT_SCHEMAS: "Couldn't list the facts",
 }
 
 _NO_ENTITY_RE = re.compile(r"No entity (\S+?) in the catalog", re.IGNORECASE)
@@ -82,7 +90,7 @@ def failed_test_note(error: ToolError) -> str | None:
     """The save card's note when the test of a draft failed, in the notice's
     words ("Couldn't test the check: … isn't in the catalog."). None for the
     failure of any other tool."""
-    if error.tool != "dry_run_check":
+    if error.tool != DRY_RUN_CHECK:
         return None
     view = problem_view(error)
     return f"{view.title}: {view.summary}"

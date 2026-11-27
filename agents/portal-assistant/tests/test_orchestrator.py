@@ -18,8 +18,14 @@ import pytest
 from src.agent import confirm_card, existing_check, orchestrator
 from src.agent.dry_run_view import DryRun
 from src.agent.orchestrator import _stamp_current_time
+from src.agent.rule_view import flat_conditions
 from src.agent.stream_parser import ChatResponseParser
 from src.clients.mcp import BackstageToolError
+
+
+def _evaluated(values):
+    """A dry-run's conditions as Backstage returns them: each fact's value as factResult."""
+    return {"all": [{"fact": fact, "factResult": value} for fact, value in values.items()]}
 
 _FIXED = datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC)
 _PREFIX = "[current server time: 2026-07-14T12:00:00+00:00]\n"
@@ -1125,15 +1131,14 @@ async def test_a_proposal_code_cant_read_isnt_compared(monkeypatch):
     ],
 )
 def test_rules_a_proposal_cant_write_arent_compared(rule):
-    assert (
-        orchestrator._plain_conditions(rule if isinstance(rule, str) else json.dumps(rule)) is None
-    )
+    conditions = flat_conditions(rule if isinstance(rule, str) else json.dumps(rule))
+    assert not conditions
 
 
 def test_plain_conditions_read_a_wrapped_rule_and_a_single_any():
     wrapped = json.dumps({"conditions": {"any": [{"fact": "a", "operator": "equal", "value": 1}]}})
 
-    assert orchestrator._plain_conditions(wrapped) == [("a", "equal", 1)]
+    assert flat_conditions(wrapped) == [("a", "equal", 1)]
 
 
 @pytest.mark.parametrize(
@@ -1575,7 +1580,7 @@ def test_a_test_request_only_tests_once_a_check_is_drafted():
 async def test_a_saved_new_check_gets_no_second_save_card_when_tested(monkeypatch):
     agent = _DryRunAgent("order-api meets the rule.", {
         "status": "passed", "passed": True, "summary": "…", "reasons": [],
-        "factValues": {"githubDaysSinceLastPush": 3},
+        "conditions": _evaluated({"githubDaysSinceLastPush": 3}),
     })
     built = []
 
@@ -1620,7 +1625,7 @@ _BRANCH_RULE = _BRANCH_SCOPE["current_rule"]
 
 
 class _DryRunAgent:
-    """Calls dry_run_check — its arguments streamed in two pieces, as the
+    """Calls dry-run-check — its arguments streamed in two pieces, as the
     model sends them — gets ``result``, then answers ``message``."""
 
     def __init__(self, message, result):
@@ -1636,12 +1641,12 @@ class _DryRunAgent:
                       "rule": {"conditions": _BRANCH_RULE}},
         })
         half = len(args) // 2
-        for piece, call_id, name in ((args[:half], "call_1", "dry_run_check"), (args[half:], None, None)):
+        for piece, call_id, name in ((args[:half], "call_1", "tech-insights__dry-run-check"), (args[half:], None, None)):
             yield SimpleNamespace(type="AIMessageChunk", content_blocks=[], tool_call_chunks=[
                 {"index": 0, "id": call_id, "name": name, "args": piece},
             ]), {}
         yield SimpleNamespace(
-            type="tool", name="dry_run_check", tool_call_id="call_1",
+            type="tool", name="tech-insights__dry-run-check", tool_call_id="call_1",
             content=[{"type": "text", "text": json.dumps(self._result)}],
         ), {}
         yield SimpleNamespace(type="AIMessageChunk", content_blocks=[
@@ -1658,7 +1663,7 @@ async def _tested_turn(
     agent was built with, the replies cards were built from)."""
     agent = _DryRunAgent(message, {
         "status": "failed", "passed": False, "summary": "…", "reasons": [],
-        "factValues": {"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1},
+        "conditions": _evaluated({"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1}),
     })
     seen, built = {}, []
 
@@ -1893,7 +1898,7 @@ _PRIVATE_DRAFT = (
 )
 _FAILED_RUN = {
     "status": "failed", "passed": False, "summary": "…", "reasons": [],
-    "factValues": {"githubVisibility": "public"},
+    "conditions": _evaluated({"githubVisibility": "public"}),
 }
 _SAVED_SCOPE = {
     **_EDIT_SCOPE,
@@ -1904,7 +1909,7 @@ _SAVED_SCOPE = {
 
 
 async def _picked_turn(monkeypatch, chat, scope, result=_FAILED_RUN, error=None):
-    """A turn whose dry_run_check code runs; returns (events, the tool calls,
+    """A turn whose dry-run-check code runs; returns (events, the tool calls,
     the replies cards were built from, whether the model was asked)."""
     calls, built, model = [], [], []
 
@@ -1952,13 +1957,13 @@ async def test_the_pickers_test_of_a_draft_runs_by_code_with_no_model_call(monke
     )
 
     assert not model
-    assert calls == [("dry_run_check", {
+    assert calls == [("tech-insights__dry-run-check", {
         "entityRef": "component:default/order-api",
         "check": {
             "name": "Repo must be private",
             "description": "Fails if the repo is public",
             "factIds": ["githubRepositoryFactRetriever"],
-            "rule": {"conditions": json.dumps(_PRIVATE, separators=(",", ":"))},
+            "rule": {"conditions": _PRIVATE},
         },
     })]
     steps = [json.loads(ev) for ev in events if '"tool_call"' in ev]
@@ -1983,7 +1988,7 @@ async def test_the_pickers_test_of_a_draft_runs_by_code_with_no_model_call(monke
 async def test_the_pickers_test_of_the_saved_check_shows_the_test_card(monkeypatch):
     passed = {
         "status": "passed", "passed": True, "summary": "…", "reasons": [],
-        "factValues": {"githubDaysSinceLastPush": 3},
+        "conditions": _evaluated({"githubDaysSinceLastPush": 3}),
     }
 
     events, calls, built, model = await _picked_turn(
@@ -1994,7 +1999,7 @@ async def test_the_pickers_test_of_the_saved_check_shows_the_test_card(monkeypat
     ((_name, args),) = calls
     assert args["check"]["name"] == "Repository must have a recent push"
     assert args["check"]["factIds"] == ["githubRepositoryFactRetriever"]
-    assert args["check"]["rule"] == {"conditions": _EDIT_SCOPE["current_rule"]}
+    assert args["check"]["rule"] == {"conditions": json.loads(_EDIT_SCOPE["current_rule"])}
     assert built == [] and not _has_card(events)  # a test saves nothing
     (event,) = _questions(events)
     root = _components(event)[0]
@@ -2121,7 +2126,7 @@ async def test_a_test_result_is_still_a_card_when_the_reply_fails(monkeypatch, f
     # 2026-11-25: a test that ran is never lost to an error or plain text.
     agent = _NoReplyAfterTestAgent({
         "status": "failed", "passed": False, "summary": "…", "reasons": [],
-        "factValues": {"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1},
+        "conditions": _evaluated({"githubBranchProtected": True, "githubRequiredApprovingReviewCount": 1}),
     }, fail)
 
     async def _fake_build_agent(*_args, **_kwargs):
@@ -2275,7 +2280,7 @@ async def _tools_turn(monkeypatch, results, reply="I couldn't test it.", confirm
     ]
 
 
-_NO_ENTITY = ("dry_run_check", "error", "Error: No entity component:default/order-apx in the catalog.")
+_NO_ENTITY = ("tech-insights__dry-run-check", "error", "Error: No entity component:default/order-apx in the catalog.")
 
 
 async def test_a_turn_whose_last_tool_failed_gets_the_problem_card(monkeypatch):
@@ -2290,7 +2295,7 @@ async def test_a_turn_whose_last_tool_failed_gets_the_problem_card(monkeypatch):
 
 
 async def test_an_error_the_model_got_past_gets_no_problem_card(monkeypatch):
-    events = await _tools_turn(monkeypatch, [_NO_ENTITY, ("list_checks", "success", "[]")])
+    events = await _tools_turn(monkeypatch, [_NO_ENTITY, ("tech-insights__list-checks", "success", "[]")])
 
     (event,) = _questions(events)
     assert _components(event)[0]["component"] == "MessageCard"
@@ -2343,14 +2348,14 @@ _ANSWER = json.dumps({"message": "Done."})
 
 
 def test_check_tools_get_plain_labels():
-    assert orchestrator._active_form("validate_check") == "Checking the rule"
-    assert orchestrator._active_form("dry_run_check") == "Testing the check"
+    assert orchestrator._active_form("tech-insights__validate-check") == "Checking the rule"
+    assert orchestrator._active_form("tech-insights__dry-run-check") == "Testing the check"
     # Other tools are still named from their own names.
     assert orchestrator._active_form("list_components") == "Listing components"
 
 
 async def test_a_held_back_reply_says_when_the_model_starts_writing():
-    steps = [("tool", "validate_check"), ("text", _ANSWER[:6]), ("text", _ANSWER[6:])]
+    steps = [("tool", "tech-insights__validate-check"), ("text", _ANSWER[:6]), ("text", _ANSWER[6:])]
 
     # Between the tool's result and the writing, the model is thinking.
     assert await _labels(steps, stream_text=False) == [
@@ -2359,7 +2364,7 @@ async def test_a_held_back_reply_says_when_the_model_starts_writing():
 
 
 async def test_writing_is_said_again_after_a_tool_in_between():
-    steps = [("text", "{"), ("tool", "dry_run_check"), ("text", _ANSWER[1:])]
+    steps = [("text", "{"), ("tool", "tech-insights__dry-run-check"), ("text", _ANSWER[1:])]
 
     assert await _labels(steps, stream_text=False) == [
         "Writing the reply", "Testing the check", "Thinking", "Writing the reply",
@@ -2375,10 +2380,10 @@ async def test_a_test_step_names_its_component_once_the_model_says_which():
             yield SimpleNamespace(
                 type="AIMessageChunk",
                 content_blocks=[{
-                    "type": "tool_call_chunk", "name": "dry_run_check", "args": "",
+                    "type": "tool_call_chunk", "name": "tech-insights__dry-run-check", "args": "",
                     "index": 0, "id": "call_1",
                 }],
-                tool_call_chunks=[{"index": 0, "id": "call_1", "name": "dry_run_check", "args": ""}],
+                tool_call_chunks=[{"index": 0, "id": "call_1", "name": "tech-insights__dry-run-check", "args": ""}],
             ), {}
             for piece in (args[:20], args[20:]):
                 yield SimpleNamespace(
@@ -2406,15 +2411,15 @@ def test_a_test_step_names_the_component_when_known():
 
 async def test_a_streamed_reply_gets_no_writing_label():
     # The drawer shows the streamed text itself.
-    steps = [("tool", "validate_check"), ("text", _ANSWER)]
+    steps = [("tool", "tech-insights__validate-check"), ("text", _ANSWER)]
 
     assert await _labels(steps, stream_text=True) == ["Checking the rule"]
 
 
 async def test_a_dry_run_result_is_sent_as_soon_as_it_comes_back(monkeypatch):
-    result = json.dumps({"status": "failed", "reasons": [], "factValues": {"githubBranchProtected": False}})
+    result = json.dumps({"status": "failed", "reasons": [], "conditions": _evaluated({"githubBranchProtected": False})})
 
-    events = [json.loads(ev) for ev in await _tools_turn(monkeypatch, [("dry_run_check", "success", result)])]
+    events = [json.loads(ev) for ev in await _tools_turn(monkeypatch, [("tech-insights__dry-run-check", "success", result)])]
 
     kinds = [ev.get("tool", ev["type"]) for ev in events]
     # Before the model even starts writing the reply.
@@ -2438,7 +2443,7 @@ async def test_a_new_check_shows_only_its_own_steps(monkeypatch):
     # own step for its save card.
     events = [
         json.loads(ev) for ev in await _tools_turn(
-            monkeypatch, [("validate_check", "success", '{"valid": true}')], reply=_DRAFTED,
+            monkeypatch, [("tech-insights__validate-check", "success", '{"valid": true}')], reply=_DRAFTED,
         )
     ]
 
@@ -2887,7 +2892,7 @@ async def test_a_reply_says_it_drafts_a_check_only_after_checking_a_rule():
     # A question in a new check chat ("Help me create a check using specific
     # facts") is answered, not drafted: no rule was checked.
     answered = [("text", _ANSWER)]
-    drafted = [("tool", "validate_check"), ("text", _ANSWER)]
+    drafted = [("tool", "tech-insights__validate-check"), ("text", _ANSWER)]
 
     assert await _labels(answered, stream_text=False, writing_label="Drafting the check") == [
         "Writing the answer",
@@ -2977,9 +2982,9 @@ async def test_rewrites_that_still_have_no_alternatives_are_not_used(monkeypatch
 
     assert len(agent.calls) == orchestrator._ALTERNATIVES_TRIES == 2
     assert _done_message(events) == _BARE_NO_FACT
-    # What the model wrote is in the log, so a rejected rewrite can be read.
+    # Each rejected rewrite is logged, by its length: replies aren't logged.
     rejected = [r.getMessage() for r in caplog.records if "no usable alternatives" in r.getMessage()]
-    assert len(rejected) == 2 and "githubHasReadme" in rejected[0]
+    assert len(rejected) == 2 and "githubHasReadme" not in rejected[0]
 
 
 async def test_a_second_rewrite_can_give_the_alternatives(monkeypatch):
@@ -3125,7 +3130,7 @@ async def test_the_save_card_says_the_test_failed_from_the_tools_own_error(monke
 
 async def test_a_failed_test_the_model_got_past_adds_no_note(monkeypatch):
     events = await _tools_turn(
-        monkeypatch, [_NO_ENTITY, ("list_checks", "success", "[]")], reply=_STEP2, confirmation=_CARD,
+        monkeypatch, [_NO_ENTITY, ("tech-insights__list-checks", "success", "[]")], reply=_STEP2, confirmation=_CARD,
     )
 
     note = _components(_save_cards(events)[0])[0].get("note") or ""
@@ -3155,11 +3160,6 @@ def test_the_beginner_welcome_has_no_dash_or_ill_sentence():
     words = orchestrator._card_text(orchestrator._BEGINNER_WELCOME)
 
     assert "—" not in words and "walk you through" not in words
-
-
-def test_a_log_excerpt_is_one_short_line():
-    assert orchestrator._log_excerpt("a\n\n  b") == "a b"
-    assert orchestrator._log_excerpt("x" * 700) == "x" * 599 + "…"
 
 
 _GUARDED_DRAFT = (

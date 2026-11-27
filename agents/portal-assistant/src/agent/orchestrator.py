@@ -86,13 +86,23 @@ from src.agent.reply_view import lacks_alternatives, notice_view
 from src.agent.rule_view import (
     Leaf,
     change_view,
+    flat_conditions,
     numbered_choices,
     proposed_conditions,
+    same_rules,
     understood,
 )
 from src.agent.stream_events import ConfirmationRequiredEvent
 from src.agent.stream_events import emit as _emit_event
 from src.agent.stream_parser import ChatResponseParser
+from src.clients.backstage_tools import (
+    DRY_RUN_CHECK,
+    GET_CHECK,
+    GET_ENTITY_FACTS,
+    LIST_CHECKS,
+    LIST_FACT_SCHEMAS,
+    VALIDATE_CHECK,
+)
 from src.clients.mcp import BackstageToolError, backstage_tools_as_user, call_backstage_tool
 from src.config import settings
 from src.logging_config import request_id_context
@@ -206,7 +216,7 @@ _ENTITY_RE = re.compile(
 )
 _TEST_NOTE = (
     "[Automatic note — not written by the user] This message only asks for a test. Run "
-    "dry_run_check on that component with the rule from your last reply that has one (the "
+    f"{DRY_RUN_CHECK} on that component with the rule from your last reply that has one (the "
     "drafted check or the edited rule), or else the current rule, and report the result in "
     "plain words. Don't change the rule and don't write it in a code block."
 )
@@ -214,7 +224,7 @@ _TEST_NOTE = (
 # the one to test (see _tests_saved_rule).
 _TEST_SAVED_NOTE = (
     "[Automatic note — not written by the user] This message only asks for a test. Run "
-    "dry_run_check on that component with the check's current rule, the saved one, and "
+    f"{DRY_RUN_CHECK} on that component with the check's current rule, the saved one, and "
     "report the result in plain words. Ignore any rule in your earlier replies: the user "
     "hasn't approved it. Don't change the rule and don't write it in a code block."
 )
@@ -622,26 +632,6 @@ def _picked_proposal(messages: list[dict[str, str]]) -> list[Leaf] | None:
     return proposals.get(picked) if proposals and picked else None
 
 
-def _plain_conditions(rule_json: str) -> list[Leaf] | None:
-    """A rule's conditions when it is one "all" group (or a single "any") of
-    plain fact / operator / value conditions, the only rules a proposal
-    writes; None for any other (nested groups, NOT, a path or params)."""
-    try:
-        rule = unwrap(json.loads(rule_json))
-    except TypeError, ValueError:
-        return None
-    if not isinstance(rule, dict) or len(rule) != 1:
-        return None
-    ((joiner, group),) = rule.items()
-    if joiner not in ("all", "any") or not isinstance(group, list) or not group:
-        return None
-    if joiner == "any" and len(group) > 1:
-        return None
-    if not all(isinstance(c, dict) and set(c) == {"fact", "operator", "value"} for c in group):
-        return None
-    return [(c["fact"], c["operator"], c["value"]) for c in group]
-
-
 def _same_value(first: Any, second: Any) -> bool:
     if isinstance(first, list) and isinstance(second, list):
         # An `in` list in another order is the same list.
@@ -825,7 +815,7 @@ def _edit_phase(messages: list[dict[str, str]], scope: dict[str, Any] | None) ->
 
     A message that only asks to test on a component is ``"test"`` in an edit
     chat, or in a new check's chat once a check is drafted: the model gets
-    dry_run_check alone, and the reply is the save card of the draft or
+    dry-run-check alone, and the reply is the save card of the draft or
     change again when it isn't saved yet (see stream_chat), else the test card.
 
     In an edit chat that has the saved rule, a message is Step 2 only when
@@ -915,7 +905,7 @@ def _code_test(
 ) -> tuple[str, dict[str, Any], str | None] | None:
     """What a message that only asks for a test tests, when code can run it
     ("test it on order-api", or the test picker's "Test it on <ref>"), or
-    None (the model then reads the message): the entity ref, dry_run_check's
+    None (the model then reads the message): the entity ref, dry-run-check's
     ``check``, and the drafted check or edit it tests when that isn't saved
     yet."""
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
@@ -993,12 +983,7 @@ def _run_of_card_rule(dry_runs: list[DryRun], confirmation: dict[str, Any]) -> D
     # A run that doesn't say which retrievers it used can't show it used the card's.
     if signed and (run.fact_ids is None or sorted(run.fact_ids) != sorted(signed)):
         return None
-    # As JSON, not Python values: True == 1 in Python, but not to the rules engine.
-    return run if _canonical(tested) == _canonical(saved) else None
-
-
-def _canonical(rule: Any) -> str:
-    return json.dumps(rule, sort_keys=True)
+    return run if same_rules(tested, saved) else None
 
 
 def _shows_test_after_failure(dry_runs: list[DryRun], scope: dict[str, Any] | None) -> bool:
@@ -1025,7 +1010,7 @@ async def _run_code_test(
     args = {"entityRef": entity_ref, "check": check}
     yield _emit_event({
         "type": "tool_call",
-        "tool": "dry_run_check",
+        "tool": DRY_RUN_CHECK,
         "activeForm": _testing_label(entity_ref),
         "args": json.dumps(args),
     })
@@ -1033,16 +1018,16 @@ async def _run_code_test(
     try:
         tools = await backstage_tools_as_user(BearerTokenAuth(backstage_token))
         # The retrievers the save card signs: the rule's new facts may need more.
-        rule = json.loads(check["rule"]["conditions"])
+        rule = check["rule"]["conditions"]
         args["check"] = {**check, "factIds": await fact_ids_for_rule(tools, rule, check["factIds"])}
-        output = await call_backstage_tool(tools, "dry_run_check", args)
+        output = await call_backstage_tool(tools, DRY_RUN_CHECK, args)
         run = read_dry_run(args, output)
-        error = ToolError("dry_run_check", json.dumps(output))
+        error = ToolError(DRY_RUN_CHECK, json.dumps(output))
     except BackstageToolError as exc:
-        error = ToolError("dry_run_check", str(exc))
+        error = ToolError(DRY_RUN_CHECK, str(exc))
     except Exception as exc:  # noqa: BLE001 — the problem card says so
         logger.warning("Test run by code failed: %s", exc)
-        error = ToolError("dry_run_check", "The check service is unavailable.")
+        error = ToolError(DRY_RUN_CHECK, "The check service is unavailable.")
     if run is None:
         view = problem_view(error)
         yield _emit_event({"type": "a2ui", "messages": [notice_card_surface(view)]})
@@ -1243,7 +1228,7 @@ async def stream_chat(
             note += f' They said: "{said}"'
         stamped_messages = [{"role": "user", "content": note}]
 
-    # dry_run_check results this turn, for the test card: kept outside the
+    # dry-run-check results this turn, for the test card: kept outside the
     # try, so a test that ran still shows its result if the reply fails.
     dry_runs: list[DryRun] = []
 
@@ -1442,9 +1427,10 @@ async def stream_chat(
                         message, card = rewritten, None
                         break
                     if rewritten:
+                        # The reply's length, not its words: replies aren't logged.
                         logger.warning(
-                            "No-fact rewrite has no usable alternatives: %s",
-                            _log_excerpt(rewritten),
+                            "No-fact rewrite has no usable alternatives (%d characters)",
+                            len(rewritten),
                         )
                 else:
                     logger.warning(
@@ -1500,7 +1486,7 @@ async def stream_chat(
                         }.get(edit_phase or "", "the edit isn't approved yet (Step 1)"),
                     )
             # The card's own validation found problems (e.g. the model
-            # skipped validate_check): one round for the model to fix them.
+            # skipped validate-check): one round for the model to fix them.
             # Not after a test: the card is an earlier reply's, not this one's.
             if confirmation and not confirmation["valid"] and edit_phase != "test":
                 yield _emit_event({
@@ -1525,7 +1511,7 @@ async def stream_chat(
             reproposed = False
             if confirmation and edit_phase == "apply":
                 picked = _picked_proposal(messages)
-                written = _plain_conditions(confirmation["new_rule"])
+                written = flat_conditions(confirmation["new_rule"])
                 if picked and written and not _same_conditions(picked, written):
                     logger.info("Step 2 wrote another rule than the approved one: asking again")
                     message, confirmation, card = _reproposal(written, scope), None, None
@@ -1545,8 +1531,8 @@ async def stream_chat(
             ):
                 yield _emit_event({
                     "type": "tool_call",
-                    "tool": "list_checks",
-                    "activeForm": _active_form("list_checks"),
+                    "tool": LIST_CHECKS,
+                    "activeForm": _active_form(LIST_CHECKS),
                 })
                 existing = await find_existing_check(
                     confirmation, messages, backstage_token=backstage_token,
@@ -1746,12 +1732,6 @@ async def _rewrite_reply(
     return text
 
 
-def _log_excerpt(text: str, limit: int = 600) -> str:
-    """``text`` on one line, cut at ``limit`` characters, for a log line."""
-    flat = " ".join(text.split())
-    return flat if len(flat) <= limit else flat[: limit - 1] + "…"
-
-
 def _tool_text(message: Any) -> str:
     content = getattr(message, "content", "")
     if isinstance(content, list):
@@ -1790,7 +1770,7 @@ async def _yield_chunks(
     labelled ``writing_label`` (default "Writing the reply") tells the
     drawer when the model starts writing it.
 
-    Each dry_run_check result is added to ``dry_runs``, with the component
+    Each dry-run-check result is added to ``dry_runs``, with the component
     and rule from its call, and sent at once as a ``dry_run_result`` event
     in its test card's words (fact labels from ``scope``). ``tool_errors``
     holds the tool errors since the last tool that worked: empty when the
@@ -1810,7 +1790,7 @@ async def _yield_chunks(
     # chunk reveals the name.
     chat_response_indices: set[int] = set()
     # Tool call arguments by call id, streamed in pieces by index, so a
-    # dry_run_check result can be read with the component and rule it ran.
+    # dry-run-check result can be read with the component and rule it ran.
     call_ids: dict[int, str] = {}
     call_args: dict[str, str] = {}
     # Each call's tool by call id, and the tests whose step already names
@@ -1848,7 +1828,7 @@ async def _yield_chunks(
                         tool_errors.clear()
                 if getattr(chunk, "name", None) in _RULE_TOOLS:
                     checked_rule = True
-                if dry_runs is not None and getattr(chunk, "name", None) == "dry_run_check":
+                if dry_runs is not None and getattr(chunk, "name", None) == DRY_RUN_CHECK:
                     run = read_dry_run(
                         call_args.get(getattr(chunk, "tool_call_id", None) or ""),
                         getattr(chunk, "content", None),
@@ -1912,14 +1892,14 @@ async def _yield_chunks(
             # A test's step names its component as soon as the model's
             # arguments say which one ("Testing the check on order-api").
             for call_id, tool_name in call_names.items():
-                if tool_name != "dry_run_check" or call_id in named_tests:
+                if tool_name != DRY_RUN_CHECK or call_id in named_tests:
                     continue
                 named = _ENTITY_REF_ARG_RE.search(call_args.get(call_id, ""))
                 if named:
                     named_tests.add(call_id)
                     yield _emit_event({
                         "type": "tool_call",
-                        "tool": "dry_run_check",
+                        "tool": DRY_RUN_CHECK,
                         "activeForm": _testing_label(named[1]),
                     })
 
@@ -2037,16 +2017,16 @@ async def _handle_stream_error(
 # What the user is waiting for, by check authoring tool. No trailing "…":
 # the drawer animates its own dots after the label.
 _TOOL_LABELS = {
-    "validate_check": "Checking the rule",
-    "dry_run_check": "Testing the check",
-    "get_entity_facts": "Reading the component's facts",
-    "list_fact_schemas": "Reading the facts you can use",
-    "list_checks": "Looking at existing checks",
-    "get_check": "Looking at existing checks",
+    VALIDATE_CHECK: "Checking the rule",
+    DRY_RUN_CHECK: "Testing the check",
+    GET_ENTITY_FACTS: "Reading the component's facts",
+    LIST_FACT_SCHEMAS: "Reading the facts you can use",
+    LIST_CHECKS: "Looking at existing checks",
+    GET_CHECK: "Looking at existing checks",
 }
 # Between a tool's result and the model's next step.
 _THINKING_STEP = {"type": "tool_call", "tool": "think", "activeForm": "Thinking"}
-# The component in a dry_run_check call's streamed arguments, once complete.
+# The component in a dry-run-check call's streamed arguments, once complete.
 _ENTITY_REF_ARG_RE = re.compile(r'"entityRef"\s*:\s*"([^"]+)"')
 
 
@@ -2054,9 +2034,9 @@ def _testing_label(entity_ref: str | None) -> str:
     """The test step, naming the component when it is known:
     "Testing the check on order-api"."""
     if not entity_ref:
-        return _active_form("dry_run_check")
+        return _active_form(DRY_RUN_CHECK)
     name, _kind = entity_name(entity_ref)
-    return f"{_active_form('dry_run_check')} on {name}"
+    return f"{_active_form(DRY_RUN_CHECK)} on {name}"
 # Code's own step after the model's: checking the rule again and signing the
 # save card (build_confirmation), so the progress line shows it too.
 _PREPARING_STEP = {
@@ -2068,7 +2048,7 @@ _WRITING_LABEL = "Writing the reply"
 # A new check's reply that drafts the rule; shown only when the turn checked
 # a rule (_RULE_TOOLS), so a question never says it drafts a check.
 _DRAFTING_LABEL = "Drafting the check"
-_RULE_TOOLS = frozenset({"validate_check", "dry_run_check"})
+_RULE_TOOLS = frozenset({VALIDATE_CHECK, DRY_RUN_CHECK})
 # The last step of a held-back reply, by what the request is, so the drawer
 # shows the step the user asked for (see _writing_label).
 _WRITING_LABELS = {

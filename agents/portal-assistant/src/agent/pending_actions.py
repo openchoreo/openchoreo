@@ -12,10 +12,11 @@ user's click, so the confirm endpoint saves exactly what was shown:
   that was already used. Its result is the action to run.
 - ``release`` lets a token be confirmed again when its confirm saved nothing.
 
-No model is involved in either step. Used ids are kept in memory, so with
-several replicas a token could be confirmed once per replica; the card
-disables its buttons after one click, and every save is still checked by
-Backstage's permissions and validator.
+No model is involved in either step. Used ids are kept in memory, per
+replica; a token confirmed again elsewhere saves nothing twice: a new check
+is saved under the card's id, which Backstage refuses to save again, and an
+edit is refused once the check changed (see confirm_actions). Every save is
+still checked by Backstage's permissions and validator.
 """
 
 from __future__ import annotations

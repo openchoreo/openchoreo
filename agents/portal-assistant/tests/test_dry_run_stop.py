@@ -18,7 +18,7 @@ class _ToolCall:
 
 @dataclass
 class _ModelRequest:
-    tools: list = field(default_factory=lambda: ["dry_run_check", "list_checks"])
+    tools: list = field(default_factory=lambda: ["tech-insights__dry-run-check", "tech-insights__list-checks"])
     model_settings: dict = field(default_factory=dict)
     messages: list = field(default_factory=lambda: [HumanMessage("test it on order-api")])
 
@@ -56,16 +56,16 @@ async def _tools_seen_by_model(mw):
 async def test_tools_stay_on_until_a_dry_run_has_a_result():
     mw = DryRunStopMiddleware()
 
-    await _call_tool(mw, "get_entity_facts", _tool_message({"facts": {}}))
+    await _call_tool(mw, "tech-insights__get-entity-facts", _tool_message({"facts": {}}))
 
-    assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+    assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
 
 async def test_tools_are_removed_after_a_failed_dry_run():
     mw = DryRunStopMiddleware()
 
     result = _tool_message({"status": "failed", "passed": False})
-    returned = await _call_tool(mw, "dry_run_check", result)
+    returned = await _call_tool(mw, "tech-insights__dry-run-check", result)
 
     assert returned is result  # the result itself passes through unchanged
     assert await _tools_seen_by_model(mw) == []
@@ -76,14 +76,14 @@ async def test_a_malformed_status_is_not_a_result():
         mw = DryRunStopMiddleware()
         result = _tool_message({"status": status})
 
-        assert await _call_tool(mw, "dry_run_check", result) is result
-        assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+        assert await _call_tool(mw, "tech-insights__dry-run-check", result) is result
+        assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
 
 async def test_passed_and_not_applicable_also_end_the_loop():
     for status in ("passed", "not-applicable"):
         mw = DryRunStopMiddleware()
-        await _call_tool(mw, "dry_run_check", _tool_message({"status": status}))
+        await _call_tool(mw, "tech-insights__dry-run-check", _tool_message({"status": status}))
         assert await _tools_seen_by_model(mw) == [], status
 
 
@@ -96,10 +96,10 @@ async def test_three_failed_dry_run_attempts_end_the_loop():
     mw = DryRunStopMiddleware()
 
     for _ in range(2):
-        await _call_tool(mw, "dry_run_check", _error())
-    assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+        await _call_tool(mw, "tech-insights__dry-run-check", _error())
+    assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
-    await _call_tool(mw, "dry_run_check", _error())
+    await _call_tool(mw, "tech-insights__dry-run-check", _error())
     assert await _tools_seen_by_model(mw) == []
 
 
@@ -107,10 +107,10 @@ async def test_six_tool_calls_end_the_loop():
     mw = DryRunStopMiddleware()
 
     for _ in range(5):
-        await _call_tool(mw, "list_checks", _tool_message({"checks": []}))
-    assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+        await _call_tool(mw, "tech-insights__list-checks", _tool_message({"checks": []}))
+    assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
-    await _call_tool(mw, "list_checks", _tool_message({"checks": []}))
+    await _call_tool(mw, "tech-insights__list-checks", _tool_message({"checks": []}))
     assert await _tools_seen_by_model(mw) == []
 
 
@@ -119,7 +119,7 @@ async def test_an_errored_dry_run_keeps_tools_so_the_model_can_fix_it():
 
     await _call_tool(
         mw,
-        "dry_run_check",
+        "tech-insights__dry-run-check",
         ToolMessage(
             content="InputError: rule.conditions is not valid JSON",
             tool_call_id="1",
@@ -127,7 +127,7 @@ async def test_an_errored_dry_run_keeps_tools_so_the_model_can_fix_it():
         ),
     )
 
-    assert await _tools_seen_by_model(mw) == ["dry_run_check", "list_checks"]
+    assert await _tools_seen_by_model(mw) == ["tech-insights__dry-run-check", "tech-insights__list-checks"]
 
 
 async def test_parallel_tool_calls_off_only_while_tools_are_bound():
@@ -141,7 +141,7 @@ async def test_parallel_tool_calls_off_only_while_tools_are_bound():
         return "response"
 
     await mw.awrap_model_call(_ModelRequest(), handler)
-    await _call_tool(mw, "dry_run_check", _tool_message({"status": "failed"}))
+    await _call_tool(mw, "tech-insights__dry-run-check", _tool_message({"status": "failed"}))
     await mw.awrap_model_call(_ModelRequest(), handler)
 
     assert seen == [{"parallel_tool_calls": False}, {}]
@@ -159,21 +159,21 @@ async def test_malformed_tool_arguments_retry_once_without_tools():
 
     assert await mw.awrap_model_call(_ModelRequest(), handler) == "final answer"
     assert calls == [
-        (["dry_run_check", "list_checks"], {"parallel_tool_calls": False}),
+        (["tech-insights__dry-run-check", "tech-insights__list-checks"], {"parallel_tool_calls": False}),
         ([], {}),
     ]
     # Tools stay off for the rest of the turn.
     assert await _tools_seen_by_model(mw) == []
 
 
-# ── validate_check: valid → reply, invalid → retry up to 3, can't → stop ─
+# ── validate-check: valid → reply, invalid → retry up to 3, can't → stop ─
 
 
 def _validation(valid, problems=()):
     return _tool_message({"valid": valid, "problems": list(problems)})
 
 
-async def _tools_now(mw, user_text, tools=("validate_check", "dry_run_check")):
+async def _tools_now(mw, user_text, tools=("tech-insights__validate-check", "tech-insights__dry-run-check")):
     seen = {}
 
     async def handler(request):
@@ -187,11 +187,11 @@ async def _tools_now(mw, user_text, tools=("validate_check", "dry_run_check")):
 
 async def test_a_valid_rule_leaves_only_the_dry_run():
     mw = DryRunStopMiddleware()
-    assert await _tools_now(mw, "allow internal repos too") == ["validate_check", "dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__validate-check", "tech-insights__dry-run-check"]
 
-    await _call_tool(mw, "validate_check", _validation(True))
+    await _call_tool(mw, "tech-insights__validate-check", _validation(True))
 
-    assert await _tools_now(mw, "allow internal repos too") == ["dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__dry-run-check"]
 
 
 async def test_invalid_results_allow_up_to_three_attempts():
@@ -199,34 +199,34 @@ async def test_invalid_results_allow_up_to_three_attempts():
     problem = ["Unknown operator: equals (at /conditions/all/0/operator)"]
 
     for _ in range(2):
-        await _call_tool(mw, "validate_check", _validation(False, problem))
+        await _call_tool(mw, "tech-insights__validate-check", _validation(False, problem))
         assert await _tools_now(mw, "allow internal repos too") == [
-            "validate_check",
-            "dry_run_check",
+            "tech-insights__validate-check",
+            "tech-insights__dry-run-check",
         ]
 
-    await _call_tool(mw, "validate_check", _validation(False, problem))
+    await _call_tool(mw, "tech-insights__validate-check", _validation(False, problem))
 
     # Out of attempts: no more validation; the model shows its last rule
     # with the problems.
-    assert await _tools_now(mw, "allow internal repos too") == ["dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__dry-run-check"]
 
 
 async def test_fixing_the_rule_after_problems_ends_the_loop():
     mw = DryRunStopMiddleware()
 
-    await _call_tool(mw, "validate_check", _validation(False, ["Fact x isn't selected"]))
-    await _call_tool(mw, "validate_check", _validation(True))
+    await _call_tool(mw, "tech-insights__validate-check", _validation(False, ["Fact x isn't selected"]))
+    await _call_tool(mw, "tech-insights__validate-check", _validation(True))
 
-    assert await _tools_now(mw, "allow internal repos too") == ["dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__dry-run-check"]
 
 
 async def test_a_fixable_input_error_counts_as_an_attempt():
     mw = DryRunStopMiddleware()
 
-    await _call_tool(mw, "validate_check", _error("InputError: rule.conditions is not valid JSON"))
+    await _call_tool(mw, "tech-insights__validate-check", _error("InputError: rule.conditions is not valid JSON"))
 
-    assert await _tools_now(mw, "allow internal repos too") == ["validate_check", "dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__validate-check", "tech-insights__dry-run-check"]
 
 
 async def test_no_retries_when_validation_is_not_allowed():
@@ -234,11 +234,11 @@ async def test_no_retries_when_validation_is_not_allowed():
 
     await _call_tool(
         mw,
-        "validate_check",
+        "tech-insights__validate-check",
         _error("NotAllowedError: You don't have the manage permission."),
     )
 
-    assert await _tools_now(mw, "allow internal repos too") == ["dry_run_check"]
+    assert await _tools_now(mw, "allow internal repos too") == ["tech-insights__dry-run-check"]
 
 
 async def _tools_for(mw, messages):
@@ -249,7 +249,7 @@ async def _tools_for(mw, messages):
         return "response"
 
     await mw.awrap_model_call(
-        _ModelRequest(tools=["validate_check", "dry_run_check"], messages=messages), handler
+        _ModelRequest(tools=["tech-insights__validate-check", "tech-insights__dry-run-check"], messages=messages), handler
     )
     return seen["tools"]
 
@@ -278,7 +278,7 @@ async def test_an_approved_edit_keeps_its_tools():
         ],
     )
 
-    assert tools == ["validate_check", "dry_run_check"]
+    assert tools == ["tech-insights__validate-check", "tech-insights__dry-run-check"]
 
 
 async def test_a_new_check_keeps_its_tools_on_the_first_message():
@@ -286,7 +286,7 @@ async def test_a_new_check_keeps_its_tools_on_the_first_message():
 
     tools = await _tools_for(mw, [HumanMessage("Repos must be private, test it on order-api")])
 
-    assert tools == ["validate_check", "dry_run_check"]
+    assert tools == ["tech-insights__validate-check", "tech-insights__dry-run-check"]
 
 
 async def test_the_rewrite_of_an_unapproved_reply_gets_no_tools():
@@ -311,12 +311,12 @@ async def test_the_rewrite_of_an_unapproved_reply_gets_no_tools():
 async def test_a_test_only_message_gets_dry_run_check_alone():
     mw = DryRunStopMiddleware(dry_run_only=True)
 
-    assert await _tools_for(mw, [HumanMessage("test it on order-api")]) == ["dry_run_check"]
+    assert await _tools_for(mw, [HumanMessage("test it on order-api")]) == ["tech-insights__dry-run-check"]
 
 
 async def test_a_test_only_message_gets_no_tools_after_the_result():
     mw = DryRunStopMiddleware(dry_run_only=True)
 
-    await _call_tool(mw, "dry_run_check", _tool_message({"status": "passed", "passed": True}))
+    await _call_tool(mw, "tech-insights__dry-run-check", _tool_message({"status": "passed", "passed": True}))
 
     assert await _tools_for(mw, [HumanMessage("test it on order-api")]) == []
