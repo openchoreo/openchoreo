@@ -2,7 +2,7 @@
 
 ## 1. Application of this Policy
 
-The Policy will apply to the maintainers, the Security Team and the pre-notification list members who are using this project.
+This Policy applies to the maintainers, the Security Team and the pre-notification list members who are using this project.
 
 ## 2. Confidentiality
 
@@ -20,7 +20,7 @@ Reporting a leak promptly is not itself a breach and it keeps your membership in
 
 The following are breaches:
 
-- Failing to report a leak as soon as becoming aware of a leak
+- Failing to report a leak as soon as you become aware of it
 - Repeated leaks, including leaks through parties you shared with
 - Deliberate disclosure before the agreed date
 - Distributing a fix outside the terms of (6)
