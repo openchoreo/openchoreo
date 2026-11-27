@@ -92,12 +92,12 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, reqPath stri
 	}
 
 	if target == k8sTarget {
-		// The path arrives decoded and the agent decodes it again when it builds the
-		// upstream URL, so a leftover escape would reach the API server unchecked.
-		if strings.Contains(reqPath, "%") {
+		// The path arrives decoded and the agent re-parses it as a URL, so a
+		// leftover escape, '?' or '#' would change the path the API server sees.
+		if !isK8sPathSafe(reqPath) {
 			return &ValidationError{
 				Code:    http.StatusBadRequest,
-				Message: "Path contains percent-encoded characters",
+				Message: "Path contains characters not allowed in Kubernetes API paths",
 			}
 		}
 
@@ -126,6 +126,20 @@ func (v *RequestValidator) ValidateRequest(r *http.Request, target, reqPath stri
 	}
 
 	return nil
+}
+
+// isK8sPathSafe reports whether reqPath uses only characters that appear in
+// Kubernetes API paths, so the agent cannot parse it differently.
+func isK8sPathSafe(reqPath string) bool {
+	for _, c := range reqPath {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '/', c == '-', c == '.', c == '_', c == ':':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isDeniedCoreResourcePath reports whether reqPath addresses a denied core API

@@ -216,11 +216,19 @@ func TestHandleHTTPProxy_DoubleEncodedPath(t *testing.T) {
 
 	s := New(&Config{}, fakeClient, testLogger())
 
-	req := httptest.NewRequest(http.MethodGet, "/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/%2573ecrets", nil)
-	w := httptest.NewRecorder()
-	s.handleHTTPProxy(w, req)
+	for _, p := range []string{
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/%2573ecrets",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/secrets%3F",
+		"/api/proxy/dataplane/prod/ns/dp1/k8s/api/v1/namespaces/kube-system/secrets%23",
+	} {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, p, nil)
+			w := httptest.NewRecorder()
+			s.handleHTTPProxy(w, req)
 
-	assert.Equal(t, http.StatusBadRequest, w.Code)
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+		})
+	}
 }
 
 func TestHandleHTTPTunnelResponse(t *testing.T) {

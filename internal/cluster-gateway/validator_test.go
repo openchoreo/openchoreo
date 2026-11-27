@@ -110,14 +110,20 @@ func TestValidateRequest_BlockedWatchQuery(t *testing.T) {
 	}
 }
 
-func TestValidateRequest_PercentEncodedPath(t *testing.T) {
+func TestValidateRequest_UnsafePathCharacters(t *testing.T) {
 	v := NewRequestValidator()
 
-	// The gateway decodes the path once and the agent decodes it again, so a
-	// leftover escape like %73 reaches the API server as "s".
+	// The gateway decodes the path once and the agent re-parses it as a URL, so
+	// "%73" becomes "s" and a trailing "?" or "#" is cut off upstream.
 	for _, p := range []string{
 		"/api/v1/namespaces/kube-system/%73ecrets",
 		"/api/v1/%73ecrets",
+		"/api/v1/secrets?",
+		"/api/v1/secrets?x=y",
+		"/api/v1/secrets#",
+		"/api/v1/namespaces/kube-system/secrets?",
+		"/api/v1/secrets;x",
+		"/api/v1/secrets x",
 	} {
 		t.Run(p, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
