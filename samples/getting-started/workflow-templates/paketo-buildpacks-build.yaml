@@ -48,7 +48,8 @@ spec:
               exit 1
             fi
 
-            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+            APP_PATH_ABS=$(readlink -f -- "$WORKDIR/$APP_PATH")
+            case "${APP_PATH_ABS}/" in
               "$(readlink -f -- "$WORKDIR")"/*) ;;
               *)
                 echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
@@ -116,7 +117,7 @@ spec:
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
-              --path "$WORKDIR/$APP_PATH" \
+              --path "$APP_PATH_ABS" \
               --pull-policy always \
               "$@"
 

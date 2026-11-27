@@ -65,7 +65,8 @@ spec:
               exit 1
             fi
 
-            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+            APP_PATH_ABS=$(readlink -f -- "$WORKDIR/$APP_PATH")
+            case "${APP_PATH_ABS}/" in
               "$(readlink -f -- "$WORKDIR")"/*) ;;
               *)
                 echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
@@ -133,7 +134,7 @@ spec:
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
-              --path "$WORKDIR/$APP_PATH" \
+              --path "$APP_PATH_ABS" \
               --pull-policy always \
               "$@"
 
@@ -199,7 +200,8 @@ spec:
               exit 1
             fi
 
-            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+            APP_PATH_ABS=$(readlink -f -- "$WORKDIR/$APP_PATH")
+            case "${APP_PATH_ABS}/" in
               "$(readlink -f -- "$WORKDIR")"/*) ;;
               *)
                 echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
@@ -265,7 +267,7 @@ spec:
               --builder "$BUILDER" \
               --run-image "$RUN_IMG" \
               --docker-host inherit \
-              --path "$WORKDIR/$APP_PATH" \
+              --path "$APP_PATH_ABS" \
               --pull-policy always \
               "$@"
 
@@ -337,7 +339,8 @@ spec:
               exit 1
             fi
 
-            case "$(readlink -f -- "$WORKDIR/$APP_PATH")/" in
+            APP_PATH_ABS=$(readlink -f -- "$WORKDIR/$APP_PATH")
+            case "${APP_PATH_ABS}/" in
               "$(readlink -f -- "$WORKDIR")"/*) ;;
               *)
                 echo ">> Error: The specified application path '$APP_PATH' resolves outside the repository"
@@ -405,7 +408,7 @@ spec:
               --builder "$BUILDER" \
               --run-image "$RUN_IMAGE" \
               --docker-host inherit \
-              --path "$WORKDIR/$APP_PATH" \
+              --path "$APP_PATH_ABS" \
               --volume "/generated-artifacts:/app/generated-artifacts:rw" \
               --pull-policy always \
               "$@"
@@ -491,14 +494,16 @@ spec:
             fi
 
             SOURCE_ROOT=$(readlink -f -- "$WORKDIR")
-            case "$(readlink -f -- "$WORKDIR/$DOCKERFILE_PATH")" in
+            DOCKERFILE_ABS=$(readlink -f -- "$WORKDIR/$DOCKERFILE_PATH")
+            case "$DOCKERFILE_ABS" in
               "$SOURCE_ROOT"/*) ;;
               *)
                 echo ">> Error: Dockerfile path '$DOCKERFILE_PATH' resolves outside the repository"
                 exit 1
                 ;;
             esac
-            case "$(readlink -f -- "$WORKDIR/$DOCKER_CONTEXT")/" in
+            CONTEXT_ABS=$(readlink -f -- "$WORKDIR/$DOCKER_CONTEXT")
+            case "${CONTEXT_ABS}/" in
               "$SOURCE_ROOT"/*) ;;
               *)
                 echo ">> Error: Docker build context '$DOCKER_CONTEXT' resolves outside the repository"
@@ -551,7 +556,7 @@ spec:
             fi
 
             echo ">> Building image"
-            podman build -t "$IMAGE" -f "$WORKDIR/$DOCKERFILE_PATH" "$@" -- "$WORKDIR/$DOCKER_CONTEXT"
+            podman build -t "$IMAGE" -f "$DOCKERFILE_ABS" "$@" -- "$CONTEXT_ABS"
             echo ">> Image built successfully"
             podman save -o /mnt/vol/app-image.tar "$IMAGE"
         securityContext:

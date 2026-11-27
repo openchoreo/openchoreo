@@ -764,6 +764,43 @@ func TestBuildTemplates_PathOutsideRepositoryFailsBeforeBuild(t *testing.T) {
 	}
 }
 
+func TestBuildTemplates_SymlinkDotDotDoesNotEscapeLexically(t *testing.T) {
+	// docker-context="jump/../../../.." with an in-repo symlink jump -> deep/a/b/c.
+	// readlink -f resolves physically back to the repository root (the guard
+	// accepts), but podman cleans its context argument lexically, so passing the
+	// raw path would give podman a context above the checkout. Canonicalizing
+	// before the guard and passing the canonical path keeps the two in agreement.
+	for _, dir := range []struct {
+		name string
+		path string
+	}{{"sample", templatesDir}, {"build-cache", buildCacheTemplatesDir}} {
+		t.Run(dir.name, func(t *testing.T) {
+			script := scriptForTemplateFromDir(t, dir.path, "containerfile-build.yaml", "build-image")
+			env := envForTemplateFromDir(t, dir.path, "containerfile-build.yaml", "build-image")
+			res := runScriptWithEnv(t, script, env, map[string]string{
+				"podman": buildPodmanStub,
+				"jq":     buildJQStub,
+			}, func(root string) {
+				source := filepath.Join(root, "mnt-vol", "source")
+				require.NoError(t, os.MkdirAll(filepath.Join(source, "deep", "a", "b", "c"), 0o755))
+				require.NoError(t, os.Symlink("deep/a/b/c", filepath.Join(source, "jump")))
+				require.NoError(t, os.WriteFile(filepath.Join(source, "Dockerfile"), []byte("FROM scratch\n"), 0o644))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "storage"), 0o755))
+				require.NoError(t, os.MkdirAll(filepath.Join(root, "containers"), 0o755))
+			}, withReplacements(buildReplacements, "{{workflow.parameters.docker-context}}", "jump/../../../.."))
+
+			sourceDir, err := filepath.EvalSymlinks(filepath.Join(res.root, "mnt-vol", "source"))
+			require.NoError(t, err)
+			requireScriptSuccess(t, res,
+				"a context that canonicalizes inside the repository must build")
+			requireNoCallContains(t, res, "podman build", "/..",
+				"podman must receive a canonicalized context, not an unresolved .. path it would clean lexically to escape")
+			requireCallContains(t, res, "podman build", sourceDir,
+				"podman must receive the canonical in-repository context")
+		})
+	}
+}
+
 func TestContainerfileBuild_SubdirectoryContextBuilds(t *testing.T) {
 	script := scriptForTemplate(t, "containerfile-build.yaml", "build-image")
 	env := envForTemplate(t, "containerfile-build.yaml", "build-image")

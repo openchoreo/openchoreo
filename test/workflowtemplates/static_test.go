@@ -278,6 +278,18 @@ func TestContainerfileBuild_Specifics(t *testing.T) {
 		"containerfile build must receive docker-context through container env")
 	requireEnvContains(t, env, "BUILD_ARGS_JSON", "build-args",
 		"containerfile build must receive build-args through container env")
+	// The guard resolves the path with readlink -f, but podman cleans its
+	// arguments lexically; the same canonical value must be validated and passed.
+	requireContains(t, s,
+		`DOCKERFILE_ABS=$(readlink -f`,
+		`CONTEXT_ABS=$(readlink -f`,
+		`podman build -t "$IMAGE" -f "$DOCKERFILE_ABS"`,
+		`-- "$CONTEXT_ABS"`,
+	)
+	requireNotContains(t, s, `-f "$WORKDIR/$DOCKERFILE_PATH" "$@"`,
+		"podman must not receive the unresolved dockerfile path it would clean lexically")
+	requireNotContains(t, s, `"$@" -- "$WORKDIR/$DOCKER_CONTEXT"`,
+		"podman must not receive the unresolved context it would clean lexically")
 }
 
 func TestBuildpackTemplates_Specifics(t *testing.T) {
@@ -306,6 +318,14 @@ func TestBuildpackTemplates_Specifics(t *testing.T) {
 				"RemoteSocket.Exists",
 				"podman image exists",
 			)
+			// The guard resolves the path with readlink -f, but pack cleans
+			// --path lexically; the same canonical value must be validated and passed.
+			requireContains(t, s,
+				`APP_PATH_ABS=$(readlink -f`,
+				`--path "$APP_PATH_ABS"`,
+			)
+			requireNotContains(t, s, `--path "$WORKDIR/$APP_PATH"`,
+				"pack must not receive the unresolved app path it would clean lexically")
 		})
 	}
 }
