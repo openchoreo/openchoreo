@@ -86,6 +86,7 @@ from src.agent.rule_view import (
     change_view,
     flat_conditions,
     numbered_choices,
+    proposal_view,
     proposed_conditions,
     same_rules,
     understood,
@@ -252,6 +253,13 @@ _TEST_SAVED_NOTE = (
     "Don't write the result: the drawer shows it from the tool's own result. Ignore any "
     "rule in your earlier replies: the user hasn't approved it. Don't change the rule and "
     "don't write it in a code block."
+)
+# Added to a yes to a proposal code couldn't read (see _not_approved_reason).
+_UNREADABLE_NOTE = (
+    "[Automatic note — not written by the user] The user said yes, but your last proposal "
+    "couldn't be read, so it can't be checked against the rule you'd write. Ask again, "
+    "with the same change on one line that starts with **Proposed rule:**, each condition "
+    "written as `fact` `operator` `value` and joined with AND. Don't write the edited rule."
 )
 # Added to a later edit message that doesn't approve the last proposal.
 _NOT_APPROVED_NOTE = (
@@ -675,11 +683,25 @@ def _approves(answer: dict[str, Any] | str, step1: str) -> bool:
     return _picked_choice(answer, step1) is not None
 
 
+def _clicked_proposal(message: dict[str, Any] | None) -> list[Leaf] | None:
+    """The conditions a change card's Yes or numbered choice carries (see
+    a2ui._rule_context), or None for any other message."""
+    if decision_of(message) not in (CONFIRM_EDIT, PICK_PROPOSAL):
+        return None
+    rule = context_of(message).get("rule")
+    return flat_conditions(rule) if isinstance(rule, str) else None
+
+
 def _picked_proposal(messages: list[dict[str, str]]) -> list[Leaf] | None:
     """The conditions of the Step 1 proposal the latest message approves, or
     None when code can't read them (an OR, nested groups, no "Proposed rule:"
-    line): the save card then shows the rule without this comparison."""
+    line): the save card then shows the rule without this comparison. A
+    click on the change card carries them; only a typed answer is read
+    against the reply's words."""
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
+    clicked = _clicked_proposal(latest)
+    if clicked is not None:
+        return clicked
     step1 = next((m for m in reversed(messages) if m.get("role") == "assistant"), {})
     proposals = proposed_conditions(step1.get("content") or "")
     picked = _picked_choice(latest, step1.get("content") or "")
@@ -716,30 +738,19 @@ def _same_conditions(first: list[Leaf], second: list[Leaf]) -> bool:
     return not left
 
 
-# Characters in a value that end a backtick span or split the proposal
-# line from its words (see rule_view): escaped, as JSON reads them back.
-_PROPOSAL_ESCAPES = {"`": "\\u0060", "\u2014": "\\u2014", "\u2013": "\\u2013"}
-
-
-def _proposal_value(value: Any) -> str:
-    """``value`` as JSON the proposal parser reads back as ``value``."""
-    text = json.dumps(value, ensure_ascii=False)
-    for char, escaped in _PROPOSAL_ESCAPES.items():
-        text = text.replace(char, escaped)
-    return text
-
-
 _REPROPOSED = (
     "The rule I wrote isn't the one you picked, so please check it before I make the save card."
 )
 
 
 def _reproposal(conditions: list[Leaf], scope: dict[str, Any] | None) -> str:
-    """A Step 1 question for ``conditions``, the rule Step 2 wrote instead of
-    the approved one: a "yes" to it approves this rule, and the card that
-    follows must match it."""
+    """The text of a Step 1 question for ``conditions``, the rule Step 2
+    wrote instead of the approved one, for the chat history. Its card is
+    built from ``conditions`` (see rule_view.proposal_view), and its Yes
+    carries them: the card that follows a click must match them."""
     rule = " AND ".join(
-        f"`{fact}` `{operator}` `{_proposal_value(value)}`" for fact, operator, value in conditions
+        f"`{fact}` `{operator}` `{json.dumps(value, ensure_ascii=False)}`"
+        for fact, operator, value in conditions
     )
     summary = _current_rule_summary(scope or {})
     return "\n\n".join(
@@ -912,25 +923,41 @@ def _not_approved_reason(
     (Step 2), else why it doesn't. Logs nothing, so _approved_edit can ask
     it about earlier turns."""
     latest = messages[-1] if messages and messages[-1].get("role") == "user" else {}
-    previous = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
-    if previous is None:
+    index = next(
+        (i for i in reversed(range(len(messages))) if messages[i].get("role") == "assistant"),
+        None,
+    )
+    if index is None:
         return "first message"
-    if RULE_FENCE_RE.search(previous.get("content") or ""):
+    previous = messages[index].get("content") or ""
+    if RULE_FENCE_RE.search(previous):
         return "the last reply wasn't a question"
-    if not _proposes_rule(previous.get("content") or ""):
+    if _clicked_proposal(latest) is not None:
+        # Yes or a choice on the change card, with the rule it picks.
+        return None
+    if not _proposes_rule(previous):
         return "the last reply proposed no rule"
-    if not _PROPOSED_RULE_RE.search(previous.get("content") or "") and (
-        proposed_conditions(previous.get("content") or "") is None
-    ):
-        # Without its label, a proposal code can't read couldn't be compared
-        # with the rule Step 2 writes (see _picked_proposal): ask again.
-        return "the last reply's unlabeled proposal can't be read"
-    if _shown_as_input_card(previous.get("content") or "", scope):
+    if _shown_as_input_card(previous, scope):
         # Its choices weren't shown, so a number can't pick one.
         return "the last reply's choices were shown as the input card"
-    if _approves(latest, previous.get("content") or ""):
-        return None
-    return "not an approval"
+    if not _approves(latest, previous):
+        return "not an approval"
+    if (
+        not _PROPOSED_RULE_RE.search(previous)
+        and proposed_conditions(previous) is None
+        and _not_approved_reason(messages[:index], scope) != _UNREADABLE
+    ):
+        # Without its label, a proposal code can't read couldn't be compared
+        # with the rule Step 2 writes (see _picked_proposal): the model is
+        # asked to write it again so it can be (see _UNREADABLE_NOTE). Only
+        # once: a yes to the one it writes then is the approval, and the save
+        # card shows that rule for the user to check before saving.
+        return _UNREADABLE
+    return None
+
+
+# Why a yes isn't an approval yet: the proposal it answers can't be read.
+_UNREADABLE = "the last reply's unlabeled proposal can't be read"
 
 
 def _collects_for_components(check: dict[str, Any], scope: dict[str, Any]) -> bool:
@@ -1261,7 +1288,12 @@ async def stream_chat(
     # A later edit message that doesn't approve the last proposal: tell the
     # model so, instead of leaving it to read the reply as a confirmation.
     if edit_phase == "propose" and any(m.get("role") == "assistant" for m in messages):
-        stamped_messages = _add_note(stamped_messages, _NOT_APPROVED_NOTE)
+        stamped_messages = _add_note(
+            stamped_messages,
+            _UNREADABLE_NOTE
+            if _not_approved_reason(messages, scope) == _UNREADABLE
+            else _NOT_APPROVED_NOTE,
+        )
     elif edit_phase == "test":
         saved = (scope or {}).get("tests_saved_rule")
         stamped_messages = _add_note(stamped_messages, _TEST_SAVED_NOTE if saved else _TEST_NOTE)
@@ -1576,6 +1608,7 @@ async def stream_chat(
             # or less") is asked about again instead of signed. Only rules
             # code can read on both sides are compared (see _picked_proposal).
             reproposed = False
+            reproposed_view = None
             if confirmation and edit_phase == "apply":
                 picked = _picked_proposal(messages)
                 written = flat_conditions(confirmation["new_rule"])
@@ -1583,6 +1616,7 @@ async def stream_chat(
                     logger.info("Step 2 wrote another rule than the approved one: asking again")
                     message, confirmation, card = _reproposal(written, scope), None, None
                     edit_phase, reproposed = "propose", True
+                    reproposed_view = proposal_view(written, scope or {}, _REPROPOSED)
             # A drafted new check: first a saved check like it, read as the
             # user. When there is one, its card recommends editing that check
             # and says why, in place of the save card, and the user can still
@@ -1680,6 +1714,10 @@ async def stream_chat(
                     surface = notice_card_surface(problem_view(failed))
                 elif notice:
                     surface = notice_card_surface(notice)
+                elif reproposed_view and reproposed_view.clear:
+                    # Built from the rule Step 2 wrote, not read back from
+                    # the question's words.
+                    surface = change_card_surface(reproposed_view, check_name)
                 elif edit_phase in ("discuss", "welcome"):
                     # Its answer and suggestions are the model's own card
                     # (below): a change card or form would hide them.

@@ -16,6 +16,7 @@ from common.auth.bearer import BearerTokenAuth
 from src.agent import stream_chat
 from src.agent.confirm_actions import ConfirmError, confirm_check_change
 from src.agent.pending_actions import InvalidAction
+from src.agent.user_action import CONTEXT_VALUE_MAX
 from src.auth import require_authn, require_invoke_authz
 from src.clients import get_tools_for_user
 from src.models import BaseModel
@@ -55,7 +56,7 @@ class ChatAction(BaseModel):
     @model_validator(mode="after")
     def _small_context(self) -> ChatAction:
         for key, value in self.context.items():
-            if len(key) > 64 or (isinstance(value, str) and len(value) > 512):
+            if len(key) > 64 or (isinstance(value, str) and len(value) > CONTEXT_VALUE_MAX):
                 raise ValueError("action context values are too long")
         return self
 

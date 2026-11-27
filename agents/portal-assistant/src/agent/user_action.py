@@ -43,6 +43,10 @@ DECISIONS = frozenset(
 # The answer box on a card: what the user typed there.
 TYPE_ANSWER = "type_answer"
 
+# The longest value a button's context may carry: a change card's button
+# carries the rule it picks (see a2ui._rule_context).
+CONTEXT_VALUE_MAX = 2000
+
 
 def action_of(message: dict[str, Any] | None) -> dict[str, Any] | None:
     """The message's action, or None when the user typed it."""

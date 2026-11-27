@@ -30,7 +30,8 @@ from src.agent.dry_run_view import (
 )
 from src.agent.existing_check import ExistingCheckView
 from src.agent.reply_view import NoticeView, Pick
-from src.agent.rule_view import ChangeView, rule_lines, saved_change_view
+from src.agent.rule_view import ChangeView, rule_json, rule_lines, saved_change_view
+from src.agent.user_action import CONTEXT_VALUE_MAX
 from src.agent.words import first_upper
 from src.models import ReplyCard
 
@@ -155,6 +156,16 @@ def _surface(components: list[dict[str, Any]], kind: str = "edit-question") -> d
     }
 
 
+def _rule_context(view: ChangeView, number: int) -> dict[str, str]:
+    """The ``rule`` a change card's button carries: the conditions of the
+    proposal it picks, as data, so code never reads them back from words."""
+    leaves = view.proposals.get(number)
+    rule = rule_json(leaves) if leaves else ""
+    # Longer than a request takes: left out, and the next turn reads the
+    # proposal from the reply's words instead.
+    return {"rule": rule} if rule and len(rule) <= CONTEXT_VALUE_MAX else {}
+
+
 def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, Any]:
     """The edit question as a card: the reply's sentence, the rule as it is
     now, and only the conditions that change, in plain words.
@@ -175,7 +186,9 @@ def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, A
             "badge": str(option.number),
             "value": first_upper(option.value),
             "action": _sends(
-                "pick_proposal", str(option.number), {"choice": option.number},
+                "pick_proposal",
+                str(option.number),
+                {"choice": option.number, **_rule_context(view, option.number)},
             ),
         }
         for option in view.options
@@ -191,7 +204,10 @@ def change_card_surface(view: ChangeView, check_name: str | None) -> dict[str, A
         )
         answer = [_answer_field(OWN_ANSWER)]
     else:
-        buttons = _button("yes", "Yes, change it", "confirm_edit", "yes", variant="primary")
+        buttons = _button(
+            "yes", "Yes, change it", "confirm_edit", "yes",
+            variant="primary", context=_rule_context(view, 1),
+        )
         buttons += _button("no", "No", "reject_edit", "no")
 
     card: dict[str, Any] = {

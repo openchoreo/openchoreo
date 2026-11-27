@@ -80,6 +80,9 @@ class ChangeView:
     options: list[Option] = field(default_factory=list)
     # The reply's "What I understood" sentence, shown at the top of the card.
     summary: str | None = None
+    # Each proposal's conditions, by choice number: the card's buttons carry
+    # them, so the next turn reads the rule the user picked from the click.
+    proposals: dict[int, list[Leaf]] = field(default_factory=dict)
 
     @property
     def current(self) -> list[tuple[str, str]]:
@@ -165,6 +168,14 @@ def same_rules(first: Any, second: Any) -> bool:
     """Whether two rules are the same, as JSON: True == 1 in Python, but not
     to the rules engine."""
     return json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
+def rule_json(leaves: list[Leaf]) -> str:
+    """Flat conditions as a rule, which flat_conditions reads back."""
+    return json.dumps(
+        {"all": [{"fact": f, "operator": o, "value": v} for f, o, v in leaves]},
+        separators=(",", ":"),
+    )
 
 
 def current_conditions(scope: dict[str, Any]) -> list[Leaf] | None:
@@ -255,6 +266,17 @@ def change_view(message: str, scope: dict[str, Any]) -> ChangeView | None:
     return _view(current, proposals, scope, understood(message))
 
 
+def proposal_view(
+    conditions: list[Leaf], scope: dict[str, Any], summary: str | None,
+) -> ChangeView | None:
+    """The card for a question code asks about ``conditions`` itself, built
+    from them rather than from words, or None when it can't be shown exactly."""
+    current = current_conditions(scope)
+    if current is None:
+        return None
+    return _view(current, {1: conditions}, scope, summary)
+
+
 def saved_change_view(
     current_rule: str | None,
     new_rule: str,
@@ -325,7 +347,7 @@ def _view(
                 for f in picked
             ]
             choices.append(Option(number, "; ".join(words)))
-    return ChangeView(rows, choices, summary)
+    return ChangeView(rows, choices, summary, proposals)
 
 
 _CURRENT_LINE_RE = re.compile(r"Current rule\**[ \t]*:", re.IGNORECASE)

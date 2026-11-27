@@ -3456,28 +3456,138 @@ def test_a_test_of_true_is_not_the_result_of_a_card_with_1():
     assert orchestrator._run_of_card_rule([run], {"new_rule": same}) is run
 
 
+def _yes_events(event):
+    return {
+        c["id"]: c["action"]["event"]
+        for c in _components(event)
+        if c["component"] in ("Button", "OptionTile")
+    }
+
+
 @pytest.mark.parametrize(
     "value",
     ["Platform — Core", "a – b", "uses `code`", ["x — y", "z"]],
 )
-def test_a_question_asked_again_reads_back_the_written_rule(value):
-    # Its proposal must be readable, or a yes to it couldn't be compared.
-    asked = orchestrator._reproposal([("team", "equal", value)], _EDIT_SCOPE)
-
-    assert orchestrator.proposed_conditions(asked) == {1: [("team", "equal", value)]}
-
-
-async def test_a_yes_to_a_question_with_a_dash_still_compares(monkeypatch):
-    asked = orchestrator._reproposal([("team", "equal", "Platform — Core")], _EDIT_SCOPE)
+async def test_a_question_asked_again_carries_the_written_rule_on_its_yes(monkeypatch, value):
+    # The card is built from the rule Step 2 wrote, and its Yes carries it:
+    # no words are written for code to read back, whatever the value holds.
+    written = {"all": [{"fact": "team", "operator": "equal", "value": value}]}
+    scope = {**_EDIT_SCOPE, "current_rule": json.dumps(
+        {"all": [{"fact": "team", "operator": "equal", "value": "Platform"}]},
+    )}
 
     events, _built = await _turn(
         monkeypatch,
-        [*_FIRST, {"role": "assistant", "content": asked}, {"role": "user", "content": "yes"}],
-        _edited({"all": [{"fact": "team", "operator": "equal", "value": "Platform"}]}),
+        [*_FIRST, {"role": "assistant", "content": _TWO_CHOICES}, {"role": "user", "content": "1"}],
+        _edited(written),
+        scope=scope,
         confirmation=_card_of_reply,
     )
 
-    assert not _has_card(events)
+    (event,) = _a2ui(events)
+    assert _components(event)[0]["component"] == "ChangeCard"
+    yes = _yes_events(event)["yes"]
+    assert yes["name"] == "confirm_edit"
+    assert json.loads(yes["context"]["rule"]) == written
+
+
+def _clicked_yes(rule):
+    return {
+        "role": "user",
+        "content": "yes",
+        "action": {"name": "confirm_edit", "context": {"rule": json.dumps(rule)}},
+    }
+
+
+@pytest.mark.parametrize(("written", "card"), [(_UNDER_60, True), (_AT_MOST_60, False)])
+async def test_a_click_is_compared_with_the_rule_it_carries(monkeypatch, written, card):
+    # The question's words say "60 or less"; the clicked Yes says "less than
+    # 60". The click decides, so no words are read back.
+    events, _built = await _turn(
+        monkeypatch,
+        [*_FIRST, {"role": "assistant", "content": _STEP1}, _clicked_yes(_UNDER_60)],
+        _edited(written),
+        confirmation=_card_of_reply,
+    )
+
+    assert _has_card(events) is card
+
+
+def test_a_click_with_its_rule_approves_whatever_the_words_say():
+    messages = [
+        {"role": "user", "content": "Change it to 60"},
+        {"role": "assistant", "content": "Shall I change it? It's hard to say in words."},
+        _clicked_yes(_UNDER_60),
+    ]
+
+    assert orchestrator._edit_phase(messages, _EDIT_SCOPE) == "apply"
+
+
+async def test_the_change_cards_buttons_carry_their_rules(monkeypatch):
+    events, _built = await _turn(monkeypatch, _FIRST, _TWO_CHOICES)
+
+    (event,) = _a2ui(events)
+    tiles = _yes_events(event)
+    assert json.loads(tiles["option_1"]["context"]["rule"]) == _AT_MOST_60
+    assert json.loads(tiles["option_2"]["context"]["rule"]) == _UNDER_60
+    assert "context" not in tiles["no"]
+
+
+_UNREADABLE_STEP1 = (
+    "I could make it `githubDaysSinceLastPush` `lessThanInclusive` `60`.\n"
+    "Or `githubDaysSinceLastPush` `lessThan` `60`. Shall I?"
+)
+
+
+async def test_a_yes_to_an_unreadable_proposal_is_told_so(monkeypatch):
+    # The model isn't told the user didn't approve: it's told why code asks again.
+    seen = {}
+
+    await _turn(
+        monkeypatch,
+        [
+            *_FIRST,
+            {"role": "assistant", "content": _UNREADABLE_STEP1},
+            {"role": "user", "content": "yes"},
+        ],
+        _STEP1,
+        seen=seen,
+    )
+
+    assert seen["edit_phase"] == "propose"
+    note = seen["messages"][-1]["content"]
+    assert note.endswith(orchestrator._UNREADABLE_NOTE)
+    assert orchestrator._NOT_APPROVED_NOTE not in note
+
+
+def test_the_same_unreadable_proposal_is_asked_about_only_once():
+    asked = [
+        {"role": "user", "content": "Change it to 60"},
+        {"role": "assistant", "content": _UNREADABLE_STEP1},
+        {"role": "user", "content": "yes"},
+    ]
+    assert orchestrator._edit_phase(asked, _EDIT_SCOPE) == "propose"
+
+    # The model wrote it unreadably again: the yes approves it, and the save
+    # card shows that rule for the user to check before saving.
+    again = [
+        *asked,
+        {"role": "assistant", "content": _UNREADABLE_STEP1},
+        {"role": "user", "content": "yes"},
+    ]
+    assert orchestrator._edit_phase(again, _EDIT_SCOPE) == "apply"
+    assert orchestrator._picked_proposal(again) is None
+
+
+def test_a_no_to_an_unreadable_proposal_is_not_an_approval():
+    assert orchestrator._not_approved_reason(
+        [
+            {"role": "user", "content": "Change it to 60"},
+            {"role": "assistant", "content": _UNREADABLE_STEP1},
+            {"role": "user", "content": "no, make it 90"},
+        ],
+        _EDIT_SCOPE,
+    ) == "not an approval"
 
 
 _TIGHT_CHOICES = (

@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from src.agent import a2ui, orchestrator
 from src.agent.reply_view import Pick
-from src.agent.user_action import for_model
+from src.agent.user_action import CONTEXT_VALUE_MAX, for_model
 from src.api.agent_routes import ChatMessage, ChatRequest
 
 _ONE = "Proposed rule: `githubDaysSinceLastPush lessThanInclusive 60`. Shall I change it to that?"
@@ -164,7 +164,7 @@ def test_a_message_takes_a_buttons_action():
     [
         {"name": "Not-A-Name"},
         {"name": "test", "extra": 1},
-        {"name": "test", "context": {"entityRef": "x" * 600}},
+        {"name": "test", "context": {"entityRef": "x" * (CONTEXT_VALUE_MAX + 1)}},
         {"name": "test", "context": {f"k{i}": "v" for i in range(9)}},
     ],
 )
