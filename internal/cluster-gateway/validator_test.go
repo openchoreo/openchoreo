@@ -30,7 +30,7 @@ func TestNewRequestValidator(t *testing.T) {
 		assert.True(t, v.allowedTargets[tgt], "target %s should be allowed", tgt)
 	}
 
-	assert.Len(t, v.blockedPaths, 2)
+	assert.Empty(t, v.blockedPaths)
 }
 
 func TestValidateRequest_AllowedMethods(t *testing.T) {
@@ -65,22 +65,110 @@ func TestValidateRequest_BlockedPaths(t *testing.T) {
 	v := NewRequestValidator()
 
 	tests := []struct {
-		name string
-		path string
+		name   string
+		method string
+		path   string
 	}{
-		{"kube-system secrets", "/api/v1/namespaces/kube-system/secrets"},
-		{"cluster-wide service accounts", "/apis/v1/serviceaccounts"},
-		{"kube-system secrets subpath", "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"cluster-wide secrets list", http.MethodGet, "/api/v1/secrets"},
+		{"cluster-wide secrets watch path", http.MethodGet, "/api/v1/watch/secrets"},
+		{"cluster-wide secrets trailing slash", http.MethodGet, "/api/v1/secrets/"},
+		{"cluster-wide secrets double slash", http.MethodGet, "//api/v1//secrets"},
+		{"cluster-wide secrets dot segment", http.MethodGet, "/api/v1/./secrets"},
+		{"cluster-wide secrets delete collection", http.MethodDelete, "/api/v1/secrets"},
+		{"cluster-wide service accounts list", http.MethodGet, "/api/v1/serviceaccounts"},
+		{"cluster-wide service accounts watch path", http.MethodGet, "/api/v1/watch/serviceaccounts"},
+		{"kube-system secrets list", http.MethodGet, "/api/v1/namespaces/kube-system/secrets"},
+		{"kube-system secret get", http.MethodGet, "/api/v1/namespaces/kube-system/secrets/my-secret"},
+		{"kube-system secrets watch path", http.MethodGet, "/api/v1/watch/namespaces/kube-system/secrets"},
+		{"kube-system secrets double slash", http.MethodGet, "/api/v1/namespaces/kube-system//secrets"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequest(tt.method, "/test", nil)
 			err := v.ValidateRequest(req, "k8s", tt.path)
 			require.Error(t, err)
 			var valErr *ValidationError
 			require.ErrorAs(t, err, &valErr)
 			assert.Equal(t, http.StatusForbidden, valErr.Code)
+		})
+	}
+}
+
+func TestValidateRequest_BlockedWatchQuery(t *testing.T) {
+	v := NewRequestValidator()
+
+	for _, q := range []string{"watch=true", "watch=1", "watch=True&labelSelector=a%3Db"} {
+		t.Run(q, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test?"+q, nil)
+			err := v.ValidateRequest(req, "k8s", "/api/v1/secrets")
+			require.Error(t, err)
+			var valErr *ValidationError
+			require.ErrorAs(t, err, &valErr)
+			assert.Equal(t, http.StatusForbidden, valErr.Code)
+		})
+	}
+}
+
+func TestValidateRequest_PercentEncodedPath(t *testing.T) {
+	v := NewRequestValidator()
+
+	// The gateway decodes the path once and the agent decodes it again, so a
+	// leftover escape like %73 reaches the API server as "s".
+	for _, p := range []string{
+		"/api/v1/namespaces/kube-system/%73ecrets",
+		"/api/v1/%73ecrets",
+	} {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			err := v.ValidateRequest(req, "k8s", p)
+			require.Error(t, err)
+			var valErr *ValidationError
+			require.ErrorAs(t, err, &valErr)
+			assert.Equal(t, http.StatusBadRequest, valErr.Code)
+		})
+	}
+}
+
+func TestValidateRequest_AllowedSensitivePaths(t *testing.T) {
+	v := NewRequestValidator()
+
+	// The control plane manages Secrets and ServiceAccounts in plane namespaces
+	// through this proxy, so namespaced access must keep working.
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{"namespaced secrets list", http.MethodGet, "/api/v1/namespaces/dp-default/secrets"},
+		{"namespaced secret get", http.MethodGet, "/api/v1/namespaces/dp-default/secrets/app-creds"},
+		{"namespaced secret create", http.MethodPost, "/api/v1/namespaces/dp-default/secrets"},
+		{"namespaced secret delete", http.MethodDelete, "/api/v1/namespaces/dp-default/secrets/app-creds"},
+		{"namespaced secrets watch path", http.MethodGet, "/api/v1/watch/namespaces/dp-default/secrets"},
+		{"namespaced service account get", http.MethodGet, "/api/v1/namespaces/dp-default/serviceaccounts/app"},
+		{"service account token", http.MethodPost, "/api/v1/namespaces/dp-default/serviceaccounts/app/token"},
+		{"namespace named secrets", http.MethodGet, "/api/v1/namespaces/secrets/pods"},
+		{"kube-system namespace object", http.MethodGet, "/api/v1/namespaces/kube-system"},
+		{"kube-system configmaps", http.MethodGet, "/api/v1/namespaces/kube-system/configmaps"},
+		{"external secrets CRD", http.MethodGet, "/apis/external-secrets.io/v1/externalsecrets"},
+		{"group named secrets", http.MethodGet, "/apis/secrets.example.com/v1/secrets"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/test", nil)
+			assert.NoError(t, v.ValidateRequest(req, "k8s", tt.path))
+		})
+	}
+}
+
+func TestValidateRequest_NonK8sTargetSkipsK8sRules(t *testing.T) {
+	v := NewRequestValidator()
+
+	for _, p := range []string{"/api/v1/secrets", "/logs/app-%2A/_search"} {
+		t.Run(p, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			assert.NoError(t, v.ValidateRequest(req, "logs", p))
 		})
 	}
 }
