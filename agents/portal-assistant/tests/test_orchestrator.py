@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.agent import confirm_card, existing_check, orchestrator
+from src.agent import check_authoring, confirm_card, existing_check, orchestrator
 from src.agent.dry_run_view import DryRun
 from src.agent.orchestrator import _stamp_current_time
 from src.agent.rule_view import flat_conditions
@@ -44,7 +44,7 @@ def _no_saved_check_like_the_draft(monkeypatch):
     async def _none(*_args, **_kwargs):
         return None
 
-    monkeypatch.setattr(orchestrator, "find_existing_check", _none)
+    monkeypatch.setattr(check_authoring, "find_existing_check", _none)
 
 
 def test_empty_input_returns_unchanged():
@@ -186,7 +186,7 @@ async def _turn(
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _fake_chunks)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     events = [
         ev
         async for ev in orchestrator.stream_chat(
@@ -378,7 +378,7 @@ def test_save_it_reaches_back_only_over_test_results():
     test = {"role": "user", "content": "test it on order-api"}
 
     def reply(*after):
-        return orchestrator._reply_to_save([*draft, *after, save], scope)
+        return check_authoring._reply_to_save([*draft, *after, save], scope)
 
     assert reply(test, {"role": "assistant", "content": _TESTED}) == _STEP2
     assert (
@@ -421,7 +421,7 @@ def test_save_it_reaches_back_only_over_test_results():
         {"role": "assistant", "content": _TESTED},
         save,
     ]
-    assert orchestrator._reply_to_save(unapproved, _EDIT_SCOPE) is None
+    assert check_authoring._reply_to_save(unapproved, _EDIT_SCOPE) is None
 
 
 async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch):
@@ -439,8 +439,8 @@ async def test_a_failing_shortcut_falls_back_to_the_model(monkeypatch):
         return
         yield  # makes this an async generator
 
-    monkeypatch.setattr(orchestrator, "card_for_save_request", _broken)
-    monkeypatch.setattr(orchestrator, "card_for_separate_check", _broken)
+    monkeypatch.setattr(check_authoring, "card_for_save_request", _broken)
+    monkeypatch.setattr(check_authoring, "card_for_separate_check", _broken)
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _reply)
     events = [
@@ -464,7 +464,7 @@ _TWO_CHOICES = (
 
 
 def _phase(step1, answer):
-    return orchestrator._edit_phase([
+    return check_authoring._edit_phase([
         {"role": "user", "content": "Change it to 60"},
         {"role": "assistant", "content": step1},
         {"role": "user", "content": answer},
@@ -556,15 +556,15 @@ def test_an_approval_after_a_step2_reply_is_not_a_new_confirmation():
         {"role": "assistant", "content": _STEP2},
         {"role": "user", "content": "ok"},
     ]
-    assert orchestrator._edit_phase(messages, _EDIT_SCOPE) == "propose"
+    assert check_authoring._edit_phase(messages, _EDIT_SCOPE) == "propose"
 
 
 def test_the_first_message_of_an_edit_is_propose():
-    assert orchestrator._edit_phase(_FIRST, _EDIT_SCOPE) == "propose"
+    assert check_authoring._edit_phase(_FIRST, _EDIT_SCOPE) == "propose"
 
 
 def test_a_new_check_has_no_edit_phase():
-    assert orchestrator._edit_phase(_FIRST, {"case_type": "check_authoring"}) is None
+    assert check_authoring._edit_phase(_FIRST, {"case_type": "check_authoring"}) is None
 
 
 async def test_a_changed_value_gets_no_tools_no_card_and_the_note(monkeypatch):
@@ -581,7 +581,7 @@ async def test_a_changed_value_gets_no_tools_no_card_and_the_note(monkeypatch):
     )
 
     assert seen["edit_phase"] == "propose"  # DryRunStop: no tools
-    assert seen["messages"][-1]["content"].endswith(orchestrator._NOT_APPROVED_NOTE)
+    assert seen["messages"][-1]["content"].endswith(check_authoring._NOT_APPROVED_NOTE)
     assert "yes change to 70" in seen["messages"][-1]["content"]
     assert built == []
     assert not _has_card(events)
@@ -595,7 +595,7 @@ async def test_the_first_message_gets_no_note(monkeypatch):
     await _turn(monkeypatch, _FIRST, _STEP1, seen=seen)
 
     assert seen["edit_phase"] == "propose"
-    assert orchestrator._NOT_APPROVED_NOTE not in seen["messages"][-1]["content"]
+    assert check_authoring._NOT_APPROVED_NOTE not in seen["messages"][-1]["content"]
 
 
 async def test_an_approval_builds_the_agent_with_tools(monkeypatch):
@@ -609,7 +609,7 @@ async def test_an_approval_builds_the_agent_with_tools(monkeypatch):
     )
 
     assert seen["edit_phase"] == "apply"
-    assert orchestrator._NOT_APPROVED_NOTE not in seen["messages"][-1]["content"]
+    assert check_authoring._NOT_APPROVED_NOTE not in seen["messages"][-1]["content"]
 
 
 # ── A first edit reply that skipped Step 1 is rewritten ─────────────
@@ -643,7 +643,7 @@ async def test_a_first_edit_reply_with_a_rule_is_rewritten_as_the_step1_question
     assert len(agent.calls) == 1
     history = agent.calls[0]
     assert history[-2] == {"role": "assistant", "content": _STEP2}
-    assert history[-1]["content"] == orchestrator._STEP1_NOTE
+    assert history[-1]["content"] == check_authoring._STEP1_NOTE
     assert _done_message(events) == _STEP1
     assert built == []  # no card, so no validation by the card either
     assert not _has_card(events)
@@ -760,7 +760,7 @@ async def _streamed_turn(monkeypatch, messages, reply, scope=_EDIT_SCOPE):
         return None
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     return [
         ev
         async for ev in orchestrator.stream_chat(
@@ -971,14 +971,14 @@ async def test_another_rule_than_the_picked_one_is_asked_about_again(monkeypatch
     message = _done_message(events)
     assert "```" not in message
     assert "**Proposed rule:** `githubDaysSinceLastPush` `lessThan` `60`" in message
-    assert orchestrator._REPROPOSED in message
+    assert check_authoring._REPROPOSED in message
     (event,) = _a2ui(events)
     assert _components(event)[0]["component"] == "ChangeCard"
     assert _button_messages(event) == ["yes", "no"]
 
 
 async def test_a_yes_to_the_question_asked_again_gets_the_card(monkeypatch):
-    asked = orchestrator._reproposal(
+    asked = check_authoring._reproposal(
         [("githubDaysSinceLastPush", "lessThan", 60)],
         _EDIT_SCOPE,
     )
@@ -1169,7 +1169,7 @@ def test_plain_conditions_read_a_wrapped_rule_and_a_single_any():
     ],
 )
 def test_same_conditions(first, second, same):
-    assert orchestrator._same_conditions(first, second) is same
+    assert check_authoring._same_conditions(first, second) is same
 
 
 async def test_choices_the_change_card_can_not_show_get_a_choice_card(monkeypatch):
@@ -1253,7 +1253,7 @@ async def test_no_keep_it_then_yes_as_in_the_live_test(monkeypatch):
     events, built = await _turn(monkeypatch, chat, _WORDED_OPTIONS, scope=_BRANCH_SCOPE, seen=seen)
 
     assert seen["edit_phase"] == "propose"
-    assert seen["messages"][-1]["content"].endswith(orchestrator._NOT_APPROVED_NOTE)
+    assert seen["messages"][-1]["content"].endswith(check_authoring._NOT_APPROVED_NOTE)
     assert built == [] and not _has_card(events)
     (event,) = _questions(events)
     assert _components(event)[0]["title"] == "Which change do you mean?"
@@ -1298,7 +1298,7 @@ def test_a_number_picks_a_choice_only_when_the_choices_were_shown(step1, phase):
         {"role": "assistant", "content": step1},
         {"role": "user", "content": "2"},
     ]
-    assert orchestrator._edit_phase(messages, _BRANCH_SCOPE) == phase
+    assert check_authoring._edit_phase(messages, _BRANCH_SCOPE) == phase
 
 
 async def test_clear_choices_still_get_tiles_and_keep_the_current_rule(monkeypatch):
@@ -1450,7 +1450,7 @@ async def test_a_check_authoring_reply_is_shown_as_the_card_the_model_filled(mon
      "Reply shown as NoticeCard"),
 ], ids=["model card", "message card", "notice card"])
 async def test_the_log_names_the_card_each_reply_got(monkeypatch, caplog, reply, card, logged):
-    caplog.set_level("INFO", logger="src.agent.orchestrator")
+    caplog.set_level("INFO", logger="src.agent.check_authoring")
 
     await _turn(
         monkeypatch, [{"role": "user", "content": "check the readme"}], reply,
@@ -1566,7 +1566,7 @@ def test_a_test_request_is_its_own_step(answer):
 
 
 def test_a_test_request_as_the_first_message_tests_the_saved_rule():
-    assert orchestrator._edit_phase(
+    assert check_authoring._edit_phase(
         [{"role": "user", "content": "test it on order-api"}], _EDIT_SCOPE,
     ) == "test"
 
@@ -1586,10 +1586,10 @@ def test_a_test_request_only_tests_once_a_check_is_drafted():
         {"role": "user", "content": "Test it on component:default/order-api"},
     ]
 
-    assert orchestrator._edit_phase(chat, {"case_type": "check_authoring"}) == "test"
-    assert orchestrator._edit_phase(chat, _EDIT_SCOPE) == "test"
+    assert check_authoring._edit_phase(chat, {"case_type": "check_authoring"}) == "test"
+    assert check_authoring._edit_phase(chat, _EDIT_SCOPE) == "test"
     # Nothing drafted yet: a new check's chat as before.
-    assert orchestrator._edit_phase(chat[2:], {"case_type": "check_authoring"}) is None
+    assert check_authoring._edit_phase(chat[2:], {"case_type": "check_authoring"}) is None
 
 
 async def test_a_saved_new_check_gets_no_second_save_card_when_tested(monkeypatch):
@@ -1607,7 +1607,7 @@ async def test_a_saved_new_check_gets_no_second_save_card_when_tested(monkeypatc
         return {**_CARD, "kind": "create"}
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     chat = [
         {"role": "user", "content": "Repos must have a push in the last 30 days"},
         {"role": "assistant", "content": _DRAFTED},
@@ -1691,7 +1691,7 @@ async def _tested_turn(
         return {**_CARD, "new_rule": card_rule}
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     events = [
         ev async for ev in orchestrator.stream_chat(
             messages=chat, token="t", user_sub="u", scope=scope, backstage_token="b",
@@ -1718,7 +1718,7 @@ async def test_a_test_of_an_unsaved_edit_ends_in_its_save_card(monkeypatch):
     events, seen, built = await _tested_turn(monkeypatch, chat)
 
     assert seen["edit_phase"] == "test"
-    assert seen["note"].endswith(orchestrator._TEST_NOTE)
+    assert seen["note"].endswith(check_authoring._TEST_NOTE)
     # The change's card again — what's left is to save it — and no test card.
     assert built == [_STEP2]
     assert _confirmation(events)["tested"] is True
@@ -1750,7 +1750,7 @@ async def test_a_test_of_an_unsaved_draft_ends_in_its_save_card(monkeypatch):
     ]
 
 
-_EXAMPLE = orchestrator._NEW_WELCOME_CHOICES["beginner"][0]
+_EXAMPLE = check_authoring._NEW_WELCOME_CHOICES["beginner"][0]
 
 
 async def test_the_beginners_example_is_practice_once_tested(monkeypatch):
@@ -1801,9 +1801,9 @@ def test_the_example_is_found_only_in_a_beginners_new_check():
     chat = [{"role": "user", "content": _EXAMPLE}]
     beginner = {"case_type": "check_authoring", "experience": "beginner"}
 
-    assert orchestrator._is_example(chat, beginner)
-    assert not orchestrator._is_example(chat, {**beginner, "check_id": "c1"})
-    assert not orchestrator._is_example([{"role": "user", "content": "save it"}], beginner)
+    assert check_authoring._is_example(chat, beginner)
+    assert not check_authoring._is_example(chat, {**beginner, "check_id": "c1"})
+    assert not check_authoring._is_example([{"role": "user", "content": "save it"}], beginner)
 
 
 _EXAMPLE_SCOPE = {
@@ -1871,7 +1871,7 @@ async def test_a_failing_example_card_falls_back_to_the_model(monkeypatch):
         return
         yield  # makes this an async generator
 
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fails_first)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fails_first)
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _reply)
     events = [
@@ -1894,10 +1894,10 @@ def test_only_the_examples_own_words_are_drafted_by_code():
         {"role": "user", "content": "Test it on component:default/order-api"},
     ]
 
-    assert orchestrator._example_draft(asked, _EXAMPLE_SCOPE)
-    assert orchestrator._example_draft(tested, _EXAMPLE_SCOPE) is None
-    assert orchestrator._example_draft(asked, {**_EXAMPLE_SCOPE, "experience": "experienced"}) is None
-    assert orchestrator._example_draft(asked, {**_EXAMPLE_SCOPE, "check_id": "c1"}) is None
+    assert check_authoring._example_draft(asked, _EXAMPLE_SCOPE)
+    assert check_authoring._example_draft(tested, _EXAMPLE_SCOPE) is None
+    assert check_authoring._example_draft(asked, {**_EXAMPLE_SCOPE, "experience": "experienced"}) is None
+    assert check_authoring._example_draft(asked, {**_EXAMPLE_SCOPE, "check_id": "c1"}) is None
 
 
 # ── The test picker's test, run by code ──────────────────────────────
@@ -1948,9 +1948,9 @@ async def _picked_turn(monkeypatch, chat, scope, result=_FAILED_RUN, error=None)
         return {**_CARD, "kind": "create", "new_rule": json.dumps(rule)}
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
-    monkeypatch.setattr(orchestrator, "backstage_tools_as_user", _fake_tools)
-    monkeypatch.setattr(orchestrator, "call_backstage_tool", _fake_call)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "backstage_tools_as_user", _fake_tools)
+    monkeypatch.setattr(check_authoring, "call_backstage_tool", _fake_call)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     events = [
         ev async for ev in orchestrator.stream_chat(
             messages=chat, token="t", user_sub="u", scope=scope, backstage_token="b",
@@ -2022,7 +2022,7 @@ async def test_the_pickers_test_of_the_saved_check_shows_the_test_card(monkeypat
 
 
 async def test_the_pickers_test_of_the_example_stays_practice(monkeypatch):
-    draft = orchestrator.example_draft(_EXAMPLE_SCOPE)
+    draft = check_authoring.example_draft(_EXAMPLE_SCOPE)
     chat = [
         {"role": "user", "content": _EXAMPLE},
         {"role": "assistant", "content": draft},
@@ -2077,7 +2077,7 @@ def test_a_test_request_code_can_read_is_run_by_code():
     ]
 
     def ref(text, scope=_NO_KIND_SCOPE, chat=drafted):
-        test = orchestrator._code_test([*chat, {"role": "user", "content": text}], scope)
+        test = check_authoring._code_test([*chat, {"role": "user", "content": text}], scope)
         return test and test[0]
 
     # The picker's full ref, and a test typed in your own words.
@@ -2215,12 +2215,12 @@ async def test_a_card_whose_rule_differs_from_the_tested_one_is_not_tested(monke
 def test_a_run_matches_the_card_whatever_the_rule_s_layout():
     run = DryRun(status="passed", rule=json.dumps({"conditions": json.loads(_BRANCH_RULE)}))
 
-    assert orchestrator._run_of_card_rule(
+    assert check_authoring._run_of_card_rule(
         [run], {"new_rule": json.dumps(json.loads(_BRANCH_RULE), indent=2)},
     ) is run
-    assert orchestrator._run_of_card_rule([run], {"new_rule": "{}"}) is None
-    assert orchestrator._run_of_card_rule([DryRun(status="passed")], {"new_rule": "{}"}) is None
-    assert orchestrator._run_of_card_rule([], {"new_rule": "{}"}) is None
+    assert check_authoring._run_of_card_rule([run], {"new_rule": "{}"}) is None
+    assert check_authoring._run_of_card_rule([DryRun(status="passed")], {"new_rule": "{}"}) is None
+    assert check_authoring._run_of_card_rule([], {"new_rule": "{}"}) is None
 
 
 async def test_a_test_with_nothing_unsaved_shows_the_test_card(monkeypatch):
@@ -2286,7 +2286,7 @@ async def _tools_turn(monkeypatch, results, reply="I couldn't test it.", confirm
         return confirmation
 
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     return [
         ev async for ev in orchestrator.stream_chat(
             messages=[{"role": "user", "content": "check it on order-apx"}], token="t",
@@ -2450,7 +2450,7 @@ async def test_a_dry_run_result_is_sent_as_soon_as_it_comes_back(monkeypatch):
     (None, {"case_type": "build_failure"}, "Writing the reply"),
 ])
 def test_the_last_step_is_named_by_the_request(edit_phase, scope, label):
-    assert orchestrator._writing_label(edit_phase, scope) == label
+    assert check_authoring._writing_label(edit_phase, scope) == label
 
 
 async def test_a_new_check_shows_only_its_own_steps(monkeypatch):
@@ -2504,7 +2504,7 @@ _BOTH = (
     ("make it stricter", False),
 ])
 def test_asks_to_add(text, adds):
-    assert orchestrator._asks_to_add(text) is adds
+    assert check_authoring._asks_to_add(text) is adds
 
 
 async def test_an_added_condition_keeps_the_current_ones(monkeypatch):
@@ -2517,7 +2517,7 @@ async def test_an_added_condition_keeps_the_current_ones(monkeypatch):
 
     (history,) = agent.calls
     assert history[-2] == {"role": "assistant", "content": _ONLY_PRIVATE}
-    assert history[-1]["content"] == orchestrator._KEEP_CONDITIONS_NOTE
+    assert history[-1]["content"] == check_authoring._KEEP_CONDITIONS_NOTE
     assert _done_message(events) == _BOTH
 
 
@@ -2575,7 +2575,7 @@ async def test_suggestions_for_an_edit_keep_the_models_own_card(monkeypatch):
     )
 
     assert seen["edit_phase"] == "discuss"
-    assert seen["messages"][-1]["content"].endswith(orchestrator._DISCUSS_NOTE)
+    assert seen["messages"][-1]["content"].endswith(check_authoring._DISCUSS_NOTE)
     assert built == [] and not _has_card(events)  # nothing to save yet
     (event,) = _questions(events)
     assert _components(event)[0]["component"] == "ReplyCard"
@@ -2585,13 +2585,13 @@ async def test_suggestions_for_an_edit_keep_the_models_own_card(monkeypatch):
 
 
 def test_an_ideas_turn_writes_the_answer():
-    assert orchestrator._writing_label("discuss", _EDIT_SCOPE) == "Writing the answer"
+    assert check_authoring._writing_label("discuss", _EDIT_SCOPE) == "Writing the answer"
 
 
 @pytest.mark.parametrize("case_type", ["build_failure", "runtime_debug", None])
 def test_other_chats_get_no_ideas_phase(case_type):
     chat = [{"role": "user", "content": "Why did it fail? Suggest a fix"}]
-    assert orchestrator._edit_phase(chat, {"case_type": case_type}) is None
+    assert check_authoring._edit_phase(chat, {"case_type": case_type}) is None
 
 
 @pytest.mark.parametrize(("latest", "label"), [
@@ -2600,7 +2600,7 @@ def test_other_chats_get_no_ideas_phase(case_type):
     ("Repos must be private", "Drafting the check"),
 ])
 def test_a_new_check_turn_is_named_by_what_it_asks(latest, label):
-    assert orchestrator._writing_label(None, {"case_type": "check_authoring"}, latest) == label
+    assert check_authoring._writing_label(None, {"case_type": "check_authoring"}, latest) == label
 
 
 # ── The welcome of a check authoring chat ────────────────────────────
@@ -2644,7 +2644,7 @@ async def test_a_familiar_users_welcome_lists_only_the_areas(monkeypatch):
     components = _components(event)
     root = components[0]
     assert root["title"] == "Areas you can check"
-    assert root["summary"] == orchestrator._AREAS_SUMMARY
+    assert root["summary"] == check_authoring._AREAS_SUMMARY
     assert root["summary"].startswith("Here are some different areas you can write checks for.")
     # The question at the end doesn't mention facts.
     assert root["summary"].endswith(
@@ -2668,12 +2668,12 @@ def test_the_welcomes_areas_are_short_and_each_named_once():
         {"label": name, "message": name}
         for name in ("Code access", "code access", "A" * 41, "B", "C", "D", "E", "F", "G")
     ]}
-    assert orchestrator._welcome_areas(many) == ["Code access", "B", "C", "D", "E", "F"]
+    assert check_authoring._welcome_areas(many) == ["Code access", "B", "C", "D", "E", "F"]
     # No choices: the section labels the model used instead.
-    assert orchestrator._welcome_areas({"sections": [{"label": "Code scanning"}]}) == [
+    assert check_authoring._welcome_areas({"sections": [{"label": "Code scanning"}]}) == [
         "Code scanning",
     ]
-    assert orchestrator._welcome_areas({"title": "x"}) == []
+    assert check_authoring._welcome_areas({"title": "x"}) == []
 
 
 @pytest.mark.parametrize(("said", "noted"), [
@@ -2690,7 +2690,7 @@ async def test_an_area_named_after_the_welcome_gets_its_facts(monkeypatch, said,
     seen = {}
     chat = [
         {"role": "user", "content": "I'm familiar with checks. Show me the available facts."},
-        {"role": "assistant", "content": orchestrator._areas_text(["Code access", "Code scanning"])},
+        {"role": "assistant", "content": check_authoring._areas_text(["Code access", "Code scanning"])},
         {"role": "user", "content": said},
     ]
 
@@ -2699,7 +2699,7 @@ async def test_an_area_named_after_the_welcome_gets_its_facts(monkeypatch, said,
         seen=seen,
     )
 
-    note = orchestrator._AREA_NOTE.format(area="Code access")
+    note = check_authoring._AREA_NOTE.format(area="Code access")
     assert seen["messages"][-1]["content"].endswith(note) is noted
 
 
@@ -2745,14 +2745,14 @@ async def test_a_beginners_welcome_is_fixed_words_with_no_model_call(monkeypatch
 ])
 def test_the_welcome_note_asks_for_plain_words(scope):
     # Words like "creative" and "lively" made the openings read as generated.
-    note = orchestrator._welcome_note(scope)
+    note = check_authoring._welcome_note(scope)
     assert 'see "How to write"' in note
     for word in ("creative", "lively", "warm", "inviting", "plain-language", "runnable"):
         assert word not in note
 
 
 def test_an_edit_chat_welcome_is_about_the_check():
-    note = orchestrator._welcome_note({**_EDIT_SCOPE, "experience": "experienced"})
+    note = check_authoring._welcome_note({**_EDIT_SCOPE, "experience": "experienced"})
     assert "to change this check" in note
     assert "what this check checks now" in note
 
@@ -2795,7 +2795,7 @@ async def test_a_welcome_written_only_in_its_card_is_shown(monkeypatch):
 def test_the_welcome_suits_the_users_experience(experience, words):
     # Each level gets its own card, not the same one in other words.
     scope = {"case_type": "check_authoring", "experience": experience}
-    note = orchestrator._welcome_note(scope)
+    note = check_authoring._welcome_note(scope)
     assert all(w in note for w in words)
 
 
@@ -2809,7 +2809,7 @@ def test_the_welcome_suits_the_users_experience(experience, words):
 ])
 def test_a_change_that_names_none_asks_for_ideas(latest):
     chat = [{"role": "user", "content": latest}]
-    assert orchestrator._edit_phase(chat, _EDIT_SCOPE) == "discuss"
+    assert check_authoring._edit_phase(chat, _EDIT_SCOPE) == "discuss"
 
 
 @pytest.mark.parametrize("latest", [
@@ -2821,17 +2821,17 @@ def test_a_change_that_names_none_asks_for_ideas(latest):
 ])
 def test_a_change_that_names_one_is_proposed(latest):
     chat = [{"role": "user", "content": latest}]
-    assert orchestrator._edit_phase(chat, _EDIT_SCOPE) == "propose"
+    assert check_authoring._edit_phase(chat, _EDIT_SCOPE) == "propose"
 
 
 def test_ideas_come_with_a_reason_and_an_example():
-    assert '"Why"' in orchestrator._DISCUSS_NOTE
-    assert '"Example"' in orchestrator._DISCUSS_NOTE
+    assert '"Why"' in check_authoring._DISCUSS_NOTE
+    assert '"Example"' in check_authoring._DISCUSS_NOTE
 
 
 def test_a_new_check_has_no_open_change_phase():
     chat = [{"role": "user", "content": "Add another condition"}]
-    assert orchestrator._edit_phase(chat, {"case_type": "check_authoring"}) != "discuss"
+    assert check_authoring._edit_phase(chat, {"case_type": "check_authoring"}) != "discuss"
 
 
 async def test_an_edit_chat_welcome_offers_the_drawers_options(monkeypatch):
@@ -2845,7 +2845,7 @@ async def test_an_edit_chat_welcome_offers_the_drawers_options(monkeypatch):
     assert [
         c["action"]["event"]["userMessage"] for c in _components(event) if c["component"] == "PickRow"
     ] == ["Explain this rule"]
-    assert "Leave `choices` empty" in orchestrator._welcome_note(
+    assert "Leave `choices` empty" in check_authoring._welcome_note(
         {**_EDIT_SCOPE, "experience": "experienced"},
     )
 
@@ -2920,7 +2920,7 @@ async def test_a_reply_says_it_drafts_a_check_only_after_checking_a_rule():
 @pytest.mark.parametrize("answer", ["Explain this rule", "How can I improve this?"])
 def test_the_edit_intro_questions_ask_for_ideas_not_a_change(answer):
     chat = [{"role": "user", "content": answer}]
-    assert orchestrator._edit_phase(chat, _EDIT_SCOPE) == "discuss"
+    assert check_authoring._edit_phase(chat, _EDIT_SCOPE) == "discuss"
 
 
 async def test_explain_this_rule_gets_an_explanation_without_changes(monkeypatch):
@@ -2928,14 +2928,14 @@ async def test_explain_this_rule_gets_an_explanation_without_changes(monkeypatch
     await _turn(monkeypatch, [{"role": "user", "content": "Explain this rule"}], "It checks …",
                 seen=seen, card=_WELCOME_CARD)
     assert seen["edit_phase"] == "discuss"
-    assert seen["messages"][-1]["content"].endswith(orchestrator._EXPLAIN_NOTE)
+    assert seen["messages"][-1]["content"].endswith(check_authoring._EXPLAIN_NOTE)
 
 
 async def test_how_can_i_improve_this_gets_ideas(monkeypatch):
     seen = {}
     await _turn(monkeypatch, [{"role": "user", "content": "How can I improve this?"}], "Ideas …",
                 seen=seen, card=_WELCOME_CARD)
-    assert seen["messages"][-1]["content"].endswith(orchestrator._DISCUSS_NOTE)
+    assert seen["messages"][-1]["content"].endswith(check_authoring._DISCUSS_NOTE)
 
 
 # ── "no fact fits" with nothing to pick instead ──────────────────────
@@ -2969,7 +2969,7 @@ async def test_a_no_fact_reply_without_alternatives_is_written_again(monkeypatch
 
     (history,) = agent.calls
     assert history[-2] == {"role": "assistant", "content": _BARE_NO_FACT}
-    assert history[-1]["content"] == orchestrator._ALTERNATIVES_NOTE
+    assert history[-1]["content"] == check_authoring._ALTERNATIVES_NOTE
     assert _done_message(events) == _NO_FACT_WITH_IDEAS
 
 
@@ -2995,7 +2995,7 @@ async def test_rewrites_that_still_have_no_alternatives_are_not_used(monkeypatch
         monkeypatch, _README_CHAT, _BARE_NO_FACT, scope=_NO_README_SCOPE, agent=agent,
     )
 
-    assert len(agent.calls) == orchestrator._ALTERNATIVES_TRIES == 2
+    assert len(agent.calls) == check_authoring._ALTERNATIVES_TRIES == 2
     assert _done_message(events) == _BARE_NO_FACT
     # Each rejected rewrite is logged, by its length: replies aren't logged.
     rejected = [r.getMessage() for r in caplog.records if "no usable alternatives" in r.getMessage()]
@@ -3058,10 +3058,10 @@ async def _new_check_turn(monkeypatch, messages, found, scope=_NEW_SCOPE, reply=
     async def _fake_confirmation(_message, _scope, **_kwargs):
         return {**_CARD, "kind": "create"}
 
-    monkeypatch.setattr(orchestrator, "find_existing_check", _fake_find)
+    monkeypatch.setattr(check_authoring, "find_existing_check", _fake_find)
     monkeypatch.setattr(orchestrator, "_build_agent", _fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", _fake_chunks)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     monkeypatch.setattr(existing_check, "build_confirmation", _fake_confirmation)
     events = [
         ev async for ev in orchestrator.stream_chat(
@@ -3166,17 +3166,17 @@ def test_save_it_after_the_example_is_still_the_example_only_for_its_save_card()
         {"role": "user", "content": "save it"},
     ]
 
-    assert orchestrator._is_example(chat, beginner, past_save=True)
+    assert check_authoring._is_example(chat, beginner, past_save=True)
     # Everywhere else "save it" is not the example's words, as before.
-    assert not orchestrator._is_example(chat, beginner)
-    assert not orchestrator._is_example(
+    assert not check_authoring._is_example(chat, beginner)
+    assert not check_authoring._is_example(
         [{"role": "user", "content": "Repos must be private"}, *chat[-1:]], beginner, past_save=True,
     )
 
 
 def test_the_beginner_welcome_has_no_dash_or_ill_sentence():
     # Its exact words: test_a_beginners_welcome_is_fixed_words_with_no_model_call.
-    words = orchestrator._card_text(orchestrator._BEGINNER_WELCOME)
+    words = check_authoring._card_text(check_authoring._BEGINNER_WELCOME)
 
     assert "—" not in words and "walk you through" not in words
 
@@ -3233,8 +3233,8 @@ async def test_an_edit_keeps_every_condition_of_the_saved_rule(monkeypatch):
 
 def test_an_explanation_never_names_a_real_component():
     # 2026-11-25: it named order-api as passing, while its test failed.
-    assert "never name a real component or service" in orchestrator._EXPLAIN_NOTE
-    assert "one entity that passes" not in orchestrator._EXPLAIN_NOTE
+    assert "never name a real component or service" in check_authoring._EXPLAIN_NOTE
+    assert "one entity that passes" not in check_authoring._EXPLAIN_NOTE
 
 
 async def test_a_reply_that_fails_validation_is_not_logged(monkeypatch, caplog):
@@ -3292,7 +3292,7 @@ async def test_a_test_run_by_code_takes_a_chat_slot(monkeypatch):
         held.append(slot.locked())
         yield orchestrator._emit_event({"type": "done", "message": "ok"})
 
-    monkeypatch.setattr(orchestrator, "_run_code_test", _fake_run)
+    monkeypatch.setattr(check_authoring, "_run_code_test", _fake_run)
     chat = [
         {"role": "user", "content": "Repos must be private"},
         {"role": "assistant", "content": _PRIVATE_DRAFT},
@@ -3320,7 +3320,7 @@ async def test_the_beginners_example_takes_a_chat_slot(monkeypatch):
         held.append(slot.locked())
         return {**_CARD, "kind": "create"}
 
-    monkeypatch.setattr(orchestrator, "build_confirmation", _fake_confirmation)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _fake_confirmation)
     _ = [
         ev async for ev in orchestrator.stream_chat(
             messages=[{"role": "user", "content": _EXAMPLE}], token="t", user_sub="u",
@@ -3347,7 +3347,7 @@ async def _slot_seen_by(monkeypatch, name, latest):
     async def _no_model(*_args, **_kwargs):
         raise RuntimeError("stop after the shortcuts")
 
-    monkeypatch.setattr(orchestrator, name, _shortcut)
+    monkeypatch.setattr(check_authoring, name, _shortcut)
     monkeypatch.setattr(orchestrator, "_build_agent", _no_model)
     chat = [
         {"role": "user", "content": "Repos must be private"},
@@ -3387,11 +3387,11 @@ async def _ended_with_test(monkeypatch, card_rule):
     async def _card(_message, _scope, **_kwargs):
         return {**_CARD, "kind": "create", "new_rule": json.dumps(card_rule)}
 
-    monkeypatch.setattr(orchestrator, "build_confirmation", _card)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _card)
     run = DryRun(status="failed", entity_ref="component:default/order-api",
                  fact_values={"githubVisibility": "public"}, rule=json.dumps(_PRIVATE))
     return [
-        json.loads(ev) async for ev in orchestrator._tested_reply(
+        json.loads(ev) async for ev in check_authoring._tested_reply(
             run, _PRIVATE_DRAFT, [{"role": "user", "content": _PICKED}],
             {"case_type": "check_authoring"}, user_sub="u", backstage_token="b",
         )
@@ -3433,15 +3433,15 @@ def test_a_test_with_other_retrievers_than_the_cards_is_not_its_result():
     run = DryRun(status="passed", rule=rule, fact_ids=["githubRepositoryFactRetriever"])
     card = {"new_rule": rule, "fact_ids": ["githubRepositoryFactRetriever"]}
 
-    assert orchestrator._run_of_card_rule([run], card) is run
-    assert orchestrator._run_of_card_rule([run], {**card, "fact_ids": ["other"]}) is None
+    assert check_authoring._run_of_card_rule([run], card) is run
+    assert check_authoring._run_of_card_rule([run], {**card, "fact_ids": ["other"]}) is None
     # Order doesn't matter, and a card with none can't differ.
     two = DryRun(status="passed", rule=rule, fact_ids=["a", "b"])
-    assert orchestrator._run_of_card_rule([two], {**card, "fact_ids": ["b", "a"]}) is two
-    assert orchestrator._run_of_card_rule([run], {"new_rule": rule}) is run
+    assert check_authoring._run_of_card_rule([two], {**card, "fact_ids": ["b", "a"]}) is two
+    assert check_authoring._run_of_card_rule([run], {"new_rule": rule}) is run
     # A run that doesn't say which retrievers it used isn't the card's result.
     unknown = DryRun(status="passed", rule=rule)
-    assert orchestrator._run_of_card_rule([unknown], card) is None
+    assert check_authoring._run_of_card_rule([unknown], card) is None
 
 
 def test_a_test_of_true_is_not_the_result_of_a_card_with_1():
@@ -3450,10 +3450,10 @@ def test_a_test_of_true_is_not_the_result_of_a_card_with_1():
     signed = {"all": [{"fact": "githubIsPrivate", "operator": "equal", "value": 1}]}
     run = DryRun(status="passed", rule=json.dumps({"conditions": tested}))
 
-    assert orchestrator._run_of_card_rule([run], {"new_rule": json.dumps(signed)}) is None
+    assert check_authoring._run_of_card_rule([run], {"new_rule": json.dumps(signed)}) is None
     # Key order and spacing don't matter.
     same = json.dumps({"all": [{"value": True, "operator": "equal", "fact": "githubIsPrivate"}]})
-    assert orchestrator._run_of_card_rule([run], {"new_rule": same}) is run
+    assert check_authoring._run_of_card_rule([run], {"new_rule": same}) is run
 
 
 def _yes_events(event):
@@ -3520,7 +3520,7 @@ def test_a_click_with_its_rule_approves_whatever_the_words_say():
         _clicked_yes(_UNDER_60),
     ]
 
-    assert orchestrator._edit_phase(messages, _EDIT_SCOPE) == "apply"
+    assert check_authoring._edit_phase(messages, _EDIT_SCOPE) == "apply"
 
 
 async def test_the_change_cards_buttons_carry_their_rules(monkeypatch):
@@ -3556,8 +3556,8 @@ async def test_a_yes_to_an_unreadable_proposal_is_told_so(monkeypatch):
 
     assert seen["edit_phase"] == "propose"
     note = seen["messages"][-1]["content"]
-    assert note.endswith(orchestrator._UNREADABLE_NOTE)
-    assert orchestrator._NOT_APPROVED_NOTE not in note
+    assert note.endswith(check_authoring._UNREADABLE_NOTE)
+    assert check_authoring._NOT_APPROVED_NOTE not in note
 
 
 def test_the_same_unreadable_proposal_is_asked_about_only_once():
@@ -3566,7 +3566,7 @@ def test_the_same_unreadable_proposal_is_asked_about_only_once():
         {"role": "assistant", "content": _UNREADABLE_STEP1},
         {"role": "user", "content": "yes"},
     ]
-    assert orchestrator._edit_phase(asked, _EDIT_SCOPE) == "propose"
+    assert check_authoring._edit_phase(asked, _EDIT_SCOPE) == "propose"
 
     # The model wrote it unreadably again: the yes approves it, and the save
     # card shows that rule for the user to check before saving.
@@ -3575,12 +3575,12 @@ def test_the_same_unreadable_proposal_is_asked_about_only_once():
         {"role": "assistant", "content": _UNREADABLE_STEP1},
         {"role": "user", "content": "yes"},
     ]
-    assert orchestrator._edit_phase(again, _EDIT_SCOPE) == "apply"
-    assert orchestrator._picked_proposal(again) is None
+    assert check_authoring._edit_phase(again, _EDIT_SCOPE) == "apply"
+    assert check_authoring._picked_proposal(again) is None
 
 
 def test_a_no_to_an_unreadable_proposal_is_not_an_approval():
-    assert orchestrator._not_approved_reason(
+    assert check_authoring._not_approved_reason(
         [
             {"role": "user", "content": "Change it to 60"},
             {"role": "assistant", "content": _UNREADABLE_STEP1},
@@ -3599,20 +3599,20 @@ _TIGHT_CHOICES = (
 
 @pytest.mark.parametrize(("answer", "picked"), [("yes", None), ("1", 1), ("2", 2)])
 def test_choices_with_no_space_after_the_number_still_need_a_number(answer, picked):
-    assert orchestrator._picked_choice(answer, _TIGHT_CHOICES) == picked
+    assert check_authoring._picked_choice(answer, _TIGHT_CHOICES) == picked
 
 
 async def test_a_test_with_other_retrievers_ends_in_the_test_card(monkeypatch):
     async def _card(_message, _scope, **_kwargs):
         return {**_CARD, "kind": "create", "new_rule": json.dumps(_PRIVATE), "fact_ids": ["saved"]}
 
-    monkeypatch.setattr(orchestrator, "build_confirmation", _card)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _card)
     run = DryRun(status="failed", entity_ref="component:default/order-api",
                  fact_values={"githubVisibility": "public"}, rule=json.dumps(_PRIVATE),
                  fact_ids=["drawer-copy"])
 
     events = [
-        json.loads(ev) async for ev in orchestrator._tested_reply(
+        json.loads(ev) async for ev in check_authoring._tested_reply(
             run, _PRIVATE_DRAFT, [{"role": "user", "content": _PICKED}],
             {"case_type": "check_authoring"}, user_sub="u", backstage_token="b",
         )

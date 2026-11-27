@@ -236,7 +236,7 @@ def _text_changes(message: str, check: dict[str, Any]) -> list[dict[str, Any]]:
     return changes
 
 
-# The welcome's practice example (see orchestrator._is_example): its rule and
+# The welcome's practice example (see check_authoring._is_example): its rule and
 # the words of its Description are fixed, like the example's button.
 _EXAMPLE_RULE = {"all": [{"fact": "githubBranchProtected", "operator": "equal", "value": True}]}
 _EXAMPLE_NAME = "Default branch must be protected"

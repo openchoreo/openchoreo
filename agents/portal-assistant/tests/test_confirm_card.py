@@ -9,7 +9,7 @@ import uuid
 import pytest
 from langchain_core.messages import ToolMessage
 
-from src.agent import confirm_card, orchestrator, pending_actions
+from src.agent import check_authoring, confirm_card, orchestrator, pending_actions
 from src.agent.confirm_card import (
     build_confirmation,
     check_to_test,
@@ -705,11 +705,11 @@ def test_a_test_request_reads_only_an_approved_edit():
     approved = _approved_history({"role": "user", "content": "test it on order-api"})
     unapproved = _history("test it on order-api")
 
-    assert orchestrator._unsaved_rule_reply(approved, _SCOPE) == _STEP2
-    assert orchestrator._unsaved_rule_reply(unapproved, _SCOPE) is None
+    assert check_authoring._unsaved_rule_reply(approved, _SCOPE) == _STEP2
+    assert check_authoring._unsaved_rule_reply(unapproved, _SCOPE) is None
     # A new check isn't an edit: its draft needs no approval.
     new_check = {"case_type": "check_authoring"}
-    assert orchestrator._unsaved_rule_reply(unapproved, new_check) == _STEP2
+    assert check_authoring._unsaved_rule_reply(unapproved, new_check) == _STEP2
 
 
 # ── V2b: a card whose rule has problems gets one fix round ─────────────
@@ -759,7 +759,7 @@ async def _chat_with_cards(monkeypatch, agent, first_reply, cards):
 
     monkeypatch.setattr(orchestrator, "_build_agent", fake_build_agent)
     monkeypatch.setattr(orchestrator, "_yield_chunks", fake_chunks)
-    monkeypatch.setattr(orchestrator, "build_confirmation", fake_card)
+    monkeypatch.setattr(check_authoring, "build_confirmation", fake_card)
     events = [
         json.loads(line)
         async for line in orchestrator.stream_chat(
@@ -996,13 +996,13 @@ def test_a_test_after_an_unapproved_edit_runs_the_saved_rule_and_says_so():
     # last rule", the unapproved one, and the card didn't say which ran.
     ask = {"role": "user", "content": "test it on order-api"}
 
-    assert orchestrator._tests_saved_rule(_history("test it on order-api"), _SCOPE) is True
+    assert check_authoring._tests_saved_rule(_history("test it on order-api"), _SCOPE) is True
     # An approved edit is tested as it is: nothing to say.
-    assert orchestrator._tests_saved_rule(_approved_history(ask), _SCOPE) is False
+    assert check_authoring._tests_saved_rule(_approved_history(ask), _SCOPE) is False
     # Nothing but the saved rule in the chat, or a new check, or another message.
-    assert orchestrator._tests_saved_rule([ask], _SCOPE) is False
-    assert orchestrator._tests_saved_rule(_history("test it on order-api"), {}) is False
-    assert orchestrator._tests_saved_rule(_history("save it"), _SCOPE) is False
+    assert check_authoring._tests_saved_rule([ask], _SCOPE) is False
+    assert check_authoring._tests_saved_rule(_history("test it on order-api"), {}) is False
+    assert check_authoring._tests_saved_rule(_history("save it"), _SCOPE) is False
 
 
 def test_a_test_after_a_proposal_that_isnt_approved_says_the_saved_rule_ran():
@@ -1012,7 +1012,7 @@ def test_a_test_after_a_proposal_that_isnt_approved_says_the_saved_rule_ran():
 
     asked = _history("test it on order-api", previous_reply=_STEP1)
 
-    assert orchestrator._tests_saved_rule(asked, _SCOPE) is True
+    assert check_authoring._tests_saved_rule(asked, _SCOPE) is True
     run = DryRun(
         status="failed",
         entity_ref="component:default/order-api",
@@ -1028,7 +1028,7 @@ def test_a_test_after_a_proposal_that_isnt_approved_says_the_saved_rule_ran():
         {"role": "assistant", "content": _STEP2},
     ]
     approved.append({"role": "user", "content": "test it on order-api"})
-    assert orchestrator._tests_saved_rule(approved, _SCOPE) is False
+    assert check_authoring._tests_saved_rule(approved, _SCOPE) is False
 
 
 async def _note_the_model_got(monkeypatch, messages):
@@ -1064,8 +1064,8 @@ async def test_the_model_is_told_to_test_the_saved_rule_after_an_unapproved_edit
     # runs the test: it must not be sent to "the rule from your last reply".
     last = await _note_the_model_got(monkeypatch, _history("test it on order-api"))
 
-    assert last.endswith(orchestrator._TEST_SAVED_NOTE)
-    assert orchestrator._TEST_NOTE not in last
+    assert last.endswith(check_authoring._TEST_SAVED_NOTE)
+    assert check_authoring._TEST_NOTE not in last
 
 
 async def test_the_model_tests_the_last_rule_after_an_approved_edit(monkeypatch):
@@ -1073,7 +1073,7 @@ async def test_the_model_tests_the_last_rule_after_an_approved_edit(monkeypatch)
 
     last = await _note_the_model_got(monkeypatch, messages)
 
-    assert last.endswith(orchestrator._TEST_NOTE)
+    assert last.endswith(check_authoring._TEST_NOTE)
 
 
 @pytest.mark.parametrize(
@@ -1184,9 +1184,9 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
     async def _no_card(*_args, **_kwargs):
         return None
 
-    monkeypatch.setattr(orchestrator, "backstage_tools_as_user", _tools)
-    monkeypatch.setattr(orchestrator, "call_backstage_tool", _dry_run)
-    monkeypatch.setattr(orchestrator, "build_confirmation", _no_card)
+    monkeypatch.setattr(check_authoring, "backstage_tools_as_user", _tools)
+    monkeypatch.setattr(check_authoring, "call_backstage_tool", _dry_run)
+    monkeypatch.setattr(check_authoring, "build_confirmation", _no_card)
     rule = {"all": [*_SAVED_RULE["all"], _CODE_SCANNING]}
     check = {
         "name": "n",
@@ -1197,7 +1197,7 @@ async def test_a_test_run_by_code_uses_the_retrievers_the_card_signs(monkeypatch
 
     _ = [
         ev
-        async for ev in orchestrator._run_code_test(
+        async for ev in check_authoring._run_code_test(
             "component:default/order-api",
             check,
             None,

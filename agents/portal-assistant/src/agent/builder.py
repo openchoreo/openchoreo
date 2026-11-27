@@ -348,7 +348,7 @@ async def _build_agent(
     chats keep the cached tools on the static read-only token.
 
     ``edit_phase`` is ``"propose"`` for an edit message the user hasn't
-    approved: the model then gets no tools (see orchestrator._edit_phase).
+    approved: the model then gets no tools (see check_authoring._edit_phase).
     """
     case_type = (scope or {}).get("case_type")
     backstage_auth = (
