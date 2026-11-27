@@ -10,6 +10,8 @@ Instead, report them privately using GitHub's private vulnerability reporting:
 
 **[Report a vulnerability](https://github.com/openchoreo/openchoreo/security/advisories/new)** (Security → Advisories → Report a vulnerability)
 
+You can also report by email to [security@openchoreo.dev](mailto:security@openchoreo.dev).
+
 Please include as much detail as you can:
 
 - A clear description of the issue.
@@ -29,6 +31,12 @@ We use [GitHub Security Advisories](https://docs.github.com/en/code-security/sec
 2. A fix is developed privately within the security advisory.
 3. A CVE is requested through the advisory, and the fix is released.
 4. The advisory is published, and the reporter is credited unless anonymity is requested.
+
+Public disclosure defaults to 30 days after the report is validated, and may be extended to a maximum of 90 days. Actively exploited issues are disclosed as soon as a fix or mitigation exists. See the [Embargo Policy](EMBARGO.md) for the full timeline.
+
+## Embargo Policy
+
+OpenChoreo maintains a private pre-notification list so that organisations distributing OpenChoreo, or a product derived from it, can prepare fixes ahead of public disclosure. Maintainers, the Security Team and pre-notification list members who receive embargoed information are bound by the [OpenChoreo Security Embargo Policy](EMBARGO.md), which covers confidentiality, leak reporting, breaches and how to apply for list membership.
 
 ## Supported Versions
 
