@@ -4,6 +4,8 @@
 package releasebinding
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -123,6 +125,23 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 			{ID: controller.ObservedResourceID("autoscaling/v1", "HorizontalPodAutoscaler", namespace, "api"), APIVersion: "autoscaling/v1", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: namespace},
 			{ID: controller.ObservedResourceID("autoscaling/v2", "HorizontalPodAutoscaler", namespace, "api"), APIVersion: "autoscaling/v2", Kind: "HorizontalPodAutoscaler", Name: "api", Namespace: namespace},
 		}))
+	})
+
+	It("copies the binding's requeue intervals into the observe release", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, namespace)
+		makeComponent("obs-intervals")
+		rb := makeBinding("obs-intervals", deployment)
+		rb.Spec.Interval = &metav1.Duration{Duration: 2 * time.Minute}
+		rb.Spec.ProgressingInterval = &metav1.Duration{Duration: 20 * time.Second}
+		Expect(k8sClient.Update(ctx, rb)).To(Succeed())
+
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		rr, err := releaseOf(rb)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rr.Spec.Mode).To(Equal(openchoreov1alpha1.RenderedReleaseModeObserve))
+		Expect(rr.Spec.Interval).To(Equal(&metav1.Duration{Duration: 2 * time.Minute}))
+		Expect(rr.Spec.ProgressingInterval).To(Equal(&metav1.Duration{Duration: 20 * time.Second}))
 	})
 
 	It("reports health from the observed resources", func() {

@@ -734,10 +734,12 @@ func (r *Reconciler) reconcileRelease(ctx context.Context, releaseBinding *openc
 				ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 				ComponentName: releaseBinding.Spec.Owner.ComponentName,
 			},
-			EnvironmentName: releaseBinding.Spec.Environment,
-			TargetPlane:     openchoreov1alpha1.TargetPlaneDataPlane,
-			Mode:            renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
-			Resources:       dataPlaneReleaseResources,
+			EnvironmentName:     releaseBinding.Spec.Environment,
+			TargetPlane:         openchoreov1alpha1.TargetPlaneDataPlane,
+			Mode:                renderedrelease.ManageMode(dataPlaneRelease.Spec.Mode),
+			Resources:           dataPlaneReleaseResources,
+			Interval:            releaseBinding.Spec.Interval,
+			ProgressingInterval: releaseBinding.Spec.ProgressingInterval,
 		}
 
 		return controllerutil.SetControllerReference(releaseBinding, dataPlaneRelease, r.Scheme)
@@ -1044,10 +1046,12 @@ func (r *Reconciler) reconcileObservabilityRelease(
 					ProjectName:   releaseBinding.Spec.Owner.ProjectName,
 					ComponentName: releaseBinding.Spec.Owner.ComponentName,
 				},
-				EnvironmentName: releaseBinding.Spec.Environment,
-				TargetPlane:     openchoreov1alpha1.TargetPlaneObservabilityPlane,
-				Mode:            renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
-				Resources:       observabilityPlaneReleaseResources,
+				EnvironmentName:     releaseBinding.Spec.Environment,
+				TargetPlane:         openchoreov1alpha1.TargetPlaneObservabilityPlane,
+				Mode:                renderedrelease.ManageMode(observabilityRelease.Spec.Mode),
+				Resources:           observabilityPlaneReleaseResources,
+				Interval:            releaseBinding.Spec.Interval,
+				ProgressingInterval: releaseBinding.Spec.ProgressingInterval,
 			}
 
 			return controllerutil.SetControllerReference(releaseBinding, observabilityRelease, r.Scheme)
