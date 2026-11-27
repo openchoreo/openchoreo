@@ -68,14 +68,21 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 
 	// reconcileBinding runs the controller against the supplied binding and
 	// returns the freshly-fetched live object so tests can assert on status.
-	reconcileBinding := func(b *openchoreov1alpha1.ResourceReleaseBinding) *openchoreov1alpha1.ResourceReleaseBinding {
-		_, err := reconciler.Reconcile(ctx, reconcile.Request{
+	// reconcileBindingWithResult is reconcileBinding that also returns the
+	// reconcile.Result, for tests that assert on requeue behavior.
+	reconcileBindingWithResult := func(b *openchoreov1alpha1.ResourceReleaseBinding) (reconcile.Result, *openchoreov1alpha1.ResourceReleaseBinding) {
+		result, err := reconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: client.ObjectKeyFromObject(b),
 		})
 		Expect(err).NotTo(HaveOccurred())
 
 		updated := &openchoreov1alpha1.ResourceReleaseBinding{}
 		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(b), updated)).To(Succeed())
+		return result, updated
+	}
+
+	reconcileBinding := func(b *openchoreov1alpha1.ResourceReleaseBinding) *openchoreov1alpha1.ResourceReleaseBinding {
+		_, updated := reconcileBindingWithResult(b)
 		return updated
 	}
 	_ = reconcileBinding
@@ -141,12 +148,13 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 			_ = k8sClient.Delete(ctx, b)
 		})
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil(), "expected Synced condition to be set")
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonResourceReleaseNotFound)))
+		Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 	})
 
 	It("sets Synced=False, Reason=InvalidReleaseConfiguration when the ResourceRelease owner does not match the binding", func() {
@@ -164,12 +172,15 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 			_ = k8sClient.Delete(ctx, b)
 		})
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil(), "expected Synced condition to be set")
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonInvalidReleaseConfiguration)))
+		// ResourceReleases are immutable, so only an edit to the binding can fix
+		// this, and that edit wakes it. Polling would not help.
+		Expect(result.RequeueAfter).To(BeZero())
 	})
 
 	It("sets Synced=False, Reason=EnvironmentNotFound when the referenced Environment does not exist", func() {
@@ -185,12 +196,13 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 			_ = k8sClient.Delete(ctx, b)
 		})
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil(), "expected Synced condition to be set")
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonEnvironmentNotFound)))
+		Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 	})
 
 	It("sets Synced=False, Reason=ResourceNotFound when the owning Resource does not exist", func() {
@@ -222,12 +234,13 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 		Expect(k8sClient.Create(ctx, b)).To(Succeed())
 		DeferCleanup(func() { _ = k8sClient.Delete(ctx, b) })
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonResourceNotFound)))
+		Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 	})
 
 	It("sets Synced=False, Reason=ProjectNotFound when the owning Project does not exist", func() {
@@ -274,12 +287,13 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 		Expect(k8sClient.Create(ctx, b)).To(Succeed())
 		DeferCleanup(func() { _ = k8sClient.Delete(ctx, b) })
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil())
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonProjectNotFound)))
+		Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 	})
 
 	It("sets Synced=False, Reason=DataPlaneNotFound when the Environment's dataPlaneRef does not resolve", func() {
@@ -309,12 +323,13 @@ var _ = Describe("ResourceReleaseBinding controller — resolve and validate", f
 			_ = k8sClient.Delete(ctx, b)
 		})
 
-		updated := reconcileBinding(b)
+		result, updated := reconcileBindingWithResult(b)
 
 		cond := meta.FindStatusCondition(updated.Status.Conditions, string(ConditionSynced))
 		Expect(cond).NotTo(BeNil(), "expected Synced condition to be set")
 		Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		Expect(cond.Reason).To(Equal(string(ReasonDataPlaneNotFound)))
+		Expect(result.RequeueAfter).To(Equal(dependencyNotFoundRequeue))
 	})
 
 	It("adds the resourcereleasebinding-cleanup finalizer on first reconcile", func() {
