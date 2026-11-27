@@ -134,7 +134,9 @@ class FactRetrieverField(BaseModel):
 
     name: str = Field(max_length=253)
     type: str = Field(max_length=64)
-    description: str | None = Field(default=None, max_length=512)
+    # Long enough for a fact's guidance to the model (#943's run to about
+    # 750); the request's 60k total still bounds them all together.
+    description: str | None = Field(default=None, max_length=2000)
 
 
 class FactRetriever(BaseModel):

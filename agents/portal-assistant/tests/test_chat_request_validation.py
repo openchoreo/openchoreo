@@ -185,6 +185,23 @@ def test_current_rule_length_capped():
         ChatScope.model_validate({"currentRule": "x" * 8001})
 
 
+def _scope_with_fact_description(description: str) -> dict:
+    fact = {"name": "f", "type": "boolean", "description": description}
+    return {"availableFactRetrievers": [{"id": "r", "facts": [fact]}]}
+
+
+def test_fact_description_fits_a_long_fact():
+    """A fact's description can carry guidance for the model: the
+    deployment facts' run to about 750 characters, over the old 512."""
+    scope = ChatScope.model_validate(_scope_with_fact_description("x" * 751))
+    assert len(scope.available_fact_retrievers[0].facts[0].description) == 751
+
+
+def test_fact_description_length_capped():
+    with pytest.raises(ValidationError):
+        ChatScope.model_validate(_scope_with_fact_description("x" * 2001))
+
+
 def test_total_content_counter_includes_nested_fact_retrievers():
     """available_fact_retrievers nests two levels deep (retriever -> facts
     -> description) — the recursive walker must reach that, or oversized
