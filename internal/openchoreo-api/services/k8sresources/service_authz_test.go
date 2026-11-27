@@ -43,6 +43,7 @@ func TestGetResourceTree_AuthzCheck(t *testing.T) {
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:view", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -90,6 +91,7 @@ func TestGetResourceEvents_AuthzCheck(t *testing.T) {
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:view", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -127,6 +129,7 @@ func TestGetResourceLogs_AuthzCheck(t *testing.T) {
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:view", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
@@ -177,6 +180,7 @@ func TestTriggerCronJob_AuthzCheck(t *testing.T) {
 		testutil.RequireEvalRequest(t, pdp.Captured[0],
 			"releasebinding:update", "releasebinding", "rb-1",
 			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1", Component: "comp-1"})
+		require.Equal(t, "ns-1/dev", pdp.Captured[0].Context.Resource.Environment)
 	})
 
 	t.Run("denied", func(t *testing.T) {
