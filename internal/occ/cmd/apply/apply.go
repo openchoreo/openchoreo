@@ -30,6 +30,9 @@ type resourceInfo struct {
 	namespace  string
 }
 
+// stdinReader allows overriding standard input in tests.
+var stdinReader io.Reader = os.Stdin
+
 // Apply applies resources from the specified file or directory.
 func Apply(c *client.Client, params Params) error {
 	if params.FilePath == "" {
@@ -71,7 +74,7 @@ func Apply(c *client.Client, params Params) error {
 
 		totalResources += len(resources)
 		for _, resource := range resources {
-			if err := applyResource(ctx, genClient, registry, resource, defaultNamespace); err != nil {
+			if err := applyResource(ctx, genClient, registry, resource, defaultNamespace, params.DryRun); err != nil {
 				errs = append(errs, err.Error())
 			}
 		}
@@ -81,6 +84,16 @@ func Apply(c *client.Client, params Params) error {
 
 	for _, e := range errs {
 		fmt.Printf("Error: %s\n", e)
+	}
+
+	if params.DryRun {
+		if len(errs) > 0 {
+			fmt.Printf("\nDry run: %d resource(s) would be applied from %d file(s) with %d error(s)\n",
+				applied, len(resourceFiles), len(errs))
+			return fmt.Errorf("dry run completed with %d error(s)", len(errs))
+		}
+		fmt.Printf("\nDry run: %d resource(s) would be applied from %d file(s)\n", applied, len(resourceFiles))
+		return nil
 	}
 
 	if len(errs) > 0 {
@@ -133,6 +146,7 @@ func applyResource(
 	registry map[string]resourceEntry,
 	resource map[string]interface{},
 	defaultNamespace string,
+	dryRun bool,
 ) error {
 	info, err := extractResourceInfo(resource)
 	if err != nil {
@@ -189,6 +203,10 @@ func applyResource(
 		if entry.capability == capCreateOnly {
 			return fmt.Errorf("%s/%s: resource already exists and cannot be updated (create-only resource)", strings.ToLower(info.kind), info.name)
 		}
+		if dryRun {
+			fmt.Printf("%s/%s configured (dry run)\n", strings.ToLower(info.kind), info.name)
+			return nil
+		}
 		code, body, err := entry.update(ctx, c, ns, info.name, bytes.NewReader(jsonBody))
 		if err != nil {
 			return fmt.Errorf("%s/%s: update failed: %w", strings.ToLower(info.kind), info.name, err)
@@ -200,6 +218,10 @@ func applyResource(
 
 	case http.StatusNotFound:
 		// Resource doesn't exist — create
+		if dryRun {
+			fmt.Printf("%s/%s created (dry run)\n", strings.ToLower(info.kind), info.name)
+			return nil
+		}
 		code, body, err := entry.create(ctx, c, ns, bytes.NewReader(jsonBody))
 		if err != nil {
 			return fmt.Errorf("%s/%s: create failed: %w", strings.ToLower(info.kind), info.name, err)
@@ -244,6 +266,10 @@ func resolveDefaultNamespace() string {
 
 // discoverResourceFiles discovers all YAML files to process.
 func discoverResourceFiles(path string) ([]string, error) {
+	if path == "-" {
+		return []string{"-"}, nil
+	}
+
 	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
 		return []string{path}, nil
 	}
@@ -280,8 +306,19 @@ func discoverResourceFiles(path string) ([]string, error) {
 	return yamlFiles, nil
 }
 
-// readResourceContent reads resource content from file or URL.
+// readResourceContent reads resource content from file, standard input, or URL.
 func readResourceContent(ctx context.Context, filePath string) ([]byte, error) {
+	if filePath == "-" {
+		content, err := io.ReadAll(stdinReader)
+		if err != nil {
+			return nil, fmt.Errorf("error reading from standard input: %w", err)
+		}
+		if len(bytes.TrimSpace(content)) == 0 {
+			return nil, fmt.Errorf("standard input is empty")
+		}
+		return content, nil
+	}
+
 	if strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://") {
 		// #nosec G107 - URL is validated to be HTTP/HTTPS and is intentional functionality
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, filePath, nil)
