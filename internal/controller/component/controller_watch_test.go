@@ -76,16 +76,17 @@ const ctKind = openchoreov1alpha1.ComponentTypeRefKindComponentType
 const cctKind = openchoreov1alpha1.ComponentTypeRefKindClusterComponentType
 
 func TestIndexTraitsDefaultsKind(t *testing.T) {
+	const traitA, clusterTraitB = "Trait:a", "ClusterTrait:b"
 	comp := watchComponent("ns", "c", ctKind, "deployment/web",
 		openchoreov1alpha1.ComponentTrait{Name: "a", InstanceName: "a1"},
 		openchoreov1alpha1.ComponentTrait{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "b", InstanceName: "b1"})
-	if got := indexComponentTraits(comp); len(got) != 2 || got[0] != "Trait:a" || got[1] != "ClusterTrait:b" {
+	if got := indexComponentTraits(comp); len(got) != 2 || got[0] != traitA || got[1] != clusterTraitB {
 		t.Fatalf("component index = %v", got)
 	}
 	ct := watchComponentType("ns", "web",
 		openchoreov1alpha1.ComponentTypeTrait{Name: "a", InstanceName: "a1"},
 		openchoreov1alpha1.ComponentTypeTrait{Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "b", InstanceName: "b1"})
-	if got := indexComponentTypeTraits(ct); len(got) != 2 || got[0] != "Trait:a" || got[1] != "ClusterTrait:b" {
+	if got := indexComponentTypeTraits(ct); len(got) != 2 || got[0] != traitA || got[1] != clusterTraitB {
 		t.Fatalf("component type index = %v", got)
 	}
 	cct := &openchoreov1alpha1.ClusterComponentType{
@@ -94,7 +95,7 @@ func TestIndexTraitsDefaultsKind(t *testing.T) {
 			Traits: []openchoreov1alpha1.ClusterComponentTypeTrait{{Name: "b", InstanceName: "b1"}},
 		},
 	}
-	if got := indexClusterComponentTypeTraits(cct); len(got) != 1 || got[0] != "ClusterTrait:b" {
+	if got := indexClusterComponentTypeTraits(cct); len(got) != 1 || got[0] != clusterTraitB {
 		t.Fatalf("cluster component type index = %v", got)
 	}
 }
@@ -142,7 +143,7 @@ func TestListComponentsUsingClusterTraitSpansNamespacesAndTypes(t *testing.T) {
 			Kind: openchoreov1alpha1.TraitRefKindClusterTrait, Name: "rate-limiter", InstanceName: "rl"}),
 		watchComponent("ns1", "direct", ctKind, "deployment/other", clusterRef),
 		watchComponent("ns2", "via-type", ctKind, "deployment/web"),
-		watchComponent("ns3", "via-cluster-type", cctKind, "deployment/svc", clusterRef),
+		watchComponent("ns3", "via-cluster-type", cctKind, "deployment/svc"),
 		watchComponent("ns1", "namespaced-trait", ctKind, "deployment/other", nsRef),
 	)
 	clusterTrait := &openchoreov1alpha1.ClusterTrait{ObjectMeta: metav1.ObjectMeta{Name: "rate-limiter"}}
