@@ -36,6 +36,8 @@ no need to expose Kubernetes APIs externally.
 
 Export the versions used by the commands in this guide. Run this in every shell you use to follow the steps below.
 
+See [Tested versions of third-party prerequisites](../../../docs/contributors/tested-versions.md) for the tested minor version of each prerequisite.
+
 ```bash
 export GATEWAY_API_VERSION=v1.5.1
 export CERT_MANAGER_VERSION=v1.19.4
