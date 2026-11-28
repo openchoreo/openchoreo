@@ -146,6 +146,7 @@ func RefreshCredential(credentialName, controlPlaneURL string) (string, error) {
 			oidcConfig.TokenEndpoint,
 			credential.ClientID,
 			credential.RefreshToken,
+			oidcConfig.Scopes,
 		)
 		if err != nil {
 			return "", fmt.Errorf("failed to refresh token, please run 'occ login' to re-authenticate: %w", err)
