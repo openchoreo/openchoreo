@@ -12098,6 +12098,157 @@ func (_c *MockClientWithResponsesInterface_GetDeploymentPipelineWithResponse_Cal
 	return _c
 }
 
+// GetEndpointReleaseBindingK8sResourceEventsWithResponse provides a mock function with given fields: ctx, namespaceName, endpointReleaseBindingName, params, reqEditors
+func (_m *MockClientWithResponsesInterface) GetEndpointReleaseBindingK8sResourceEventsWithResponse(ctx context.Context, namespaceName string, endpointReleaseBindingName string, params *gen.GetEndpointReleaseBindingK8sResourceEventsParams, reqEditors ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceEventsResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointReleaseBindingName, params)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointReleaseBindingK8sResourceEventsWithResponse")
+	}
+
+	var r0 *gen.GetEndpointReleaseBindingK8sResourceEventsResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.GetEndpointReleaseBindingK8sResourceEventsParams, ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceEventsResp, error)); ok {
+		return rf(ctx, namespaceName, endpointReleaseBindingName, params, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *gen.GetEndpointReleaseBindingK8sResourceEventsParams, ...gen.RequestEditorFn) *gen.GetEndpointReleaseBindingK8sResourceEventsResp); ok {
+		r0 = rf(ctx, namespaceName, endpointReleaseBindingName, params, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetEndpointReleaseBindingK8sResourceEventsResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *gen.GetEndpointReleaseBindingK8sResourceEventsParams, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointReleaseBindingName, params, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointReleaseBindingK8sResourceEventsWithResponse'
+type MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetEndpointReleaseBindingK8sResourceEventsWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointReleaseBindingName string
+//   - params *gen.GetEndpointReleaseBindingK8sResourceEventsParams
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetEndpointReleaseBindingK8sResourceEventsWithResponse(ctx interface{}, namespaceName interface{}, endpointReleaseBindingName interface{}, params interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call{Call: _e.mock.On("GetEndpointReleaseBindingK8sResourceEventsWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointReleaseBindingName, params}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointReleaseBindingName string, params *gen.GetEndpointReleaseBindingK8sResourceEventsParams, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-4)
+		for i, a := range args[4:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(*gen.GetEndpointReleaseBindingK8sResourceEventsParams), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call) Return(_a0 *gen.GetEndpointReleaseBindingK8sResourceEventsResp, _a1 error) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call) RunAndReturn(run func(context.Context, string, string, *gen.GetEndpointReleaseBindingK8sResourceEventsParams, ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceEventsResp, error)) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceEventsWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointReleaseBindingK8sResourceTreeWithResponse provides a mock function with given fields: ctx, namespaceName, endpointReleaseBindingName, reqEditors
+func (_m *MockClientWithResponsesInterface) GetEndpointReleaseBindingK8sResourceTreeWithResponse(ctx context.Context, namespaceName string, endpointReleaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceTreeResp, error) {
+	_va := make([]interface{}, len(reqEditors))
+	for _i := range reqEditors {
+		_va[_i] = reqEditors[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, namespaceName, endpointReleaseBindingName)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointReleaseBindingK8sResourceTreeWithResponse")
+	}
+
+	var r0 *gen.GetEndpointReleaseBindingK8sResourceTreeResp
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceTreeResp, error)); ok {
+		return rf(ctx, namespaceName, endpointReleaseBindingName, reqEditors...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, ...gen.RequestEditorFn) *gen.GetEndpointReleaseBindingK8sResourceTreeResp); ok {
+		r0 = rf(ctx, namespaceName, endpointReleaseBindingName, reqEditors...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gen.GetEndpointReleaseBindingK8sResourceTreeResp)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, ...gen.RequestEditorFn) error); ok {
+		r1 = rf(ctx, namespaceName, endpointReleaseBindingName, reqEditors...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointReleaseBindingK8sResourceTreeWithResponse'
+type MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call struct {
+	*mock.Call
+}
+
+// GetEndpointReleaseBindingK8sResourceTreeWithResponse is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - endpointReleaseBindingName string
+//   - reqEditors ...gen.RequestEditorFn
+func (_e *MockClientWithResponsesInterface_Expecter) GetEndpointReleaseBindingK8sResourceTreeWithResponse(ctx interface{}, namespaceName interface{}, endpointReleaseBindingName interface{}, reqEditors ...interface{}) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call {
+	return &MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call{Call: _e.mock.On("GetEndpointReleaseBindingK8sResourceTreeWithResponse",
+		append([]interface{}{ctx, namespaceName, endpointReleaseBindingName}, reqEditors...)...)}
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call) Run(run func(ctx context.Context, namespaceName string, endpointReleaseBindingName string, reqEditors ...gen.RequestEditorFn)) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]gen.RequestEditorFn, len(args)-3)
+		for i, a := range args[3:] {
+			if a != nil {
+				variadicArgs[i] = a.(gen.RequestEditorFn)
+			}
+		}
+		run(args[0].(context.Context), args[1].(string), args[2].(string), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call) Return(_a0 *gen.GetEndpointReleaseBindingK8sResourceTreeResp, _a1 error) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call) RunAndReturn(run func(context.Context, string, string, ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingK8sResourceTreeResp, error)) *MockClientWithResponsesInterface_GetEndpointReleaseBindingK8sResourceTreeWithResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetEndpointReleaseBindingWithResponse provides a mock function with given fields: ctx, namespaceName, endpointReleaseBindingName, reqEditors
 func (_m *MockClientWithResponsesInterface) GetEndpointReleaseBindingWithResponse(ctx context.Context, namespaceName string, endpointReleaseBindingName string, reqEditors ...gen.RequestEditorFn) (*gen.GetEndpointReleaseBindingResp, error) {
 	_va := make([]interface{}, len(reqEditors))

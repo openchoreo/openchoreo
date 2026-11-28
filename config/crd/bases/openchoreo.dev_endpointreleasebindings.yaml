@@ -72,6 +72,148 @@ spec:
               first-environment binding of an Endpoint with spec.autoDeploy, which the
               Endpoint controller creates and advances to each new EndpointRelease.
             properties:
+              backendOverrides:
+                description: |-
+                  BackendOverrides sets environment-specific values for the release's
+                  backends, matched by name: a backend's weight, its match and its mirror
+                  share, so each environment can run its own traffic split (a canary step,
+                  a blue/green switch, its own testers) while the release stays the same. An entry for a
+                  backend the pinned release does not have is ignored and reported in the
+                  BackendOverridesApplied condition, so a release that retired a backend
+                  can still be promoted.
+                items:
+                  description: |-
+                    EndpointBackendOverride sets environment-specific values for one backend.
+                    Fields use the names of the EndpointBackendRef fields they replace.
+                  properties:
+                    match:
+                      description: |-
+                        Match replaces the release's match for this backend in this
+                        environment. The backend must have a match in the release.
+                      properties:
+                        cookies:
+                          description: |-
+                            Cookies the request must carry, by exact value. EndpointTypes render a
+                            cookie as a match on the Cookie header.
+                          items:
+                            description: EndpointCookieMatch is a cookie condition.
+                            properties:
+                              name:
+                                description: Name is the cookie name.
+                                pattern: ^[A-Za-z0-9_-]{1,64}$
+                                type: string
+                              value:
+                                description: |-
+                                  Value is the exact cookie value. Kept to safe characters, because types
+                                  embed it in a regular expression on the Cookie header.
+                                pattern: ^[A-Za-z0-9_.-]{1,128}$
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          maxItems: 1
+                          minItems: 1
+                          type: array
+                        headers:
+                          description: Headers the request must carry.
+                          items:
+                            description: EndpointHeaderMatch is a header condition.
+                            properties:
+                              name:
+                                description: Name is the header name, case-insensitive.
+                                maxLength: 256
+                                minLength: 1
+                                pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                type: string
+                              type:
+                                default: Exact
+                                description: Type is how the value is compared.
+                                enum:
+                                - Exact
+                                - RegularExpression
+                                type: string
+                              value:
+                                description: Value is the expected value, or the regular
+                                  expression.
+                                maxLength: 4096
+                                type: string
+                            required:
+                            - name
+                            - value
+                            type: object
+                          maxItems: 8
+                          minItems: 1
+                          type: array
+                        path:
+                          description: |-
+                            Path the request must be for, relative to where the Endpoint is served:
+                            a path of /next on an Endpoint served at /checkout matches /checkout/next.
+                          properties:
+                            type:
+                              default: PathPrefix
+                              description: Type is how the path is compared.
+                              enum:
+                              - PathPrefix
+                              - Exact
+                              type: string
+                            value:
+                              description: Value is the path, relative to where the
+                                Endpoint is served.
+                              maxLength: 1024
+                              pattern: ^/[^?#]*$
+                              type: string
+                          required:
+                          - value
+                          type: object
+                      type: object
+                      x-kubernetes-validations:
+                      - message: set a path, headers or cookies, or remove match
+                        rule: has(self.path) || has(self.headers) || has(self.cookies)
+                    mirror:
+                      description: |-
+                        Mirror replaces the release's mirror share for this backend in this
+                        environment. The backend must have a mirror in the release.
+                      properties:
+                        percent:
+                          description: Percent of the requests to copy, from 0 to
+                            100.
+                          format: int32
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                      required:
+                      - percent
+                      type: object
+                    name:
+                      description: Name is the name of the backend in the release.
+                      minLength: 1
+                      type: string
+                    weight:
+                      description: |-
+                        Weight replaces the release's weight for this backend in this
+                        environment, with the same semantics: relative to the other backends'
+                        weights, and 0 sends no traffic. When any backend has a weight
+                        override, a backend without one gets 0 in this environment.
+                        status.backends reports the effective weight.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: 'set weight or mirror, not both: a mirror backend only
+                      receives copies'
+                    rule: '!(has(self.weight) && has(self.mirror))'
+                  - message: 'set match or mirror, not both: a mirror backend only
+                      receives copies'
+                    rule: '!(has(self.match) && has(self.mirror))'
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               endpointRelease:
                 description: |-
                   EndpointRelease is the name of the EndpointRelease pinned by this binding.
@@ -142,6 +284,21 @@ spec:
                       description: Message is a human-readable explanation accompanying
                         Reason.
                       type: string
+                    mirror:
+                      description: |-
+                        Mirror is the effective mirror share applied to this backend, when it is
+                        a mirror.
+                      properties:
+                        percent:
+                          description: Percent of the requests to copy, from 0 to
+                            100.
+                          format: int32
+                          maximum: 100
+                          minimum: 0
+                          type: integer
+                      required:
+                      - percent
+                      type: object
                     name:
                       description: Name matches the name of the EndpointBackendRef
                         this entry resolves.

@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -253,6 +254,105 @@ var _ = Describe("Backend resolution and rendering", func() {
 		Expect(updated.Status.Backends).To(ContainElement(
 			And(HaveField("Name", "canary"), HaveField("Resolved", false), HaveField("Reason", BackendReasonNotDeployed)),
 		), "the staged backend is still reported, just not routed to")
+	})
+
+	It("renders the environment's weights from spec.backendOverrides without a new release", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), componentBackend("canary", "greeter-v2", 0))
+		b := newBinding("override", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "stable", Weight: ptr.To[int32](75)},
+			{Name: "canary", Weight: ptr.To[int32](25)},
+		}
+		r, cli := build(release, b, deployedComponent("greeter", dpNS), deployedComponent("greeter-v2", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+
+		Expect(condition(updated, ConditionSynced).Status).To(Equal(metav1.ConditionTrue))
+		Expect(condition(updated, ConditionBackendOverridesApplied).Status).To(Equal(metav1.ConditionTrue))
+		Expect(updated.Status.Backends).To(ConsistOf(
+			And(HaveField("Name", "stable"), HaveField("Weight", int32(75))),
+			And(HaveField("Name", "canary"), HaveField("Weight", int32(25))),
+		), "status reports the effective weights")
+		rr, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routeBackendRefs(rr)).To(Equal([]any{
+			map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(75)},
+			map[string]any{"name": "greeter-v2-svc", "port": float64(8080), "weight": float64(25)},
+		}))
+	})
+
+	It("ignores and reports an override for a backend the release no longer has", func() {
+		// The release retired the canary; this environment's overrides still
+		// name it, as after promoting a release that removed a backend.
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
+		b := newBinding("retired", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{
+			{Name: "stable", Weight: ptr.To[int32](100)},
+			{Name: "canary", Weight: ptr.To[int32](0)},
+		}
+		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+
+		applied := condition(updated, ConditionBackendOverridesApplied)
+		Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+		Expect(applied.Reason).To(Equal(string(ReasonBackendOverridesIgnored)))
+		Expect(applied.Message).To(ContainSubstring("canary"))
+		Expect(condition(updated, ConditionSynced).Status).To(Equal(metav1.ConditionTrue),
+			"an ignored override must not hold the binding back")
+		rr, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routeBackendRefs(rr)).To(Equal([]any{
+			map[string]any{"name": "greeter-svc", "port": float64(8080), "weight": float64(100)},
+		}))
+	})
+
+	It("keeps the current route when the overrides leave every backend at weight 0", func() {
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100))
+		b := newBinding("zero", testRelease)
+		r, cli := build(release, b, deployedComponent("greeter", dpNS))
+		reconcileBinding(r, cli, b)
+		before, err := renderedRelease(cli, b)
+		Expect(err).NotTo(HaveOccurred())
+
+		live := &openchoreov1alpha1.EndpointReleaseBinding{}
+		Expect(cli.Get(fctx, client.ObjectKeyFromObject(b), live)).To(Succeed())
+		live.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{Name: "stable", Weight: ptr.To[int32](0)}}
+		Expect(cli.Update(fctx, live)).To(Succeed())
+		updated := reconcileBinding(r, cli, b)
+
+		backends := condition(updated, ConditionBackendsResolved)
+		Expect(backends.Status).To(Equal(metav1.ConditionFalse))
+		Expect(backends.Reason).To(Equal(string(ReasonNoWeightedBackend)))
+		after, err := renderedRelease(cli, updated)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after.Spec).To(Equal(before.Spec), "the route keeps serving rather than sending traffic nowhere")
+	})
+
+	It("reports an override the type can't render once, without rewriting status on every pass", func() {
+		preview := componentBackend("preview", "greeter-v2", 0)
+		preview.Match = &openchoreov1alpha1.EndpointMatch{
+			Headers: []openchoreov1alpha1.EndpointHeaderMatch{{Name: "x-preview", Value: "true"}},
+		}
+		release := newRelease(testRelease, componentBackend("stable", "greeter", 100), preview)
+		release.Spec.EndpointType.Spec.Capabilities = []openchoreov1alpha1.EndpointCapability{
+			openchoreov1alpha1.EndpointCapabilityMatch,
+		}
+		b := newBinding("unsupported", testRelease)
+		b.Spec.BackendOverrides = []openchoreov1alpha1.EndpointBackendOverride{{
+			Name:  "preview",
+			Match: &openchoreov1alpha1.EndpointMatch{Cookies: []openchoreov1alpha1.EndpointCookieMatch{{Name: "group", Value: "beta"}}},
+		}}
+		r, cli := build(release, b, deployedComponent("greeter", dpNS), deployedComponent("greeter-v2", dpNS))
+
+		updated := reconcileBinding(r, cli, b)
+		applied := condition(updated, ConditionBackendOverridesApplied)
+		Expect(applied.Status).To(Equal(metav1.ConditionFalse))
+		Expect(applied.Reason).To(Equal(string(ReasonOverrideUnsupportedByType)))
+
+		again := reconcileBinding(r, cli, b)
+		Expect(again.ResourceVersion).To(Equal(updated.ResourceVersion),
+			"an unchanged problem must not write status, or every write would start another pass")
 	})
 
 	It("leaves the existing RenderedRelease untouched when a backend disappears", func() {

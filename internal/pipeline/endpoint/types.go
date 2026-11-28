@@ -74,6 +74,13 @@ type RenderInput struct {
 	// does not render when nothing can receive traffic.
 	Backends []Backend
 
+	// Rules are the routing rules for this environment, exposed to CEL as
+	// ${rules}: one rule per backend with a match, most specific first, then
+	// the default rule that splits every other request by weight and copies a
+	// share of them to each mirror backend. Optional:
+	// types that only route by weight keep using ${backends}.
+	Rules []Rule
+
 	// Metadata is the controller-computed metadata surface exposed to CEL as
 	// ${metadata.*}.
 	Metadata MetadataContext
@@ -134,6 +141,11 @@ type Backend struct {
 	// Weight is the relative traffic weight from the backendRef.
 	Weight int32 `json:"weight"`
 
+	// Percent is the backend's share of its rule's traffic, from 0 to 100.
+	// The shares of a rule's backends add up to exactly 100, for data planes
+	// that take percentages instead of relative weights.
+	Percent int32 `json:"percent"`
+
 	// ServiceURL is the in-cluster URL of the ComponentType's Service, e.g.
 	// http://greeter-dev-1a2b3c.dp-default-shop-dev-4d5e6f.svc.cluster.local:8080/api.
 	// Empty when serviceName is.
@@ -142,6 +154,76 @@ type Backend struct {
 	// BasePath is the path the backend serves under ("/" when unset). Templates
 	// rewrite their public path prefix to it.
 	BasePath string `json:"basePath"`
+}
+
+// Rule is one routing rule with its backends resolved.
+type Rule struct {
+	// Name identifies the rule: the matched backend's name, or "default" for
+	// the rule that splits by weight.
+	Name string `json:"name"`
+
+	// Matches select the requests the rule applies to; empty for the default
+	// rule.
+	Matches []Match `json:"matches"`
+
+	// Backends are the rule's backends with their weight in this environment.
+	// A match rule has its one backend, at weight 1.
+	Backends []Backend `json:"backends"`
+
+	// Mirrors copy a share of the rule's requests to a backend. Only the
+	// default rule has mirrors.
+	Mirrors []Mirror `json:"mirrors"`
+}
+
+// Mirror copies Percent of a rule's requests to Backend.
+type Mirror struct {
+	Backend Backend `json:"backend"`
+	Percent int32   `json:"percent"`
+}
+
+// Match is one set of conditions a request must all meet. Lists are never
+// nil, so templates can use them without has().
+type Match struct {
+	// Path is the path condition, relative to where the Endpoint is served;
+	// nil when the match has none. Templates join it to the prefix they serve
+	// the Endpoint at.
+	Path *PathMatch `json:"path,omitempty"`
+
+	// Conditions are the match's header conditions ready to render on any
+	// routing API: header names lowercased, and the cookie as a regular
+	// expression on the cookie header with its name and value escaped.
+	// Templates should render these rather than Headers and Cookies, so
+	// every data plane matches the same requests.
+	Conditions []HeaderMatch `json:"conditions"`
+
+	// Headers are the match's header conditions, names lowercased.
+	Headers []HeaderMatch `json:"headers"`
+	// Cookies are the match's cookie conditions as written; see Conditions.
+	Cookies []CookieMatch `json:"cookies"`
+}
+
+// PathMatch is a path condition; Type is PathPrefix or Exact.
+type PathMatch struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+
+	// Regex is an RE2 pattern for the whole path that matches the same
+	// requests, for routing APIs whose prefix match is a plain string prefix
+	// (Istio, Envoy) rather than path segments as in Gateway API.
+	Regex string `json:"regex"`
+}
+
+// HeaderMatch is a header condition; Type is Exact or RegularExpression.
+type HeaderMatch struct {
+	Name  string `json:"name"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// CookieMatch is an exact cookie condition.
+type CookieMatch struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // RenderOutput carries the rendered manifests in spec order. ForEach
@@ -199,6 +281,7 @@ type BaseContext struct {
 	EnvironmentConfigs map[string]any     `json:"environmentConfigs"`
 	Visibility         []string           `json:"visibility"`
 	Backends           []Backend          `json:"backends"`
+	Rules              []Rule             `json:"rules"`
 	DataPlane          DataPlaneContext   `json:"dataplane"`
 	Environment        EnvironmentContext `json:"environment"`
 	// Gateway is the effective gateway (Environment.Gateway) exposed at the top

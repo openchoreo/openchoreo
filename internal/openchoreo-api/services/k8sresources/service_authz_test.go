@@ -230,3 +230,48 @@ func TestTriggerCronJob_AuthzCheck(t *testing.T) {
 		require.Empty(t, pdp.Captured)
 	})
 }
+
+// --- GetEndpointResourceTree / GetEndpointResourceEvents ---
+
+func TestGetEndpointResourceTree_AuthzCheck(t *testing.T) {
+	newSvc := func(t *testing.T, pdp *testutil.CapturingPDP) (*mocks.MockService, k8sresources.Service) {
+		erb := testutil.NewEndpointReleaseBinding("ns-1", "proj-1", "ep-1", "dev", "ep-1-dev")
+		mockSvc := mocks.NewMockService(t)
+		return mockSvc, k8sresources.NewTestServiceWithAuthz(mockSvc, testutil.NewFakeClient(erb), pdp, testutil.TestLogger())
+	}
+
+	t.Run("checks endpointreleasebinding:view in the binding's environment", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		mockSvc, svc := newSvc(t, pdp)
+		expected := &k8sresources.K8sResourceTreeResult{}
+		mockSvc.On("GetEndpointResourceTree", mock.Anything, "ns-1", "ep-1-dev").Return(expected, nil)
+
+		result, err := svc.GetEndpointResourceTree(testutil.AuthzContext(), "ns-1", "ep-1-dev")
+		require.NoError(t, err)
+		require.Equal(t, expected, result)
+		require.Len(t, pdp.Captured, 1)
+		testutil.RequireEvalRequest(t, pdp.Captured[0],
+			"endpointreleasebinding:view", "endpointreleasebinding", "ep-1-dev",
+			authzcore.ResourceHierarchy{Namespace: "ns-1", Project: "proj-1"})
+		require.Equal(t, services.FormatDualScopedResourceName("ns-1", "dev", false),
+			pdp.Captured[0].Context.Resource.Environment)
+	})
+
+	t.Run("denied", func(t *testing.T) {
+		_, svc := newSvc(t, testutil.DenyPDP())
+
+		_, err := svc.GetEndpointResourceTree(testutil.AuthzContext(), "ns-1", "ep-1-dev")
+		require.ErrorIs(t, err, services.ErrForbidden)
+		_, err = svc.GetEndpointResourceEvents(testutil.AuthzContext(), "ns-1", "ep-1-dev", "", "v1", "Service", "ep-1")
+		require.ErrorIs(t, err, services.ErrForbidden)
+	})
+
+	t.Run("not found skips authz", func(t *testing.T) {
+		pdp := testutil.AllowPDP()
+		_, svc := newSvc(t, pdp)
+
+		_, err := svc.GetEndpointResourceTree(testutil.AuthzContext(), "ns-1", "nonexistent")
+		require.ErrorIs(t, err, k8sresources.ErrEndpointReleaseBindingNotFound)
+		require.Empty(t, pdp.Captured)
+	})
+}

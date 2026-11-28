@@ -30,6 +30,11 @@ const (
 	// The values live in status.urls.
 	ConditionURLsResolved controller.ConditionType = "URLsResolved"
 
+	// ConditionBackendOverridesApplied reports whether every
+	// spec.backendOverrides entry applies to the pinned release. Set only when
+	// the binding has overrides; informational, not part of Ready.
+	ConditionBackendOverridesApplied controller.ConditionType = "BackendOverridesApplied"
+
 	// ConditionReady aggregates BackendsResolved, Synced, ResourcesReady, and
 	// URLsResolved.
 	ConditionReady controller.ConditionType = "Ready"
@@ -78,6 +83,31 @@ const (
 	// could not be resolved, so the binding does not render. Also set on Synced,
 	// since the RenderedRelease is left as it was rather than updated.
 	ReasonBackendsUnresolved controller.ConditionReason = "BackendsUnresolved"
+
+	// ReasonNoWeightedBackend indicates every resolved backend has weight 0
+	// in this environment, so rendering would route traffic nowhere.
+	ReasonNoWeightedBackend controller.ConditionReason = "NoWeightedBackend"
+
+	// ReasonOverrideUnsupportedByType indicates spec.backendOverrides make a
+	// backend use a routing feature the pinned release's EndpointType does not
+	// declare, such as a mirror share without MirrorPercent, so the binding
+	// does not render.
+	ReasonOverrideUnsupportedByType controller.ConditionReason = "OverrideUnsupportedByType"
+
+	// ReasonOverrideMatchInvalid indicates a spec.backendOverrides match fails
+	// the checks a release's matches pass before it is cut, such as a header
+	// pattern that is not RE2 or the same match as another backend, so the
+	// binding does not render.
+	ReasonOverrideMatchInvalid controller.ConditionReason = "OverrideMatchInvalid"
+
+	// ReasonBackendOverridesApplied indicates every spec.backendOverrides
+	// entry applies to a backend of the pinned release.
+	ReasonBackendOverridesApplied controller.ConditionReason = "BackendOverridesApplied"
+
+	// ReasonBackendOverridesIgnored indicates some spec.backendOverrides
+	// entries name a backend the pinned release does not have, or set a mirror
+	// share on a backend that is not a mirror. They are ignored.
+	ReasonBackendOverridesIgnored controller.ConditionReason = "BackendOverridesIgnored"
 
 	// ReasonRenderingFailed indicates the endpoint pipeline failed to render
 	// the type's resources (CEL evaluation error, failed validation rule,

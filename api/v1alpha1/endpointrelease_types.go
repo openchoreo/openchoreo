@@ -13,6 +13,9 @@ import (
 // referenced EndpointType (or ClusterEndpointType) spec at the time it was cut.
 // Created exclusively by the Endpoint controller.
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="EndpointRelease spec is immutable"
+// Equality ignores the order of a map-type list, and backendRefs order breaks
+// ties between matches, so it is checked on its own.
+// +kubebuilder:validation:XValidation:rule="self.backendRefs.map(b, b.name) == oldSelf.backendRefs.map(b, b.name)",message="EndpointRelease spec is immutable, including the order of backendRefs"
 type EndpointReleaseSpec struct {
 	// Owner identifies the endpoint and project this EndpointRelease belongs to.
 	// +kubebuilder:validation:Required

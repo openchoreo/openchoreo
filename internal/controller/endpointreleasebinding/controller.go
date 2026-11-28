@@ -11,6 +11,7 @@ import (
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -115,11 +116,34 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 	}()
 
 	trackSpecUpdate(binding)
+	if len(binding.Spec.BackendOverrides) == 0 {
+		// Cleared even when the inputs below don't load.
+		meta.RemoveStatusCondition(&binding.Status.Conditions, string(ConditionBackendOverridesApplied))
+	}
 
 	in, err := r.loadInputs(ctx, binding)
 	if err != nil || in == nil {
 		// in == nil: a Synced=False condition explains what is missing.
 		return ctrl.Result{}, err
+	}
+
+	// The overrides' checks need only the release, so BackendOverridesApplied
+	// is set once, to its final value, before any step below returns early.
+	var unsupportedMsg, matchMsg string
+	if problems := overridesUnsupported(binding, in.release); len(problems) > 0 {
+		unsupportedMsg = fmt.Sprintf("spec.backendOverrides need what %s %q does not declare: %s",
+			in.release.Spec.EndpointType.Kind, in.release.Spec.EndpointType.Name, strings.Join(problems, "; "))
+	}
+	if problems := overrideMatchProblems(binding, in.release); len(problems) > 0 {
+		matchMsg = "spec.backendOverrides match can't be rendered: " + strings.Join(problems, "; ")
+	}
+	switch {
+	case unsupportedMsg != "":
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideUnsupportedByType, unsupportedMsg)
+	case matchMsg != "":
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonOverrideMatchInvalid, matchMsg)
+	default:
+		reportOverrides(binding, in.release)
 	}
 
 	md := buildMetadataContext(binding, in)
@@ -144,12 +168,33 @@ func (r *Reconciler) reconcile(ctx context.Context, old, binding *openchoreov1al
 		markSyncedFalse(binding, ReasonBackendsUnresolved, "RenderedRelease not updated until every backend resolves")
 		return ctrl.Result{}, nil
 	}
+	if !hasWeight(resolved.backends) {
+		// Every resolved backend is at weight 0 in this environment, so the
+		// route would send traffic nowhere. Keep the current RenderedRelease.
+		msg := fmt.Sprintf("No backend has a weight above 0 in environment %q; check spec.backendOverrides",
+			binding.Spec.Environment)
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonNoWeightedBackend, msg)
+		markSyncedFalse(binding, ReasonNoWeightedBackend, "RenderedRelease not updated until a backend has a weight above 0")
+		return ctrl.Result{}, nil
+	}
+	if unsupportedMsg != "" {
+		// Same as an unresolved backend: keep the current RenderedRelease
+		// rather than render what the type does not declare it can.
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideUnsupportedByType, unsupportedMsg)
+		markSyncedFalse(binding, ReasonOverrideUnsupportedByType, "RenderedRelease not updated until the overrides fit the type")
+		return ctrl.Result{}, nil
+	}
+	if matchMsg != "" {
+		controller.MarkFalseCondition(binding, ConditionBackendsResolved, ReasonOverrideMatchInvalid, matchMsg)
+		markSyncedFalse(binding, ReasonOverrideMatchInvalid, "RenderedRelease not updated until the overrides' matches are valid")
+		return ctrl.Result{}, nil
+	}
 	controller.MarkTrueCondition(binding, ConditionBackendsResolved, ReasonBackendsResolved,
 		fmt.Sprintf("%d backend(s) resolved", len(resolved.backends)))
 
 	// One CEL cost budget per reconcile, shared by rendering and URLs.
 	ctx = template.WithReconcileBudget(ctx, r.CELCostLimit)
-	input := buildRenderInput(binding, in, md, resolved.backends)
+	input := buildRenderInput(binding, in, md, resolved.backends, buildRules(in.release, resolved))
 	policies, err := networkPolicyManifests(binding, in, md, resolved.policyTargets)
 	if err != nil {
 		markSyncedFalse(binding, ReasonRenderingFailed, fmt.Sprintf("Failed to render network policies: %v", err))
@@ -301,4 +346,20 @@ func (r *Reconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.listBindingsForProject)).
 		Named("endpointreleasebinding").
 		Complete(r)
+}
+
+// reportOverrides sets BackendOverridesApplied when the binding has
+// overrides: False, with the entries the pinned release ignores, or True. It
+// never blocks rendering and is not part of Ready.
+func reportOverrides(binding *openchoreov1alpha1.EndpointReleaseBinding, release *openchoreov1alpha1.EndpointRelease) {
+	if len(binding.Spec.BackendOverrides) == 0 {
+		meta.RemoveStatusCondition(&binding.Status.Conditions, string(ConditionBackendOverridesApplied))
+		return
+	}
+	if msg := ignoredOverrides(release, binding); msg != "" {
+		controller.MarkFalseCondition(binding, ConditionBackendOverridesApplied, ReasonBackendOverridesIgnored, msg)
+		return
+	}
+	controller.MarkTrueCondition(binding, ConditionBackendOverridesApplied, ReasonBackendOverridesApplied,
+		fmt.Sprintf("%d backend override(s) applied", len(binding.Spec.BackendOverrides)))
 }

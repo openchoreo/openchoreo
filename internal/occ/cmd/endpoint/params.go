@@ -27,3 +27,27 @@ type PromoteParams struct {
 	EndpointName string
 	Environment  string
 }
+
+// TrafficGetParams defines parameters for showing an endpoint's traffic
+type TrafficGetParams struct {
+	Namespace    string
+	EndpointName string
+}
+
+// TrafficSetParams defines parameters for saving a split. Without an
+// environment it is the endpoint's default split.
+type TrafficSetParams struct {
+	Namespace    string
+	EndpointName string
+	Environment  string
+	Split        map[string]int32
+	DryRun       bool
+}
+
+// TrafficResetParams defines parameters for dropping an environment's own split
+type TrafficResetParams struct {
+	Namespace    string
+	EndpointName string
+	Environment  string
+	DryRun       bool
+}

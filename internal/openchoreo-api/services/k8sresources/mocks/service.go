@@ -24,6 +24,130 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// GetEndpointResourceEvents provides a mock function with given fields: ctx, namespaceName, bindingName, group, version, kind, name
+func (_m *MockService) GetEndpointResourceEvents(ctx context.Context, namespaceName string, bindingName string, group string, version string, kind string, name string) (*models.ResourceEventsResponse, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName, group, version, kind, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointResourceEvents")
+	}
+
+	var r0 *models.ResourceEventsResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string) (*models.ResourceEventsResponse, error)); ok {
+		return rf(ctx, namespaceName, bindingName, group, version, kind, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string, string, string) *models.ResourceEventsResponse); ok {
+		r0 = rf(ctx, namespaceName, bindingName, group, version, kind, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.ResourceEventsResponse)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName, group, version, kind, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_GetEndpointResourceEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointResourceEvents'
+type MockService_GetEndpointResourceEvents_Call struct {
+	*mock.Call
+}
+
+// GetEndpointResourceEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+//   - group string
+//   - version string
+//   - kind string
+//   - name string
+func (_e *MockService_Expecter) GetEndpointResourceEvents(ctx interface{}, namespaceName interface{}, bindingName interface{}, group interface{}, version interface{}, kind interface{}, name interface{}) *MockService_GetEndpointResourceEvents_Call {
+	return &MockService_GetEndpointResourceEvents_Call{Call: _e.mock.On("GetEndpointResourceEvents", ctx, namespaceName, bindingName, group, version, kind, name)}
+}
+
+func (_c *MockService_GetEndpointResourceEvents_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string, group string, version string, kind string, name string)) *MockService_GetEndpointResourceEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(string), args[4].(string), args[5].(string), args[6].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_GetEndpointResourceEvents_Call) Return(_a0 *models.ResourceEventsResponse, _a1 error) *MockService_GetEndpointResourceEvents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_GetEndpointResourceEvents_Call) RunAndReturn(run func(context.Context, string, string, string, string, string, string) (*models.ResourceEventsResponse, error)) *MockService_GetEndpointResourceEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetEndpointResourceTree provides a mock function with given fields: ctx, namespaceName, bindingName
+func (_m *MockService) GetEndpointResourceTree(ctx context.Context, namespaceName string, bindingName string) (*k8sresources.K8sResourceTreeResult, error) {
+	ret := _m.Called(ctx, namespaceName, bindingName)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEndpointResourceTree")
+	}
+
+	var r0 *k8sresources.K8sResourceTreeResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*k8sresources.K8sResourceTreeResult, error)); ok {
+		return rf(ctx, namespaceName, bindingName)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *k8sresources.K8sResourceTreeResult); ok {
+		r0 = rf(ctx, namespaceName, bindingName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*k8sresources.K8sResourceTreeResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, namespaceName, bindingName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_GetEndpointResourceTree_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEndpointResourceTree'
+type MockService_GetEndpointResourceTree_Call struct {
+	*mock.Call
+}
+
+// GetEndpointResourceTree is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespaceName string
+//   - bindingName string
+func (_e *MockService_Expecter) GetEndpointResourceTree(ctx interface{}, namespaceName interface{}, bindingName interface{}) *MockService_GetEndpointResourceTree_Call {
+	return &MockService_GetEndpointResourceTree_Call{Call: _e.mock.On("GetEndpointResourceTree", ctx, namespaceName, bindingName)}
+}
+
+func (_c *MockService_GetEndpointResourceTree_Call) Run(run func(ctx context.Context, namespaceName string, bindingName string)) *MockService_GetEndpointResourceTree_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *MockService_GetEndpointResourceTree_Call) Return(_a0 *k8sresources.K8sResourceTreeResult, _a1 error) *MockService_GetEndpointResourceTree_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_GetEndpointResourceTree_Call) RunAndReturn(run func(context.Context, string, string) (*k8sresources.K8sResourceTreeResult, error)) *MockService_GetEndpointResourceTree_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetResourceEvents provides a mock function with given fields: ctx, namespaceName, releaseBindingName, group, version, kind, name
 func (_m *MockService) GetResourceEvents(ctx context.Context, namespaceName string, releaseBindingName string, group string, version string, kind string, name string) (*models.ResourceEventsResponse, error) {
 	ret := _m.Called(ctx, namespaceName, releaseBindingName, group, version, kind, name)

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -292,6 +293,48 @@ func TestResolveReleaseContexts(t *testing.T) {
 		assert.Equal(t, "rr-1", contexts[0].release.Name)
 		assert.Equal(t, planeTypeDataPlane, contexts[0].plane.planeType)
 		assert.Equal(t, "default-id", contexts[0].plane.planeID)
+		assert.Equal(t, "dp-ns", contexts[0].namespace)
+	})
+}
+
+func TestResolveEndpointReleaseContexts(t *testing.T) {
+	endpointBinding := func() *openchoreov1alpha1.EndpointReleaseBinding {
+		return &openchoreov1alpha1.EndpointReleaseBinding{
+			// The same name as the component's binding, which must not be read.
+			ObjectMeta: metav1.ObjectMeta{Name: "rb-1", Namespace: testNamespace, UID: "erb-1-uid"},
+			Spec: openchoreov1alpha1.EndpointReleaseBindingSpec{
+				Owner:       openchoreov1alpha1.EndpointReleaseBindingOwner{ProjectName: "proj-1", EndpointName: "ep-1"},
+				Environment: "dev",
+			},
+		}
+	}
+	ownedBy := func(name string, uid string, kind string) *openchoreov1alpha1.RenderedRelease {
+		rr := testRenderedRelease(testReleaseBinding(), planeTypeDataPlane, []openchoreov1alpha1.RenderedManifestStatus{
+			{ID: "route", Group: "gateway.networking.k8s.io", Version: "v1", Kind: "HTTPRoute", Name: "ep-1", Namespace: "dp-ns"},
+		})
+		rr.Name = name
+		rr.OwnerReferences[0].Kind = kind
+		rr.OwnerReferences[0].UID = types.UID(uid)
+		return rr
+	}
+
+	t.Run("endpoint release binding not found", func(t *testing.T) {
+		svc := &k8sResourcesService{k8sClient: newFakeClient(testReleaseBinding()), rules: testRules(), logger: testLogger()}
+
+		_, _, err := svc.resolveEndpointReleaseContexts(context.Background(), testNamespace, "rb-1")
+		require.ErrorIs(t, err, ErrEndpointReleaseBindingNotFound, "a component binding of the same name doesn't count")
+	})
+
+	t.Run("reads only the releases the endpoint binding owns", func(t *testing.T) {
+		fc := newFakeClient(endpointBinding(), testReleaseBinding(), testEnvironment(), testDataPlane("default"),
+			ownedBy("ep-1-dev", "erb-1-uid", "EndpointReleaseBinding"),
+			ownedBy("comp-1-dev", "rb-1-uid", "ReleaseBinding"))
+		svc := &k8sResourcesService{k8sClient: fc, rules: testRules(), logger: testLogger()}
+
+		contexts, _, err := svc.resolveEndpointReleaseContexts(context.Background(), testNamespace, "rb-1")
+		require.NoError(t, err)
+		require.Len(t, contexts, 1)
+		assert.Equal(t, "ep-1-dev", contexts[0].release.Name)
 		assert.Equal(t, "dp-ns", contexts[0].namespace)
 	})
 }

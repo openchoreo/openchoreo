@@ -12,7 +12,7 @@
 // internal/pipeline/component/renderer; it does not import controller-runtime.
 //
 // The CEL context exposes ${metadata.*}, ${parameters.*},
-// ${environmentConfigs.*}, ${visibility}, ${backends}, ${dataplane.*},
+// ${environmentConfigs.*}, ${visibility}, ${backends}, ${rules}, ${dataplane.*},
 // ${environment.*}, and the effective ${gateway.*}.
 package endpointpipeline
 
@@ -257,12 +257,18 @@ func buildBaseContext(input *RenderInput) (map[string]any, error) {
 		visibility = append(visibility, string(v))
 	}
 
+	rules := input.Rules
+	if rules == nil {
+		rules = []Rule{}
+	}
+
 	return structToMap(BaseContext{
 		Metadata:           md,
 		Parameters:         parameters,
 		EnvironmentConfigs: envConfigs,
 		Visibility:         visibility,
 		Backends:           input.Backends,
+		Rules:              rules,
 		DataPlane:          input.DataPlane,
 		Environment:        input.Environment,
 		Gateway:            input.Environment.Gateway,
