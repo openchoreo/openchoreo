@@ -312,6 +312,147 @@ var _ = Describe("MCP Server", Ordered, Label("tier2"), func() {
 			fmt.Fprintf(GinkgoWriter, "discovered dp namespace: %s\n", dpNs)
 		})
 
+		It("lists revisions, dry-runs a rollback, then rolls back the release binding", func() {
+			rbName := fmt.Sprintf("%s-development", componentName)
+
+			type revision struct {
+				Name             string `json:"name"`
+				Revision         int64  `json:"revision"`
+				Cause            string `json:"cause"`
+				Active           bool   `json:"active"`
+				ComponentRelease string `json:"componentRelease"`
+				DisplayName      string `json:"displayName"`
+			}
+			listRevisions := func(g Gomega) []revision {
+				var result struct {
+					Revisions []revision `json:"release_binding_revisions"`
+				}
+				g.Expect(framework.CallMCPToolJSON(session, "list_release_binding_revisions", map[string]any{
+					"namespace_name": mcpNs,
+					"component_name": componentName,
+					"environment":    "development",
+				}, &result)).To(Succeed(), "list_release_binding_revisions should succeed")
+				return result.Revisions
+			}
+
+			By("waiting for r1, recorded when auto-deploy bound the first release")
+			var r1Name string
+			Eventually(func(g Gomega) {
+				revs := listRevisions(g)
+				g.Expect(revs).To(HaveLen(1))
+				g.Expect(revs[0].Revision).To(Equal(int64(1)))
+				g.Expect(revs[0].Cause).To(Equal("Deploy"))
+				g.Expect(revs[0].Active).To(BeTrue())
+				g.Expect(revs[0].Name).To(Equal(rbName+"-r1"), "revision objects are named {binding}-r{N}")
+				g.Expect(revs[0].DisplayName).To(Equal(componentName+"-r1"), "shown as {component}-r{N}")
+				r1Name = revs[0].Name
+			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
+			By("overriding replicas so the controller records r2")
+			_, err := framework.CallMCPTool(session, "update_release_binding", map[string]any{
+				"namespace_name":                     mcpNs,
+				"binding_name":                       rbName,
+				"component_type_environment_configs": map[string]any{"replicas": 2},
+			})
+			Expect(err).NotTo(HaveOccurred(), "update_release_binding should succeed")
+			Eventually(func(g Gomega) {
+				revs := listRevisions(g)
+				g.Expect(revs).To(HaveLen(2))
+				g.Expect(revs[0].Revision).To(Equal(int64(2)), "newest first")
+				g.Expect(revs[0].Cause).To(Equal("Override"))
+				g.Expect(revs[0].Active).To(BeTrue())
+				g.Expect(revs[0].Name).To(Equal(rbName + "-r2"))
+				g.Expect(revs[0].DisplayName).To(Equal(componentName + "-r2"))
+			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
+			type rollbackResult struct {
+				DryRun       bool   `json:"dryRun"`
+				Applied      bool   `json:"applied"`
+				Revision     int64  `json:"revision"`
+				RevisionName string `json:"revisionName"`
+				RevertedFrom int64  `json:"revertedFrom"`
+				Changes      []struct {
+					Field string `json:"field"`
+				} `json:"changes"`
+				Warnings []struct {
+					Code string `json:"code"`
+				} `json:"warnings"`
+			}
+
+			By("refusing the rollback, dry run included, while auto-deploy is on in the first environment")
+			_, err = framework.CallMCPTool(session, "rollback_release_binding", map[string]any{
+				"namespace_name": mcpNs,
+				"name":           rbName,
+				"revision":       1,
+			})
+			Expect(err).To(HaveOccurred(), "auto-deploy would undo a rollback in the first environment")
+			Expect(err.Error()).To(ContainSubstring("auto-deploy is enabled"))
+
+			By("turning auto-deploy off for the component")
+			_, err = framework.CallMCPTool(session, "patch_component", map[string]any{
+				"namespace_name": mcpNs,
+				"component_name": componentName,
+				"auto_deploy":    false,
+			})
+			Expect(err).NotTo(HaveOccurred(), "patch_component should turn auto-deploy off")
+			Eventually(func(g Gomega) {
+				autoDeploy, err := framework.KubectlGetJsonpath(kubeContext, mcpNs, "component", componentName,
+					"{.spec.autoDeploy}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(autoDeploy).NotTo(Equal("true"))
+			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+
+			By("dry-running the rollback to r1 (dry_run defaults to true)")
+			var preview rollbackResult
+			Expect(framework.CallMCPToolJSON(session, "rollback_release_binding", map[string]any{
+				"namespace_name": mcpNs,
+				"name":           rbName,
+				"revision":       1,
+			}, &preview)).To(Succeed(), "dry-run rollback should succeed")
+			Expect(preview.DryRun).To(BeTrue())
+			Expect(preview.Applied).To(BeFalse())
+			Expect(preview.Revision).To(Equal(int64(1)), "a rollback makes its target active again")
+			Expect(preview.RevisionName).To(Equal(r1Name))
+			Expect(preview.RevertedFrom).To(Equal(int64(2)))
+			changed := make([]string, 0, len(preview.Changes))
+			for _, c := range preview.Changes {
+				changed = append(changed, c.Field)
+			}
+			Expect(changed).To(ContainElement("componentTypeEnvironmentConfigs"))
+
+			By("verifying the dry run changed nothing")
+			Consistently(func(g Gomega) {
+				g.Expect(listRevisions(g)).To(HaveLen(2))
+			}, 3*time.Second, time.Second).Should(Succeed())
+
+			By("applying the rollback with dry_run=false")
+			var applied rollbackResult
+			Expect(framework.CallMCPToolJSON(session, "rollback_release_binding", map[string]any{
+				"namespace_name": mcpNs,
+				"name":           rbName,
+				"revision":       1,
+				"dry_run":        false,
+			}, &applied)).To(Succeed(), "rollback should succeed")
+			Expect(applied.Applied).To(BeTrue())
+			Expect(applied.RevisionName).To(Equal(r1Name))
+
+			By("verifying r1 is active again, with no revision created")
+			Eventually(func(g Gomega) {
+				current, err := framework.KubectlGetJsonpath(kubeContext, mcpNs, "releasebinding", rbName,
+					"{.status.currentRevision}")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(current).To(Equal(r1Name), "the binding points at r1")
+
+				revs := listRevisions(g)
+				g.Expect(revs).To(HaveLen(2), "no revision is created")
+				g.Expect(revs[0].Revision).To(Equal(int64(2)))
+				g.Expect(revs[0].Active).To(BeFalse(), "r2 is no longer active")
+				g.Expect(revs[1].Name).To(Equal(r1Name))
+				g.Expect(revs[1].Cause).To(Equal("Deploy"), "r1 keeps the cause it was recorded with")
+				g.Expect(revs[1].Active).To(BeTrue())
+			}, framework.DefaultTimeout, framework.DefaultPolling).Should(Succeed())
+		})
+
 		It("lists components and finds the created component", func() {
 			var listResult struct {
 				Components []struct {

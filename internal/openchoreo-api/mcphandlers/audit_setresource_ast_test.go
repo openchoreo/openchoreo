@@ -26,7 +26,9 @@ var writeMethodPrefixes = []string{"Create", "Update", "Patch"}
 // extraWriteMethods names write handlers whose method name carries none of
 // writeMethodPrefixes.
 var extraWriteMethods = map[string]bool{
-	"TriggerWorkflowRun": true, // creates a WorkflowRun; alias entry point of CreateWorkflowRun
+	"TriggerWorkflowRun":             true, // creates a WorkflowRun; alias entry point of CreateWorkflowRun
+	"RollbackReleaseBinding":         true, // writes the binding when dry_run is false
+	"RollbackResourceReleaseBinding": true, // writes the binding when dry_run is false
 }
 
 // setResourceExemptions maps a write handler's method name to the reason it
@@ -48,8 +50,8 @@ var setResourceExemptions = map[string]string{}
 // On a mismatch: if the new method writes, give it a Create/Update/Patch name
 // or add it to extraWriteMethods; if it only reads, just update the total.
 const (
-	wantCheckedWriteMethods = 64
-	wantHandlerMethods      = 200
+	wantCheckedWriteMethods = 66
+	wantHandlerMethods      = 206
 )
 
 // TestMCPHandlers_WritesCallSetResource statically guards the UID gap on the

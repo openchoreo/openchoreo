@@ -47,6 +47,20 @@ type ResourceReleaseBindingSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:Schemaless
 	ResourceTypeEnvironmentConfigs *runtime.RawExtension `json:"resourceTypeEnvironmentConfigs,omitempty"`
+
+	// RevisionHistoryLimit is the number of old revisions kept for this binding
+	// to allow rollback, as a Deployment's revisionHistoryLimit is. The active
+	// revision is always kept and does not count. 0 keeps no old revisions, so
+	// the binding cannot be rolled back. When unset, the Environment's
+	// spec.componentRevisionHistoryLimit applies, and when that is unset too,
+	// the controller's --component-revision-history-limit.
+	//
+	// It configures the history and is not part of what a revision records:
+	// changing it creates no revision, revisions do not capture it, and a
+	// rollback leaves it as it is.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
 // ResourceReleaseBindingOwner identifies the resource this ResourceReleaseBinding belongs to.
@@ -84,6 +98,23 @@ type ResourceReleaseBindingStatus struct {
 	// +listType=map
 	// +listMapKey=name
 	Outputs []ResolvedResourceOutput `json:"outputs,omitempty"`
+
+	// CurrentRevision is the object name of the binding's active revision: the
+	// one recording its current spec, which it is rolling out or running. It is
+	// set when the spec is recorded, before the rollout, so it does not confirm
+	// that a deploy or rollback succeeded; the revision's health reports that.
+	// Read it from here rather than building it: it is usually {binding}-r{N},
+	// but a name that would exceed the 253-character limit is shortened and
+	// given a hash. The controller updates it whenever the active revision
+	// changes, including when a rollback makes an earlier revision active again.
+	// +optional
+	CurrentRevision string `json:"currentRevision,omitempty"`
+
+	// HighestRevision is the highest revision number this binding has ever
+	// recorded. New revisions are numbered above it, so the number of a deleted
+	// revision is never given to another one.
+	// +optional
+	HighestRevision int64 `json:"highestRevision,omitempty"`
 }
 
 // ResolvedResourceOutput is a single resolved output value populated by the
