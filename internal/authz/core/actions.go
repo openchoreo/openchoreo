@@ -92,12 +92,24 @@ const (
 	ActionViewReleaseBinding   = "releasebinding:view"
 	ActionUpdateReleaseBinding = "releasebinding:update"
 	ActionDeleteReleaseBinding = "releasebinding:delete"
+	// ActionRollbackReleaseBinding restores the spec of an earlier ReleaseBindingRevision.
+	// It is separate from update so a role can roll back without writing arbitrary specs.
+	ActionRollbackReleaseBinding = "releasebinding:rollback"
+	// ActionDeleteReleaseBindingRevision deletes one inactive ReleaseBindingRevision
+	// from a binding's history. It is separate from delete, which removes the binding.
+	ActionDeleteReleaseBindingRevision = "releasebinding:delete-revision"
 
 	// ResourceReleaseBinding actions
 	ActionCreateResourceReleaseBinding = "resourcereleasebinding:create"
 	ActionViewResourceReleaseBinding   = "resourcereleasebinding:view"
 	ActionUpdateResourceReleaseBinding = "resourcereleasebinding:update"
 	ActionDeleteResourceReleaseBinding = "resourcereleasebinding:delete"
+	// ActionRollbackResourceReleaseBinding restores the spec of an earlier
+	// ResourceReleaseBindingRevision.
+	ActionRollbackResourceReleaseBinding = "resourcereleasebinding:rollback"
+	// ActionDeleteResourceReleaseBindingRevision deletes one inactive
+	// ResourceReleaseBindingRevision from a binding's history.
+	ActionDeleteResourceReleaseBindingRevision = "resourcereleasebinding:delete-revision"
 
 	// Endpoint actions
 	ActionCreateEndpoint = "endpoint:create"
@@ -428,12 +440,16 @@ var systemActions = []Action{
 	{Name: ActionCreateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionUpdateReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
 	{Name: ActionDeleteReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionRollbackReleaseBinding, LowestScope: ScopeComponent, IsInternal: false},
+	{Name: ActionDeleteReleaseBindingRevision, LowestScope: ScopeComponent, IsInternal: false},
 
 	// ResourceReleaseBinding
 	{Name: ActionViewResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionCreateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionUpdateResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
 	{Name: ActionDeleteResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionRollbackResourceReleaseBinding, LowestScope: ScopeResource, IsInternal: false},
+	{Name: ActionDeleteResourceReleaseBindingRevision, LowestScope: ScopeResource, IsInternal: false},
 
 	// Endpoint family. Evaluated at project scope: there is no endpoint-level
 	// scope in the hierarchy, so a role grants these per project, not per Endpoint.

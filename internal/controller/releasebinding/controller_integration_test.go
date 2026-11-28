@@ -21,6 +21,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	componentpipeline "github.com/openchoreo/openchoreo/internal/pipeline/component"
+	"github.com/openchoreo/openchoreo/internal/revision"
 )
 
 // ─── Minimal Templates ───────────────────────────────────────────────────────
@@ -195,13 +196,19 @@ func releaseFixture(name, project, component, envName string, extraFinalizers ..
 
 // ─── Test Helpers ─────────────────────────────────────────────────────────────
 
+// testRevisionHistoryLimit is the revision history limit of test reconcilers:
+// high enough that tests which are not about the limit lose no revision. The
+// controller's own default is 10.
+const testRevisionHistoryLimit = 100
+
 // testReconciler returns a Reconciler wired to the global envtest client.
 // Pipeline is intentionally nil — use testReconcilerWithPipeline for tests
 // that need to exercise the rendering path.
 func testReconciler() *Reconciler {
 	return &Reconciler{
-		Client: k8sClient,
-		Scheme: k8sClient.Scheme(),
+		Client:               k8sClient,
+		Scheme:               k8sClient.Scheme(),
+		RevisionHistoryLimit: testRevisionHistoryLimit,
 	}
 }
 
@@ -210,9 +217,10 @@ func testReconciler() *Reconciler {
 // and all code paths beyond the undeploy check.
 func testReconcilerWithPipeline() *Reconciler {
 	return &Reconciler{
-		Client:   k8sClient,
-		Scheme:   k8sClient.Scheme(),
-		Pipeline: componentpipeline.NewPipeline(),
+		Client:               k8sClient,
+		Scheme:               k8sClient.Scheme(),
+		Pipeline:             componentpipeline.NewPipeline(),
+		RevisionHistoryLimit: testRevisionHistoryLimit,
 	}
 }
 
@@ -245,6 +253,11 @@ func conditionFor(rb *openchoreov1alpha1.ReleaseBinding, condType string) *metav
 // forceDelete strips all finalizers from a ReleaseBinding in the default test namespace
 // and then deletes it. Call this in AfterEach to guarantee cleanup even when a finalizer is present.
 func forceDelete(name string) {
+	// envtest runs no garbage collector, so the binding's revisions are deleted
+	// here: a later spec reusing the name would otherwise find them holding its
+	// revision names.
+	_ = k8sClient.DeleteAllOf(ctx, &openchoreov1alpha1.ReleaseBindingRevision{}, client.InNamespace(ns),
+		client.MatchingLabels{revision.LabelKeyReleaseBinding: revision.LabelValue(name)})
 	rb := &openchoreov1alpha1.ReleaseBinding{}
 	if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: ns, Name: name}, rb); err != nil {
 		return // already gone

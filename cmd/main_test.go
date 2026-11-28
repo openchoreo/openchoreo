@@ -110,3 +110,25 @@ func TestValidateRequeueInterval(t *testing.T) {
 		}
 	}
 }
+
+func TestRevisionSettingsValidate(t *testing.T) {
+	valid := []revisionSettings{
+		{},
+		{knownGoodWindow: time.Minute, historyLimit: 10},
+		{knownGoodWindow: 0, historyLimit: 0},
+	}
+	for _, s := range valid {
+		if err := s.validate(); err != nil {
+			t.Fatalf("validate(%+v) returned %v", s, err)
+		}
+	}
+	invalid := []revisionSettings{
+		{knownGoodWindow: -time.Second},
+		{historyLimit: -1},
+	}
+	for _, s := range invalid {
+		if err := s.validate(); err == nil {
+			t.Fatalf("validate(%+v) accepted a negative setting", s)
+		}
+	}
+}

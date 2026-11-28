@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,4 +77,40 @@ type DeploymentPipelineList struct {
 
 func init() {
 	SchemeBuilder.Register(&DeploymentPipeline{}, &DeploymentPipelineList{})
+}
+
+// RootEnvironment returns the root environment of the pipeline.
+// The root environment is the source environment that never appears as a target,
+// representing the initial environment where components are first deployed.
+// Auto-deploy (Component spec.autoDeploy) deploys to this environment only.
+func (pipeline *DeploymentPipeline) RootEnvironment() (string, error) {
+	if len(pipeline.Spec.PromotionPaths) == 0 {
+		return "", fmt.Errorf("deployment pipeline %s has no promotion paths defined", pipeline.Name)
+	}
+
+	// Build a set of all target environments
+	targets := make(map[string]bool)
+	for _, path := range pipeline.Spec.PromotionPaths {
+		for _, target := range path.TargetEnvironmentRefs {
+			targets[target.Name] = true
+		}
+	}
+
+	// Find source environment that's never a target (the root)
+	var rootEnv string
+	for _, path := range pipeline.Spec.PromotionPaths {
+		if path.SourceEnvironmentRef.Name == "" {
+			continue
+		}
+		if !targets[path.SourceEnvironmentRef.Name] {
+			rootEnv = path.SourceEnvironmentRef.Name
+			break
+		}
+	}
+
+	if rootEnv == "" {
+		return "", fmt.Errorf("deployment pipeline %s has no root environment (all sources are also targets)", pipeline.Name)
+	}
+
+	return rootEnv, nil
 }
