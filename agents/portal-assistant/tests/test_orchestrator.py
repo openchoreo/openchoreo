@@ -1116,6 +1116,51 @@ async def test_no_save_card_when_step2_still_cant_be_shown_to_be_the_approved_ru
     assert _done_message(events) == check_authoring._UNMATCHED_REPLY
 
 
+def test_an_or_left_in_the_history_for_a_picked_and_is_never_approved():
+    # Its card wasn't built (Backstage failed), so the Step 2 comparison
+    # never ran; a later "save it" or test must not build a card for it.
+    chat = [
+        *_FIRST,
+        {"role": "assistant", "content": _AND_STEP1},
+        {"role": "user", "content": "yes"},
+        {"role": "assistant", "content": _edited(_OR_RULE)},
+    ]
+
+    assert check_authoring._approved_edit(chat, 3, _EDIT_SCOPE) is False
+    later = [*chat, {"role": "user", "content": "save it"}]
+    assert check_authoring._unsaved_rule_reply(later[:-1], _EDIT_SCOPE) is None
+    assert check_authoring._reply_to_save(later, _EDIT_SCOPE) is None
+    # The rule as approved still is.
+    assert check_authoring._approved_edit(
+        [*chat[:3], {"role": "assistant", "content": _edited(_AND_RULE)}], 3, _EDIT_SCOPE,
+    ) is True
+
+
+async def test_save_it_after_an_unbuilt_or_card_gets_no_save_card(monkeypatch):
+    # Backstage failed on the first card; it's back for "save it".
+    chat = [
+        *_FIRST,
+        {"role": "assistant", "content": _AND_STEP1},
+        {"role": "user", "content": "yes"},
+        {"role": "assistant", "content": _edited(_OR_RULE)},
+        {"role": "user", "content": "save it"},
+    ]
+
+    shortcut_built = []
+
+    async def _save_card(message, scope, **kwargs):
+        # The "save it" shortcut's card, as it would be once Backstage is back.
+        shortcut_built.append(message)
+        return await _card_of_reply(message, scope, **kwargs)
+
+    monkeypatch.setattr(confirm_card, "build_confirmation", _save_card)
+    events, built = await _turn(monkeypatch, chat, "Which change would you like?",
+                                confirmation=_card_of_reply)
+
+    assert _edited(_OR_RULE) not in shortcut_built + built
+    assert not _has_card(events)
+
+
 async def test_a_check_that_changed_since_the_chat_opened_gets_no_rule_fix(monkeypatch):
     # No rewrite of the rule can fix it: the card just says so.
     async def _changed(message, scope, **kwargs):

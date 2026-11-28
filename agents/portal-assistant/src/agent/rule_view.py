@@ -376,8 +376,8 @@ def _unlabeled(line: str) -> list[Leaf] | None:
     return None
 
 
-_AROUND_LOGIC_BEFORE_RE = re.compile(r"(?:\b(?:not|or|unless)\b|!|\()[\s*]*$", re.IGNORECASE)
-_AROUND_LOGIC_AFTER_RE = re.compile(r"[\s*]*(?:\)|\bor\b)", re.IGNORECASE)
+_AROUND_LOGIC_BEFORE_RE = re.compile(r"(?:\b(?:not|or|unless)\b|!|[(\[])[\s*]*$", re.IGNORECASE)
+_AROUND_LOGIC_AFTER_RE = re.compile(r"[\s*]*(?:[)\]]|\bor\b)", re.IGNORECASE)
 
 
 def proposed_conditions(message: str) -> dict[int, list[Leaf]] | None:

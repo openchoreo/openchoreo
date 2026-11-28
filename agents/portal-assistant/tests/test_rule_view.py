@@ -454,6 +454,10 @@ def test_a_proposal_that_cant_be_told_is_not_read(message):
         pytest.param(
             "1. NOT (`a` `equal` `true`)\n2. `a` `equal` `false`", id="numbered with not",
         ),
+        pytest.param("Shall I use NOT [`a` `equal` `true`]?", id="not around one, brackets"),
+        pytest.param(
+            "1. NOT [`a` `equal` `true`]\n2. `a` `equal` `false`", id="numbered, brackets",
+        ),
     ],
 )
 def test_an_unlabeled_proposal_with_logic_around_it_isnt_read(message):

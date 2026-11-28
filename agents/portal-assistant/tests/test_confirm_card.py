@@ -125,6 +125,14 @@ async def test_no_signed_card_when_the_rule_changed_since_the_chat_opened(_backs
     assert card["problems"] == [confirm_card.CHECK_CHANGED_PROBLEM]
 
 
+async def test_no_signed_card_when_the_opening_rule_cant_be_read(_backstage):
+    # Without it, the guard can't tell whether the check changed: fail closed.
+    card = await _card(scope={**_SCOPE, "current_rule": "{not json"})
+
+    assert card["valid"] is False and card["token"] == ""
+    assert card["problems"] == [confirm_card.CHECK_CHANGED_PROBLEM]
+
+
 async def test_the_same_rule_in_another_layout_hasnt_changed(_backstage):
     # Key order and the {"conditions": ...} wrapper don't make it a change.
     same = {"conditions": json.loads(json.dumps(_SAVED_RULE))}

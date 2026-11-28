@@ -866,11 +866,15 @@ def _approved_edit(
             return False
         asked = messages[:i]
         if _not_approved_reason(asked, scope) is None:
-            # As Step 2 checks it (see stream_turn): the rule written must be
-            # the one approved, when code can read both.
+            # As Step 2 checks it (see stream_turn): when the approved rule is
+            # readable, the rule written must be readable and the same. An OR
+            # left in the history for a picked AND (its card wasn't built) is
+            # never approved.
             picked = _picked_proposal(asked, scope)
+            if picked is None:
+                return True
             written = _written_conditions(content)
-            return not (picked and written and not _same_conditions(picked, written))
+            return written is not None and _same_conditions(picked, written)
         said = asked[-1] if asked and asked[-1].get("role") == "user" else {}
         if _test_entity(said) is None and not asks_to_save(said):
             return False

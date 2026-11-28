@@ -485,11 +485,12 @@ CHECK_CHANGED_PROBLEM = (
 
 def _changed_since_opened(saved: dict[str, Any], scope: dict[str, Any]) -> bool:
     """Whether the saved rule differs from the one the chat opened with (the
-    rule the edit was made against)."""
+    rule the edit was made against). An opening rule that can't be read
+    counts as changed: the card isn't signed without the comparison."""
     try:
         opened = unwrap(json.loads(scope.get("current_rule") or ""))
     except TypeError, ValueError:
-        return False
+        return True
     return not same_rules(unwrap(saved.get("rule")), opened)
 
 
