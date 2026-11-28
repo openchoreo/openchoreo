@@ -29,6 +29,7 @@ from langchain_core.runnables import Runnable, RunnableConfig
 
 from common.auth.bearer import BearerTokenAuth
 from src.agent.middleware import (
+    DryRunStopMiddleware,
     EmptyResultGuardMiddleware,
     LoggingMiddleware,
     LoopGuardMiddleware,
@@ -37,9 +38,9 @@ from src.agent.middleware import (
     WriteGuardMiddleware,
 )
 from src.agent.tool_registry import is_mutating
-from src.clients import get_model, get_tools_for_user
+from src.clients import backstage_tools, get_model, get_tools_for_user
 from src.config import settings
-from src.models import ChatResponse
+from src.models import ChatResponse, CheckAuthoringResponse
 from src.templates import render
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,11 @@ _RECURSION_LIMIT_FOR_CASE: dict[str, int] = {
     "build_failure": 15,
     "runtime_debug": 20,
     "dependency_pending": 20,
+    # check_authoring loops over the Backstage check tools: look up fact
+    # schemas / entity facts, then dry-run and fix the draft. 25 leaves
+    # room for ~4 tool cycles (e.g. facts → dry-run → fix → dry-run) plus
+    # the final reply.
+    "check_authoring": 25,
 }
 
 
@@ -174,7 +180,19 @@ _TOOLS_FOR_CASE: dict[str, set[str]] = {
         "get_resource_events",
         "get_resource_logs",
     },
+    # check_authoring uses only the read-only check tools served by
+    # Backstage's mcp-actions backend (the "backstage" MCP server), by their
+    # exact namespaced names; no OpenChoreo tool is needed. The write tools
+    # (create / update / publish / unpublish-check) are dropped by the
+    # read-only layer of _filter_tools_for_case regardless of this list.
+    "check_authoring": set(backstage_tools.READ_TOOLS),
 }
+
+
+def _response_model(case_type: str | None) -> type[ChatResponse]:
+    """The final answer's shape. Check authoring adds ``card``: the portal
+    shows that reply as an A2UI card. Other chats keep ChatResponse."""
+    return CheckAuthoringResponse if case_type == "check_authoring" else ChatResponse
 
 
 def _filter_tools_for_case(tools: list[Any], case_type: str | None) -> list[Any]:
@@ -189,6 +207,10 @@ def _filter_tools_for_case(tools: list[Any], case_type: str | None) -> list[Any]
          stays focused. No-op when ``case_type`` is missing or unknown.
     """
     tools = [t for t in tools if not is_mutating(t)]
+    # The Backstage check tools are for check authoring only. Other chats get
+    # no Backstage token, so no Backstage tools; this keeps any out regardless.
+    if case_type != "check_authoring":
+        tools = [t for t in tools if t.name not in _TOOLS_FOR_CASE["check_authoring"]]
     if not case_type:
         return tools
     allowed = _TOOLS_FOR_CASE.get(case_type)
@@ -225,6 +247,64 @@ def _tools_fingerprint(tools: list[Any]) -> tuple[str, ...]:
     return tuple(sorted(t.name for t in tools))
 
 
+def _describe_conditions(node: Any) -> str:
+    """Render a json-rules-engine conditions tree as one exact line.
+
+    e.g. ``{"all": [{"fact": "f", "operator": "equal", "value": false}]}``
+    becomes: f equal false, each part in backticks. Nested groups are
+    parenthesised.
+    """
+    if isinstance(node, dict):
+        if "fact" in node:
+            value = json.dumps(node.get("value"))
+            if isinstance(node.get("value"), str):
+                value = node["value"]
+            return f"`{node['fact']}` `{node.get('operator', '?')}` `{value}`"
+        # "any" first: with both at the root, the engine reads only "any".
+        for key, joiner in (("any", " OR "), ("all", " AND ")):
+            if isinstance(node.get(key), list):
+                parts = [_describe_conditions(c) for c in node[key]]
+                parts = [f"({p})" if (" AND " in p or " OR " in p) else p for p in parts]
+                return joiner.join(parts) or "(empty)"
+        if "not" in node:
+            return f"NOT ({_describe_conditions(node['not'])})"
+        if "condition" in node:
+            return f"condition `{node['condition']}`"
+    return json.dumps(node)
+
+
+def _current_rule_summary(scope: dict[str, Any]) -> str | None:
+    """The edited check's current rule as an exact one-line summary.
+
+    Small models describe a different rule than the one forwarded (e.g.
+    one taken from the user's request or a prompt example), so the prompt
+    hands them this line to copy verbatim.
+    """
+    try:
+        rule = json.loads(scope.get("current_rule") or "")
+    except (TypeError, ValueError):
+        return None
+    if isinstance(rule, dict) and set(rule) == {"conditions"}:
+        rule = rule["conditions"]
+    if not _plain_leaves(rule):
+        # A path or params changes what a condition compares (`$.length` of
+        # a list), which this line can't show: no "exact" summary, and the
+        # prompt's full rule stands.
+        return None
+    return _describe_conditions(rule)
+
+
+def _plain_leaves(node: Any) -> bool:
+    """Whether every condition in ``node`` is only a fact, operator and value."""
+    if isinstance(node, list):
+        return all(_plain_leaves(n) for n in node)
+    if not isinstance(node, dict):
+        return True
+    if "fact" in node:
+        return set(node) <= {"fact", "operator", "value"}
+    return all(_plain_leaves(v) for k, v in node.items() if k in ("all", "any", "not"))
+
+
 def _get_or_render_prompt(
     *,
     case_type: str | None,
@@ -252,6 +332,8 @@ def _get_or_render_prompt(
     }
     if scope:
         template_context["scope"] = scope
+        if scope.get("check_id"):
+            template_context["current_rule_summary"] = _current_rule_summary(scope)
 
     rendered = render("prompts/perch_prompt.j2", template_context)
     _prompt_cache[key] = rendered
@@ -265,6 +347,8 @@ async def _build_agent(
     scope: dict[str, Any] | None,
     *,
     user_sub: str = "",
+    backstage_token: str | None = None,
+    edit_phase: str | None = None,
 ) -> tuple[Runnable, list[Any], dict[str, Any]]:
     """Construct a LangChain agent bound to all openchoreo MCP tools the user is
     authorized for. Returns (runnable, tools, tools_by_name) — both
@@ -274,9 +358,32 @@ async def _build_agent(
     ``user_sub`` keys an in-process tool-schema cache (5-min TTL). On a warm
     cache, this skips ~6-9 s of list_tools round-trips against the 3 MCP
     servers. Pass an empty string to bypass the cache (e.g. lifespan probe).
+
+    ``backstage_token`` binds the Backstage check tools to the signed-in
+    user in check_authoring chats, the only case that uses them; other
+    chats get no Backstage tools.
+
+    ``edit_phase`` is ``"propose"`` for an edit message the user hasn't
+    approved: the model then gets no tools (see check_authoring._edit_phase).
     """
-    all_tools = await get_tools_for_user(user_sub, BearerTokenAuth(token))
     case_type = (scope or {}).get("case_type")
+    backstage_auth = (
+        BearerTokenAuth(backstage_token)
+        if backstage_token and case_type == "check_authoring"
+        else None
+    )
+    all_tools = await get_tools_for_user(
+        user_sub, BearerTokenAuth(token), backstage_auth,
+    )
+    if case_type == "check_authoring" and scope.get("check_id"):
+        # Which check an edit chat targets; the rule it received only at
+        # debug, so a wrong "Current rule" can still be traced.
+        logger.info("Editing check %s", scope.get("check_id"))
+        logger.debug(
+            "Editing check %s; current_rule=%r",
+            scope.get("check_id"),
+            (scope.get("current_rule") or "<missing>")[:300],
+        )
     tools = _filter_tools_for_case(all_tools, case_type)
     if case_type and len(tools) != len(all_tools):
         logger.info(
@@ -308,6 +415,17 @@ async def _build_agent(
         WriteGuardMiddleware(tools_by_name=tools_by_name),
         ToolErrorHandlerMiddleware(),
     ]
+    if case_type == "check_authoring":
+        # Outermost, so it sees dry-run-check's real result rather than a
+        # LoopGuard short-circuit. Once a dry-run has answered, it takes the
+        # tools away so the model must reply instead of looping. On an edit
+        # message the user hasn't approved it gives no tools at all, so the
+        # reply is the Step 1 confirmation (and none for one that asks for
+        # ideas); on one that only asks for a test, only dry-run-check.
+        middleware.insert(0, DryRunStopMiddleware(
+            tools_allowed=edit_phase not in ("propose", "discuss", "welcome"),
+            dry_run_only=edit_phase == "test",
+        ))
     model = get_model()
     middleware.append(SummarizationMiddleware(model=model, trigger=("fraction", 0.8)))
 
@@ -340,7 +458,7 @@ async def _build_agent(
         # into one big trailing flush. Same end state in the timeline,
         # but the user saw seconds of silence instead of live typing.
         # Mirrors what rca-agent has been doing successfully.
-        response_format=ProviderStrategy(ChatResponse),
+        response_format=ProviderStrategy(_response_model(case_type)),
     )
 
     # langgraph recursion budget — see comments on _RECURSION_LIMIT_FOR_CASE
@@ -351,7 +469,14 @@ async def _build_agent(
     # A breached limit raises GraphRecursionError, which the outer error
     # handler in ``stream_chat`` translates into a recovery_with_fallback
     # reply (tool-less model call returning a generic answer).
-    if settings.portal_assistant_recursion_limit > 0:
+    if case_type == "check_authoring":
+        # Its tool loop needs more steps than the chart's global limit (15),
+        # which is sized for the other cases: never less than its own.
+        recursion_limit = max(
+            settings.portal_assistant_recursion_limit,
+            _RECURSION_LIMIT_FOR_CASE["check_authoring"],
+        )
+    elif settings.portal_assistant_recursion_limit > 0:
         recursion_limit = settings.portal_assistant_recursion_limit
     else:
         recursion_limit = _RECURSION_LIMIT_FOR_CASE.get(

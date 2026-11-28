@@ -1,6 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from src.agent.middleware.dry_run_stop import DryRunStopMiddleware
 from src.agent.middleware.empty_result_guard import EmptyResultGuardMiddleware
 from src.agent.middleware.logging import LoggingMiddleware
 from src.agent.middleware.loop_guard import LoopGuardMiddleware
@@ -15,6 +16,7 @@ from src.agent.middleware.write_guard import WriteGuardMiddleware
 # for the benchmarked compression numbers.
 
 __all__ = [
+    "DryRunStopMiddleware",
     "EmptyResultGuardMiddleware",
     "LoggingMiddleware",
     "LoopGuardMiddleware",

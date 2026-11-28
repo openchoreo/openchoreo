@@ -79,6 +79,22 @@ def test_creation_schema_override_is_read():
     assert not is_mutating(_FakeTool(name="get_trait_creation_schema"))
 
 
+def test_backstage_check_tools_classification():
+    # dry-run-check has no read prefix, so without its READ_OVERRIDES
+    # entry it would default to mutating and be dropped from the catalog.
+    # validate-check likewise only reports problems and saves nothing.
+    for name in ("tech-insights__list-checks", "tech-insights__get-check", "tech-insights__list-fact-schemas",
+                 "tech-insights__get-entity-facts", "tech-insights__dry-run-check", "tech-insights__validate-check"):
+        assert not is_mutating(_FakeTool(name=name)), name
+    assert is_mutating(_FakeTool(name="tech-insights__create-check"))
+    assert is_mutating(_FakeTool(name="tech-insights__update-check"))
+    assert is_mutating(_FakeTool(name="delete_check"))
+    # Saved only by the confirm endpoint after the user's click, never by
+    # the model: they must stay classified as writes.
+    assert is_mutating(_FakeTool(name="tech-insights__publish-check"))
+    assert is_mutating(_FakeTool(name="tech-insights__unpublish-check"))
+
+
 def test_unknown_name_with_write_keyword_in_description():
     assert is_mutating(
         _FakeTool(name="provision_dataplane", description="Provisions a new data plane")

@@ -10,6 +10,9 @@ Owns:
   ``_recover_from_structured_response``, ``_handle_stream_error``).
 - the per-pod concurrency semaphore.
 
+A check authoring chat's turn lives in ``check_authoring.py``
+(``stream_chat`` calls it once), on these same streaming helpers.
+
 The agent build + middleware assembly live in ``builder.py``. The
 agent is read-only: there is no action proposal / approval / execute
 flow. ``WriteGuardMiddleware`` hard-refuses any mutating tool that
@@ -21,20 +24,39 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
 from langchain.agents.structured_output import StructuredOutputValidationError
 from langchain_core.runnables import Runnable
+from pydantic import ValidationError
 
+from src.agent import check_authoring
+from src.agent.a2ui import (
+    dry_run_result_event,
+)
 from src.agent.builder import _build_agent
+from src.agent.dry_run_view import DryRun, entity_name, read_dry_run
+from src.agent.problem_view import ToolError
 from src.agent.recovery import recover_with_fallback
 from src.agent.stream_events import emit as _emit_event
 from src.agent.stream_parser import ChatResponseParser
+from src.agent.user_action import (
+    for_model,
+)
+from src.clients.backstage_tools import (
+    DRY_RUN_CHECK,
+    GET_CHECK,
+    GET_ENTITY_FACTS,
+    LIST_CHECKS,
+    LIST_FACT_SCHEMAS,
+    VALIDATE_CHECK,
+)
 from src.config import settings
 from src.logging_config import request_id_context
-from src.models import get_current_utc
+from src.models import RESPONSE_NAMES, get_current_utc
 
 logger = logging.getLogger(__name__)
 
@@ -84,10 +106,11 @@ def _stamp_current_time(messages: list[dict[str, str]]) -> list[dict[str, str]]:
 
 async def stream_chat(
     *,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     token: str,
     user_sub: str,
     scope: dict[str, Any] | None = None,
+    backstage_token: str | None = None,
 ) -> AsyncIterator[str]:
     """Run one chat turn and yield NDJSON StreamEvents.
 
@@ -96,13 +119,28 @@ async def stream_chat(
     The agent is read-only — mutating tools are filtered out of the
     catalog and any that slip through are hard-refused by
     ``WriteGuardMiddleware``.
+
+    ``backstage_token`` is the token Backstage issued on the signed-in
+    user's behalf for this request (see ``_build_agent``). A check
+    authoring chat's turn is check_authoring.stream_turn.
     """
     request_id_context.set(f"msg_{uuid.uuid4().hex[:12]}")
+    if (scope or {}).get("case_type") == "check_authoring":
+        async for event in check_authoring.stream_turn(
+            messages=messages,
+            token=token,
+            user_sub=user_sub,
+            scope=scope,
+            backstage_token=backstage_token,
+        ):
+            yield event
+        return
 
     # Stamp the server clock onto the latest user turn ONCE and share it with
     # both the normal streaming path and the recovery fallback, so they anchor
     # on the same "now" (see _stamp_current_time).
-    stamped_messages = _stamp_current_time(messages)
+    # The model gets each message's words only, not the button it came from.
+    stamped_messages = _stamp_current_time(for_model(messages))
 
     async with _get_semaphore():
         try:
@@ -110,10 +148,11 @@ async def stream_chat(
                 token,
                 scope,
                 user_sub=user_sub,
+                backstage_token=backstage_token,
             )
             parser = ChatResponseParser()
 
-            async for ev in _yield_chunks(agent, stamped_messages, parser):
+            async for ev in _yield_chunks(agent, stamped_messages, parser, scope=scope):
                 yield ev
 
             # Final delta flush — when the model emits the structured
@@ -181,13 +220,23 @@ async def stream_chat(
                 yield err_event
 
 
-# ── Helpers used by stream_chat ────────────────────────────────────
+def _tool_text(message: Any) -> str:
+    content = getattr(message, "content", "")
+    if isinstance(content, list):
+        return " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in content)
+    return str(content)
 
 
 async def _yield_chunks(
     agent: Runnable,
     messages: list[dict[str, str]],
     parser: ChatResponseParser,
+    *,
+    stream_text: bool = True,
+    dry_runs: list[DryRun] | None = None,
+    tool_errors: list[ToolError] | None = None,
+    scope: dict[str, Any] | None = None,
+    writing_label: str | None = None,
 ) -> AsyncIterator[str]:
     """Stream LangChain agent chunks and emit per-chunk NDJSON events.
 
@@ -203,12 +252,22 @@ async def _yield_chunks(
     JSON itself.
 
     Each text-block push is followed by a ``pop_delta`` call so the
-    drawer paints text as it arrives.
+    drawer paints text as it arrives. With ``stream_text=False`` the
+    parser still reads every chunk but no ``message_chunk`` is sent;
+    the text arrives only in ``done``, and a ``write_reply`` tool_call
+    labelled ``writing_label`` (default "Writing the reply") tells the
+    drawer when the model starts writing it.
+
+    Each dry-run-check result is added to ``dry_runs``, with the component
+    and rule from its call, and sent at once as a ``dry_run_result`` event
+    in its test card's words (fact labels from ``scope``). ``tool_errors``
+    holds the tool errors since the last tool that worked: empty when the
+    turn's last tool call succeeded.
     """
 
     def _flush_delta() -> str | None:
         delta = parser.pop_delta()
-        if not delta:
+        if not delta or not stream_text:
             return None
         return _emit_event({"type": "message_chunk", "content": delta})
 
@@ -218,6 +277,19 @@ async def _yield_chunks(
     # chunks lets the parser keep reassembling JSON after the first
     # chunk reveals the name.
     chat_response_indices: set[int] = set()
+    # Tool call arguments by call id, streamed in pieces by index, so a
+    # dry-run-check result can be read with the component and rule it ran.
+    call_ids: dict[int, str] = {}
+    call_args: dict[str, str] = {}
+    # Each call's tool by call id, and the tests whose step already names
+    # their component.
+    call_names: dict[str, str] = {}
+    named_tests: set[str] = set()
+    # A held-back reply shows nothing while the model writes it, so the
+    # drawer is told when that starts — again if a tool ran in between.
+    writing = False
+    # Whether this turn checked a rule (see _DRAFTING_LABEL).
+    checked_rule = False
 
     try:
         async for chunk, _ in agent.astream(
@@ -235,6 +307,34 @@ async def _yield_chunks(
             # ``content: str`` check that no longer holds in current
             # langchain-core, where AI chunks also have list content).
             if getattr(chunk, "type", None) == "tool":
+                if tool_errors is not None:
+                    if getattr(chunk, "status", None) == "error":
+                        tool_errors.append(ToolError(
+                            getattr(chunk, "name", None) or "", _tool_text(chunk),
+                        ))
+                    else:
+                        tool_errors.clear()
+                if getattr(chunk, "name", None) in _RULE_TOOLS:
+                    checked_rule = True
+                if dry_runs is not None and getattr(chunk, "name", None) == DRY_RUN_CHECK:
+                    # The tool's structured output first, as call_backstage_tool
+                    # reads it; its text only when there is none.
+                    artifact = getattr(chunk, "artifact", None)
+                    structured = (
+                        artifact.get("structured_content") if isinstance(artifact, dict) else None
+                    )
+                    run = read_dry_run(
+                        call_args.get(getattr(chunk, "tool_call_id", None) or ""),
+                        structured if structured is not None else getattr(chunk, "content", None),
+                    )
+                    if run:
+                        dry_runs.append(run)
+                        yield _emit_event(dry_run_result_event(run, scope or {}))
+                # The tool is done and the model thinks about what comes next:
+                # a held-back reply's progress line says so, instead of still
+                # naming the tool.
+                if not stream_text:
+                    yield _emit_event(_THINKING_STEP)
                 continue
 
             # ChatResponse can land via either path depending on what
@@ -247,17 +347,28 @@ async def _yield_chunks(
             for tc in getattr(chunk, "tool_call_chunks", None) or []:
                 idx = tc.get("index")
                 name = tc.get("name")
-                if name == "ChatResponse" and idx is not None:
+                if name in RESPONSE_NAMES and idx is not None:
                     chat_response_indices.add(idx)
+                if tc.get("id") and idx is not None:
+                    call_ids[idx] = tc["id"]
+                    call_args[tc["id"]] = ""
+                    if name:
+                        call_names[tc["id"]] = name
+                if idx in call_ids and tc.get("args"):
+                    call_args[call_ids[idx]] += tc["args"]
 
+            pushed = False
             for block in getattr(chunk, "content_blocks", None) or []:
                 block_type = block.get("type")
                 if block_type == "tool_call_chunk":
                     tool_name = block.get("name")
-                    if tool_name and tool_name != "ChatResponse":
+                    if tool_name and tool_name not in RESPONSE_NAMES:
                         # Don't surface the structured-output tool as a
                         # tool_call event — it isn't a real read tool the
                         # user should see in the working indicator.
+                        writing = False
+                        if tool_name in _RULE_TOOLS:
+                            checked_rule = True
                         yield _emit_event(
                             {
                                 "type": "tool_call",
@@ -270,6 +381,21 @@ async def _yield_chunks(
                     text = block.get("text", "")
                     if text:
                         parser.push(text)
+                        pushed = True
+
+            # A test's step names its component as soon as the model's
+            # arguments say which one ("Testing the check on order-api").
+            for call_id, tool_name in call_names.items():
+                if tool_name != DRY_RUN_CHECK or call_id in named_tests:
+                    continue
+                named = _ENTITY_REF_ARG_RE.search(call_args.get(call_id, ""))
+                if named:
+                    named_tests.add(call_id)
+                    yield _emit_event({
+                        "type": "tool_call",
+                        "tool": DRY_RUN_CHECK,
+                        "activeForm": _testing_label(named[1]),
+                    })
 
             # If THIS chunk carries ChatResponse tool-call args, push
             # the partial JSON into the same parser so the message /
@@ -279,15 +405,40 @@ async def _yield_chunks(
                 args_str = tc.get("args") or ""
                 if idx in chat_response_indices and args_str:
                     parser.push(args_str)
+                    pushed = True
+
+            if pushed and not stream_text and not writing:
+                writing = True
+                label = writing_label or _WRITING_LABEL
+                # A reply that drafts a check checks its rule first: without
+                # that, it answers a question, whatever the message said.
+                if label == _DRAFTING_LABEL and not checked_rule:
+                    label = _WRITING_LABELS["discuss"]
+                yield _emit_event({
+                    "type": "tool_call", "tool": "write_reply", "activeForm": label,
+                })
 
             # One flush per outer chunk — keeps the event rate proportional
             # to the model's token rate without firing on every micro-update.
             delta_event = _flush_delta()
             if delta_event is not None:
                 yield delta_event
-    except StructuredOutputValidationError:
+    except StructuredOutputValidationError as exc:
+        # Log why parsing failed without what the model sent: the reply (and
+        # a pydantic error's text) can echo the user's words or tool data.
+        raw = getattr(exc.ai_message, "content", "")
+        source = exc.source
+        errors = (
+            [(e["loc"], e["type"]) for e in source.errors(include_input=False, include_url=False)]
+            if isinstance(source, ValidationError)
+            else None
+        )
         logger.warning(
-            "Structured output validation failed; using streamed content",
+            "Structured output validation failed; using streamed content "
+            "(error: %s %s; raw output length: %d)",
+            type(source).__name__,
+            errors,
+            len(str(raw)),
         )
 
 
@@ -357,8 +508,49 @@ async def _handle_stream_error(
         yield _emit_event({"type": "done", "message": ""})
 
 
+# What the user is waiting for, by check authoring tool. No trailing "…":
+# the drawer animates its own dots after the label.
+_TOOL_LABELS = {
+    VALIDATE_CHECK: "Checking the rule",
+    DRY_RUN_CHECK: "Testing the check",
+    GET_ENTITY_FACTS: "Reading the component's facts",
+    LIST_FACT_SCHEMAS: "Reading the facts you can use",
+    LIST_CHECKS: "Looking at existing checks",
+    GET_CHECK: "Looking at existing checks",
+}
+# Between a tool's result and the model's next step.
+_THINKING_STEP = {"type": "tool_call", "tool": "think", "activeForm": "Thinking"}
+# The component in a dry-run-check call's streamed arguments, once complete.
+_ENTITY_REF_ARG_RE = re.compile(r'"entityRef"\s*:\s*"([^"]+)"')
+
+
+def _testing_label(entity_ref: str | None) -> str:
+    """The test step, naming the component when it is known:
+    "Testing the check on order-api"."""
+    if not entity_ref:
+        return _active_form(DRY_RUN_CHECK)
+    name, _kind = entity_name(entity_ref)
+    return f"{_active_form(DRY_RUN_CHECK)} on {name}"
+_WRITING_LABEL = "Writing the reply"
+# A new check's reply that drafts the rule; shown only when the turn checked
+# a rule (_RULE_TOOLS), so a question never says it drafts a check.
+_DRAFTING_LABEL = "Drafting the check"
+_RULE_TOOLS = frozenset({VALIDATE_CHECK, DRY_RUN_CHECK})
+# The last step of a held-back reply, by what the request is, so the drawer
+# shows the step the user asked for (see _writing_label).
+_WRITING_LABELS = {
+    "propose": "Working out the change",
+    "apply": "Writing the change",
+    "test": "Writing up the test",
+    "discuss": "Writing the answer",
+    "welcome": "Getting ready",
+}
+
+
 def _active_form(tool_name: str) -> str:
     """Best-effort human-readable progress label rendered while a tool runs."""
+    if tool_name in _TOOL_LABELS:
+        return _TOOL_LABELS[tool_name]
     name = tool_name.replace("_", " ")
     if tool_name.startswith("list_"):
         return f"Listing {name[5:]}"

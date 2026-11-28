@@ -95,6 +95,9 @@ class ChatResponseParser:
         # No incremental ``pop_delta`` analogue because the frontend
         # only renders this once the message is finalised.
         self._fix_prompt = ""
+        # Check authoring only: the card the reply is shown as (the
+        # model's raw object; a2ui.reply_card_surface checks it).
+        self._card: dict | None = None
 
     def push(self, chunk: str) -> None:
         if not chunk:
@@ -132,6 +135,9 @@ class ChatResponseParser:
         fp = as_dict.get("fix_prompt")
         if isinstance(fp, str):
             self._fix_prompt = fp
+        card = as_dict.get("card")
+        if isinstance(card, dict):
+            self._card = card
 
     @property
     def message(self) -> str:
@@ -140,6 +146,10 @@ class ChatResponseParser:
     @property
     def fix_prompt(self) -> str:
         return self._fix_prompt
+
+    @property
+    def card(self) -> dict | None:
+        return self._card
 
     def set_message(self, msg: str) -> None:
         """Overwrite the parsed message.

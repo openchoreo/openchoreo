@@ -1,6 +1,7 @@
 # Copyright 2026 The OpenChoreo Authors
 # SPDX-License-Identifier: Apache-2.0
 
+from pydantic import field_validator
 from pydantic_settings import SettingsConfigDict
 
 from common.config import CommonSettings
@@ -50,6 +51,25 @@ class Settings(CommonSettings):
     # disables registration of the third MCP server (chat falls back to
     # the openchoreo + observability MCPs only).
     rca_agent_api_url: str = ""
+    # Backstage's mcp-actions endpoint serving the check-authoring tools
+    # (list-checks, get-check, list-fact-schemas, get-entity-facts,
+    # dry-run-check, validate-check, and the save tools the confirm card
+    # runs), e.g.
+    # http://localhost:7007/api/mcp-actions/v1/check-authoring. Empty
+    # disables registration of the backstage MCP server.
+    backstage_mcp_url: str = ""
+    # Signs the check changes shown on the confirm card, so the confirm
+    # endpoint saves exactly what the user saw. Set the same value on every
+    # replica, at least 32 bytes; empty uses a random per-process secret
+    # (single replica only).
+    portal_assistant_action_secret: str = ""
+
+    @field_validator("portal_assistant_action_secret")
+    @classmethod
+    def _long_enough_action_secret(cls, value: str) -> str:
+        if value and len(value.encode()) < 32:
+            raise ValueError("PORTAL_ASSISTANT_ACTION_SECRET must be at least 32 bytes")
+        return value
 
     @property
     def openchoreo_mcp_url(self) -> str:

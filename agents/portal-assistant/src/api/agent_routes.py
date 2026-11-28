@@ -5,15 +5,18 @@ import asyncio
 import hashlib
 import logging
 import re
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import Field, field_validator, model_validator
 
 from common.auth.authz_models import SubjectContext
 from common.auth.bearer import BearerTokenAuth
 from src.agent import stream_chat
+from src.agent.confirm_actions import ConfirmError, confirm_check_change
+from src.agent.pending_actions import InvalidAction
+from src.agent.user_action import CONTEXT_VALUE_MAX
 from src.auth import require_authn, require_invoke_authz
 from src.clients import get_tools_for_user
 from src.models import BaseModel
@@ -21,6 +24,8 @@ from src.models import BaseModel
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1alpha1/portal-assistant", tags=["Portal Assistant"])
+
+BACKSTAGE_USER_TOKEN_HEADER = "x-backstage-user-token"
 
 # Strong references for fire-and-forget background tasks. Without this set,
 # asyncio only weakly references the task and may garbage-collect it mid-flight.
@@ -39,11 +44,30 @@ def _sub_fp(user_sub: str) -> str:
     return hashlib.sha256(user_sub.encode()).hexdigest()[:16]
 
 
+class ChatAction(BaseModel):
+    """The drawer button a user message came from: its A2UI event's
+    ``name`` and ``context`` (see src/agent/user_action.py)."""
+
+    model_config = {"extra": "forbid"}
+
+    name: str = Field(max_length=64, pattern=r"^[a-z_]+$")
+    context: dict[str, str | int] = Field(default_factory=dict, max_length=8)
+
+    @model_validator(mode="after")
+    def _small_context(self) -> ChatAction:
+        for key, value in self.context.items():
+            if len(key) > 64 or (isinstance(value, str) and len(value) > CONTEXT_VALUE_MAX):
+                raise ValueError("action context values are too long")
+        return self
+
+
 class ChatMessage(BaseModel):
     model_config = {"extra": "forbid"}
 
     role: Literal["user", "assistant"]
     content: str = Field(max_length=10000)
+    # Set on a user message sent by a drawer button; None when typed.
+    action: ChatAction | None = None
 
 
 class PrefetchedLogEntry(BaseModel):
@@ -96,6 +120,40 @@ class PendingDependency(BaseModel):
     component: str = Field(max_length=253)
     endpoint: str | None = Field(default=None, max_length=253)
     reason: str | None = Field(default=None, max_length=512)
+
+
+class FactRetrieverField(BaseModel):
+    """One fact exposed by a registered fact retriever.
+
+    Mirrors the shape the host tech-insights plugin's ``/fact-schemas``
+    endpoint returns per fact, trimmed to what the check_authoring prompt
+    branch actually renders.
+    """
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
+
+    name: str = Field(max_length=253)
+    type: str = Field(max_length=64)
+    # Long enough for a fact's guidance to the model (#943's run to about
+    # 750); the request's 60k total still bounds them all together.
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class FactRetriever(BaseModel):
+    """One registered fact retriever and the facts it exposes.
+
+    Forwarded on ``check_authoring`` chats so the agent drafts checks
+    against facts that actually exist on this backend instead of
+    hallucinating retriever/fact names — see the "Available facts" table
+    in perch_prompt.j2's CHECK AUTHORING block.
+    """
+
+    model_config = {"populate_by_name": True, "extra": "ignore"}
+
+    id: str = Field(max_length=253)
+    # Entity kinds it collects facts for; None when not limited to any.
+    kinds: list[str] | None = Field(default=None, max_length=50)
+    facts: list[FactRetrieverField] = Field(default_factory=list, max_length=100)
 
 
 class ChatScope(BaseModel):
@@ -208,6 +266,50 @@ class ChatScope(BaseModel):
         default=None, alias="pendingDependencies", max_length=50,
     )
 
+    # ── Check-authoring scope fields ───────────────────────────────
+    # Set by the "Generate with AI" and "Edit with AI" launchers. The
+    # check_authoring prompt branch renders these as the live
+    # "Available facts" table so the agent only references facts that
+    # actually exist on this backend, instead of a fixed example set.
+    available_fact_retrievers: list[FactRetriever] | None = Field(
+        default=None, alias="availableFactRetrievers", max_length=50,
+    )
+    # factIds already picked in the check-editor form for this specific
+    # check. The prompt branch treats these as a preference, not a hard
+    # restriction — the agent may still reach for a different retriever
+    # when the request needs a fact none of the selected ones provide.
+    selected_fact_ids: list[str] | None = Field(
+        default=None, alias="selectedFactIds", max_length=50,
+    )
+    # Set only when the launcher is opened from the edit dialog of an
+    # existing check. The prompt branch then edits ``current_rule`` (the
+    # check's ``rule.conditions`` as a JSON string) instead of drafting a
+    # new check, and uses the name/description to suggest
+    # related text changes the user may want to apply too.
+    check_id: str | None = Field(default=None, alias="checkId", max_length=253)
+    check_name: str | None = Field(default=None, alias="checkName", max_length=253)
+    check_description: str | None = Field(
+        default=None, alias="checkDescription", max_length=2000,
+    )
+    current_rule: str | None = Field(
+        default=None, alias="currentRule", max_length=8000,
+    )
+    # Set by the drawer on the level's message in a new check authoring chat:
+    # the reply is the welcome for that level (see stream_chat).
+    welcome: bool | None = None
+    # How much the user knows about checks, picked in the check authoring
+    # welcome: the prompt suits each reply to it.
+    experience: Literal["beginner", "experienced"] | None = None
+
+    @model_validator(mode="after")
+    def _validate_edit_has_its_rule(self) -> ChatScope:
+        """An edit (``check_id``) must carry the saved rule: the guards that
+        make the model ask before changing a saved check need it (see
+        orchestrator._edits_saved_rule). The edit dialog always sends it."""
+        if self.check_id and not (self.current_rule or "").strip():
+            raise ValueError("checkId needs currentRule, the check's saved rule")
+        return self
+
     @field_validator("repo_url")
     @classmethod
     def _validate_repo_url(cls, v: str | None) -> str | None:
@@ -242,6 +344,23 @@ class ChatScope(BaseModel):
 _TOTAL_CONTENT_LIMIT = 60_000
 
 
+def _sum_string_lengths(value: Any) -> int:
+    """Recursively sum the length of every string reachable from ``value``.
+
+    Walks dicts/lists/tuples of arbitrary depth so a ChatScope field with
+    nested structured sub-objects (e.g. ``available_fact_retrievers``,
+    whose ``facts`` is itself a list of dicts) is covered by the
+    per-request content budget without a bespoke branch per shape.
+    """
+    if isinstance(value, str):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(_sum_string_lengths(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_sum_string_lengths(v) for v in value)
+    return 0
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=50)
     scope: ChatScope | None = None
@@ -249,24 +368,13 @@ class ChatRequest(BaseModel):
     @model_validator(mode="after")
     def _validate_total_content(self) -> "ChatRequest":
         total = sum(len(m.content) for m in self.messages)
+        # A button's action context counts too (a change card's button
+        # carries its rule).
+        total += sum(
+            _sum_string_lengths(m.action.model_dump()) for m in self.messages if m.action
+        )
         if self.scope is not None:
-            for v in self.scope.model_dump(exclude_none=True).values():
-                if isinstance(v, str):
-                    total += len(v)
-                elif isinstance(v, (list, tuple)):
-                    for item in v:
-                        if isinstance(item, str):
-                            total += len(item)
-                        elif isinstance(item, dict):
-                            # Lists of structured items (e.g. prefetched_logs
-                            # rendered via model_dump). Count every string
-                            # value so the per-request budget enforcement
-                            # covers them too.
-                            total += sum(
-                                len(field_value)
-                                for field_value in item.values()
-                                if isinstance(field_value, str)
-                            )
+            total += _sum_string_lengths(self.scope.model_dump(exclude_none=True))
         if total > _TOTAL_CONTENT_LIMIT:
             raise ValueError(
                 f"request total content {total} chars exceeds limit "
@@ -284,17 +392,63 @@ async def chat(
 ):
     token = http_request.state.bearer_token
     user_sub = http_request.state.user_sub
+    # Set by the Backstage forwarder: a short-lived token Backstage issued on
+    # the signed-in user's behalf, valid only for its mcp-actions plugin.
+    # Backstage verifies it on every MCP call; never log it.
+    backstage_token = http_request.headers.get(BACKSTAGE_USER_TOKEN_HEADER) or None
 
     return StreamingResponse(
         stream_chat(
-            messages=[m.model_dump() for m in request.messages],
+            messages=[m.model_dump(exclude_none=True) for m in request.messages],
             token=token,
             user_sub=user_sub,
+            backstage_token=backstage_token,
             scope=request.scope.model_dump(exclude_none=True) if request.scope else None,
         ),
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache"},
     )
+
+
+class ConfirmRequest(BaseModel):
+    """The user's click on a check confirm card."""
+
+    model_config = {"populate_by_name": True, "extra": "forbid"}
+
+    # Room for the card's check and baseline, each with the description, in
+    # any language (see test_a_long_non_english_card_round_trips).
+    token: str = Field(max_length=64_000)
+    # The status the check ends in; the card offers only these two.
+    status: Literal["draft", "published"]
+    # Whether the card's suggested Name / Description are saved.
+    apply_texts: bool = Field(default=True, alias="applyTexts")
+
+
+@router.post("/chat/confirm")
+async def confirm(
+    request: ConfirmRequest,
+    http_request: Request,
+    _auth: Annotated[SubjectContext, Depends(require_authn)],
+    _authz: Annotated[SubjectContext, Depends(require_invoke_authz)],
+):
+    """Save the check change on a confirm card, as the signed-in user.
+
+    Runs exactly the change signed into the card's token, through Backstage
+    MCP with the user's Backstage token. No model is involved.
+    """
+    try:
+        return await confirm_check_change(
+            request.token,
+            user_sub=http_request.state.user_sub,
+            backstage_token=http_request.headers.get(BACKSTAGE_USER_TOKEN_HEADER) or None,
+            status=request.status,
+            apply_texts=request.apply_texts,
+        )
+    except (InvalidAction, ConfirmError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "CONFIRM_FAILED", "message": str(exc)},
+        ) from exc
 
 
 @router.post("/warmup", status_code=202)

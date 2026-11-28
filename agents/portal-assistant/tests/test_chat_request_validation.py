@@ -116,3 +116,168 @@ def test_total_content_counter_includes_prefetched_logs():
             }
         )
     assert "exceeds limit" in str(excinfo.value)
+
+
+def test_available_fact_retrievers_accepts_camel_case_alias():
+    """Frontend sends availableFactRetrievers/selectedFactIds (camelCase);
+    the agent stores them as snake_case. Round-trip through the alias is
+    the contract the check_authoring prompt branch depends on."""
+    scope = ChatScope.model_validate(
+        {
+            "caseType": "check_authoring",
+            "availableFactRetrievers": [
+                {
+                    "id": "githubRepositoryFactRetriever",
+                    "facts": [
+                        {
+                            "name": "githubIsArchived",
+                            "type": "boolean",
+                            "description": "repo is archived",
+                        }
+                    ],
+                },
+            ],
+            "selectedFactIds": ["githubRepositoryFactRetriever"],
+        }
+    )
+    assert scope.available_fact_retrievers[0].id == "githubRepositoryFactRetriever"
+    assert scope.selected_fact_ids == ["githubRepositoryFactRetriever"]
+
+
+def test_editing_check_fields_accept_camel_case_alias():
+    """The edit-dialog launcher sends checkId/checkName/checkDescription/
+    currentRule (camelCase); the check_authoring prompt's editing section
+    reads the snake_case names. A checkSolution from an older launcher is
+    accepted and ignored."""
+    rule = '{"all":[{"fact":"githubVisibility","operator":"equal","value":"public"}]}'
+    scope = ChatScope.model_validate(
+        {
+            "caseType": "check_authoring",
+            "checkId": "abc-123",
+            "checkName": "Repo must be public",
+            "checkDescription": "Fails if the repository is not public",
+            "checkSolution": "Make the repository public",
+            "currentRule": rule,
+        }
+    )
+    assert scope.check_id == "abc-123"
+    assert scope.check_name == "Repo must be public"
+    assert scope.check_description == "Fails if the repository is not public"
+    assert not hasattr(scope, "check_solution")
+    assert scope.current_rule == rule
+
+
+@pytest.mark.parametrize("rule", [None, "", "   "])
+def test_an_edit_without_its_saved_rule_is_rejected(rule):
+    """The guards that make the model ask before changing a saved check
+    need the saved rule, so an edit can't arrive without it (422)."""
+    body = {"caseType": "check_authoring", "checkId": "abc-123"}
+    if rule is not None:
+        body["currentRule"] = rule
+    with pytest.raises(ValidationError, match="checkId needs currentRule"):
+        ChatScope.model_validate(body)
+
+
+def test_current_rule_length_capped():
+    """Per the ChatScope.current_rule Field(max_length=8000) — the rule is
+    rendered into the system prompt, so it must stay bounded."""
+    with pytest.raises(ValidationError):
+        ChatScope.model_validate({"currentRule": "x" * 8001})
+
+
+def _scope_with_fact_description(description: str) -> dict:
+    fact = {"name": "f", "type": "boolean", "description": description}
+    return {"availableFactRetrievers": [{"id": "r", "facts": [fact]}]}
+
+
+def test_fact_description_fits_a_long_fact():
+    """A fact's description can carry guidance for the model: the
+    deployment facts' run to about 750 characters, over the old 512."""
+    scope = ChatScope.model_validate(_scope_with_fact_description("x" * 751))
+    assert len(scope.available_fact_retrievers[0].facts[0].description) == 751
+
+
+def test_fact_description_length_capped():
+    with pytest.raises(ValidationError):
+        ChatScope.model_validate(_scope_with_fact_description("x" * 2001))
+
+
+def test_total_content_counter_includes_nested_fact_retrievers():
+    """available_fact_retrievers nests two levels deep (retriever -> facts
+    -> description) — the recursive walker must reach that, or oversized
+    content here is invisible to the 60k budget check."""
+    one_fact = {"name": "f", "type": "boolean", "description": "x" * 512}
+    retriever = {"id": "r", "facts": [one_fact] * 100}
+    with pytest.raises(ValidationError) as excinfo:
+        ChatRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "hi"}],
+                "scope": {"availableFactRetrievers": [retriever, retriever]},
+            }
+        )
+    assert "exceeds limit" in str(excinfo.value)
+
+
+def test_fact_retriever_keeps_the_kinds_it_collects_for():
+    scope = ChatScope.model_validate(
+        {
+            "caseType": "check_authoring",
+            "availableFactRetrievers": [{"id": "r", "kinds": ["component"], "facts": []}],
+        }
+    )
+    assert scope.model_dump(exclude_none=True)["available_fact_retrievers"][0]["kinds"] == ["component"]
+
+
+# ── the Backstage user token reaches the chat ──────────────────────────
+
+
+def _chat_kwargs(monkeypatch, headers):
+    """The keyword arguments the /chat route passes to stream_chat."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from src.api import agent_routes
+
+    seen = {}
+
+    def fake_stream_chat(**kwargs):
+        seen.update(kwargs)
+
+        async def events():
+            yield ""
+
+        return events()
+
+    monkeypatch.setattr(agent_routes, "stream_chat", fake_stream_chat)
+    http_request = SimpleNamespace(
+        state=SimpleNamespace(bearer_token="openchoreo-token", user_sub="u"),
+        headers=headers,
+    )
+    request = ChatRequest(messages=[ChatMessage(role="user", content="hi")])
+    asyncio.run(agent_routes.chat(request, http_request, None, None))
+    return seen
+
+
+def test_chat_passes_the_backstage_user_token_on(monkeypatch):
+    seen = _chat_kwargs(monkeypatch, {"x-backstage-user-token": "issued-for-user"})
+
+    assert seen["backstage_token"] == "issued-for-user"
+    assert seen["token"] == "openchoreo-token"
+
+
+def test_chat_without_the_header_has_no_backstage_token(monkeypatch):
+    assert _chat_kwargs(monkeypatch, {})["backstage_token"] is None
+
+
+def test_scope_carries_the_welcome_flag():
+    from src.api.agent_routes import ChatScope
+
+    assert ChatScope.model_validate({"caseType": "check_authoring", "welcome": True}).welcome is True
+    assert ChatScope.model_validate({"caseType": "check_authoring"}).welcome is None
+
+
+def test_scope_carries_the_users_experience():
+    scope = ChatScope.model_validate({"caseType": "check_authoring", "experience": "experienced"})
+    assert scope.experience == "experienced"
+    with pytest.raises(ValidationError):
+        ChatScope.model_validate({"caseType": "check_authoring", "experience": "expert"})
