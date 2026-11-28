@@ -37,6 +37,7 @@ type ComponentApplicationLogsParams struct {
 	StartTime     time.Time `json:"startTime"`
 	EndTime       time.Time `json:"endTime"`
 	SearchPhrase  string    `json:"searchPhrase"`
+	ContainerName string    `json:"containerName,omitempty"`
 	LogLevels     []string  `json:"logLevels"`
 	Versions      []string  `json:"versions"`
 	VersionIDs    []string  `json:"versionIds"`
@@ -56,6 +57,7 @@ type WorkflowLogsParams struct {
 	StartTime       time.Time `json:"startTime"`
 	EndTime         time.Time `json:"endTime"`
 	SearchPhrase    string    `json:"searchPhrase"`
+	ContainerName   string    `json:"containerName,omitempty"`
 	LogLevels       []string  `json:"logLevels"`
 	Limit           int       `json:"limit"`
 	SortOrder       string    `json:"sortOrder"`

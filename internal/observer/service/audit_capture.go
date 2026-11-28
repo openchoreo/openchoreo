@@ -84,6 +84,7 @@ func logsQueryParameters(req *types.LogsQueryRequest) map[string]any {
 		putGroup(p, "searchScope", scope)
 	}
 	putString(p, "searchPhrase", req.SearchPhrase)
+	putString(p, "containerName", req.ContainerName)
 	putStrings(p, "logLevels", req.LogLevels)
 	return p
 }

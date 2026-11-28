@@ -4,6 +4,7 @@
 package handlers
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -155,6 +156,53 @@ func TestValidateLogLevels(t *testing.T) {
 	}
 }
 
+func TestValidateLogsQueryRequestContainerName(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC()
+
+	tests := []struct {
+		name          string
+		containerName string
+		wantErr       bool
+	}{
+		{name: "empty optional filter"},
+		{name: "valid name", containerName: "nginx"},
+		{name: "valid hyphenated name", containerName: "payment-service"},
+		{name: "single character", containerName: "a"},
+		{name: "maximum length", containerName: strings.Repeat("a", 63)},
+		{name: "exceeds maximum length", containerName: strings.Repeat("a", 64), wantErr: true},
+		{name: "uppercase", containerName: "UPPER", wantErr: true},
+		{name: "underscore", containerName: "payment_service", wantErr: true},
+		{name: "leading hyphen", containerName: "-nginx", wantErr: true},
+		{name: "trailing hyphen", containerName: "nginx-", wantErr: true},
+		{name: "whitespace", containerName: " ", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			req := &types.LogsQueryRequest{
+				SearchScope: &types.SearchScope{
+					Component: &types.ComponentSearchScope{
+						Namespace: "test-ns",
+					},
+				},
+				StartTime:     now.Add(-time.Hour).Format(time.RFC3339),
+				EndTime:       now.Format(time.RFC3339),
+				ContainerName: tt.containerName,
+			}
+
+			err := ValidateLogsQueryRequest(req)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "containerName")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
 func TestValidateLogsQueryRequest(t *testing.T) {
 	t.Parallel()
 
