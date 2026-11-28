@@ -52,11 +52,11 @@ func mustYAMLDocs(objects ...any) string {
 	return strings.Join(docs, "\n---\n")
 }
 
-func cpNamespaceYAML() string {
+func cpNamespaceYAML(namespace string) string {
 	ns := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{APIVersion: kubernetesAPIVerV1, Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: cpNs,
+			Name: namespace,
 			Labels: map[string]string{
 				"openchoreo.dev/control-plane": "true",
 			},
@@ -65,7 +65,7 @@ func cpNamespaceYAML() string {
 	return mustYAMLDocs(ns)
 }
 
-func platformResourcesYAML() string {
+func platformResourcesYAML(namespace string) string {
 	// Pipeline must have a root environment — at least one env that is a
 	// source but not a target. We deploy to `development` (the root) and add
 	// `staging` as a downstream-only env to satisfy that invariant; staging
@@ -74,7 +74,7 @@ func platformResourcesYAML() string {
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "DeploymentPipeline"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
-			Namespace: cpNs,
+			Namespace: namespace,
 			Labels:    map[string]string{"openchoreo.dev/name": "default"},
 		},
 		Spec: openchoreov1alpha1.DeploymentPipelineSpec{
@@ -92,7 +92,7 @@ func platformResourcesYAML() string {
 			TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Environment"},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
-				Namespace: cpNs,
+				Namespace: namespace,
 				Labels:    map[string]string{"openchoreo.dev/name": name},
 			},
 			Spec: openchoreov1alpha1.EnvironmentSpec{
@@ -107,7 +107,7 @@ func platformResourcesYAML() string {
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Project"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      projectName,
-			Namespace: cpNs,
+			Namespace: namespace,
 			Labels:    map[string]string{"openchoreo.dev/name": projectName},
 		},
 		Spec: openchoreov1alpha1.ProjectSpec{
@@ -122,7 +122,7 @@ func platformResourcesYAML() string {
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "ProjectReleaseBinding"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      projectName + releaseBindingSuffix,
-			Namespace: cpNs,
+			Namespace: namespace,
 			Labels: map[string]string{
 				"openchoreo.dev/project":     projectName,
 				"openchoreo.dev/environment": envDev,
@@ -141,12 +141,12 @@ func platformResourcesYAML() string {
 
 // componentWithImageYAML returns a Component + Workload pair for a deployment-style
 // component type (service / web-application). Port and image are caller-provided.
-func componentWithImageYAML(name, componentType, image string, port int, args []string) string {
+func componentWithImageYAML(namespace, name, componentType, image string, port int, args []string) string {
 	comp := &openchoreov1alpha1.Component{
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Component"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: cpNs,
+			Namespace: namespace,
 			Labels:    map[string]string{"openchoreo.dev/name": name},
 		},
 		Spec: openchoreov1alpha1.ComponentSpec{
@@ -162,7 +162,7 @@ func componentWithImageYAML(name, componentType, image string, port int, args []
 		TypeMeta: metav1.TypeMeta{APIVersion: openChoreoAPIVer, Kind: "Workload"},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: cpNs,
+			Namespace: namespace,
 			Labels:    map[string]string{"openchoreo.dev/name": name},
 		},
 		Spec: openchoreov1alpha1.WorkloadSpec{
