@@ -121,6 +121,7 @@ func SetupIndexes(ctx context.Context, mgr ctrl.Manager) error {
 	for _, setup := range []func(context.Context, ctrl.Manager) error{
 		r.setupComponentTypeRefIndex,
 		r.setupTraitsRefIndex,
+		r.setupEmbeddedTraitsIndexes,
 		r.setupWorkflowRefIndex,
 		r.setupWorkloadOwnerIndex,
 		r.setupComponentReleaseOwnerIndex,
