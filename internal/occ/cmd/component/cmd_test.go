@@ -59,6 +59,9 @@ func TestNewComponentCmd_Subcommands(t *testing.T) {
 	assert.Contains(t, names, "logs")
 	assert.Contains(t, names, "workflow")
 	assert.Contains(t, names, "workflowrun")
+	assert.Contains(t, names, "revisions")
+	assert.Contains(t, names, "revision")
+	assert.Contains(t, names, "rollback")
 }
 
 // --- list ---

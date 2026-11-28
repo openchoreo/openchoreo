@@ -24,6 +24,9 @@ func NewResourceCmd(f client.NewClientFunc) *cobra.Command {
 		newGetCmd(f),
 		newDeleteCmd(f),
 		newPromoteCmd(f),
+		newRevisionsCmd(f),
+		newRevisionCmd(f),
+		newRollbackCmd(f),
 	)
 	return cmd
 }
@@ -123,10 +126,14 @@ func newPromoteCmd(f client.NewClientFunc) *cobra.Command {
 				Namespace:    flags.GetNamespace(cmd),
 				ResourceName: args[0],
 				Environment:  flags.GetEnvironment(cmd),
+				Message:      flags.GetMessage(cmd),
 			})
 		},
 	}
 	flags.AddNamespace(cmd)
 	flags.AddEnvironment(cmd)
+	flags.AddMessage(cmd, "Optional reason for the promotion, recorded on the binding's new revision; "+
+		"when the binding's spec matches an existing revision, which becomes active again instead, it goes on "+
+		"the binding's RevisionReactivated event")
 	return cmd
 }

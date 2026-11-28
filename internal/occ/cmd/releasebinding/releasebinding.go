@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openchoreo/openchoreo/internal/occ/cmd/bindingrevision"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/config"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/pagination"
 	"github.com/openchoreo/openchoreo/internal/occ/cmd/utils"
@@ -37,12 +38,13 @@ const (
 
 // ReleaseBinding implements release binding operations
 type ReleaseBinding struct {
-	client client.Interface
+	client  client.Interface
+	confirm bindingrevision.Confirmer
 }
 
 // New creates a new ReleaseBinding
 func New(c client.Interface) *ReleaseBinding {
-	return &ReleaseBinding{client: c}
+	return &ReleaseBinding{client: c, confirm: bindingrevision.ConfirmOnTerminal}
 }
 
 // List lists all release bindings for a component
@@ -496,4 +498,29 @@ func printReleaseBindings(items []gen.ReleaseBinding) error {
 	}
 
 	return w.Flush()
+}
+
+// Rollback restores the binding spec recorded by one of the binding's
+// revisions: it previews the rollback, asks for confirmation unless Yes is set,
+// and applies it. See occ releasebindingrevision list for the revisions.
+func (r *ReleaseBinding) Rollback(params RollbackParams) error {
+	if err := cmdutil.RequireFields("rollback", "releasebinding",
+		map[string]string{"namespace": params.Namespace}); err != nil {
+		return err
+	}
+	if err := bindingrevision.CheckMessage(params.Message); err != nil {
+		return err
+	}
+	return bindingrevision.RunRollback(context.Background(), bindingrevision.RollbackOptions{
+		Kind:     "release binding",
+		Binding:  params.ReleaseBindingName,
+		Revision: params.Revision,
+		DryRun:   params.DryRun,
+		Yes:      params.Yes,
+		Out:      os.Stdout,
+		Confirm:  r.confirm,
+	}, func(ctx context.Context, revision *int64, dryRun bool) (*gen.RollbackResponse, error) {
+		return r.client.RollbackReleaseBinding(ctx, params.Namespace, params.ReleaseBindingName,
+			bindingrevision.RollbackRequest(revision, dryRun, params.Message))
+	})
 }

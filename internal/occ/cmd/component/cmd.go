@@ -35,6 +35,9 @@ func NewComponentCmd(f client.NewClientFunc) *cobra.Command {
 		newWorkflowCmd(f),
 		newWorkflowRunCmd(f),
 		newReleaseLineCmd(f),
+		newRevisionsCmd(f),
+		newRevisionCmd(f),
+		newRollbackCmd(f),
 	)
 	return cmd
 }
@@ -195,7 +198,11 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
   occ component deploy api-service --release-line next --to staging
 
   # Roll a release line back to an earlier release in an environment
-  occ component deploy api-service --release-line next --to staging --release api-service-next-89391e40-20260101-1`,
+  occ component deploy api-service --release-line next --to staging --release api-service-next-89391e40-20260101-1
+
+  # Record why, on the revision this creates
+  occ component deploy api-service --namespace acme-corp --project online-store --to staging \
+    --message "Fix checkout timeout"`,
 		Args:    cmdutil.ExactOneArgWithUsage(),
 		PreRunE: auth.RequireLogin(),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -211,6 +218,7 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 				To:            flags.GetTo(cmd),
 				Set:           flags.GetSet(cmd),
 				ReleaseLine:   flags.GetReleaseLine(cmd),
+				Message:       flags.GetMessage(cmd),
 			})
 		},
 	}
@@ -220,6 +228,9 @@ func newDeployCmd(f client.NewClientFunc) *cobra.Command {
 	flags.AddTo(cmd)
 	flags.AddSet(cmd)
 	flags.AddReleaseLine(cmd)
+	flags.AddMessage(cmd, "Optional reason for the deployment, recorded on the binding's new revision; "+
+		"when the binding's spec matches an existing revision, which becomes active again instead, it goes on "+
+		"the binding's RevisionReactivated event")
 	return cmd
 }
 

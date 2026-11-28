@@ -43,7 +43,7 @@ func TestNewResourceCmd_Subcommands(t *testing.T) {
 	for _, sub := range cmd.Commands() {
 		names = append(names, sub.Name())
 	}
-	assert.ElementsMatch(t, []string{"list", "get", "delete", "promote"}, names)
+	assert.ElementsMatch(t, []string{"list", "get", "delete", "promote", "revisions", "revision", "rollback"}, names)
 }
 
 // --- list ---

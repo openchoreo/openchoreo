@@ -10,6 +10,7 @@ import (
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	openchoreov1alpha1 "github.com/openchoreo/openchoreo/api/v1alpha1"
@@ -17,6 +18,7 @@ import (
 	"github.com/openchoreo/openchoreo/internal/controller/renderedrelease"
 	"github.com/openchoreo/openchoreo/internal/labels"
 	"github.com/openchoreo/openchoreo/internal/releaseline"
+	"github.com/openchoreo/openchoreo/internal/revision"
 )
 
 var _ = Describe("ReleaseBinding controller — Observe mode", func() {
@@ -75,6 +77,8 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		}}
 		rb.Status.EndpointsObservedGeneration = rb.Generation
 		rb.Status.Delivery = &openchoreov1alpha1.DeliveryStatus{RolloutID: "rollout-1"}
+		rb.Status.CurrentRevision = rb.Name + "-r2"
+		rb.Status.HighestRevision = 2
 		apimeta.SetStatusCondition(&rb.Status.Conditions, metav1.Condition{
 			Type:   string(ConditionConnectionsResolved),
 			Status: metav1.ConditionTrue,
@@ -212,6 +216,40 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(ready.Message).To(ContainSubstring("is not in Environment"))
 		_, err = releaseOf(rb)
 		Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	})
+
+	It("deactivates a revision left active once observing stops, with no release running", func() {
+		makePRB(openchoreov1alpha1.BindingModeObserve, "")
+		makeComponent("obs-stale-active")
+		rb := makeBinding("obs-stale-active", deployment)
+
+		// A revision still reading active: deactivating it failed when the
+		// binding switched to Observe, and observing has stopped since.
+		rev := &openchoreov1alpha1.ReleaseBindingRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      rb.Name + "-r1",
+				Namespace: ns,
+				Labels:    map[string]string{revision.LabelKeyBindingUID: string(rb.UID)},
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
+				Revision: 1, Cause: openchoreov1alpha1.RevisionCauseDeploy, SnapshotHash: "managed",
+				BindingSpec: openchoreov1alpha1.ReleaseBindingSpec{
+					Owner: rb.Spec.Owner, Environment: rb.Spec.Environment, ReleaseName: "obs-stale-active-release",
+				},
+			},
+		}
+		Expect(controllerutil.SetControllerReference(rb, rev, k8sClient.Scheme())).To(Succeed())
+		Expect(k8sClient.Create(ctx, rev)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, rev) })
+		rev.Status = openchoreov1alpha1.BindingRevisionStatus{Active: true, Health: openchoreov1alpha1.RevisionHealthHealthy}
+		Expect(k8sClient.Status().Update(ctx, rev)).To(Succeed())
+
+		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		storedRev := &openchoreov1alpha1.ReleaseBindingRevision{}
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), storedRev)).To(Succeed())
+		Expect(storedRev.Status.Active).To(BeFalse(), "nothing runs the revision")
+		Expect(storedRev.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy), "its health is kept")
 	})
 
 	It("reports nothing observed without claims", func() {
@@ -372,6 +410,7 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		Expect(conditionFor(updated, string(ConditionReady)).Reason).
 			To(Equal(string(ReasonProjectReleaseBindingNotFound)))
 		Expect(updated.Status.Endpoints).To(HaveLen(1), "consumers keep resolving the running release's endpoints")
+		Expect(updated.Status.CurrentRevision).To(Equal(rb.Name+"-r2"), "the running release still applies it")
 		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).NotTo(BeNil())
 		_, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())
@@ -383,12 +422,44 @@ var _ = Describe("ReleaseBinding controller — Observe mode", func() {
 		rb := makeBinding("obs-cleared", deployment)
 		setManagedStatus(rb)
 
+		// The revision the binding applied while it managed its resources.
+		rev := &openchoreov1alpha1.ReleaseBindingRevision{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      rb.Name + "-r2",
+				Namespace: ns,
+				Labels:    map[string]string{revision.LabelKeyBindingUID: string(rb.UID)},
+			},
+			Spec: openchoreov1alpha1.ReleaseBindingRevisionSpec{
+				Revision:     2,
+				Cause:        openchoreov1alpha1.RevisionCauseDeploy,
+				SnapshotHash: "managed",
+				BindingSpec: openchoreov1alpha1.ReleaseBindingSpec{
+					Owner:       rb.Spec.Owner,
+					Environment: rb.Spec.Environment,
+					ReleaseName: "obs-cleared-release",
+				},
+			},
+		}
+		Expect(controllerutil.SetControllerReference(rb, rev, k8sClient.Scheme())).To(Succeed())
+		Expect(k8sClient.Create(ctx, rev)).To(Succeed())
+		DeferCleanup(func() { _ = k8sClient.Delete(ctx, rev) })
+		rev.Status = openchoreov1alpha1.BindingRevisionStatus{Active: true, Health: openchoreov1alpha1.RevisionHealthHealthy, KnownGood: true}
+		Expect(k8sClient.Status().Update(ctx, rev)).To(Succeed())
+
 		mustReconcile(testReconciler(), reconcileRequest(rb.Name))
+
+		storedRev := &openchoreov1alpha1.ReleaseBindingRevision{}
+		Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(rev), storedRev)).To(Succeed())
+		Expect(storedRev.Status.Active).To(BeFalse(), "no revision reads active while the binding observes")
+		Expect(storedRev.Status.Health).To(Equal(openchoreov1alpha1.RevisionHealthHealthy), "its health is kept")
+		Expect(storedRev.Status.KnownGood).To(BeTrue())
 
 		updated := fetchRB(rb.Name)
 		Expect(updated.Status.Endpoints).To(BeEmpty())
 		Expect(updated.Status.EndpointsObservedGeneration).To(BeZero())
 		Expect(updated.Status.Delivery).To(BeNil())
+		Expect(updated.Status.CurrentRevision).To(BeEmpty(), "an observed binding applies no revision")
+		Expect(updated.Status.HighestRevision).To(Equal(int64(2)), "kept so revision numbers are never reused")
 		Expect(conditionFor(updated, string(ConditionConnectionsResolved))).To(BeNil())
 		rr, err := releaseOf(rb)
 		Expect(err).NotTo(HaveOccurred())

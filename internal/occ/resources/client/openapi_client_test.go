@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	"github.com/openchoreo/openchoreo/internal/occ/resources/client/mocks"
 	"github.com/openchoreo/openchoreo/internal/openchoreo-api/api/gen"
@@ -3781,4 +3782,90 @@ func TestGetReleaseBindingResourceTree_TransportError(t *testing.T) {
 
 	_, err := c.GetReleaseBindingResourceTree(context.Background(), "ns", "rb")
 	assert.ErrorContains(t, err, "connection refused")
+}
+
+// --- Release binding revisions ---
+
+func TestListReleaseBindingRevisions_Success(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	params := &gen.ListReleaseBindingRevisionsParams{Component: "api"}
+	m.EXPECT().ListReleaseBindingRevisionsWithResponse(mock.Anything, "org-a", params).Return(&gen.ListReleaseBindingRevisionsResp{
+		HTTPResponse: httpResp(http.StatusOK),
+		JSON200: &gen.ReleaseBindingRevisionList{
+			Items: []gen.ReleaseBindingRevision{{Metadata: gen.ObjectMeta{Name: "api-dev-r1"}}},
+		},
+	}, nil)
+
+	result, err := newMockClient(m).ListReleaseBindingRevisions(context.Background(), "org-a", params)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "api-dev-r1", result.Items[0].Metadata.Name)
+}
+
+func TestListReleaseBindingRevisions_TransportError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().ListReleaseBindingRevisionsWithResponse(mock.Anything, "org-a", mock.Anything).Return(nil, fmt.Errorf("connection refused"))
+
+	_, err := newMockClient(m).ListReleaseBindingRevisions(context.Background(), "org-a", &gen.ListReleaseBindingRevisionsParams{})
+	require.ErrorContains(t, err, "failed to list release binding revisions")
+}
+
+func TestRollbackReleaseBinding_Success(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	req := gen.RollbackRequest{Revision: ptr.To(int64(3))}
+	m.EXPECT().RollbackReleaseBindingWithResponse(mock.Anything, "org-a", "api-dev", req).Return(&gen.RollbackReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusOK),
+		JSON200:      &gen.RollbackResponse{RevisionName: "api-dev-r6", Revision: 6, TargetRevision: 3},
+	}, nil)
+
+	result, err := newMockClient(m).RollbackReleaseBinding(context.Background(), "org-a", "api-dev", req)
+	require.NoError(t, err)
+	assert.Equal(t, "api-dev-r6", result.RevisionName)
+}
+
+func TestRollbackReleaseBinding_ConflictCarriesServerMessage(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().RollbackReleaseBindingWithResponse(mock.Anything, "org-a", "api-dev", mock.Anything).Return(&gen.RollbackReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusConflict),
+		Body:         []byte(`{"error":"release bound by the revision has been deleted: ComponentRelease \"api-6f9c2a\" bound by revision 3","code":"RELEASE_DELETED"}`),
+	}, nil)
+
+	_, err := newMockClient(m).RollbackReleaseBinding(context.Background(), "org-a", "api-dev", gen.RollbackRequest{Revision: ptr.To(int64(3))})
+	require.ErrorContains(t, err, `ComponentRelease "api-6f9c2a" bound by revision 3`)
+}
+
+func TestRollbackReleaseBinding_TransportError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().RollbackReleaseBindingWithResponse(mock.Anything, "org-a", "api-dev", mock.Anything).Return(nil, fmt.Errorf("connection refused"))
+
+	_, err := newMockClient(m).RollbackReleaseBinding(context.Background(), "org-a", "api-dev", gen.RollbackRequest{Revision: ptr.To(int64(3))})
+	require.ErrorContains(t, err, "failed to roll back release binding")
+}
+
+// --- Resource release binding revisions ---
+
+func TestListResourceReleaseBindingRevisions_Success(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	params := &gen.ListResourceReleaseBindingRevisionsParams{Resource: "db"}
+	m.EXPECT().ListResourceReleaseBindingRevisionsWithResponse(mock.Anything, "org-a", params).Return(&gen.ListResourceReleaseBindingRevisionsResp{
+		HTTPResponse: httpResp(http.StatusOK),
+		JSON200: &gen.ResourceReleaseBindingRevisionList{
+			Items: []gen.ResourceReleaseBindingRevision{{Metadata: gen.ObjectMeta{Name: "db-dev-r1"}}},
+		},
+	}, nil)
+
+	result, err := newMockClient(m).ListResourceReleaseBindingRevisions(context.Background(), "org-a", params)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+}
+
+func TestRollbackResourceReleaseBinding_APIError(t *testing.T) {
+	m := mocks.NewMockClientWithResponsesInterface(t)
+	m.EXPECT().RollbackResourceReleaseBindingWithResponse(mock.Anything, "org-a", "db-dev", mock.Anything).Return(&gen.RollbackResourceReleaseBindingResp{
+		HTTPResponse: httpResp(http.StatusNotFound),
+		Body:         []byte(`{"error":"revision not found: revision 9 of resource release binding \"db-dev\"","code":"NOT_FOUND"}`),
+	}, nil)
+
+	_, err := newMockClient(m).RollbackResourceReleaseBinding(context.Background(), "org-a", "db-dev", gen.RollbackRequest{Revision: ptr.To(int64(9))})
+	require.ErrorContains(t, err, "revision 9")
 }

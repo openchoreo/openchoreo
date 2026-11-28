@@ -6,6 +6,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -38,6 +39,26 @@ func apiError(statusCode int, body []byte) error {
 	return fmt.Errorf("unexpected response status: %d", statusCode)
 }
 
+// newHTTPClient returns the HTTP client occ calls the API with.
+func newHTTPClient() *http.Client {
+	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: refuseRevisionDeleteRedirects}
+}
+
+// refuseRevisionDeleteRedirects refuses to follow a redirect of a revision
+// delete. A redirect can drop the dryRun query of a preview, so the redirected
+// request would really delete the revision, or turn the DELETE into a GET whose
+// response reads as a successful delete. occ must be pointed at the API itself.
+func refuseRevisionDeleteRedirects(req *http.Request, via []*http.Request) error {
+	if len(via) > 0 && via[0].Method == http.MethodDelete && strings.Contains(via[0].URL.Path, "bindingrevisions/") {
+		return fmt.Errorf("refusing to follow a redirect of %s %s to %s: set the control plane URL to the API itself",
+			via[0].Method, via[0].URL.Redacted(), req.URL.Redacted())
+	}
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	return nil
+}
+
 // Client wraps the generated OpenAPI client with token refresh functionality
 type Client struct {
 	client gen.ClientWithResponsesInterface
@@ -56,7 +77,7 @@ func NewClient() (*Client, error) {
 		token = credential.Token
 	}
 
-	httpClient := &http.Client{Timeout: 30 * time.Second}
+	httpClient := newHTTPClient()
 
 	client, err := gen.NewClientWithResponses(
 		controlPlane.URL,
@@ -1067,6 +1088,80 @@ func (c *Client) GetReleaseBindingResourceTree(ctx context.Context, namespaceNam
 	resp, err := c.client.GetReleaseBindingK8sResourceTreeWithResponse(ctx, namespaceName, releaseBindingName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource tree: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// ListReleaseBindingRevisions retrieves the revision history of a component's release bindings
+func (c *Client) ListReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListReleaseBindingRevisionsParams) (*gen.ReleaseBindingRevisionList, error) {
+	resp, err := c.client.ListReleaseBindingRevisionsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list release binding revisions: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// RollbackReleaseBinding restores the binding spec recorded by an earlier revision
+func (c *Client) RollbackReleaseBinding(ctx context.Context, namespaceName, releaseBindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error) {
+	resp, err := c.client.RollbackReleaseBindingWithResponse(ctx, namespaceName, releaseBindingName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to roll back release binding: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteReleaseBindingRevision deletes one revision from a binding's history, or with
+// params.DryRun only checks that it may be deleted
+func (c *Client) DeleteReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error) {
+	resp, err := c.client.DeleteReleaseBindingRevisionWithResponse(ctx, namespaceName, revisionName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete release binding revision: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// ListResourceReleaseBindingRevisions retrieves the revision history of a resource's release bindings
+func (c *Client) ListResourceReleaseBindingRevisions(ctx context.Context, namespaceName string, params *gen.ListResourceReleaseBindingRevisionsParams) (*gen.ResourceReleaseBindingRevisionList, error) {
+	resp, err := c.client.ListResourceReleaseBindingRevisionsWithResponse(ctx, namespaceName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource release binding revisions: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// DeleteResourceReleaseBindingRevision deletes one revision from a binding's history, or with
+// params.DryRun only checks that it may be deleted
+func (c *Client) DeleteResourceReleaseBindingRevision(ctx context.Context, namespaceName, revisionName string, params *gen.DeleteResourceReleaseBindingRevisionParams) (*gen.DeleteBindingRevisionResponse, error) {
+	resp, err := c.client.DeleteResourceReleaseBindingRevisionWithResponse(ctx, namespaceName, revisionName, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete resource release binding revision: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	return resp.JSON200, nil
+}
+
+// RollbackResourceReleaseBinding restores the binding spec recorded by an earlier revision
+func (c *Client) RollbackResourceReleaseBinding(ctx context.Context, namespaceName, bindingName string, req gen.RollbackRequest) (*gen.RollbackResponse, error) {
+	resp, err := c.client.RollbackResourceReleaseBindingWithResponse(ctx, namespaceName, bindingName, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to roll back resource release binding: %w", err)
 	}
 	if resp.JSON200 == nil {
 		return nil, apiError(resp.StatusCode(), resp.Body)

@@ -59,3 +59,17 @@ type TreeParams struct {
 }
 
 func (p TreeParams) GetNamespace() string { return p.Namespace }
+
+// RollbackParams defines parameters for rolling a release binding back to one of
+// its revisions
+type RollbackParams struct {
+	Namespace          string
+	ReleaseBindingName string
+	Revision           int64
+	DryRun             bool
+	Yes                bool
+	// Message is an optional reason for the rollback.
+	Message string
+}
+
+func (p RollbackParams) GetNamespace() string { return p.Namespace }

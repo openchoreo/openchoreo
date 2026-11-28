@@ -57,6 +57,19 @@ func TestLookupConditions(t *testing.T) {
 		}
 	})
 
+	t.Run("rollback and revision deletion support resource.environment", func(t *testing.T) {
+		for _, action := range []string{
+			ActionRollbackReleaseBinding,
+			ActionDeleteReleaseBindingRevision,
+			ActionRollbackResourceReleaseBinding,
+			ActionDeleteResourceReleaseBindingRevision,
+		} {
+			specs := LookupConditions(action)
+			require.Len(t, specs, 1, "action %q should expose one attribute", action)
+			require.Equal(t, AttrResourceEnvironment.Key, specs[0].Key, "action %q", action)
+		}
+	})
+
 	t.Run("component mutating actions support resource.componentType", func(t *testing.T) {
 		for _, action := range []string{
 			ActionCreateComponent,
@@ -99,13 +112,15 @@ func TestIntersectConditionsForActions(t *testing.T) {
 	attrLabel := AttributeSpec{Key: "resource.release"}
 
 	SetConditionRegistryForTest(t, map[string][]AttributeSpec{
-		ActionCreateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionViewReleaseBinding:   {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionUpdateReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionDeleteReleaseBinding: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
-		ActionViewLogs:             {AttrResourceEnvironment, AttrResourceComponentType},
-		ActionViewMetrics:          {AttrResourceEnvironment},
-		ActionViewTraces:           {AttrResourceComponentType, attrLabel},
+		ActionCreateReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewReleaseBinding:           {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionUpdateReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionDeleteReleaseBinding:         {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionRollbackReleaseBinding:       {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionDeleteReleaseBindingRevision: {AttrResourceEnvironment, AttrResourceComponentType, attrLabel},
+		ActionViewLogs:                     {AttrResourceEnvironment, AttrResourceComponentType},
+		ActionViewMetrics:                  {AttrResourceEnvironment},
+		ActionViewTraces:                   {AttrResourceComponentType, attrLabel},
 	})
 
 	tests := []struct {

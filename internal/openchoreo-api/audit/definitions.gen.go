@@ -327,6 +327,10 @@ func generatedOperationDefs() []audit.OperationDef {
 			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
 		},
 		{
+			ID: "DeleteReleaseBindingRevision", Action: "delete_release_binding_revision", ResourceType: "releasebindingrevision",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingRevisionName",
+		},
+		{
 			ID: "DeleteResource", Action: "delete_resource", ResourceType: "resource",
 			Category: audit.CategoryManagement, RESTResourceParam: "resourceName",
 		},
@@ -337,6 +341,10 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "DeleteResourceReleaseBinding", Action: "delete_resource_release_binding", ResourceType: "resourcereleasebinding",
 			Category: audit.CategoryManagement, RESTResourceParam: "resourceReleaseBindingName",
+		},
+		{
+			ID: "DeleteResourceReleaseBindingRevision", Action: "delete_resource_release_binding_revision", ResourceType: "resourcereleasebindingrevision",
+			Category: audit.CategoryManagement, RESTResourceParam: "resourceReleaseBindingRevisionName",
 		},
 		{
 			ID: "DeleteResourceType", Action: "delete_resource_type", ResourceType: "resourcetype",
@@ -389,6 +397,14 @@ func generatedOperationDefs() []audit.OperationDef {
 		{
 			ID: "ListSecrets", Action: "list_secrets", ResourceType: "secret",
 			Category: audit.CategoryAccess,
+		},
+		{
+			ID: "RollbackReleaseBinding", Action: "rollback_release_binding", ResourceType: "releasebinding",
+			Category: audit.CategoryManagement, RESTResourceParam: "releaseBindingName",
+		},
+		{
+			ID: "RollbackResourceReleaseBinding", Action: "rollback_resource_release_binding", ResourceType: "resourcereleasebinding",
+			Category: audit.CategoryManagement, RESTResourceParam: "resourceReleaseBindingName",
 		},
 		{
 			ID: "TriggerReleaseBindingCronJob", Action: "trigger_release_binding_cron_job", ResourceType: "releasebinding",
