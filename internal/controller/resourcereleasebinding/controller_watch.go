@@ -71,3 +71,29 @@ func (r *Reconciler) listResourceReleaseBindingsForResourceRelease(ctx context.C
 	}
 	return requests
 }
+
+// listResourceReleaseBindingsForEnvironment returns reconcile requests for
+// every ResourceReleaseBinding that targets the changed Environment.
+func (r *Reconciler) listResourceReleaseBindingsForEnvironment(ctx context.Context, obj client.Object) []reconcile.Request {
+	env, ok := obj.(*openchoreov1alpha1.Environment)
+	if !ok {
+		return nil
+	}
+	var bindings openchoreov1alpha1.ResourceReleaseBindingList
+	if err := r.List(ctx, &bindings, client.InNamespace(env.Namespace)); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list ResourceReleaseBindings for environment change",
+			"environment", env.Name, "namespace", env.Namespace)
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range bindings.Items {
+		binding := &bindings.Items[i]
+		if binding.Spec.Environment != env.Name {
+			continue
+		}
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+		})
+	}
+	return requests
+}

@@ -124,6 +124,15 @@ var _ = BeforeSuite(func() {
 	Expect(k8sCachedClient).NotTo(BeNil())
 })
 
+// envtest runs no garbage collector, so the ReleaseBindingRevisions a spec's
+// binding owns outlive it. Specs reuse binding names, and a leftover revision
+// holds the next binding's revision name -- which the controller rightly
+// refuses to adopt. Delete them after every spec, as GC would on a cluster.
+var _ = AfterEach(func() {
+	Expect(k8sClient.DeleteAllOf(ctx, &openchoreodevv1alpha1.ReleaseBindingRevision{},
+		client.InNamespace("default"))).To(Succeed())
+})
+
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()

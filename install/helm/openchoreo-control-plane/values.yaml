@@ -831,6 +831,21 @@ controllerManager:
     # @schema
     renderTimeout: "0"
     # @schema
+    # type: string
+    # description: How long a ReleaseBinding or ResourceReleaseBinding revision must stay Healthy before it is marked known-good (Go duration, e.g. "60s", "5m"), passed as --revision-known-good-window. "0" marks a revision known-good on its first Healthy observation. Negative durations are rejected.
+    # default: "60s"
+    # pattern: ^(0|(([0-9]+([.][0-9]+)?|[.][0-9]+)(ns|us|µs|μs|ms|s|m|h))+)$
+    # @schema
+    revisionKnownGoodWindow: "60s"
+    # @schema
+    # type: integer
+    # minimum: 0
+    # maximum: 2147483647
+    # description: Number of old revisions kept per ReleaseBinding, and per ResourceReleaseBinding too, to allow rollback, passed as --component-revision-history-limit. The active revision is always kept and does not count. The default is 10. 0 keeps no old revision, so bindings then have no rollback history. An Environment (spec.componentRevisionHistoryLimit) overrides this value for its bindings, and a binding (spec.revisionHistoryLimit) overrides both. Over the limit, the oldest old revisions are deleted first; only the active revision is never deleted. Revisions deleted earlier do not count. At most 2147483647, the largest limit an Environment or binding can set.
+    # default: 10
+    # @schema
+    componentRevisionHistoryLimit: 10
+    # @schema
     # type: object
     # description: Environment variables for the controller-manager
     # @schema

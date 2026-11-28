@@ -162,6 +162,21 @@ spec:
                   ReleaseName is the name of the ComponentRelease to bind
                   When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
                 type: string
+              revisionHistoryLimit:
+                description: |-
+                  RevisionHistoryLimit is the number of old revisions kept for this binding
+                  to allow rollback, as a Deployment's revisionHistoryLimit is. The active
+                  revision is always kept and does not count. 0 keeps no old revisions, so
+                  the binding cannot be rolled back. When unset, the Environment's
+                  spec.componentRevisionHistoryLimit applies, and when that is unset too,
+                  the controller's --component-revision-history-limit.
+
+                  It configures the history and is not part of what a revision records:
+                  changing it creates no revision, revisions do not capture it, and a
+                  rollback leaves it as it is.
+                format: int32
+                minimum: 0
+                type: integer
               state:
                 default: Active
                 description: |-
@@ -394,6 +409,17 @@ spec:
                   - visibility
                   type: object
                 type: array
+              currentRevision:
+                description: |-
+                  CurrentRevision is the object name of the binding's active revision: the
+                  one recording its current spec, which it is rolling out or running. It is
+                  set when the spec is recorded, before the rollout, so it does not confirm
+                  that a deploy or rollback succeeded; the revision's health reports that.
+                  Read it from here rather than building it: it is usually {binding}-r{N},
+                  but a name that would exceed the 253-character limit is shortened and
+                  given a hash. The controller updates it whenever the active revision
+                  changes, including when a rollback makes an earlier revision active again.
+                type: string
               delivery:
                 description: |-
                   Delivery tracks which delivery lifecycle events have been emitted for the
@@ -650,6 +676,13 @@ spec:
                   the ComponentType, rather than one not reported yet. Zero while the
                   binding renders nothing: before its first render, when undeployed, and in
                   Observe mode.
+                format: int64
+                type: integer
+              highestRevision:
+                description: |-
+                  HighestRevision is the highest revision number this binding has ever
+                  recorded. New revisions are numbered above it, so the number of a deleted
+                  revision is never given to another one.
                 format: int64
                 type: integer
               lastSpecUpdateTime:

@@ -1,0 +1,465 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: releasebindingrevisions.openchoreo.dev
+spec:
+  group: openchoreo.dev
+  names:
+    kind: ReleaseBindingRevision
+    listKind: ReleaseBindingRevisionList
+    plural: releasebindingrevisions
+    shortNames:
+    - rbr
+    - rbrs
+    singular: releasebindingrevision
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.revision
+      name: Revision
+      type: integer
+    - jsonPath: .spec.bindingSpec.releaseName
+      name: Release
+      type: string
+    - jsonPath: .spec.cause
+      name: Cause
+      type: string
+    - jsonPath: .status.health
+      name: Health
+      type: string
+    - jsonPath: .status.active
+      name: Active
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          ReleaseBindingRevision is the Schema for the releasebindingrevisions API.
+          Records one revision of a ReleaseBinding; owned by that ReleaseBinding.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              Spec is required: without it the spec immutability rule would not run,
+              so a spec could be removed and a different one set.
+            properties:
+              bindingSpec:
+                description: |-
+                  BindingSpec is a copy of the ReleaseBinding spec at the time of this revision.
+                  Its releaseName is the ComponentRelease the revision binds.
+                properties:
+                  componentTypeEnvironmentConfigs:
+                    description: |-
+                      ComponentTypeEnvironmentConfigs for ComponentType environmentConfigs parameters
+                      These values override the defaults defined in the Component for this specific environment
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                  environment:
+                    description: EnvironmentName is the name of the environment this
+                      binds the ComponentRelease to
+                    type: string
+                    x-kubernetes-validations:
+                    - message: spec.environment is immutable
+                      rule: self == oldSelf
+                  mode:
+                    default: Manage
+                    description: |-
+                      Mode decides whether this binding deploys the component's release
+                      (Manage) or reads objects the component already runs (Observe). Observe
+                      needs a ProjectReleaseBinding in Observe mode for the same project and
+                      environment. In Observe mode, releaseName, the environment configs,
+                      workloadOverrides and state are kept but have no effect.
+                    enum:
+                    - Manage
+                    - Observe
+                    type: string
+                  observe:
+                    description: Observe configures Observe mode. It is ignored in
+                      Manage mode.
+                    properties:
+                      resources:
+                        description: |-
+                          Resources lists objects in the namespace of the project's
+                          ProjectReleaseBinding that make up this component, such as its
+                          Deployment and Service.
+                        items:
+                          description: |-
+                            ObservedResourceClaim names an existing object for a binding in observe mode
+                            to read. The object is in the namespace the binding observes, so only
+                            namespaced kinds can be claimed.
+                          properties:
+                            apiVersion:
+                              description: APIVersion is the object's API version,
+                                such as "apps/v1" or "v1".
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^([^/]+/)?[^/]+$
+                              type: string
+                            kind:
+                              description: Kind is the object's kind, such as "Deployment".
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[A-Z][A-Za-z0-9]*$
+                              type: string
+                            name:
+                              description: Name is the object's name.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - apiVersion
+                          - kind
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - apiVersion
+                        - kind
+                        - name
+                        x-kubernetes-list-type: map
+                    type: object
+                  owner:
+                    description: Owner identifies the component and project this ReleaseBinding
+                      belongs to
+                    properties:
+                      componentName:
+                        description: ComponentName is the name of the component
+                        minLength: 1
+                        type: string
+                      projectName:
+                        description: ProjectName is the name of the project that owns
+                          this component
+                        minLength: 1
+                        type: string
+                      releaseLine:
+                        description: |-
+                          ReleaseLine names the ReleaseLine this resource belongs to.
+                          Empty for the component's main line, which is implicit and has no ReleaseLine.
+                        maxLength: 63
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                        x-kubernetes-validations:
+                        - message: main is the implicit line; omit releaseLine for
+                            it
+                          rule: self != 'main'
+                        - message: default is a reserved name; omit releaseLine for
+                            the main line
+                          rule: self != 'default'
+                    required:
+                    - componentName
+                    - projectName
+                    type: object
+                    x-kubernetes-validations:
+                    - message: spec.owner is immutable
+                      rule: self == oldSelf
+                  releaseName:
+                    description: |-
+                      ReleaseName is the name of the ComponentRelease to bind
+                      When ComponentSpec.AutoDeploy is enabled, this field will be handled by the controller
+                    type: string
+                  revisionHistoryLimit:
+                    description: |-
+                      RevisionHistoryLimit is the number of old revisions kept for this binding
+                      to allow rollback, as a Deployment's revisionHistoryLimit is. The active
+                      revision is always kept and does not count. 0 keeps no old revisions, so
+                      the binding cannot be rolled back. When unset, the Environment's
+                      spec.componentRevisionHistoryLimit applies, and when that is unset too,
+                      the controller's --component-revision-history-limit.
+
+                      It configures the history and is not part of what a revision records:
+                      changing it creates no revision, revisions do not capture it, and a
+                      rollback leaves it as it is.
+                    format: int32
+                    minimum: 0
+                    type: integer
+                  state:
+                    default: Active
+                    description: |-
+                      State controls the state of the Release created by this binding.
+                      Active: Resources are deployed normally
+                      Undeploy: Resources are removed from the data plane
+                    enum:
+                    - Active
+                    - Undeploy
+                    type: string
+                  traitEnvironmentConfigs:
+                    additionalProperties:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    description: |-
+                      TraitEnvironmentConfigs provides environment-specific overrides for trait configurations
+                      Keyed by instanceName (which must be unique across all traits in the component)
+                      Structure: map[instanceName]overrideValues
+                    type: object
+                  workloadOverrides:
+                    description: |-
+                      WorkloadOverrides provides environment-specific overrides for the entire workload spec
+                      These values override the workload specification for this specific environment
+                    properties:
+                      container:
+                        description: Container override for env and file configurations.
+                        properties:
+                          env:
+                            description: Explicit environment variables.
+                            items:
+                              description: EnvVar represents an environment variable
+                                present in the container.
+                              properties:
+                                key:
+                                  description: The environment variable key.
+                                  type: string
+                                value:
+                                  description: |-
+                                    The literal value of the environment variable.
+                                    Mutually exclusive with valueFrom.
+                                  type: string
+                                valueFrom:
+                                  description: |-
+                                    Extract the environment variable value from another resource.
+                                    Mutually exclusive with value.
+                                  properties:
+                                    secretKeyRef:
+                                      description: Reference to a secret resource.
+                                      properties:
+                                        key:
+                                          minLength: 1
+                                          type: string
+                                        name:
+                                          minLength: 1
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                  type: object
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-validations:
+                              - message: value and valueFrom are mutually exclusive
+                                rule: '!(has(self.value) && has(self.valueFrom))'
+                            type: array
+                          files:
+                            description: File configurations.
+                            items:
+                              description: FileVar represents a file configuration
+                                in a container.
+                              properties:
+                                key:
+                                  description: The file key/name.
+                                  type: string
+                                mountPath:
+                                  description: The mount path where the file will
+                                    be mounted.
+                                  type: string
+                                value:
+                                  description: |-
+                                    The literal content of the file.
+                                    Mutually exclusive with valueFrom.
+                                  type: string
+                                valueFrom:
+                                  description: |-
+                                    Extract the environment variable value from another resource.
+                                    Mutually exclusive with value.
+                                  properties:
+                                    secretKeyRef:
+                                      description: Reference to a secret resource.
+                                      properties:
+                                        key:
+                                          minLength: 1
+                                          type: string
+                                        name:
+                                          minLength: 1
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                  type: object
+                              required:
+                              - key
+                              - mountPath
+                              type: object
+                              x-kubernetes-validations:
+                              - message: value and valueFrom are mutually exclusive
+                                rule: '!(has(self.value) && has(self.valueFrom))'
+                            type: array
+                        type: object
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - environment
+                - owner
+                type: object
+              cause:
+                description: Cause records why this revision was created.
+                enum:
+                - Deploy
+                - Promote
+                - Override
+                - Undeploy
+                - Redeploy
+                type: string
+              message:
+                description: |-
+                  Message is the optional reason given for the change this revision records,
+                  copied from the binding's openchoreo.dev/change-message annotation.
+                maxLength: 1024
+                type: string
+              revision:
+                description: Revision is the sequence number of this revision within
+                  its ReleaseBinding.
+                format: int64
+                minimum: 1
+                type: integer
+              snapshotHash:
+                description: SnapshotHash is the hash of the binding spec captured
+                  in this revision.
+                minLength: 1
+                type: string
+            required:
+            - bindingSpec
+            - cause
+            - revision
+            - snapshotHash
+            type: object
+            x-kubernetes-validations:
+            - message: revision spec is immutable; only status may change
+              rule: self == oldSelf
+            - message: bindingSpec.releaseName must name the ComponentRelease the
+                revision binds
+              rule: has(self.bindingSpec.releaseName) && size(self.bindingSpec.releaseName)
+                > 0
+          status:
+            description: |-
+              BindingRevisionStatus defines the observed state of a ReleaseBindingRevision or
+              ResourceReleaseBindingRevision. It is written by the controller and keeps changing
+              after the revision is created.
+            properties:
+              active:
+                description: |-
+                  Active is true for the revision recording the spec the binding last
+                  recorded: the one it is rolling out or running. It is set when the spec is
+                  recorded, before the rollout, so Health reports whether the rollout
+                  succeeded. A spec the controller cannot record yet, such as one pinning a
+                  release that does not exist, leaves the previous revision active, so Active
+                  does not guarantee that the revision matches the binding's latest spec.
+                type: boolean
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the revision's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              health:
+                description: Health is the observed health of this revision.
+                enum:
+                - Progressing
+                - Healthy
+                - Degraded
+                - Failed
+                - Unknown
+                type: string
+              healthySince:
+                description: HealthySince is when this revision last became healthy.
+                format: date-time
+                type: string
+              knownGood:
+                description: |-
+                  KnownGood is true once this revision has stayed Healthy, while active, for
+                  the controller's known-good window (--revision-known-good-window, 60s by
+                  default; with a zero window the first Healthy observation is enough).
+                  Once set it stays set, whatever the revision's health later. A revision
+                  that undeploys its component never becomes known-good.
+                type: boolean
+              observedAt:
+                description: |-
+                  ObservedAt is when the controller set this revision's health to its
+                  current value: when the revision became active or its health last
+                  changed. A later observation of the same health leaves it unchanged.
+                format: date-time
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
